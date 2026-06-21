@@ -1,8 +1,9 @@
 // src/storage/index.ts
 import type { ResolvedStorage } from '../config'
 import { LocalStorageAdapter } from './local'
+import { S3StorageAdapter } from './s3'
 
-export type { LocalStorageAdapter }
+export type { LocalStorageAdapter, S3StorageAdapter }
 
 export interface StorageAdapter {
   upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
@@ -13,8 +14,13 @@ export interface StorageAdapter {
 
 export function createStorage(cfg: ResolvedStorage): StorageAdapter {
   if (cfg.type === 's3') {
-    // S3 adapter wired in Task 8
-    throw new Error('S3 storage adapter not yet implemented — set storage: { local: true }')
+    return new S3StorageAdapter({
+      bucket: cfg.bucket,
+      region: cfg.region,
+      accessKeyId: cfg.accessKeyId,
+      secretAccessKey: cfg.secretAccessKey,
+      endpoint: cfg.endpoint,
+    })
   }
   return new LocalStorageAdapter(cfg.path)
 }
