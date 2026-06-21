@@ -7,7 +7,7 @@ const StorageConfigSchema = z.union([
 ])
 
 export const BunderstackOptionsSchema = z.object({
-  schema: z.record(z.unknown()),
+  schema: z.record(z.string(), z.unknown()),
   database: z.object({ url: z.string().optional(), authToken: z.string().optional() }).optional(),
   auth: z.object({
     emailPassword: z.boolean().optional(),
@@ -27,9 +27,11 @@ export type ResolvedStorage =
   | { type: 'local'; path: string }
   | { type: 's3'; bucket: string; region: string; endpoint?: string; accessKeyId: string; secretAccessKey: string }
 
+type AuthProviders = NonNullable<NonNullable<z.infer<typeof BunderstackOptionsSchema>['auth']>['providers']>
+
 export type ResolvedConfig = {
   database: { url: string; authToken?: string }
-  auth: { emailPassword: boolean; secret: string; providers: z.infer<typeof BunderstackOptionsSchema>['auth'] extends infer A ? NonNullable<NonNullable<A>['providers']> : never }
+  auth: { emailPassword: boolean; secret: string; providers: AuthProviders }
   storage: ResolvedStorage
 }
 

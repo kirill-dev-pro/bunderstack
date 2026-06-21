@@ -25,5 +25,6 @@ export function buildHandler(parts: HandlerParts): {
     app.route('/files', parts.storageRouter)
   }
 
-  return { handler: app.fetch.bind(app), router: app }
+  const handler = (req: Request): Promise<Response> => Promise.resolve(app.fetch(req))
+  return { handler, router: app }
 }

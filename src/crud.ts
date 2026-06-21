@@ -16,7 +16,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     if (!isTable(table)) continue
 
     const name = getTableName(table as Parameters<typeof getTableName>[0])
-    const idCol = (table as Record<string, unknown>)['id']
+    const idCol = (table as unknown as Record<string, unknown>)['id']
     if (!idCol) continue
 
     router.get(`/${name}`, async (c) => {

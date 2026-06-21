@@ -1,6 +1,9 @@
 # dependencies (bun install)
 node_modules
 
+# Next.js build output
+.next
+
 # output
 out
 dist

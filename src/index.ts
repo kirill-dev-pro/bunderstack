@@ -66,8 +66,9 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
       const inputBuffer = Buffer.from(await original.clone().arrayBuffer())
       const transformed = await transformImage(inputBuffer, spec)
       const contentType = spec.format ? `image/${spec.format}` : original.headers.get('Content-Type') ?? 'image/jpeg'
-      await storage.upload(cacheKey, transformed, contentType)
-      return new Response(transformed, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000' } })
+      const transformedAb = transformed.buffer.slice(transformed.byteOffset, transformed.byteOffset + transformed.byteLength) as ArrayBuffer
+      await storage.upload(cacheKey, transformedAb, contentType)
+      return new Response(transformedAb, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000' } })
     }
 
     return storage.get(fileId)
