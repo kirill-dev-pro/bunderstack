@@ -55,7 +55,8 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
     const spec = parseTransformSpec(query)
 
     if (spec) {
-      const cacheKey = `${fileId}__${transformHash(spec)}`
+      const ext = spec.format ? `.${spec.format}` : (extname(fileId) || '.jpg')
+      const cacheKey = `${fileId}__${transformHash(spec)}${ext}`
       const cachedExists = await storage.exists(cacheKey)
       if (cachedExists) return storage.get(cacheKey)
 
