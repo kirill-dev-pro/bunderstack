@@ -4,16 +4,16 @@ import type { Hono } from 'hono'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { createDb } from './db'
 import { buildCrudRouter } from './crud'
+import { createAuth } from './auth'
 import { buildHandler } from './handler'
 
-// Auth and storage stubs — replaced in Tasks 6 and 7
-type AuthStub = { handler: (req: Request) => Promise<Response> }
+type AuthInstance = ReturnType<typeof createAuth>
 type StorageStub = object
 
 export type BunderstackApp<TSchema extends Record<string, unknown>> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
-  auth: AuthStub
+  auth: AuthInstance
   storage: StorageStub
   router: Hono
 }
@@ -23,16 +23,14 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options)
   const db = createDb(options.schema, config.database)
+  const auth = createAuth(db as LibSQLDatabase<Record<string, unknown>>, config.auth)
   const crudRouter = buildCrudRouter(options.schema, db)
-  const { handler, router } = buildHandler({ crudRouter })
+  const { handler, router } = buildHandler({
+    crudRouter,
+    authHandler: (req) => auth.handler(req),
+  })
 
-  return {
-    handler,
-    db,
-    auth: { handler: async () => new Response('auth not configured', { status: 501 }) },
-    storage: {},
-    router,
-  }
+  return { handler, db, auth, storage: {}, router }
 }
 
 export { resolveConfig } from './config'
