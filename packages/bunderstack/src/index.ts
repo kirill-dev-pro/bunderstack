@@ -113,3 +113,15 @@ export type { BunderstackConfig, ResolvedConfig } from "./config.ts";
 export type { StorageAdapter } from "./storage/index.ts";
 export type { UploadRules } from "./storage/validation.ts";
 export type { TransformSpec } from "./storage/thumbnails.ts";
+
+// Re-export drizzle builders so consumers share bunderstack's drizzle-orm instance
+// and avoid type incompatibilities from duplicate installs.
+export {
+  sqliteTable,
+  integer,
+  text,
+  real,
+  blob,
+  numeric,
+} from "drizzle-orm/sqlite-core";
+export { eq, and, or, not, gt, gte, lt, lte, desc, asc, sql } from "drizzle-orm";

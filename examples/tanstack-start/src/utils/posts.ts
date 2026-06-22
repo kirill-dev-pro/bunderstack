@@ -1,6 +1,6 @@
 import { notFound } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { eq } from 'drizzle-orm'
+import { eq } from 'bunderstack'
 import { app } from '~/bunderstack'
 import { posts } from '~/schema'
 

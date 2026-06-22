@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, integer, text } from 'bunderstack'
 
 // BetterAuth required tables
 export const user = sqliteTable('user', {
