@@ -1,25 +1,22 @@
-import { defineConfig } from 'vite'
-import tsConfigPaths from 'vite-tsconfig-paths'
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { defineConfig } from "vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { nitro } from "nitro/vite";
 
 export default defineConfig({
-  plugins: [tsConfigPaths()],
-
-  // Vite 8: Rolldown replaces Rollup
-  build: {
-    rolldownOptions: {
-      external: ['node:crypto', 'node:fs/promises'],
-    },
+  server: {
+    port: 3000,
   },
-
-  // Vite 8: Oxc replaces esbuild for JS/TS transforms
-  oxc: {
-    jsx: { runtime: 'automatic' },
+  resolve: {
+    tsconfigPaths: true,
   },
-
-  // Vite 8: rolldownOptions replaces esbuildOptions for pre-bundling
-  optimizeDeps: {
-    rolldownOptions: {
-      external: ['node:crypto', 'node:fs/promises'],
-    },
-  },
-})
+  plugins: [
+    tailwindcss(),
+    tanstackStart({
+      srcDirectory: "src",
+    }),
+    viteReact(),
+    nitro(),
+  ],
+});
