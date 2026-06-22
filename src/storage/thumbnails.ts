@@ -1,29 +1,31 @@
-// src/storage/thumbnails.ts
-import sharp from 'sharp'
 import { createHash } from 'node:crypto'
 
 export interface TransformSpec {
   w?: number
   h?: number
-  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
+  fit?: 'fill' | 'inside'
   format?: 'webp' | 'jpeg' | 'png' | 'avif'
   quality?: number
 }
 
 export async function transformImage(input: Buffer, spec: TransformSpec): Promise<Buffer> {
-  let pipeline = sharp(input)
+  let img = new Bun.Image(input)
 
-  if (spec.w !== undefined || spec.h !== undefined) {
-    pipeline = pipeline.resize(spec.w, spec.h, { fit: spec.fit ?? 'cover' })
+  if (spec.w !== undefined && spec.h !== undefined) {
+    img = img.resize(spec.w, spec.h, { fit: spec.fit ?? 'fill' })
+  } else if (spec.w !== undefined) {
+    img = img.resize(spec.w)
+  } else if (spec.h !== undefined) {
+    img = img.resize(0, spec.h)
   }
 
-  if (spec.format) {
-    pipeline = pipeline.toFormat(spec.format, { quality: spec.quality })
-  } else if (spec.quality) {
-    pipeline = pipeline.jpeg({ quality: spec.quality })
+  const q = spec.quality
+  switch (spec.format) {
+    case 'webp': return img.webp({ quality: q }).buffer()
+    case 'png':  return img.png().buffer()
+    case 'avif': return img.avif({ quality: q }).buffer()
+    default:     return img.jpeg({ quality: q }).buffer()
   }
-
-  return pipeline.toBuffer()
 }
 
 export function transformHash(spec: TransformSpec): string {
@@ -37,7 +39,7 @@ export function parseTransformSpec(query: Record<string, string>): TransformSpec
   const spec: TransformSpec = {}
   if (w) spec.w = Number(w)
   if (h) spec.h = Number(h)
-  if (fit && ['cover', 'contain', 'fill', 'inside', 'outside'].includes(fit)) {
+  if (fit && ['fill', 'inside'].includes(fit)) {
     spec.fit = fit as TransformSpec['fit']
   }
   if (format && ['webp', 'jpeg', 'png', 'avif'].includes(format)) {

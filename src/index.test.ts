@@ -7,14 +7,13 @@ describe("imports", () => {
     const drizzle = await import("drizzle-orm");
     const libsql = await import("@libsql/client");
     const auth = await import("better-auth");
-    const sharp = await import("sharp");
     const zod = await import("zod");
-    
+
     expect(hono).toBeDefined();
     expect(drizzle).toBeDefined();
     expect(libsql).toBeDefined();
     expect(auth).toBeDefined();
-    expect(sharp).toBeDefined();
+    expect(typeof Bun.Image).toBe('function');
     expect(zod).toBeDefined();
   });
 });
