@@ -108,8 +108,8 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   return { handler, db, auth, storage, router };
 }
 
-export { resolveConfig } from "./config";
-export type { BunderstackConfig, ResolvedConfig } from "./config";
-export type { StorageAdapter } from "./storage/index";
-export type { UploadRules } from "./storage/validation";
-export type { TransformSpec } from "./storage/thumbnails";
+export { resolveConfig } from "./config.ts";
+export type { BunderstackConfig, ResolvedConfig } from "./config.ts";
+export type { StorageAdapter } from "./storage/index.ts";
+export type { UploadRules } from "./storage/validation.ts";
+export type { TransformSpec } from "./storage/thumbnails.ts";
