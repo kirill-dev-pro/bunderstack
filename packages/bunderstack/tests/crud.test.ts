@@ -2,7 +2,7 @@
 import { test, expect, beforeAll } from 'bun:test'
 import { createDb } from '../src/db'
 import { buildCrudRouter } from '../src/crud'
-import { posts } from '../examples/standalone/schema'
+import { posts } from '../../../examples/standalone/schema'
 import { Hono } from 'hono'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 

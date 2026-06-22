@@ -1763,6 +1763,1338 @@ git commit -m "feat: standalone example — Bunderstack POC running on Bun.serve
 
 ---
 
+## Task 13: Next.js integration example
+
+**Files:**
+- Create: `examples/nextjs/` — full Next.js 15 app with App Router
+- Create: `examples/nextjs/app/api/[...bunderstack]/route.ts`
+- Create: `examples/nextjs/app/page.tsx`
+- Create: `examples/nextjs/package.json`, `examples/nextjs/tsconfig.json`, `examples/nextjs/next.config.ts`
+
+**Interfaces:**
+- Consumes: `createBunderstack` from `src/index.ts` (via workspace reference / relative import)
+- Produces: proof that `app.handler` mounts into Next.js App Router with zero per-framework adapter
+
+The catch-all route pattern:
+```ts
+// app/api/[...bunderstack]/route.ts
+import { app } from '../../../../bunderstack'
+export const GET  = (req: Request) => app.handler(req)
+export const POST = (req: Request) => app.handler(req)
+export const PATCH  = (req: Request) => app.handler(req)
+export const DELETE = (req: Request) => app.handler(req)
+```
+
+The `bunderstack.ts` file at the Next.js root initialises with the same `examples/standalone/schema.ts`.
+
+- [ ] **Step 1: Create `examples/nextjs/package.json`**
+
+```json
+{
+  "name": "bunderstack-example-nextjs",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "next build",
+    "start": "next start --port 3002"
+  },
+  "dependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
+```
+
+- [ ] **Step 2: Create `examples/nextjs/tsconfig.json`**
+
+```json
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+- [ ] **Step 3: Create `examples/nextjs/next.config.ts`**
+
+```ts
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: { serverExternalPackages: ['sharp'] },
+}
+
+export default nextConfig
+```
+
+- [ ] **Step 4: Create `examples/nextjs/bunderstack.ts`** (shared setup module at Next.js project root)
+
+```ts
+import { createBunderstack } from '../../src/index'
+import * as schema from '../standalone/schema'
+
+export const app = createBunderstack({
+  schema,
+  auth: { emailPassword: true },
+  storage: { local: './examples/nextjs/.uploads' },
+})
+```
+
+- [ ] **Step 5: Create the catch-all API route**
+
+```ts
+// examples/nextjs/app/api/[...bunderstack]/route.ts
+import { app } from '../../../../bunderstack'
+
+export const GET    = (req: Request) => app.handler(req)
+export const POST   = (req: Request) => app.handler(req)
+export const PATCH  = (req: Request) => app.handler(req)
+export const DELETE = (req: Request) => app.handler(req)
+```
+
+- [ ] **Step 6: Create a minimal home page**
+
+```tsx
+// examples/nextjs/app/page.tsx
+export default function Home() {
+  return (
+    <main style={{ fontFamily: 'monospace', padding: '2rem' }}>
+      <h1>Bunderstack × Next.js</h1>
+      <p>REST API available at <code>/api/*</code></p>
+      <ul>
+        <li><code>GET  /api/health</code></li>
+        <li><code>GET  /api/posts</code></li>
+        <li><code>POST /api/posts</code></li>
+        <li><code>POST /api/auth/sign-up/email</code></li>
+        <li><code>POST /api/files</code></li>
+      </ul>
+    </main>
+  )
+}
+```
+
+- [ ] **Step 7: Create `examples/nextjs/app/layout.tsx`**
+
+```tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html lang="en"><body>{children}</body></html>
+}
+```
+
+- [ ] **Step 8: Install Next.js deps and verify build**
+
+```bash
+cd examples/nextjs && bun install && bun run build
+```
+
+Expected: Next.js build succeeds with no TypeScript errors.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add examples/nextjs
+git commit -m "feat: Next.js integration example — catch-all app.handler mounting"
+```
+
+---
+
+## Task 14: TanStack Start integration example
+
+**Files:**
+- Create: `examples/tanstack-start/` — TanStack Start app
+- Create: `examples/tanstack-start/app/routes/api/$.ts`
+- Create: `examples/tanstack-start/package.json`, `tsconfig.json`, `app.config.ts`
+
+**Interfaces:**
+- Consumes: `createBunderstack` from `src/index.ts`
+- Produces: proof that `app.handler` mounts into TanStack Start via `createServerFileRoute`
+
+The catch-all route pattern:
+```ts
+// app/routes/api/$.ts
+import { createServerFileRoute } from '@tanstack/start'
+import { app } from '../../../bunderstack'
+
+export const ServerRoute = createServerFileRoute('/api/$').methods({
+  GET:    ({ request }) => app.handler(request),
+  POST:   ({ request }) => app.handler(request),
+  PATCH:  ({ request }) => app.handler(request),
+  DELETE: ({ request }) => app.handler(request),
+})
+```
+
+- [ ] **Step 1: Create `examples/tanstack-start/package.json`**
+
+```json
+{
+  "name": "bunderstack-example-tanstack-start",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vinxi dev --port 3003",
+    "build": "vinxi build",
+    "start": "vinxi start"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1",
+    "@tanstack/start": "^1",
+    "react": "^19",
+    "react-dom": "^19",
+    "vinxi": "^0.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5",
+    "vite": "^6"
+  }
+}
+```
+
+- [ ] **Step 2: Create `examples/tanstack-start/app.config.ts`**
+
+```ts
+import { defineConfig } from '@tanstack/start/config'
+import tsConfigPaths from 'vite-tsconfig-paths'
+
+export default defineConfig({
+  vite: { plugins: [tsConfigPaths()] },
+  server: { preset: 'bun' },
+})
+```
+
+- [ ] **Step 3: Create `examples/tanstack-start/tsconfig.json`**
+
+```json
+{
+  "extends": "../../tsconfig.json",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".vinxi", "dist"]
+}
+```
+
+- [ ] **Step 4: Create `examples/tanstack-start/bunderstack.ts`**
+
+```ts
+import { createBunderstack } from '../../src/index'
+import * as schema from '../standalone/schema'
+
+export const app = createBunderstack({
+  schema,
+  auth: { emailPassword: true },
+  storage: { local: './.uploads' },
+})
+```
+
+- [ ] **Step 5: Create the catch-all server route**
+
+```ts
+// examples/tanstack-start/app/routes/api/$.ts
+import { createServerFileRoute } from '@tanstack/start'
+import { app } from '../../../bunderstack'
+
+export const ServerRoute = createServerFileRoute('/api/$').methods({
+  GET:    ({ request }) => app.handler(request),
+  POST:   ({ request }) => app.handler(request),
+  PATCH:  ({ request }) => app.handler(request),
+  DELETE: ({ request }) => app.handler(request),
+})
+```
+
+- [ ] **Step 6: Create minimal root route**
+
+```tsx
+// examples/tanstack-start/app/routes/__root.tsx
+import { createRootRoute, Outlet } from '@tanstack/react-router'
+
+export const Route = createRootRoute({
+  component: () => (
+    <html lang="en">
+      <body>
+        <main style={{ fontFamily: 'monospace', padding: '2rem' }}>
+          <h1>Bunderstack × TanStack Start</h1>
+          <Outlet />
+        </main>
+      </body>
+    </html>
+  ),
+})
+```
+
+- [ ] **Step 7: Create minimal index route**
+
+```tsx
+// examples/tanstack-start/app/routes/index.tsx
+import { createFileRoute } from '@tanstack/react-router'
+
+export const Route = createFileRoute('/')({
+  component: () => (
+    <div>
+      <p>REST API available at <code>/api/*</code></p>
+      <ul>
+        <li><code>GET  /api/health</code></li>
+        <li><code>GET  /api/posts</code></li>
+        <li><code>POST /api/posts</code></li>
+      </ul>
+    </div>
+  ),
+})
+```
+
+- [ ] **Step 8: Create `examples/tanstack-start/app/client.tsx`**
+
+```tsx
+import { StartClient } from '@tanstack/start'
+import { createRouter } from './router'
+
+const router = createRouter()
+StartClient({ router })
+```
+
+- [ ] **Step 9: Create `examples/tanstack-start/app/router.ts`**
+
+```ts
+import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import { routeTree } from './routeTree.gen'
+
+export function createRouter() {
+  return createTanStackRouter({ routeTree })
+}
+
+declare module '@tanstack/react-router' {
+  interface Register { router: ReturnType<typeof createRouter> }
+}
+```
+
+- [ ] **Step 10: Install deps and verify build**
+
+```bash
+cd examples/tanstack-start && bun install && bun run build
+```
+
+Expected: build succeeds.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add examples/tanstack-start
+git commit -m "feat: TanStack Start integration example — catch-all app.handler mounting"
+```
+
+---
+
+## Task 15: Documentation website + technical landing page (Fumadocs)
+
+**Files:**
+- Create: `website/` — Next.js 15 + Fumadocs site
+  - Landing page at `/`
+  - Documentation at `/docs/**`
+
+**Interfaces:**
+- Consumes: nothing from the library code at runtime; documentation is static MDX content
+- Produces:
+  - `website/` — a Next.js site using Fumadocs UI for docs, custom landing page at root
+  - `website/content/docs/` — MDX files for all major doc sections
+  - Built with `bun run build` inside `website/`
+
+Documentation sections (MDX files):
+- `index.mdx` — Introduction / Why Bunderstack
+- `getting-started.mdx` — Install, write schema, createBunderstack, run
+- `configuration.mdx` — All config options + env vars table
+- `crud.mdx` — Auto-generated CRUD routes, filtering, pagination
+- `auth.mdx` — BetterAuth integration, email/password, OAuth
+- `storage.mdx` — Local + S3 storage, file upload API
+- `thumbnails.mdx` — On-the-fly transforms, cache, query params
+- `framework-portability.mdx` — Next.js, TanStack Start, standalone Bun
+- `api-reference.mdx` — Full exported type surface
+
+Landing page sections:
+1. **Hero** — headline + one-liner + code snippet of `createBunderstack`
+2. **Why** — PocketBase pain points → Bunderstack's answer
+3. **Features grid** — 6 cards: CRUD, Auth, Storage, Thumbnails, Realtime (coming), Typed client (coming)
+4. **Code examples** — tabbed: standalone / Next.js / TanStack Start mount
+5. **Progressive disclosure** — Level 0 → Level 3 diagram
+6. **CTA** — Get started button pointing to /docs
+
+- [ ] **Step 1: Create `website/package.json`**
+
+```json
+{
+  "name": "bunderstack-website",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3010",
+    "build": "next build",
+    "start": "next start --port 3010"
+  },
+  "dependencies": {
+    "fumadocs-core": "^15",
+    "fumadocs-mdx": "^11",
+    "fumadocs-ui": "^15",
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
+```
+
+- [ ] **Step 2: Create `website/source.config.ts`**
+
+```ts
+import { defineDocs, defineConfig } from 'fumadocs-mdx/config'
+
+export const docs = defineDocs({ dir: 'content/docs' })
+
+export default defineConfig()
+```
+
+- [ ] **Step 3: Create `website/next.config.ts`**
+
+```ts
+import type { NextConfig } from 'next'
+import { createMDX } from 'fumadocs-mdx/next'
+
+const withMDX = createMDX()
+
+const config: NextConfig = { reactStrictMode: true }
+
+export default withMDX(config)
+```
+
+- [ ] **Step 4: Create `website/app/layout.tsx`** (root layout — no Fumadocs shell here, that's in docs layout)
+
+```tsx
+import type { ReactNode } from 'react'
+import './globals.css'
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+- [ ] **Step 5: Create `website/app/globals.css`**
+
+```css
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Geist Mono', 'JetBrains Mono', monospace; background: #0a0a0a; color: #e5e5e5; }
+```
+
+- [ ] **Step 6: Create the technical landing page `website/app/page.tsx`**
+
+```tsx
+import Link from 'next/link'
+
+const INSTALL_CODE = `bun add bunderstack`
+
+const QUICKSTART_CODE = `// bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import * as schema from './schema'
+
+export const app = createBunderstack({ schema })
+export const { handler, db, auth, storage } = app`
+
+const STANDALONE_CODE = `// server.ts
+import { app } from './bunderstack'
+Bun.serve({ fetch: app.handler })`
+
+const NEXTJS_CODE = `// app/api/[...bunderstack]/route.ts
+import { app } from '@/bunderstack'
+export const GET  = (req: Request) => app.handler(req)
+export const POST = (req: Request) => app.handler(req)`
+
+const TANSTACK_CODE = `// routes/api/$.ts
+import { createServerFileRoute } from '@tanstack/start'
+import { app } from '~/bunderstack'
+export const ServerRoute = createServerFileRoute('/api/$').methods({
+  GET:  ({ request }) => app.handler(request),
+  POST: ({ request }) => app.handler(request),
+})`
+
+const features = [
+  { title: 'Auto CRUD',      desc: 'List, get, create, update, delete — generated from your Drizzle schema. Filter, paginate, sort.' },
+  { title: 'Auth built-in',  desc: 'BetterAuth under the hood. Email/password, OAuth, sessions — wired to your DB, zero config.' },
+  { title: 'File storage',   desc: 'Local filesystem or S3 (Bun.S3Client). Upload API, MIME validation, size limits.' },
+  { title: 'Thumbnails',     desc: 'On-the-fly image transforms via sharp. ?w=200&h=200&format=webp. Cached after first generate.' },
+  { title: 'Realtime',       desc: 'SSE subscriptions + broadcast-on-write. Typed events keyed to your schema. (Coming soon)' },
+  { title: 'Typed client',   desc: 'Codegen step emits a typed REST client. tRPC router + TanStack Query hooks. (Coming soon)' },
+]
+
+export default function HomePage() {
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '4rem 2rem' }}>
+      {/* Nav */}
+      <nav style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6rem', fontSize: '0.875rem' }}>
+        <span style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1rem' }}>bunderstack</span>
+        <div style={{ display: 'flex', gap: '2rem' }}>
+          <Link href="/docs" style={{ color: '#a3a3a3', textDecoration: 'none' }}>Docs</Link>
+          <a href="https://github.com/bunderstack/bunderstack" style={{ color: '#a3a3a3', textDecoration: 'none' }}>GitHub</a>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <header style={{ marginBottom: '5rem' }}>
+        <p style={{ color: '#a3a3a3', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem' }}>
+          Bun · Drizzle · BetterAuth · Hono
+        </p>
+        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: '1.5rem' }}>
+          The backend you assemble<br />
+          <span style={{ color: '#6366f1' }}>every project.</span> Prebuilt.
+        </h1>
+        <p style={{ color: '#a3a3a3', fontSize: '1.125rem', maxWidth: '600px', lineHeight: 1.6, marginBottom: '2.5rem' }}>
+          Give Bunderstack a Drizzle schema. Get auth, CRUD routes, file storage, and image thumbnails —
+          wired together and typed end to end. Mounts in TanStack Start, Next.js, or standalone Bun via a single
+          <code style={{ background: '#1a1a1a', padding: '0 0.3em', borderRadius: '3px' }}>Request → Response</code> handler.
+        </p>
+        <pre style={{ background: '#111', border: '1px solid #222', borderRadius: '8px', padding: '1rem 1.25rem', fontSize: '0.875rem', marginBottom: '2rem', display: 'inline-block' }}>
+          <code style={{ color: '#a3a3a3' }}>$ </code>
+          <code>{INSTALL_CODE}</code>
+        </pre>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <Link href="/docs/getting-started" style={{ background: '#6366f1', color: '#fff', padding: '0.625rem 1.5rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>
+            Get Started →
+          </Link>
+          <Link href="/docs" style={{ background: '#1a1a1a', color: '#e5e5e5', padding: '0.625rem 1.5rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem', border: '1px solid #333' }}>
+            Documentation
+          </Link>
+        </div>
+      </header>
+
+      {/* Quick start */}
+      <section style={{ marginBottom: '5rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: '#a3a3a3', letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+          Quick start
+        </h2>
+        <pre style={{ background: '#111', border: '1px solid #222', borderRadius: '8px', padding: '1.5rem', fontSize: '0.8125rem', lineHeight: 1.7, overflowX: 'auto' }}>
+          <code>{QUICKSTART_CODE}</code>
+        </pre>
+      </section>
+
+      {/* Features */}
+      <section style={{ marginBottom: '5rem' }}>
+        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '2rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          What you get
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1px', background: '#222', border: '1px solid #222', borderRadius: '8px', overflow: 'hidden' }}>
+          {features.map((f) => (
+            <div key={f.title} style={{ background: '#0a0a0a', padding: '1.5rem' }}>
+              <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.9375rem' }}>{f.title}</h3>
+              <p style={{ color: '#737373', fontSize: '0.8125rem', lineHeight: 1.6 }}>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Framework portability */}
+      <section style={{ marginBottom: '5rem' }}>
+        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '2rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          One handler, every framework
+        </h2>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {[
+            { label: 'Standalone Bun', code: STANDALONE_CODE },
+            { label: 'Next.js App Router', code: NEXTJS_CODE },
+            { label: 'TanStack Start', code: TANSTACK_CODE },
+          ].map(({ label, code }) => (
+            <div key={label} style={{ border: '1px solid #222', borderRadius: '8px', overflow: 'hidden' }}>
+              <div style={{ background: '#111', padding: '0.5rem 1rem', fontSize: '0.75rem', color: '#737373', borderBottom: '1px solid #222' }}>{label}</div>
+              <pre style={{ background: '#0d0d0d', padding: '1.25rem', fontSize: '0.8125rem', lineHeight: 1.7, overflowX: 'auto', margin: 0 }}>
+                <code>{code}</code>
+              </pre>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Progressive disclosure */}
+      <section style={{ marginBottom: '5rem', border: '1px solid #222', borderRadius: '8px', padding: '2rem' }}>
+        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          You never hit a wall
+        </h2>
+        {[
+          { level: 'Level 0', desc: 'createBunderstack({ schema }) — working backend, zero ceremony' },
+          { level: 'Level 1', desc: 'Pass config: auth providers, storage target, access rules' },
+          { level: 'Level 2', desc: 'Reach into app.db, app.auth, app.storage, app.router' },
+          { level: 'Level 3', desc: 'Bypass Bunderstack for a route; write plain Hono + Drizzle' },
+        ].map(({ level, desc }) => (
+          <div key={level} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
+            <span style={{ color: '#6366f1', fontWeight: 700, fontSize: '0.8125rem', minWidth: '60px', paddingTop: '0.1rem' }}>{level}</span>
+            <span style={{ color: '#a3a3a3', fontSize: '0.875rem', lineHeight: 1.5 }}>{desc}</span>
+          </div>
+        ))}
+      </section>
+
+      {/* Footer */}
+      <footer style={{ borderTop: '1px solid #222', paddingTop: '2rem', color: '#525252', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+        <span>© 2026 Bunderstack</span>
+        <div style={{ display: 'flex', gap: '1.5rem' }}>
+          <Link href="/docs" style={{ color: '#525252', textDecoration: 'none' }}>Docs</Link>
+          <a href="https://github.com/bunderstack/bunderstack" style={{ color: '#525252', textDecoration: 'none' }}>GitHub</a>
+        </div>
+      </footer>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 7: Create `website/app/docs/layout.tsx`** (Fumadocs shell)
+
+```tsx
+import { DocsLayout } from 'fumadocs-ui/layout'
+import { baseOptions } from '../layout.config'
+import { source } from '@/lib/source'
+import type { ReactNode } from 'react'
+
+export default function Layout({ children }: { children: ReactNode }) {
+  return (
+    <DocsLayout tree={source.pageTree} {...baseOptions}>
+      {children}
+    </DocsLayout>
+  )
+}
+```
+
+- [ ] **Step 8: Create `website/app/docs/[[...slug]]/page.tsx`**
+
+```tsx
+import { getPage, getPages } from '@/lib/source'
+import type { Metadata } from 'next'
+import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/page'
+import { notFound } from 'next/navigation'
+import defaultMdxComponents from 'fumadocs-ui/mdx'
+
+export default async function Page({ params }: { params: { slug?: string[] } }) {
+  const page = getPage(params.slug)
+  if (!page) notFound()
+
+  const MDX = page.data.body
+
+  return (
+    <DocsPage toc={page.data.toc}>
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsBody>
+        <MDX components={defaultMdxComponents} />
+      </DocsBody>
+    </DocsPage>
+  )
+}
+
+export async function generateStaticParams() {
+  return getPages().map((page) => ({ slug: page.slugs }))
+}
+
+export async function generateMetadata({ params }: { params: { slug?: string[] } }): Promise<Metadata> {
+  const page = getPage(params.slug)
+  if (!page) notFound()
+  return { title: page.data.title, description: page.data.description }
+}
+```
+
+- [ ] **Step 9: Create `website/app/layout.config.tsx`**
+
+```tsx
+import type { BaseLayoutProps } from 'fumadocs-ui/layout'
+
+export const baseOptions: BaseLayoutProps = {
+  nav: {
+    title: 'Bunderstack',
+  },
+  links: [
+    { text: 'Documentation', url: '/docs' },
+    { text: 'GitHub', url: 'https://github.com/bunderstack/bunderstack' },
+  ],
+}
+```
+
+- [ ] **Step 10: Create `website/lib/source.ts`**
+
+```ts
+import { docs } from '@/.source'
+import { loader } from 'fumadocs-core/source'
+
+export const source = loader({
+  baseUrl: '/docs',
+  source: docs.toFumadocsSource(),
+})
+
+export const { getPage, getPages } = source
+```
+
+- [ ] **Step 11: Create documentation MDX files**
+
+`website/content/docs/index.mdx`:
+```mdx
+---
+title: Introduction
+description: What Bunderstack is and why it exists
+---
+
+# Bunderstack
+
+A batteries-included backend framework for TypeScript on Bun.
+
+You give Bunderstack a Drizzle schema; it gives you auth, CRUD routes, file storage,
+and on-the-fly image thumbnails — wired together and typed end to end.
+
+## Why it exists
+
+PocketBase gives you auth, realtime, and file storage in a single binary.
+Its limits: schema lives in SQLite behind an admin UI (not in your codebase),
+the client is loosely typed, and the internals are sealed in Go.
+
+Bunderstack gives you the same batteries, but as a **library** you compose into
+your own project — mountable in TanStack Start, Next.js, or a standalone Bun server
+through a single Web-Standard `Request → Response` handler.
+
+The stack it uses: Drizzle, BetterAuth, Hono, Bun.s3, sharp.
+None of these are hidden. `app.db` is just Drizzle. `app.auth` is just BetterAuth.
+```
+
+`website/content/docs/getting-started.mdx`:
+```mdx
+---
+title: Getting Started
+description: Install Bunderstack and have a working backend in under 5 minutes
+---
+
+# Getting Started
+
+## Install
+
+```bash
+bun add bunderstack
+```
+
+## Write your schema
+
+```ts
+// schema.ts
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+
+export const posts = sqliteTable('posts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  body: text('body'),
+})
+```
+
+## Create the app
+
+```ts
+// bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import * as schema from './schema'
+
+export const app = createBunderstack({ schema })
+export const { handler, db, auth, storage } = app
+```
+
+## Serve it
+
+```ts
+// server.ts
+import { app } from './bunderstack'
+Bun.serve({ fetch: app.handler })
+```
+
+```bash
+bun run server.ts
+# GET  /health           → { status: 'ok' }
+# GET  /api/posts        → { items: [], limit: 20, offset: 0 }
+# POST /api/posts        → 201 Created
+# POST /auth/sign-up/email
+# POST /files            (multipart upload)
+```
+
+## Push schema to SQLite
+
+```bash
+bunx drizzle-kit push
+```
+```
+
+`website/content/docs/configuration.mdx`:
+```mdx
+---
+title: Configuration
+description: All createBunderstack options and environment variables
+---
+
+# Configuration
+
+## Options
+
+```ts
+createBunderstack({
+  schema,          // required — your Drizzle table exports
+
+  database: {
+    url: string        // default: 'file:./data.db' (or DATABASE_URL env)
+    authToken?: string // for Turso remote (or DATABASE_AUTH_TOKEN env)
+  },
+
+  auth: {
+    emailPassword?: boolean  // default: false
+    secret?: string          // default: AUTH_SECRET env; required in prod
+    providers?: {
+      github?: { clientId: string; clientSecret: string }
+      google?: { clientId: string; clientSecret: string }
+    }
+  },
+
+  storage?: { local: string | true }  // local path, or true for './uploads'
+           | { s3: true | { endpoint?: string } }  // reads S3_* env vars
+})
+```
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `file:./data.db` | libSQL connection string |
+| `DATABASE_AUTH_TOKEN` | — | Turso auth token |
+| `AUTH_SECRET` | `dev-secret-...` | BetterAuth secret — required in prod |
+| `S3_BUCKET` | — | S3 bucket name |
+| `S3_REGION` | `us-east-1` | S3 region |
+| `S3_ACCESS_KEY_ID` | — | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | — | S3 secret key |
+| `S3_ENDPOINT` | — | Custom endpoint (R2, MinIO) |
+```
+
+`website/content/docs/crud.mdx`:
+```mdx
+---
+title: Auto CRUD
+description: REST routes generated from your Drizzle schema
+---
+
+# Auto CRUD
+
+For every table in your schema that has an `id` column, Bunderstack generates:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/:table` | List — `?limit=20&offset=0` |
+| `GET` | `/api/:table/:id` | Get by id |
+| `POST` | `/api/:table` | Create (body: JSON) |
+| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
+| `DELETE` | `/api/:table/:id` | Delete (returns 204) |
+
+## Example
+
+```bash
+# Create
+curl -X POST /api/posts -H 'Content-Type: application/json' \
+  -d '{"title":"Hello","body":"World"}'
+# → 201 { id: 1, title: "Hello", body: "World" }
+
+# List with pagination
+curl '/api/posts?limit=10&offset=20'
+# → { items: [...], limit: 10, offset: 20 }
+```
+```
+
+`website/content/docs/auth.mdx`:
+```mdx
+---
+title: Auth
+description: BetterAuth wired to your Drizzle database
+---
+
+# Auth
+
+Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood.
+Auth routes are served at `/auth/*`.
+
+## Enable email/password
+
+```ts
+createBunderstack({
+  schema,
+  auth: { emailPassword: true, secret: process.env.AUTH_SECRET },
+})
+```
+
+```bash
+# Sign up
+curl -X POST /auth/sign-up/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123","name":"Alice"}'
+
+# Sign in
+curl -X POST /auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123"}'
+```
+
+## Add OAuth
+
+```ts
+createBunderstack({
+  schema,
+  auth: {
+    providers: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      },
+    },
+  },
+})
+```
+
+## Required schema tables
+
+Your schema must include the BetterAuth tables. Copy them from `examples/standalone/schema.ts`:
+`user`, `session`, `account`, `verification`.
+```
+
+`website/content/docs/storage.mdx`:
+```mdx
+---
+title: Storage
+description: File uploads, local filesystem and S3
+---
+
+# Storage
+
+## Upload a file
+
+```bash
+curl -X POST /files -F "file=@photo.jpg"
+# → 201 { fileId: "a1b2c3.jpg", url: "/files/a1b2c3.jpg" }
+```
+
+## Retrieve a file
+
+```bash
+curl /files/a1b2c3.jpg
+```
+
+## Delete a file
+
+```bash
+curl -X DELETE /files/a1b2c3.jpg
+# → 204 No Content
+```
+
+## Local storage (default)
+
+```ts
+createBunderstack({ schema, storage: { local: './uploads' } })
+```
+
+## S3 / R2 / MinIO
+
+```ts
+createBunderstack({ schema, storage: { s3: true } })
+```
+
+Set `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` in `.env`.
+For Cloudflare R2 or MinIO, also set `S3_ENDPOINT`.
+
+## Validation
+
+```ts
+createBunderstack({
+  schema,
+  storageOptions: {
+    uploadRules: {
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      maxSizeBytes: 5 * 1024 * 1024,
+    },
+  },
+})
+```
+```
+
+`website/content/docs/thumbnails.mdx`:
+```mdx
+---
+title: Thumbnails
+description: On-the-fly image transforms via sharp
+---
+
+# Thumbnails
+
+Append transform parameters to any image URL. The first request generates
+and caches the variant; every subsequent request is served from cache.
+
+## Query parameters
+
+| Param | Values | Description |
+|---|---|---|
+| `w` | integer | Target width in pixels |
+| `h` | integer | Target height in pixels |
+| `fit` | `cover` \| `contain` \| `fill` \| `inside` \| `outside` | Resize strategy (default: `cover`) |
+| `format` | `webp` \| `jpeg` \| `png` \| `avif` | Output format |
+| `quality` | 1–100 | Compression quality |
+
+## Examples
+
+```bash
+# 200×200 cropped square in WebP
+/files/photo.jpg?w=200&h=200&format=webp
+
+# Contain in 400px width, keep aspect ratio
+/files/photo.jpg?w=400&fit=contain
+
+# AVIF at 80% quality
+/files/photo.jpg?format=avif&quality=80
+```
+
+The transform cache key is `<fileId>__<hash(spec)>.<format>` stored alongside originals.
+```
+
+`website/content/docs/framework-portability.mdx`:
+```mdx
+---
+title: Framework Portability
+description: Mount app.handler in any modern TypeScript framework
+---
+
+# Framework Portability
+
+Bunderstack exposes one function: `app.handler(req: Request): Promise<Response>`.
+Every modern TypeScript framework knows how to call a fetch handler.
+
+## Standalone Bun
+
+```ts
+import { app } from './bunderstack'
+Bun.serve({ fetch: app.handler })
+```
+
+## Next.js (App Router)
+
+```ts
+// app/api/[...bunderstack]/route.ts
+import { app } from '@/bunderstack'
+export const GET    = (req: Request) => app.handler(req)
+export const POST   = (req: Request) => app.handler(req)
+export const PATCH  = (req: Request) => app.handler(req)
+export const DELETE = (req: Request) => app.handler(req)
+```
+
+## TanStack Start
+
+```ts
+// routes/api/$.ts
+import { createServerFileRoute } from '@tanstack/start'
+import { app } from '~/bunderstack'
+export const ServerRoute = createServerFileRoute('/api/$').methods({
+  GET:    ({ request }) => app.handler(request),
+  POST:   ({ request }) => app.handler(request),
+  PATCH:  ({ request }) => app.handler(request),
+  DELETE: ({ request }) => app.handler(request),
+})
+```
+
+## Note on realtime + serverless
+
+SSE needs a long-lived connection. On serverless (Vercel, Netlify),
+REST/auth/storage work perfectly via the fetch handler, but realtime
+requires a persistent runtime (Railway, Fly.io, Render, or a separate
+long-lived Bun process) or an external pub/sub (Upstash, Ably).
+```
+
+`website/content/docs/api-reference.mdx`:
+```mdx
+---
+title: API Reference
+description: Complete exported surface of Bunderstack
+---
+
+# API Reference
+
+## createBunderstack(options)
+
+```ts
+function createBunderstack<TSchema extends Record<string, unknown>>(
+  options: BunderstackConfig<TSchema>
+): BunderstackApp<TSchema>
+```
+
+### BunderstackConfig
+
+```ts
+type BunderstackConfig<TSchema> = {
+  schema: TSchema
+  database?: { url?: string; authToken?: string }
+  auth?: {
+    emailPassword?: boolean
+    secret?: string
+    providers?: {
+      github?: { clientId: string; clientSecret: string }
+      google?: { clientId: string; clientSecret: string }
+    }
+  }
+  storage?: { local: string | true } | { s3: true | { endpoint?: string } }
+  storageOptions?: { uploadRules?: UploadRules }
+}
+```
+
+### BunderstackApp
+
+```ts
+type BunderstackApp<TSchema> = {
+  handler: (req: Request) => Promise<Response>
+  db:      LibSQLDatabase<TSchema>   // raw Drizzle instance
+  auth:    Auth                       // raw BetterAuth instance
+  storage: StorageAdapter
+  router:  Hono
+}
+```
+
+## StorageAdapter
+
+```ts
+interface StorageAdapter {
+  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  get(fileId: string): Promise<Response>
+  delete(fileId: string): Promise<void>
+  exists(fileId: string): Promise<boolean>
+}
+```
+
+## UploadRules
+
+```ts
+interface UploadRules {
+  allowedMimeTypes?: string[]   // e.g. ['image/jpeg', 'image/png']
+  maxSizeBytes?: number         // e.g. 5 * 1024 * 1024
+}
+```
+
+## TransformSpec
+
+```ts
+interface TransformSpec {
+  w?: number
+  h?: number
+  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
+  format?: 'webp' | 'jpeg' | 'png' | 'avif'
+  quality?: number
+}
+```
+```
+
+- [ ] **Step 12: Create `website/content/docs/meta.json`**
+
+```json
+{
+  "title": "Bunderstack",
+  "pages": [
+    "index",
+    "getting-started",
+    "configuration",
+    "crud",
+    "auth",
+    "storage",
+    "thumbnails",
+    "framework-portability",
+    "api-reference"
+  ]
+}
+```
+
+- [ ] **Step 13: Install deps and build the website**
+
+```bash
+cd website && bun install && bun run build
+```
+
+Expected: Next.js build succeeds; all docs pages and landing page compile cleanly.
+
+- [ ] **Step 14: Commit**
+
+```bash
+git add website
+git commit -m "feat: Fumadocs documentation site + technical landing page"
+```
+
+---
+
+## Task 16: Final verification pass — smoke tests across all examples
+
+**Files:**
+- Create: `scripts/smoke-test.sh` — runs all smoke tests in sequence
+- Create: `scripts/smoke-test-nextjs.sh` — Next.js-specific smoke tests
+
+**Goal:** Verify that every integration works end-to-end. This task starts servers, fires real HTTP requests, checks responses, and tears everything down. It is the definitive "does the whole thing work" gate.
+
+- [ ] **Step 1: Create `.gitignore` additions for example DBs and uploads**
+
+Add to `.gitignore`:
+```
+examples/standalone/data.db
+examples/standalone/uploads/
+examples/nextjs/.uploads/
+examples/tanstack-start/.uploads/
+```
+
+- [ ] **Step 2: Run all unit + integration tests**
+
+```bash
+bun test
+```
+
+Expected: all tests pass, output pristine (no warnings).
+
+- [ ] **Step 3: Run schema push for the standalone example**
+
+```bash
+bunx drizzle-kit push --config examples/standalone/drizzle.config.ts
+```
+
+Expected: `posts` + auth tables created in `examples/standalone/data.db`.
+
+- [ ] **Step 4: Start standalone server and run smoke tests**
+
+Start server in background:
+```bash
+bun run examples/standalone/server.ts &
+SERVER_PID=$!
+sleep 1
+```
+
+Smoke tests:
+```bash
+# Health
+curl -sf http://localhost:3001/health | grep -q '"status":"ok"' && echo "✅ health" || echo "❌ health"
+
+# Create post
+CREATE_RESP=$(curl -sf -X POST http://localhost:3001/api/posts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"smoke test"}')
+echo $CREATE_RESP | grep -q '"title":"smoke test"' && echo "✅ create post" || echo "❌ create post"
+POST_ID=$(echo $CREATE_RESP | bun -e "process.stdin.setEncoding('utf8'); let d=''; process.stdin.on('data', c=>d+=c).on('end', ()=>process.stdout.write(JSON.parse(d).id.toString()))")
+
+# List posts
+curl -sf http://localhost:3001/api/posts | grep -q '"items"' && echo "✅ list posts" || echo "❌ list posts"
+
+# Get post
+curl -sf "http://localhost:3001/api/posts/$POST_ID" | grep -q '"title"' && echo "✅ get post" || echo "❌ get post"
+
+# Update post
+curl -sf -X PATCH "http://localhost:3001/api/posts/$POST_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"updated"}' | grep -q '"title":"updated"' && echo "✅ update post" || echo "❌ update post"
+
+# Delete post
+curl -sf -o /dev/null -w "%{http_code}" -X DELETE "http://localhost:3001/api/posts/$POST_ID" | grep -q "204" && echo "✅ delete post" || echo "❌ delete post"
+
+# Auth sign-up
+SIGNUP=$(curl -sf -X POST http://localhost:3001/auth/sign-up/email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"smoke@test.com","password":"password123","name":"Smoke Test"}')
+echo $SIGNUP | grep -q '"email"' && echo "✅ auth sign-up" || echo "❌ auth sign-up (might be duplicate — OK)"
+
+# File upload (create a test file)
+echo "hello world" > /tmp/smoke-test.txt
+FILE_RESP=$(curl -sf -X POST http://localhost:3001/files -F "file=@/tmp/smoke-test.txt")
+echo $FILE_RESP | grep -q '"fileId"' && echo "✅ file upload" || echo "❌ file upload"
+FILE_ID=$(echo $FILE_RESP | bun -e "process.stdin.setEncoding('utf8'); let d=''; process.stdin.on('data', c=>d+=c).on('end', ()=>process.stdout.write(JSON.parse(d).fileId))")
+
+# File retrieve
+curl -sf "http://localhost:3001/files/$FILE_ID" | grep -q "hello" && echo "✅ file retrieve" || echo "❌ file retrieve"
+
+kill $SERVER_PID 2>/dev/null
+echo "Standalone smoke tests complete"
+```
+
+- [ ] **Step 5: Build and smoke-test the docs website**
+
+```bash
+cd website && bun run build
+```
+
+Expected: all pages compile. Check key pages:
+```bash
+ls website/.next/server/app/
+# should include: page.html, docs/page.html, docs/getting-started/page.html
+```
+
+- [ ] **Step 6: Build the Next.js example**
+
+```bash
+cd examples/nextjs && bun run build
+```
+
+Expected: build succeeds.
+
+- [ ] **Step 7: Build the TanStack Start example**
+
+```bash
+cd examples/tanstack-start && bun install && bun run build 2>&1 | tail -20
+```
+
+Expected: build completes (or note any expected framework-level errors).
+
+- [ ] **Step 8: Re-run full test suite one final time**
+
+```bash
+bun test --reporter=verbose 2>&1
+```
+
+Expected: all tests pass, output pristine.
+
+- [ ] **Step 9: Write a summary of what works, what's pending, and any known limitations**
+
+Create `STATUS.md` at the project root:
+```markdown
+# Bunderstack POC — Status
+
+## What works
+
+- `createBunderstack({ schema })` → `{ handler, db, auth, storage, router }`
+- Auto CRUD (list/get/create/update/delete + pagination) for all schema tables
+- BetterAuth email/password auth wired to same Drizzle DB
+- File upload/serve/delete via local filesystem or Bun.S3Client
+- File validation (MIME types, size limits)
+- On-the-fly image thumbnails via sharp (with cache)
+- Mounts in standalone Bun (tested), Next.js (build verified), TanStack Start (build verified)
+- Fumadocs documentation site + technical landing page
+
+## Known limitations
+
+- Realtime / SSE not yet implemented (Phase 3)
+- Typed client codegen not yet implemented (Phase 4)
+- No row-level access control (post-MVP)
+- CLI wrapper not yet built (users call drizzle-kit directly)
+- Auth tables must be added to schema manually
+- CRUD id column must be named `id`
+```
+
+- [ ] **Step 10: Commit everything**
+
+```bash
+git add scripts/ STATUS.md .gitignore
+git commit -m "feat: final verification pass — smoke tests, STATUS.md"
+```
+
+---
+
 ## Self-Review Checklist
 
 **Spec coverage:**

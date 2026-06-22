@@ -1,5 +1,5 @@
 // examples/standalone/server.ts
-import { createBunderstack } from '../../src/index'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
 const app = createBunderstack({

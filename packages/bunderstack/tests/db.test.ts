@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { createDb } from '../src/db'
-import { posts } from '../examples/standalone/schema'
+import { posts } from '../../../examples/standalone/schema'
 
 test('createDb returns a working Drizzle instance against in-memory SQLite', async () => {
   const db = createDb({ posts }, { url: ':memory:' })
