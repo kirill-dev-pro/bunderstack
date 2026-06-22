@@ -1,0 +1,59 @@
+---
+title: Getting Started
+description: Install Bunderstack and have a working backend in under 5 minutes
+---
+
+# Getting Started
+
+## Install
+
+```bash
+bun add bunderstack
+```
+
+## Write your schema
+
+```ts
+// schema.ts
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+
+export const posts = sqliteTable('posts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  body: text('body'),
+})
+```
+
+## Create the app
+
+```ts
+// bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import * as schema from './schema'
+
+export const app = createBunderstack({ schema })
+export const { handler, db, auth, storage } = app
+```
+
+## Serve it
+
+```ts
+// server.ts
+import { app } from './bunderstack'
+Bun.serve({ fetch: app.handler })
+```
+
+```bash
+bun run server.ts
+# GET  /health
+# GET  /api/posts
+# POST /api/posts
+# POST /auth/sign-up/email
+# POST /files
+```
+
+## Push schema to SQLite
+
+```bash
+bunx drizzle-kit push
+```

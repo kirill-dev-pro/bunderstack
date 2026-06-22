@@ -1,0 +1,24 @@
+---
+title: Introduction
+description: What Bunderstack is and why it exists
+---
+
+# Bunderstack
+
+A batteries-included backend framework for TypeScript on Bun.
+
+You give Bunderstack a Drizzle schema; it gives you auth, CRUD routes, file storage,
+and on-the-fly image thumbnails — wired together and typed end to end.
+
+## Why it exists
+
+PocketBase gives you auth, realtime, and file storage in a single binary.
+Its limits: schema lives in SQLite behind an admin UI (not in your codebase),
+the client is loosely typed, and the internals are sealed in Go.
+
+Bunderstack gives you the same batteries, but as a **library** you compose into
+your own project — mountable in TanStack Start, Next.js, or a standalone Bun server
+through a single Web-Standard `Request → Response` handler.
+
+The stack it uses: Drizzle, BetterAuth, Hono, Bun.s3, sharp. None of these are hidden.
+`app.db` is just Drizzle. `app.auth` is just BetterAuth.

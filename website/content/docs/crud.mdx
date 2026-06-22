@@ -1,0 +1,27 @@
+---
+title: Auto CRUD
+description: REST routes generated from your Drizzle schema
+---
+
+# Auto CRUD
+
+For every table in your schema with an `id` column, Bunderstack generates:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/:table` | List — `?limit=20&offset=0` |
+| `GET` | `/api/:table/:id` | Get by id |
+| `POST` | `/api/:table` | Create (body: JSON) |
+| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
+| `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
+
+## Example
+
+```bash
+curl -X POST /api/posts -H 'Content-Type: application/json' \
+  -d '{"title":"Hello","body":"World"}'
+# 201 { id: 1, title: "Hello", body: "World" }
+
+curl '/api/posts?limit=10&offset=0'
+# { items: [...], limit: 10, offset: 0 }
+```

@@ -1,0 +1,48 @@
+---
+title: Storage
+description: File uploads with local filesystem or S3
+---
+
+# Storage
+
+## Upload
+
+```bash
+curl -X POST /files -F "file=@photo.jpg"
+# 201 { fileId: "abc123.jpg", url: "/files/abc123.jpg" }
+```
+
+## Retrieve / delete
+
+```bash
+curl /files/abc123.jpg
+curl -X DELETE /files/abc123.jpg  # 204
+```
+
+## Local storage
+
+```ts
+createBunderstack({ schema, storage: { local: './uploads' } })
+```
+
+## S3 / R2 / MinIO
+
+```ts
+createBunderstack({ schema, storage: { s3: true } })
+# Set S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY in .env
+# For R2/MinIO also set S3_ENDPOINT
+```
+
+## Validation rules
+
+```ts
+createBunderstack({
+  schema,
+  storageOptions: {
+    uploadRules: {
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      maxSizeBytes: 5 * 1024 * 1024,
+    },
+  },
+})
+```

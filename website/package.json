@@ -1,0 +1,22 @@
+{
+  "name": "bunderstack-website",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3010",
+    "build": "next build",
+    "start": "next start --port 3010"
+  },
+  "dependencies": {
+    "fumadocs-core": "^15",
+    "fumadocs-mdx": "^11",
+    "fumadocs-ui": "^15",
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

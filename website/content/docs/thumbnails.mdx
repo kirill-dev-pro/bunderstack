@@ -1,0 +1,26 @@
+---
+title: Thumbnails
+description: On-the-fly image transforms via sharp
+---
+
+# Thumbnails
+
+Append transform params to any image URL. First request generates and caches; repeat requests hit the cache.
+
+## Query parameters
+
+| Param | Values | Description |
+|---|---|---|
+| `w` | integer | Width in pixels |
+| `h` | integer | Height in pixels |
+| `fit` | `cover` \| `contain` \| `fill` \| `inside` \| `outside` | Resize strategy |
+| `format` | `webp` \| `jpeg` \| `png` \| `avif` | Output format |
+| `quality` | 1–100 | Compression quality |
+
+## Examples
+
+```bash
+/files/photo.jpg?w=200&h=200&format=webp
+/files/photo.jpg?w=400&fit=contain
+/files/photo.jpg?format=avif&quality=80
+```

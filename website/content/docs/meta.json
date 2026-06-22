@@ -1,0 +1,14 @@
+{
+  "title": "Bunderstack",
+  "pages": [
+    "index",
+    "getting-started",
+    "configuration",
+    "crud",
+    "auth",
+    "storage",
+    "thumbnails",
+    "framework-portability",
+    "api-reference"
+  ]
+}

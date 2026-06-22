@@ -1,0 +1,34 @@
+---
+title: Auth
+description: BetterAuth wired to your Drizzle database
+---
+
+# Auth
+
+Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Routes at `/auth/*`.
+
+## Email/password
+
+```ts
+createBunderstack({ schema, auth: { emailPassword: true, secret: process.env.AUTH_SECRET } })
+```
+
+```bash
+curl -X POST /auth/sign-up/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123","name":"Alice"}'
+```
+
+## OAuth
+
+```ts
+createBunderstack({
+  schema,
+  auth: { providers: { github: { clientId: '...', clientSecret: '...' } } },
+})
+```
+
+## Required schema tables
+
+Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.
+Copy from `examples/standalone/schema.ts`.

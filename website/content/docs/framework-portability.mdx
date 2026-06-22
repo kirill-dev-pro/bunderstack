@@ -1,0 +1,44 @@
+---
+title: Framework Portability
+description: Mount app.handler in any modern TypeScript framework
+---
+
+# Framework Portability
+
+`app.handler(req: Request): Promise<Response>` — every modern TS framework knows this shape.
+
+## Standalone Bun
+
+```ts
+import { app } from './bunderstack'
+Bun.serve({ fetch: app.handler })
+```
+
+## Next.js (App Router)
+
+```ts
+// app/api/[...bunderstack]/route.ts
+import { app } from '@/bunderstack'
+export const GET    = (req: Request) => app.handler(req)
+export const POST   = (req: Request) => app.handler(req)
+export const PATCH  = (req: Request) => app.handler(req)
+export const DELETE = (req: Request) => app.handler(req)
+```
+
+## TanStack Start
+
+```ts
+// routes/api/$.ts
+import { createServerFileRoute } from '@tanstack/start'
+import { app } from '~/bunderstack'
+export const ServerRoute = createServerFileRoute('/api/$').methods({
+  GET:    ({ request }) => app.handler(request),
+  POST:   ({ request }) => app.handler(request),
+  PATCH:  ({ request }) => app.handler(request),
+  DELETE: ({ request }) => app.handler(request),
+})
+```
+
+## Note on realtime + serverless
+
+SSE needs a long-lived connection. On serverless (Vercel), REST/auth/storage work fine but realtime needs a persistent process or external pub/sub (Upstash, Ably).

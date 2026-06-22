@@ -1,0 +1,76 @@
+---
+title: API Reference
+description: Complete exported surface of Bunderstack
+---
+
+# API Reference
+
+## createBunderstack(options)
+
+```ts
+function createBunderstack<TSchema extends Record<string, unknown>>(
+  options: BunderstackConfig<TSchema>
+): BunderstackApp<TSchema>
+```
+
+### BunderstackConfig
+
+```ts
+type BunderstackConfig<TSchema> = {
+  schema: TSchema
+  database?: { url?: string; authToken?: string }
+  auth?: {
+    emailPassword?: boolean
+    secret?: string
+    providers?: {
+      github?: { clientId: string; clientSecret: string }
+      google?: { clientId: string; clientSecret: string }
+    }
+  }
+  storage?: { local: string | true } | { s3: true | { endpoint?: string } }
+  storageOptions?: { uploadRules?: UploadRules }
+}
+```
+
+### BunderstackApp
+
+```ts
+type BunderstackApp<TSchema> = {
+  handler: (req: Request) => Promise<Response>
+  db:      LibSQLDatabase<TSchema>
+  auth:    Auth
+  storage: StorageAdapter
+  router:  Hono
+}
+```
+
+## StorageAdapter
+
+```ts
+interface StorageAdapter {
+  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  get(fileId: string): Promise<Response>
+  delete(fileId: string): Promise<void>
+  exists(fileId: string): Promise<boolean>
+}
+```
+
+## UploadRules
+
+```ts
+interface UploadRules {
+  allowedMimeTypes?: string[]
+  maxSizeBytes?: number
+}
+```
+
+## TransformSpec
+
+```ts
+interface TransformSpec {
+  w?: number; h?: number
+  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
+  format?: 'webp' | 'jpeg' | 'png' | 'avif'
+  quality?: number
+}
+```
