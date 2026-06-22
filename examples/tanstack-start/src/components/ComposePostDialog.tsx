@@ -32,13 +32,15 @@ export function ComposePostDialog({
 
   const createMutation = useToastMutation(
     api.posts.createMutation({
-      successMessage: 'Post published!',
-      errorMessage: 'Could not publish post',
       onSuccess: () => {
         setBody('')
         setImageUrl(null)
         closeDialog(dialogRef.current)
+        toast.success('Post published!')
         onPosted?.()
+      },
+      onError: () => {
+        toast.error('Could not publish post')
       },
     }),
   )

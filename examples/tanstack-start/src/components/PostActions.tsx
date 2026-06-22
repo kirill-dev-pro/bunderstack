@@ -3,6 +3,7 @@ import * as React from 'react'
 
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { toast } from '~/utils/oat'
 
 type Reaction = { id: number; userId: string; postId: number }
 
@@ -34,16 +35,28 @@ export function PostActions({
   const rtCount = retweets.filter((r) => r.postId === postId).length
 
   const likeCreate = useToastMutation(
-    api.likes.createMutation({ errorMessage: 'Could not like' }),
+    api.likes.createMutation({
+      onSuccess: () => toast.success('Liked'),
+      onError: () => toast.error('Could not like'),
+    }),
   )
   const likeDelete = useToastMutation(
-    api.likes.deleteMutation({ errorMessage: 'Could not unlike' }),
+    api.likes.deleteMutation({
+      onSuccess: () => toast.success('Unliked'),
+      onError: () => toast.error('Could not unlike'),
+    }),
   )
   const rtCreate = useToastMutation(
-    api.retweets.createMutation({ errorMessage: 'Could not repost' }),
+    api.retweets.createMutation({
+      onSuccess: () => toast.success('Reposted'),
+      onError: () => toast.error('Could not repost'),
+    }),
   )
   const rtDelete = useToastMutation(
-    api.retweets.deleteMutation({ errorMessage: 'Could not undo repost' }),
+    api.retweets.deleteMutation({
+      onSuccess: () => toast.success('Undone repost'),
+      onError: () => toast.error('Could not undo repost'),
+    }),
   )
 
   const pending =

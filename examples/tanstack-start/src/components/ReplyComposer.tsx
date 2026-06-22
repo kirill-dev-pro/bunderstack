@@ -4,6 +4,7 @@ import * as React from 'react'
 import { api } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { toast } from '~/utils/oat'
 
 type ReplyComposerProps = {
   user: { id: string; name: string; image?: string | null } | null
@@ -22,11 +23,13 @@ export function ReplyComposer({
 
   const createMutation = useToastMutation(
     api.posts.createMutation({
-      successMessage: 'Reply posted',
-      errorMessage: 'Could not post reply',
       onSuccess: () => {
         setBody('')
         onPosted?.()
+        toast.success('Reply posted')
+      },
+      onError: () => {
+        toast.error('Could not post reply')
       },
     }),
   )

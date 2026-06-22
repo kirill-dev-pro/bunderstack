@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'bunderstack'
+import { sqliteTable, integer, text, foreignKey } from 'bunderstack'
 
 // BetterAuth required tables
 export const user = sqliteTable('user', {
@@ -56,21 +56,28 @@ export const verification = sqliteTable('verification', {
   updatedAt: integer('updatedAt', { mode: 'timestamp' }),
 })
 
-export const posts = sqliteTable('posts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  body: text('body').notNull().default(''),
-  imageUrl: text('imageUrl'),
-  userId: text('userId')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  replyToId: integer('replyToId').references((): typeof posts.id => posts.id, {
-    onDelete: 'cascade',
-  }),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const posts = sqliteTable(
+  'posts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    imageUrl: text('imageUrl'),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    replyToId: integer('replyToId'),
+    createdAt: integer('createdAt', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.replyToId],
+      foreignColumns: [table.id],
+    }).onDelete('cascade'),
+  ],
+)
 
 export const follows = sqliteTable('follows', {
   id: integer('id').primaryKey({ autoIncrement: true }),

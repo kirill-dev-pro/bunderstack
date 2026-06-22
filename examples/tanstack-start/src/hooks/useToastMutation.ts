@@ -17,13 +17,13 @@ export function useToastMutation<
 
   return useMutation({
     ...rest,
-    onSuccess: (data, variables, context) => {
+    onSuccess: (data, variables, context, meta) => {
       if (successMessage) toast.success(successMessage)
-      onSuccess?.(data, variables, context)
+      onSuccess?.(data, variables, context, meta)
     },
-    onError: (error, variables, context) => {
+    onError: (error, variables, context, meta) => {
       toast.error(errorMessage ?? error.message)
-      onError?.(error, variables, context)
+      onError?.(error, variables, context, meta)
     },
   })
 }

@@ -11,7 +11,11 @@ function LogoutPage() {
   const navigate = useNavigate()
 
   React.useEffect(() => {
-    authClient.signOut().then(() => navigate({ to: '/', replace: true }))
+    authClient
+      .signOut()
+      .then(() =>
+        navigate({ to: '/', search: { tab: 'for-you' }, replace: true }),
+      )
   }, [])
 
   return <div className="p-4 text-gray-500">Signing out…</div>

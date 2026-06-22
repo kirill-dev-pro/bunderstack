@@ -11,7 +11,7 @@ import { PostActions } from '~/components/PostActions'
 import { PostTime } from '~/components/PostTime'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
-import { closeDialog, showDialog } from '~/utils/oat'
+import { closeDialog, showDialog, toast } from '~/utils/oat'
 import { countReplies, handleFromEmail, type Post } from '~/utils/posts'
 
 type Author = InferSelect<typeof user>
@@ -52,16 +52,24 @@ export function PostCard({
 
   const updateMutation = useToastMutation(
     api.posts.updateMutation({
-      successMessage: 'Post updated',
-      errorMessage: 'Could not update post',
-      onSuccess: () => closeDialog(editDialogRef.current),
+      onSuccess: () => {
+        closeDialog(editDialogRef.current)
+        toast.success('Post updated')
+      },
+      onError: () => {
+        toast.error('Could not update post')
+      },
     }),
   )
 
   const deleteMutation = useToastMutation(
     api.posts.deleteMutation({
-      successMessage: 'Post deleted',
-      errorMessage: 'Could not delete post',
+      onSuccess: () => {
+        toast.success('Post deleted')
+      },
+      onError: () => {
+        toast.error('Could not delete post')
+      },
     }),
   )
 
@@ -188,7 +196,7 @@ export function PostCard({
         {content}
       </div>
 
-      <dialog ref={editDialogRef} closedBy="any">
+      <dialog ref={editDialogRef} closedby="any">
         <form
           method="dialog"
           onSubmit={(e) => {

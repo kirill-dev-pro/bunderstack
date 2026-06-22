@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { toast } from '~/utils/oat'
 
 type FollowButtonProps = {
   currentUserId: string | null
@@ -27,15 +28,23 @@ export function FollowButton({
 
   const followMutation = useToastMutation(
     api.follows.createMutation({
-      successMessage: 'Following',
-      errorMessage: 'Could not follow',
+      onSuccess: () => {
+        toast.success('Following')
+      },
+      onError: () => {
+        toast.error('Could not follow')
+      },
     }),
   )
 
   const unfollowMutation = useToastMutation(
     api.follows.deleteMutation({
-      successMessage: 'Unfollowed',
-      errorMessage: 'Could not unfollow',
+      onSuccess: () => {
+        toast.success('Unfollowed')
+      },
+      onError: () => {
+        toast.error('Could not unfollow')
+      },
     }),
   )
 

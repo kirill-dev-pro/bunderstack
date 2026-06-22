@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, createFileRoute, notFound } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  notFound,
+  useRouter,
+} from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
@@ -37,6 +42,7 @@ function PostThreadPage() {
   const postId = Number(postIdParam)
   const { user } = Route.useRouteContext()
   const initial = Route.useLoaderData()
+  const router = useRouter()
 
   const { data: postData } = useQuery(api.posts.getQuery(postId))
   const { data: postsData } = useQuery(api.posts.listQuery(listParams))
@@ -65,7 +71,9 @@ function PostThreadPage() {
     return (
       <AppShell user={user}>
         <p>Post not found.</p>
-        <Link to="/">Back</Link>
+        <Link to="/" search={{ tab: 'for-you' }}>
+          Back
+        </Link>
       </AppShell>
     )
   }
@@ -73,9 +81,9 @@ function PostThreadPage() {
   return (
     <AppShell user={user}>
       <header className="thread-header">
-        <Link to="/" className="back-link">
+        <button type="button" onClick={() => router.history.back()}>
           ← Back
-        </Link>
+        </button>
         <h1>Post</h1>
       </header>
 

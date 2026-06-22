@@ -236,5 +236,6 @@ export {
   real,
   blob,
   numeric,
+  foreignKey,
 } from 'drizzle-orm/sqlite-core'
 export { eq, and, or, not, gt, gte, lt, lte, desc, asc, sql } from 'drizzle-orm'

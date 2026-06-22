@@ -34,7 +34,7 @@ export function Login() {
       }
       toast.success('Welcome back!')
       await router.invalidate()
-      router.navigate({ to: '/' })
+      router.navigate({ to: '/', search: { tab: 'for-you' } })
     },
     onError: (err) => {
       toast.error(err.message)
@@ -58,7 +58,7 @@ export function Login() {
       }
       toast.success('Account created!')
       await router.invalidate()
-      router.navigate({ to: '/' })
+      router.navigate({ to: '/', search: { tab: 'for-you' } })
     },
     onError: (err) => {
       toast.error(err.message)

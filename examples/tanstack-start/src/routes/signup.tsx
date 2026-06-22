@@ -40,7 +40,7 @@ function SignupComp() {
         return
       }
       toast.success('Account created!')
-      navigate({ to: '/' })
+      navigate({ to: '/', search: { tab: 'for-you' } })
     },
     onError: (err) => toast.error(err.message),
   })

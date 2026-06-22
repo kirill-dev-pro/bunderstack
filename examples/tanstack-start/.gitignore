@@ -6,3 +6,4 @@ data.db
 .uploads/
 uploads/
 .nitro/
+.output/

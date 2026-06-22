@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, createFileRoute, notFound } from '@tanstack/react-router'
+import { Link, createFileRoute, notFound, useRouter } from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
@@ -36,6 +36,7 @@ function UserProfilePage() {
   const { userId } = Route.useParams()
   const { user: currentUser } = Route.useRouteContext()
   const initial = Route.useLoaderData()
+  const router = useRouter()
 
   const { data: profileData } = useQuery(api.user.getQuery(userId))
   const { data: postsData } = useQuery(api.posts.listQuery(listParams))
@@ -77,16 +78,16 @@ function UserProfilePage() {
     return (
       <AppShell user={currentUser}>
         <p>User not found.</p>
-        <Link to="/">Back</Link>
+        <Link to="/" search={{tab: 'for-you'}}>Back</Link>
       </AppShell>
     )
   }
 
   return (
     <AppShell user={currentUser}>
-      <Link to="/" className="back-link">
-        ← Home
-      </Link>
+      <button type="button" onClick={() => router.history.back()}>
+        Back
+      </button>
 
       <article className="card profile-card">
         <UserAvatar name={profile.name} image={profile.image} size={80} />

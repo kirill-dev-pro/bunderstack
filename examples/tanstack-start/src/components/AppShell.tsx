@@ -22,7 +22,7 @@ export function AppShell({ user, children, aside, onCompose }: AppShellProps) {
     <div className="app-layout">
       <header className="app-header">
         <nav aria-label="Main" className="app-nav">
-          <Link to="/" className="app-brand">
+          <Link to="/" search={{ tab: 'for-you' }} className="app-brand">
             Bunder
           </Link>
           <SearchBox />

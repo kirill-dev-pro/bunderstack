@@ -1,0 +1,51 @@
+{
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
+    "**/routeTree.gen.ts": true,
+    "**/.git/**": true,
+    "**/node_modules/**": true,
+    "**/.vscode/**": true
+  },
+  "search.exclude": {
+    "**/routeTree.gen.ts": true
+  },
+  "files.readonlyInclude": {
+    "**/routeTree.gen.ts": true
+  },
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[javascript][typescript][javascriptreact][typescriptreact][json][jsonc][css][graphql]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnPaste": true,
+  "editor.suggest.showSnippets": false,
+  "emmet.showExpandedAbbreviation": "never",
+  "typescript.native-preview.tsdk": "/Users/kirill/Projects/tg-vpn/v8-vpn-web-app/node_modules/@typescript/native-preview"
+}

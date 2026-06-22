@@ -6,6 +6,7 @@ import { api } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { ImageUpload, thumbnailUrl } from '~/components/ImageUpload'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { toast } from '~/utils/oat';
 
 export const Route = createFileRoute('/profile')({
   beforeLoad: ({ context }) => {
@@ -26,17 +27,25 @@ function ProfilePage() {
 
   const avatarMutation = useToastMutation(
     api.user.updateMutation({
-      successMessage: 'Avatar updated',
-      errorMessage: 'Could not update avatar',
-      onSuccess: () => router.invalidate(),
+      onSuccess: () => {
+        router.invalidate()
+        toast.success('Avatar updated')
+      },
+      onError: (error) => {
+        toast.error(error.message)
+      },
     }),
   )
 
   const aboutMutation = useToastMutation(
     api.user.updateMutation({
-      successMessage: 'Bio updated',
-      errorMessage: 'Could not update bio',
-      onSuccess: () => router.invalidate(),
+      onSuccess: () => {
+        router.invalidate()
+        toast.success('Bio updated')
+      },
+      onError: (error) => {
+        toast.error(error.message)
+      },
     }),
   )
 
