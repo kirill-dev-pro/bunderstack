@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { app } from "~/bunderstack";
 
+const handle = ({ request }: { request: Request }) => app.handler(request);
+
 export const Route = createFileRoute("/api/$")({
   server: {
     handlers: {
-      GET: ({ request }) => app.handler(request),
-      POST: ({ request }) => app.handler(request),
+      GET: handle,
+      POST: handle,
+      PATCH: handle,
+      DELETE: handle,
     },
   },
 });

@@ -1,11 +1,27 @@
 ---
 title: Auto CRUD
-description: REST routes generated from your Drizzle schema
+description: REST routes generated from your Drizzle schema with row-level access control
 ---
 
 # Auto CRUD
 
-For every table in your schema with an `id` column, Bunderstack generates:
+For tables that opt into auto-CRUD, Bunderstack generates secured REST routes.
+
+**Auth tables** (`user`, `session`, `account`, `verification`) are never exposed.
+
+**Other tables** require either:
+- a `userId` column (convention — owner-scoped update/delete), or
+- explicit `access` rules in `createBunderstack`.
+
+## Default rules (when `userId` or `ownerColumn` is set)
+
+| Operation | Default |
+|-----------|---------|
+| `GET` list / by id | Public |
+| `POST` create | Public — owner column is **server-set** from session, never trusted from body |
+| `PATCH` / `DELETE` | Owner only |
+
+## Routes
 
 | Method | Path | Description |
 |---|---|---|
@@ -15,13 +31,52 @@ For every table in your schema with an `id` column, Bunderstack generates:
 | `PATCH` | `/api/:table/:id` | Update (body: JSON) |
 | `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
 
+## Access configuration
+
+```ts
+import { defineAccess } from 'bunderstack'
+
+// Optional separate file — validated against schema at startup
+export const access = defineAccess(schema, {
+  posts: { ownerColumn: 'userId' },
+  comments: {
+    ownerColumn: 'userId',
+    list: 'authenticated',
+    update: (ctx) => ctx.user?.id === ctx.row?.userId,
+  },
+})
+
+export const app = createBunderstack({ schema, auth: { emailPassword: true }, access })
+```
+
+### Rule values
+
+- `'public'` — no session required
+- `'authenticated'` — session required
+- `'owner'` — session required; row owner must match `ownerColumn`
+- `'deny'` — always forbidden
+- `(ctx) => boolean` — custom check
+
+### Column guards
+
+- `readonlyColumns` — stripped from create/update bodies (defaults include `id`, `createdAt`, `userId`)
+- `writableColumns` — optional allow-list for writable fields
+
 ## Example
 
 ```bash
+# Anyone can read
+curl http://localhost:3001/api/posts
+
+# Create (owner set from session cookie when logged in)
 curl -X POST /api/posts -H 'Content-Type: application/json' \
   -d '{"title":"Hello","body":"World"}'
-# 201 { id: 1, title: "Hello", body: "World" }
 
-curl '/api/posts?limit=10&offset=0'
-# { items: [...], limit: 10, offset: 0 }
+# Update/delete require owner session — otherwise 401/403
+curl -X PATCH /api/posts/1 -H 'Content-Type: application/json' \
+  -d '{"title":"Nope"}'  # → 401 without auth
 ```
+
+## Escape hatch
+
+Set `crud: false` on a table and use `app.db` directly in server functions for full control.

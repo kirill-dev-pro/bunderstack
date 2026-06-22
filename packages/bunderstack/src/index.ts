@@ -9,6 +9,16 @@ import { createStorage, type StorageAdapter } from "./storage/index.ts";
 import { buildHandler } from "./handler.ts";
 import { validateUpload, type UploadRules } from "./storage/validation.ts";
 import { transformImage, parseTransformSpec, transformHash } from "./storage/thumbnails.ts";
+import { provisionSchema, type ProvisionMode } from "./provision.ts";
+import { validateAndResolveAccess, resolveAccessUser, defineAccess } from "./access.ts";
+import {
+  checkFileAccess,
+  DEFAULT_STORAGE_ACCESS,
+  deleteFileMeta,
+  getFileOwner,
+  setFileOwner,
+  type StorageAccessConfig,
+} from "./file-metadata.ts";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
@@ -21,16 +31,29 @@ export type BunderstackApp<TSchema extends Record<string, unknown>> = {
   auth: AuthInstance;
   storage: StorageAdapter;
   router: HonoType;
+  /** Push Drizzle schema to the database. Auto-runs in dev when `provision: 'auto'` (default). */
+  provision: (options?: { force?: boolean }) => Promise<void>;
 };
 
 export interface BunderstackStorageConfig {
   uploadRules?: UploadRules;
+  access?: StorageAccessConfig;
 }
 
-function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageConfig = {}): Hono {
+function buildStorageRouter(
+  storage: StorageAdapter,
+  db: LibSQLDatabase<Record<string, unknown>>,
+  auth: AuthInstance | undefined,
+  opts: BunderstackStorageConfig = {},
+): Hono {
   const router = new Hono();
+  const access = { ...DEFAULT_STORAGE_ACCESS, ...opts.access };
 
   router.post("/", async (c) => {
+    const user = await resolveAccessUser(auth, c.req.raw.headers);
+    const denied = await checkFileAccess(access.create, null, user?.id ?? null);
+    if (!denied.allowed) return c.json({ error: "Forbidden" }, denied.status);
+
     const body = await c.req.parseBody();
     const file = body["file"];
     if (!(file instanceof File)) return c.json({ error: "No file field in request" }, 400);
@@ -46,11 +69,17 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
     const ext = extname(file.name) || "";
     const fileId = `${randomUUID()}${ext}`;
     await storage.upload(fileId, await file.arrayBuffer(), file.type);
-    return c.json({ fileId, url: `/files/${fileId}` }, 201);
+    await setFileOwner(db, fileId, user?.id ?? null);
+    return c.json({ fileId, url: `/api/files/${fileId}` }, 201);
   });
 
   router.get("/:fileId", async (c) => {
     const fileId = c.req.param("fileId");
+    const user = await resolveAccessUser(auth, c.req.raw.headers);
+    const ownerId = await getFileOwner(db, fileId);
+    const denied = await checkFileAccess(access.get, ownerId, user?.id ?? null);
+    if (!denied.allowed) return c.json({ error: "Forbidden" }, denied.status);
+
     const query = c.req.query() as Record<string, string>;
     const spec = parseTransformSpec(query);
 
@@ -83,7 +112,13 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
 
   router.delete("/:fileId", async (c) => {
     const fileId = c.req.param("fileId");
+    const user = await resolveAccessUser(auth, c.req.raw.headers);
+    const ownerId = await getFileOwner(db, fileId);
+    const denied = await checkFileAccess(access.delete, ownerId, user?.id ?? null);
+    if (!denied.allowed) return c.json({ error: "Forbidden" }, denied.status);
+
     await storage.delete(fileId);
+    await deleteFileMeta(db, fileId);
     return new Response(null, { status: 204 });
   });
 
@@ -94,22 +129,70 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   options: BunderstackConfig<TSchema> & { storageOptions?: BunderstackStorageConfig },
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options);
+  const provisionMode: ProvisionMode = options.provision ?? 'auto';
   const db = createDb(options.schema, config.database);
   const auth = createAuth(db as LibSQLDatabase<Record<string, unknown>>, config.auth);
   const storage = createStorage(config.storage);
-  const crudRouter = buildCrudRouter(options.schema, db);
-  const storageRouter = buildStorageRouter(storage, options.storageOptions);
+  const resolvedAccess = validateAndResolveAccess(options.schema, options.access);
+  const crudRouter = buildCrudRouter(options.schema, db, {
+    auth: config.auth.emailPassword ? auth : undefined,
+    access: resolvedAccess,
+  });
+  const storageRouter = buildStorageRouter(
+    storage,
+    db as LibSQLDatabase<Record<string, unknown>>,
+    config.auth.emailPassword ? auth : undefined,
+    options.storageOptions,
+  );
   const { handler, router } = buildHandler({
     crudRouter,
     authHandler: (req) => auth.handler(req),
     storageRouter,
   });
 
-  return { handler, db, auth, storage, router };
+  const app: BunderstackApp<TSchema> = {
+    handler,
+    db,
+    auth,
+    storage,
+    router,
+    provision: (opts) =>
+      provisionSchema(db, options.schema, {
+        mode: provisionMode,
+        force: opts?.force,
+        databaseUrl: config.database.url,
+      }),
+  };
+
+  return app;
+}
+
+/** Create Bunderstack and auto-provision the database schema (dev by default). */
+export async function createBunderstackAsync<TSchema extends Record<string, unknown>>(
+  options: BunderstackConfig<TSchema> & { storageOptions?: BunderstackStorageConfig },
+): Promise<BunderstackApp<TSchema>> {
+  const app = createBunderstack(options);
+  await app.provision();
+  return app;
 }
 
 export { resolveConfig } from "./config.ts";
 export type { BunderstackConfig, ResolvedConfig } from "./config.ts";
+export { provisionSchema, shouldProvision } from "./provision.ts";
+export type { ProvisionMode } from "./provision.ts";
+export {
+  defineAccess,
+  validateAndResolveAccess,
+  checkAccess,
+  AUTH_TABLE_NAMES,
+} from "./access.ts";
+export type {
+  TableAccessInput,
+  OperationRule,
+  AccessContext,
+  AccessUser,
+} from "./access.ts";
+export type { StorageAccessConfig } from "./file-metadata.ts";
 export type { StorageAdapter } from "./storage/index.ts";
 export type { UploadRules } from "./storage/validation.ts";
 export type { TransformSpec } from "./storage/thumbnails.ts";

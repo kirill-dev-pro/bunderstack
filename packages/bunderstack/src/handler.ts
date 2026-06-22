@@ -13,7 +13,9 @@ export function buildHandler(parts: HandlerParts): {
 } {
   const app = new Hono();
 
-  app.get("/health", (c) => c.json({ status: "ok" }));
+  const health = (c: { json: (data: unknown) => Response }) => c.json({ status: "ok" });
+  app.get("/health", health);
+  app.get("/api/health", health);
   app.route("/api", parts.crudRouter);
 
   if (parts.authHandler) {
@@ -21,6 +23,7 @@ export function buildHandler(parts: HandlerParts): {
   }
 
   if (parts.storageRouter) {
+    app.route("/api/files", parts.storageRouter);
     app.route("/files", parts.storageRouter);
   }
 

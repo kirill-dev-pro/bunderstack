@@ -7,8 +7,12 @@
     "examples/*"
   ],
   "scripts": {
-    "test": "bun test --cwd packages/bunderstack",
-    "dev": "bun --hot examples/standalone/server.ts"
+    "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query",
+    "dev": "bun run --cwd examples/standalone dev",
+    "dev:standalone": "bun run --cwd examples/standalone dev",
+    "dev:nextjs": "bun run --cwd examples/nextjs dev",
+    "dev:tanstack": "bun run --cwd examples/tanstack-start dev",
+    "db:push": "bun run --cwd examples/standalone db:push && bun run --cwd examples/tanstack-start db:push && bun run --cwd examples/nextjs db:push"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

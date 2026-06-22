@@ -1,0 +1,25 @@
+{
+  "name": "bunderstack-query",
+  "version": "0.1.0",
+  "module": "./src/index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.tsx"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "bunderstack": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "typescript": "^5"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.101.0"
+  }
+}

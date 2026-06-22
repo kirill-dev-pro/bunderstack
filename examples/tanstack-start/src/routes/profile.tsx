@@ -1,0 +1,112 @@
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import * as React from 'react'
+import { AppShell } from '~/components/AppShell'
+import { ImageUpload, thumbnailUrl } from '~/components/ImageUpload'
+import { api } from '~/api-client'
+import { useToastMutation } from '~/hooks/useToastMutation'
+
+export const Route = createFileRoute('/profile')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+  },
+  component: ProfilePage,
+})
+
+function ProfilePage() {
+  const { user } = Route.useRouteContext()
+  const router = useRouter()
+  const { data: profile } = useQuery(api.user.getQuery(user!.id))
+  const [about, setAbout] = React.useState('')
+
+  React.useEffect(() => {
+    if (profile?.about != null) setAbout(profile.about)
+  }, [profile?.about])
+
+  const avatarMutation = useToastMutation(
+    api.user.updateMutation({
+      successMessage: 'Avatar updated',
+      errorMessage: 'Could not update avatar',
+      onSuccess: () => router.invalidate(),
+    }),
+  )
+
+  const aboutMutation = useToastMutation(
+    api.user.updateMutation({
+      successMessage: 'Bio updated',
+      errorMessage: 'Could not update bio',
+      onSuccess: () => router.invalidate(),
+    }),
+  )
+
+  if (!user) return null
+
+  const avatarFileId = user.image?.replace(/^\/api\/files\//, '').split('?')[0] ?? null
+
+  return (
+    <AppShell user={user}>
+      <header>
+        <h1>Profile settings</h1>
+        <p>Update your avatar and bio — searchable via <code>GET /api/user?q=</code>.</p>
+      </header>
+
+      <article className="card vstack">
+        <div className="profile-card">
+          {avatarFileId ? (
+            <img
+              src={thumbnailUrl(avatarFileId, { w: 128, h: 128, format: 'webp' })}
+              alt="Avatar"
+              width={128}
+              height={128}
+              className="avatar-preview"
+            />
+          ) : (
+            <p>No avatar</p>
+          )}
+
+          <div className="vstack">
+            <ImageUpload
+              label="Avatar"
+              onUploaded={async (file) => {
+                await avatarMutation.mutateAsync({ id: user.id, data: { image: file.url } })
+              }}
+              disabled={avatarMutation.isPending}
+            />
+            {user.image ? (
+              <button
+                type="button"
+                data-variant="danger"
+                className="outline"
+                disabled={avatarMutation.isPending}
+                onClick={() => avatarMutation.mutate({ id: user.id, data: { image: null } })}
+              >
+                Remove avatar
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <form
+          className="vstack"
+          onSubmit={(e) => {
+            e.preventDefault()
+            aboutMutation.mutate({ id: user.id, data: { about: about.trim() } })
+          }}
+        >
+          <label>
+            Bio (searchable)
+            <textarea
+              rows={3}
+              value={about}
+              onChange={(e) => setAbout(e.target.value)}
+              placeholder="Tell people what you build with Bunderstack…"
+            />
+          </label>
+          <button type="submit" disabled={aboutMutation.isPending}>
+            Save bio
+          </button>
+        </form>
+      </article>
+    </AppShell>
+  )
+}

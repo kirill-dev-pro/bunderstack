@@ -8,15 +8,32 @@ description: File uploads with local filesystem or S3
 ## Upload
 
 ```bash
-curl -X POST /files -F "file=@photo.jpg"
-# 201 { fileId: "abc123.jpg", url: "/files/abc123.jpg" }
+curl -X POST /api/files -F "file=@photo.jpg"
+# 201 { fileId: "abc123.jpg", url: "/api/files/abc123.jpg" }
 ```
+
+Uploads require an authenticated session by default. File ownership is tracked in an internal metadata table.
 
 ## Retrieve / delete
 
 ```bash
-curl /files/abc123.jpg
-curl -X DELETE /files/abc123.jpg  # 204
+curl /api/files/abc123.jpg
+curl -X DELETE /api/files/abc123.jpg  # 204 — owner only by default
+```
+
+## Access rules
+
+```ts
+createBunderstack({
+  schema,
+  storageOptions: {
+    access: {
+      create: 'authenticated', // default
+      get: 'public',             // default
+      delete: 'owner',           // default
+    },
+  },
+})
 ```
 
 ## Local storage

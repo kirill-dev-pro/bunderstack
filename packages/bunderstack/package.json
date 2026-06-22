@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./access": "./src/access.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -17,8 +18,10 @@
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "better-auth": "^1.0.0",
+    "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "zod": "^3.24.0"
   },
   "peerDependencies": {
     "typescript": "^5"

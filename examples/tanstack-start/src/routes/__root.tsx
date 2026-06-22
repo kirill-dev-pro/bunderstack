@@ -1,8 +1,11 @@
 /// <reference types="vite/client" />
-import { HeadContent, Link, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { HeadContent, Outlet, Scripts, createRootRoute, ClientOnly } from '@tanstack/react-router'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import * as React from 'react'
+import { queryClient } from '~/api-client'
+import { AppDevtools } from '~/components/AppDevtools'
+import { OatInit } from '~/components/OatInit'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
@@ -11,7 +14,9 @@ import { getAuthSession } from '~/utils/session'
 
 const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   const session = await getAuthSession()
-  return session?.user ? { id: session.user.id, email: session.user.email, name: session.user.name } : null
+  return session?.user
+    ? { id: session.user.id, email: session.user.email, name: session.user.name, image: session.user.image }
+    : null
 })
 
 export const Route = createRootRoute({
@@ -20,7 +25,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      ...seo({ title: 'Bunderstack + TanStack Start', description: 'Full-stack auth + CRUD powered by Bunderstack' }),
+      ...seo({ title: 'Bunder', description: 'Twitter-style demo on Bunderstack + TanStack Start' }),
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
@@ -42,38 +47,23 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const { user } = Route.useRouteContext()
-
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <div className="p-2 flex gap-2 text-lg items-center">
-          <Link to="/" activeProps={{ className: 'font-bold' }} activeOptions={{ exact: true }}>
-            Home
-          </Link>
-          <Link to="/posts" activeProps={{ className: 'font-bold' }}>
-            Posts
-          </Link>
-          <div className="ml-auto flex items-center gap-3">
-            {user ? (
-              <>
-                <span className="text-sm text-gray-500">{user.email}</span>
-                <Link to="/logout" className="text-sm">Logout</Link>
-              </>
-            ) : (
-              <>
-                <Link to="/login" className="text-sm">Login</Link>
-                <Link to="/signup" className="text-sm font-semibold">Sign up</Link>
-              </>
-            )}
-          </div>
-        </div>
-        <hr />
-        {children}
-        <TanStackRouterDevtools position="bottom-right" />
+        <ClientOnly>
+          <OatInit />
+        </ClientOnly>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+        {import.meta.env.DEV ? (
+          <ClientOnly>
+            <AppDevtools />
+          </ClientOnly>
+        ) : null}
         <Scripts />
       </body>
     </html>

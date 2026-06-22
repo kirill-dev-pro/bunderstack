@@ -1,43 +1,63 @@
 import { useRouter } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
 import { authClient } from '~/utils/auth-client'
-import { useMutation } from '~/hooks/useMutation'
+import { toast } from '~/utils/oat'
 import { Auth } from './Auth'
+
+function mutationStatus(isPending: boolean, isError: boolean, isSuccess: boolean) {
+  if (isPending) return 'pending' as const
+  if (isError) return 'error' as const
+  if (isSuccess) return 'success' as const
+  return 'idle' as const
+}
 
 export function Login() {
   const router = useRouter()
 
   const loginMutation = useMutation({
-    fn: async (data: { email: string; password: string }) => {
+    mutationFn: async (data: { email: string; password: string }) => {
       const { error } = await authClient.signIn.email(data)
       if (error) return { error: true, message: error.message ?? 'Login failed' }
       return { error: false, message: '' }
     },
-    onSuccess: async (ctx) => {
-      if (!ctx.data?.error) {
-        await router.invalidate()
-        router.navigate({ to: '/' })
+    onSuccess: async (data) => {
+      if (data.error) {
+        toast.error(data.message)
+        return
       }
+      toast.success('Welcome back!')
+      await router.invalidate()
+      router.navigate({ to: '/' })
+    },
+    onError: (err) => {
+      toast.error(err.message)
     },
   })
 
   const signupMutation = useMutation({
-    fn: async (data: { email: string; password: string }) => {
+    mutationFn: async (data: { email: string; password: string }) => {
       const { error } = await authClient.signUp.email({ ...data, name: data.email.split('@')[0] })
       if (error) return { error: true, message: error.message ?? 'Signup failed' }
       return { error: false, message: '' }
     },
-    onSuccess: async (ctx) => {
-      if (!ctx.data?.error) {
-        await router.invalidate()
-        router.navigate({ to: '/' })
+    onSuccess: async (data) => {
+      if (data.error) {
+        toast.error(data.message)
+        return
       }
+      toast.success('Account created!')
+      await router.invalidate()
+      router.navigate({ to: '/' })
+    },
+    onError: (err) => {
+      toast.error(err.message)
     },
   })
 
   return (
     <Auth
-      actionText="Login"
-      status={loginMutation.status}
+      actionText="Log in"
+      status={mutationStatus(loginMutation.isPending, loginMutation.isError, loginMutation.isSuccess)}
       onSubmit={(e) => {
         const formData = new FormData(e.target as HTMLFormElement)
         loginMutation.mutate({
@@ -46,25 +66,20 @@ export function Login() {
         })
       }}
       afterSubmit={
-        loginMutation.data?.error ? (
-          <div className="space-y-2">
-            <div className="text-red-400">{loginMutation.data.message}</div>
-            <button
-              className="text-blue-500 text-sm"
-              type="button"
-              onClick={(e) => {
-                const form = (e.target as HTMLButtonElement).closest('form')!
-                const formData = new FormData(form)
-                signupMutation.mutate({
-                  email: formData.get('email') as string,
-                  password: formData.get('password') as string,
-                })
-              }}
-            >
-              No account? Sign up instead →
-            </button>
-          </div>
-        ) : null
+        <button
+          type="button"
+          className="outline"
+          onClick={(e) => {
+            const form = (e.target as HTMLButtonElement).closest('form')!
+            const formData = new FormData(form)
+            signupMutation.mutate({
+              email: formData.get('email') as string,
+              password: formData.get('password') as string,
+            })
+          }}
+        >
+          No account? Sign up with these credentials
+        </button>
       }
     />
   )

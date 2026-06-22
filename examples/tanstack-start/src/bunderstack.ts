@@ -1,13 +1,21 @@
-import { createBunderstack } from 'bunderstack'
+import { createBunderstackAsync } from 'bunderstack'
+import { access } from './access'
 import * as schema from './schema'
 
-// Mount app.handler at /api/** to serve auth + CRUD + storage.
-// Reach into app.db, app.auth, app.storage directly in server functions.
-export const app = createBunderstack({
+export const app = await createBunderstackAsync({
   schema,
+  access,
+  database: { url: 'file:./data.db' },
   auth: {
     emailPassword: true,
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
   },
   storage: { local: './uploads' },
+  storageOptions: {
+    access: { create: 'authenticated', get: 'public', delete: 'owner' },
+    uploadRules: {
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+      maxSizeBytes: 10 * 1024 * 1024,
+    },
+  },
 })

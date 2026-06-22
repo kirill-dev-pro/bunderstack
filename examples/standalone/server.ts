@@ -1,11 +1,15 @@
 // examples/standalone/server.ts
-import { createBunderstack } from 'bunderstack'
+import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 
-const app = createBunderstack({
+const app = await createBunderstackAsync({
   schema,
+  database: { url: 'file:./data.db' },
   auth: { emailPassword: true },
-  storage: { local: './examples/standalone/uploads' },
+  access: {
+    posts: { ownerColumn: 'authorId' },
+  },
+  storage: { local: './uploads' },
   storageOptions: {
     uploadRules: {
       allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
@@ -14,7 +18,6 @@ const app = createBunderstack({
   },
 })
 
-// Expose raw instances for drop-down access
 export const { db, auth, storage, router } = app
 
 const server = Bun.serve({
@@ -22,12 +25,12 @@ const server = Bun.serve({
   fetch: app.handler,
 })
 
-console.log(`Bunderstack POC running at http://localhost:${server.port}`)
+console.log(`Bunderstack running at http://localhost:${server.port}`)
 console.log('Routes:')
-console.log('  GET  /health')
+console.log('  GET  /api/health')
 console.log('  GET  /api/posts')
 console.log('  POST /api/posts')
-console.log('  POST /files         (multipart, field: file)')
-console.log('  GET  /files/:id     (?w=&h=&format=webp for thumbnails)')
-console.log('  POST /auth/sign-up/email')
-console.log('  POST /auth/sign-in/email')
+console.log('  POST /api/files         (multipart, field: file)')
+console.log('  GET  /api/files/:id     (?w=&h=&format=webp for thumbnails)')
+console.log('  POST /api/auth/sign-up/email')
+console.log('  POST /api/auth/sign-in/email')

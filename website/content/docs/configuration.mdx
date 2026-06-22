@@ -11,6 +11,18 @@ description: All createBunderstack options and environment variables
 createBunderstack({
   schema,
   database: { url?: string, authToken?: string },
+  provision?: boolean | 'auto',
+  access?: Record<string, {
+    crud?: boolean,
+    ownerColumn?: string,
+    list?: 'public' | 'authenticated' | 'owner' | 'deny',
+    get?: 'public' | 'authenticated' | 'owner' | 'deny',
+    create?: 'public' | 'authenticated' | 'owner' | 'deny',
+    update?: 'public' | 'authenticated' | 'owner' | 'deny',
+    delete?: 'public' | 'authenticated' | 'owner' | 'deny',
+    writableColumns?: string[],
+    readonlyColumns?: string[],
+  }>,
   auth: {
     emailPassword?: boolean,
     secret?: string,
@@ -20,7 +32,10 @@ createBunderstack({
     },
   },
   storage?: { local: string | true } | { s3: true | { endpoint?: string } },
-  storageOptions?: { uploadRules?: { allowedMimeTypes?: string[], maxSizeBytes?: number } },
+  storageOptions?: {
+    uploadRules?: { allowedMimeTypes?: string[], maxSizeBytes?: number },
+    access?: { create?: string, get?: string, delete?: string },
+  },
 })
 ```
 

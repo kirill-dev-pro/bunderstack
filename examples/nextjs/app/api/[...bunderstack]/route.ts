@@ -1,6 +1,11 @@
-import { app } from '../../../bunderstack'
+import { getApp } from '../../../bunderstack'
 
-export const GET    = (req: Request) => app.handler(req)
-export const POST   = (req: Request) => app.handler(req)
-export const PATCH  = (req: Request) => app.handler(req)
-export const DELETE = (req: Request) => app.handler(req)
+async function handle(req: Request) {
+  const app = await getApp()
+  return app.handler(req)
+}
+
+export const GET = handle
+export const POST = handle
+export const PATCH = handle
+export const DELETE = handle
