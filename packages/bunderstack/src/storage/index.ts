@@ -1,7 +1,7 @@
 // src/storage/index.ts
-import type { ResolvedStorage } from '../config'
-import { LocalStorageAdapter } from './local'
-import { S3StorageAdapter } from './s3'
+import type { ResolvedStorage } from '../config.ts'
+import { LocalStorageAdapter } from './local.ts'
+import { S3StorageAdapter } from './s3.ts'
 
 export type { LocalStorageAdapter, S3StorageAdapter }
 

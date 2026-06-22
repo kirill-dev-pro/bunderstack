@@ -1,5 +1,5 @@
 // src/storage/s3.ts
-import type { StorageAdapter } from './index'
+import type { StorageAdapter } from './index.ts'
 
 interface S3Config {
   bucket: string
