@@ -3,38 +3,67 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 const INSTALL_CODE = `bun add bunderstack`
 
 const QUICKSTART_CODE = `// bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = createBunderstack({ schema })
-export const { handler, db, auth, storage } = app`
+export const app = await createBunderstackAsync({
+  schema,
+  auth: { emailPassword: true },
+  access: {
+    posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
+  },
+})
+// GET    /api/posts          → list (public)
+// POST   /api/posts          → create (authenticated, owner set from session)
+// PATCH  /api/posts/:id      → update (owner only)
+// DELETE /api/posts/:id      → delete (owner only)
+// POST   /api/auth/sign-up/email`
 
 const STANDALONE_CODE = `// server.ts
 import { app } from './bunderstack'
-Bun.serve({ fetch: app.handler })`
+Bun.serve({ port: 3001, fetch: app.handler })`
 
 const NEXTJS_CODE = `// app/api/[...bunderstack]/route.ts
-import { app } from '@/bunderstack'
-export const GET  = (req: Request) => app.handler(req)
-export const POST = (req: Request) => app.handler(req)`
+import { getApp } from '@/bunderstack'
+export async function GET(req: Request) {
+  return (await getApp()).handler(req)
+}
+export const POST = GET
+export const PATCH = GET
+export const DELETE = GET`
 
-const TANSTACK_CODE = `// routes/api/$.ts
+const TANSTACK_CODE = `// src/routes/api/$.tsx
 import { createFileRoute } from '@tanstack/react-router'
 import { app } from '~/bunderstack'
 
+const handle = ({ request }: { request: Request }) => app.handler(request)
+
 export const Route = createFileRoute('/api/$')({
   server: {
-    handlers: {
-      GET:  ({ request }) => app.handler(request),
-      POST: ({ request }) => app.handler(request),
-    },
+    handlers: { GET: handle, POST: handle, PATCH: handle, DELETE: handle },
   },
 })`
+
+const QUERY_CLIENT_CODE = `// api-client.ts — type-only import, zero bundle cost
+import { createBunderstackQueryClient } from 'bunderstack-query'
+import { QueryClient } from '@tanstack/react-query'
+import type * as schema from './schema'
+
+export const queryClient = new QueryClient()
+export const api = createBunderstackQueryClient<typeof schema>().withTables({
+  queryClient,
+  tables: ['posts', 'user', 'likes'] as const,
+})
+
+// In a component:
+const { data } = useQuery(api.posts.listQuery({ limit: 20, offset: 0 }))
+// data: { items: Post[], limit: number, offset: number }
+const create = useMutation(api.posts.createMutation())`
 
 const features = [
   {
     title: 'Auto CRUD',
-    desc: 'List, get, create, update, delete — generated from your Drizzle schema. Filter, paginate, sort.',
+    desc: 'REST routes generated from your Drizzle schema. Paginate, owner-filter, full-text search.',
   },
   {
     title: 'Auth built-in',
@@ -42,19 +71,19 @@ const features = [
   },
   {
     title: 'File storage',
-    desc: 'Local filesystem or S3 (Bun.S3Client). Upload API, MIME validation, size limits.',
+    desc: 'Local filesystem or S3-compatible. Upload API, MIME validation, size limits.',
   },
   {
-    title: 'Thumbnails',
-    desc: 'On-the-fly image transforms via sharp. ?w=200&h=200&format=webp. Cached after first generate.',
+    title: 'Image transforms',
+    desc: 'On-the-fly resize and convert via sharp. ?w=200&h=200&format=webp. Cached after first generate.',
   },
   {
-    title: 'Realtime',
-    desc: 'SSE subscriptions + broadcast-on-write. Typed events keyed to your schema. (Coming soon)',
+    title: 'Access control',
+    desc: 'Per-table, per-operation rules: public, authenticated, owner, or a custom function. All server-enforced.',
   },
   {
-    title: 'Typed client',
-    desc: 'Codegen step emits a typed REST client. tRPC router + TanStack Query hooks. (Coming soon)',
+    title: 'Query client',
+    desc: 'bunderstack-query: typed TanStack Query hooks from your schema. Type-only import, zero client bundle cost.',
   },
 ]
 
@@ -333,6 +362,60 @@ function HomePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section style={{ marginBottom: '5rem' }}>
+        <h2
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            marginBottom: '1rem',
+            color: '#a3a3a3',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Type-safe query client
+        </h2>
+        <p
+          style={{
+            color: '#737373',
+            fontSize: '0.875rem',
+            lineHeight: 1.6,
+            marginBottom: '1rem',
+          }}
+        >
+          <code
+            style={{
+              background: '#1a1a1a',
+              padding: '0 0.3em',
+              borderRadius: '3px',
+            }}
+          >
+            bunderstack-query
+          </code>{' '}
+          generates typed TanStack Query hooks for every route. Import your schema as a type — nothing gets bundled on the client.
+        </p>
+        <pre
+          style={{
+            background: '#111',
+            border: '1px solid #222',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            fontSize: '0.8125rem',
+            lineHeight: 1.7,
+            overflowX: 'auto',
+            marginBottom: '1rem',
+          }}
+        >
+          <code>{QUERY_CLIENT_CODE}</code>
+        </pre>
+        <Link
+          to="/docs/query-client"
+          style={{ color: '#6366f1', fontSize: '0.875rem', textDecoration: 'none' }}
+        >
+          Query client docs →
+        </Link>
       </section>
 
       <section

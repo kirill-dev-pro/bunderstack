@@ -1,0 +1,111 @@
+---
+title: Query Client
+description: Typed TanStack Query hooks generated from your schema
+---
+
+# Query Client
+
+`bunderstack-query` generates typed TanStack Query hooks for every CRUD route.
+
+## Install
+
+```bash
+bun add bunderstack-query @tanstack/react-query
+```
+
+## withTables (recommended for client bundles)
+
+Provide your schema as a **type-only import** — nothing is bundled on the client.
+
+```ts
+// api-client.ts
+import { createBunderstackQueryClient } from 'bunderstack-query'
+import { QueryClient } from '@tanstack/react-query'
+import type * as schema from './schema'
+
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000 } },
+})
+
+export const api = createBunderstackQueryClient<typeof schema>().withTables({
+  queryClient,
+  tables: ['posts', 'user', 'likes', 'follows'] as const,
+})
+```
+
+Each table in `tables` gets a full typed client. The return type is inferred from the schema type.
+
+## withSchema (server components / no bundle concern)
+
+If you can import the schema as a value, use `.withSchema()`. Exposed tables are determined automatically by your access config — auth tables excluded by default.
+
+```ts
+import * as schema from './schema'
+import { access } from './access'
+
+export const api = createBunderstackQueryClient()
+  .withSchema({ schema, access, queryClient })
+```
+
+## Available methods
+
+```ts
+// List
+api.posts.listQuery({ limit: 20, offset: 0 })
+api.posts.listQuery({ limit: 20, offset: 0, q: 'search term' }) // if searchableColumns set
+
+// Get by id
+api.posts.getQuery(postId)
+
+// Mutations
+api.posts.createMutation()
+api.posts.updateMutation()
+api.posts.deleteMutation()
+```
+
+## In a component
+
+```tsx
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { api } from '~/api-client'
+
+function PostList() {
+  const { data } = useQuery(api.posts.listQuery({ limit: 20, offset: 0 }))
+  // data: { items: Post[], limit: number, offset: number }
+
+  const create = useMutation(api.posts.createMutation())
+  const update = useMutation(api.posts.updateMutation())
+  const remove = useMutation(api.posts.deleteMutation())
+
+  return (
+    <ul>
+      {data?.items.map(post => <li key={post.id}>{post.title}</li>)}
+    </ul>
+  )
+}
+```
+
+## Prefetching in loaders
+
+```ts
+// TanStack Start route loader
+export const Route = createFileRoute('/')({
+  loader: async () => {
+    return queryClient.ensureQueryData(api.posts.listQuery({ limit: 20, offset: 0 }))
+  },
+})
+```
+
+## Query invalidation
+
+Pass `queryClient` when creating the client and mutations will automatically invalidate the affected table's queries on success.
+
+## Type utilities
+
+```ts
+import type { InferSelect, InferInsert } from 'bunderstack-query'
+import type { posts } from './schema'
+
+type Post = InferSelect<typeof posts>
+type NewPost = InferInsert<typeof posts>
+```

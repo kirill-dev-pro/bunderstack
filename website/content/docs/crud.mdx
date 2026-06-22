@@ -5,54 +5,48 @@ description: REST routes generated from your Drizzle schema with row-level acces
 
 # Auto CRUD
 
-For tables that opt into auto-CRUD, Bunderstack generates secured REST routes.
-
-**Auth tables** (`user`, `session`, `account`, `verification`) are never exposed.
-
-**Other tables** require either:
-
-- a `userId` column (convention — owner-scoped update/delete), or
-- explicit `access` rules in `createBunderstack`.
-
-## Default rules (when `userId` or `ownerColumn` is set)
-
-| Operation          | Default                                                                       |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `GET` list / by id | Public                                                                        |
-| `POST` create      | Public — owner column is **server-set** from session, never trusted from body |
-| `PATCH` / `DELETE` | Owner only                                                                    |
+Bunderstack generates secured REST routes from your Drizzle schema.
 
 ## Routes
 
-| Method   | Path              | Description                 |
-| -------- | ----------------- | --------------------------- |
-| `GET`    | `/api/:table`     | List — `?limit=20&offset=0` |
-| `GET`    | `/api/:table/:id` | Get by id                   |
-| `POST`   | `/api/:table`     | Create (body: JSON)         |
-| `PATCH`  | `/api/:table/:id` | Update (body: JSON)         |
-| `DELETE` | `/api/:table/:id` | Delete — 204 No Content     |
+| Method   | Path              | Description                          |
+| -------- | ----------------- | ------------------------------------ |
+| `GET`    | `/api/:table`     | List — `?limit=20&offset=0&q=search` |
+| `GET`    | `/api/:table/:id` | Get by id                            |
+| `POST`   | `/api/:table`     | Create (body: JSON)                  |
+| `PATCH`  | `/api/:table/:id` | Update (body: JSON)                  |
+| `DELETE` | `/api/:table/:id` | Delete — 204 No Content              |
+
+## Which tables get routes
+
+A table gets CRUD routes when it has a `userId` column (convention) **or** when you explicitly configure it in `access`. Auth tables (`user`, `session`, `account`, `verification`) are excluded by default.
 
 ## Access configuration
 
 ```ts
-import { defineAccess } from 'bunderstack'
+// access.ts
+import { defineAccess } from 'bunderstack/access'
+import * as schema from './schema'
 
-// Optional separate file — validated against schema at startup
 export const access = defineAccess(schema, {
-  posts: { ownerColumn: 'userId' },
+  posts: {
+    ownerColumn: 'userId',
+    list: 'public',
+    get: 'public',
+    create: 'authenticated',
+    update: 'owner',
+    delete: 'owner',
+    searchableColumns: ['title', 'body'],
+  },
   comments: {
     ownerColumn: 'userId',
     list: 'authenticated',
     update: (ctx) => ctx.user?.id === ctx.row?.userId,
   },
 })
-
-export const app = createBunderstack({
-  schema,
-  auth: { emailPassword: true },
-  access,
-})
 ```
+
+`defineAccess` validates all column names against the schema at startup, so typos fail fast.
 
 ### Rule values
 
@@ -60,28 +54,64 @@ export const app = createBunderstack({
 - `'authenticated'` — session required
 - `'owner'` — session required; row owner must match `ownerColumn`
 - `'deny'` — always forbidden
-- `(ctx) => boolean` — custom check
+- `(ctx: AccessContext) => boolean | Promise<boolean>` — custom check
+
+### Default rules (when ownerColumn is set)
+
+| Operation          | Default                                                                       |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `GET` list / by id | Public                                                                        |
+| `POST` create      | Public — owner column is **server-set** from session, never trusted from body |
+| `PATCH` / `DELETE` | Owner only                                                                    |
 
 ### Column guards
 
-- `readonlyColumns` — stripped from create/update bodies (defaults include `id`, `createdAt`, `userId`)
-- `writableColumns` — optional allow-list for writable fields
+- `readonlyColumns` — stripped from create/update bodies (defaults: `id`, `createdAt`, `updatedAt`, `userId`)
+- `writableColumns` — optional allow-list; any field not in this list is ignored on write
 
-## Example
+### Full-text search
+
+Add `searchableColumns` to enable `?q=` on list:
 
 ```bash
-# Anyone can read
-curl http://localhost:3001/api/posts
+GET /api/posts?q=hello&limit=20&offset=0
+```
 
-# Create (owner set from session cookie when logged in)
-curl -X POST /api/posts -H 'Content-Type: application/json' \
-  -d '{"title":"Hello","body":"World"}'
+## Exposing the user table
 
-# Update/delete require owner session — otherwise 401/403
-curl -X PATCH /api/posts/1 -H 'Content-Type: application/json' \
-  -d '{"title":"Nope"}'  # → 401 without auth
+The `user` auth table can be opted into CRUD (for public profiles, avatar updates, etc.):
+
+```ts
+export const access = defineAccess(schema, {
+  user: {
+    exposeAuthTable: true,
+    ownerColumn: 'id',
+    list: 'public',
+    get: 'public',
+    create: 'deny',
+    update: 'owner',
+    delete: 'deny',
+    writableColumns: ['image', 'about'],
+    searchableColumns: ['name'],
+  },
+})
+```
+
+## Disabling CRUD for a table
+
+```ts
+export const access = defineAccess(schema, {
+  session: { crud: false },
+  account: { crud: false },
+  verification: { crud: false },
+})
 ```
 
 ## Escape hatch
 
-Set `crud: false` on a table and use `app.db` directly in server functions for full control.
+Skip Bunderstack entirely for a table and use `app.db` directly:
+
+```ts
+const { db } = app
+const posts = await db.select().from(schema.posts).where(eq(schema.posts.userId, userId))
+```

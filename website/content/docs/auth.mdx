@@ -5,33 +5,58 @@ description: BetterAuth wired to your Drizzle database
 
 # Auth
 
-Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Routes at `/auth/*`.
+Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth routes are mounted at `/api/auth/*`.
 
 ## Email/password
 
 ```ts
-createBunderstack({
+createBunderstackAsync({
   schema,
   auth: { emailPassword: true, secret: process.env.AUTH_SECRET },
 })
 ```
 
 ```bash
-curl -X POST /auth/sign-up/email \
+curl -X POST /api/auth/sign-up/email \
   -H 'Content-Type: application/json' \
   -d '{"email":"user@example.com","password":"pass123","name":"Alice"}'
+
+curl -X POST /api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123"}'
 ```
 
 ## OAuth
 
 ```ts
-createBunderstack({
+createBunderstackAsync({
   schema,
-  auth: { providers: { github: { clientId: '...', clientSecret: '...' } } },
+  auth: {
+    providers: {
+      github: { clientId: process.env.GITHUB_CLIENT_ID!, clientSecret: process.env.GITHUB_CLIENT_SECRET! },
+      google: { clientId: process.env.GOOGLE_CLIENT_ID!, clientSecret: process.env.GOOGLE_CLIENT_SECRET! },
+    },
+  },
 })
 ```
+
+## Reading the session in server functions
+
+```ts
+// utils/session.ts (TanStack Start)
+import { getRequest } from '@tanstack/react-start/server'
+import { app } from '~/bunderstack'
+
+export async function getAuthSession() {
+  const request = getRequest()
+  if (!request) return null
+  return app.auth.api.getSession({ headers: request.headers })
+}
+```
+
+You can also access `app.auth` directly — it's just a BetterAuth instance.
 
 ## Required schema tables
 
 Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.
-Copy from `examples/standalone/schema.ts`.
+Copy full definitions from `examples/standalone/schema.ts`.

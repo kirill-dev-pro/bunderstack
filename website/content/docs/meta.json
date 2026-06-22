@@ -8,6 +8,7 @@
     "auth",
     "storage",
     "thumbnails",
+    "query-client",
     "framework-portability",
     "api-reference"
   ]

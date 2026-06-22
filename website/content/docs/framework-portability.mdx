@@ -10,35 +10,65 @@ description: Mount app.handler in any modern TypeScript framework
 ## Standalone Bun
 
 ```ts
+// server.ts
 import { app } from './bunderstack'
-Bun.serve({ fetch: app.handler })
+Bun.serve({ port: 3001, fetch: app.handler })
 ```
 
 ## Next.js (App Router)
 
 ```ts
 // app/api/[...bunderstack]/route.ts
-import { app } from '@/bunderstack'
-export const GET = (req: Request) => app.handler(req)
-export const POST = (req: Request) => app.handler(req)
-export const PATCH = (req: Request) => app.handler(req)
-export const DELETE = (req: Request) => app.handler(req)
+import { getApp } from '@/bunderstack'
+
+export async function GET(req: Request) {
+  return (await getApp()).handler(req)
+}
+export const POST = GET
+export const PATCH = GET
+export const DELETE = GET
+```
+
+```ts
+// bunderstack.ts — lazy singleton for Next.js
+import { createBunderstackAsync } from 'bunderstack'
+import * as schema from './schema'
+
+let _app: Awaited<ReturnType<typeof createBunderstackAsync<typeof schema>>>
+
+export async function getApp() {
+  return (_app ??= await createBunderstackAsync({ schema, auth: { emailPassword: true } }))
+}
 ```
 
 ## TanStack Start
 
 ```ts
-// routes/api/$.ts
-import { createServerFileRoute } from '@tanstack/start'
+// src/routes/api/$.tsx
+import { createFileRoute } from '@tanstack/react-router'
 import { app } from '~/bunderstack'
-export const ServerRoute = createServerFileRoute('/api/$').methods({
-  GET: ({ request }) => app.handler(request),
-  POST: ({ request }) => app.handler(request),
-  PATCH: ({ request }) => app.handler(request),
-  DELETE: ({ request }) => app.handler(request),
+
+const handle = ({ request }: { request: Request }) => app.handler(request)
+
+export const Route = createFileRoute('/api/$')({
+  server: {
+    handlers: {
+      GET: handle,
+      POST: handle,
+      PATCH: handle,
+      DELETE: handle,
+    },
+  },
 })
 ```
 
-## Note on realtime + serverless
+TanStack Start supports top-level `await`, so `bunderstack.ts` can export `app` directly:
 
-SSE needs a long-lived connection. On serverless (Vercel), REST/auth/storage work fine but realtime needs a persistent process or external pub/sub (Upstash, Ably).
+```ts
+// src/bunderstack.ts
+import { createBunderstackAsync } from 'bunderstack'
+import * as schema from './schema'
+import { access } from './access'
+
+export const app = await createBunderstackAsync({ schema, access, auth: { emailPassword: true } })
+```

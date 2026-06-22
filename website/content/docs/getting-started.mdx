@@ -13,14 +13,31 @@ bun add bunderstack
 
 ## Write your schema
 
+Import Drizzle builders from `bunderstack` to share its Drizzle instance and avoid version conflicts.
+
 ```ts
 // schema.ts
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, integer, text } from 'bunderstack'
 
+// BetterAuth required tables — copy full definitions from examples/standalone/schema.ts
+export const user = sqliteTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull().default(false),
+  image: text('image'),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
+})
+// ... session, account, verification (same pattern)
+
+// Your tables
 export const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
-  body: text('body'),
+  body: text('body').notNull().default(''),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 ```
 
@@ -28,12 +45,16 @@ export const posts = sqliteTable('posts', {
 
 ```ts
 // bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = createBunderstack({ schema })
-export const { handler, db, auth, storage } = app
+export const app = await createBunderstackAsync({
+  schema,
+  auth: { emailPassword: true },
+})
 ```
+
+`createBunderstackAsync` provisions your schema to the database automatically in development.
 
 ## Serve it
 
@@ -45,15 +66,47 @@ Bun.serve({ fetch: app.handler })
 
 ```bash
 bun run server.ts
-# GET  /health
-# GET  /api/posts
-# POST /api/posts
-# POST /auth/sign-up/email
-# POST /files
+# GET    /api/posts
+# POST   /api/posts
+# PATCH  /api/posts/:id
+# DELETE /api/posts/:id
+# POST   /api/auth/sign-up/email
+# POST   /api/auth/sign-in/email
+# POST   /api/files
+# GET    /health
 ```
 
-## Push schema to SQLite
+The `posts` table has a `userId` column, so Bunderstack auto-wires it: list/get are public, create sets the owner from session, update/delete require the owner.
 
-```bash
-bunx drizzle-kit push
+## Add access rules
+
+To customize per-operation permissions, use `defineAccess`:
+
+```ts
+// access.ts
+import { defineAccess } from 'bunderstack/access'
+import * as schema from './schema'
+
+export const access = defineAccess(schema, {
+  posts: {
+    ownerColumn: 'userId',
+    list: 'public',
+    create: 'authenticated',
+    update: 'owner',
+    delete: 'owner',
+    searchableColumns: ['title', 'body'],
+  },
+})
 ```
+
+```ts
+// bunderstack.ts
+export const app = await createBunderstackAsync({ schema, access, auth: { emailPassword: true } })
+```
+
+## Next steps
+
+- [Auto CRUD](/docs/crud) — access rules, search, column guards
+- [Auth](/docs/auth) — OAuth providers, session access
+- [Storage](/docs/storage) — file uploads, S3 config
+- [Query client](/docs/query-client) — typed TanStack Query hooks
