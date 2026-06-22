@@ -4,11 +4,10 @@ export interface UploadRules {
 }
 
 export class UploadValidationError extends Error {
-  constructor(
-    public readonly reason: 'mime' | 'size',
-    message: string,
-  ) {
+  readonly reason: 'mime' | 'size'
+  constructor(reason: 'mime' | 'size', message: string) {
     super(message)
+    this.reason = reason
     this.name = 'UploadValidationError'
   }
 }
