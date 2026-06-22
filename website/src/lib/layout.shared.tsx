@@ -5,7 +5,7 @@ export function baseOptions(): BaseLayoutProps {
     nav: { title: 'Bunderstack' },
     links: [
       { text: 'Documentation', url: '/docs' },
-      { text: 'GitHub', url: 'https://github.com/bunderstack/bunderstack' },
+      { text: 'GitHub', url: 'https://github.com/kirill-dev-pro/bunderstack' },
     ],
   }
 }

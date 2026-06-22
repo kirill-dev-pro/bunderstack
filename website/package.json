@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 3010",
-    "build": "vite build",
-    "preview": "vite preview --port 3010"
+    "build": "vite build && node scripts/postbuild.mjs",
+    "preview": "vite preview --port 3010",
+    "preview:pages": "GITHUB_PAGES=true bun run build && vite preview --port 3010"
   },
   "dependencies": {
     "@tanstack/react-router": "^1",

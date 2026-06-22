@@ -4,8 +4,7 @@ import {
   Outlet,
   Scripts,
 } from '@tanstack/react-router'
-import { RootProvider } from 'fumadocs-ui/provider/tanstack'
-
+import { Provider } from '@/components/provider'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -34,7 +33,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="flex min-h-screen flex-col">
-        <RootProvider>{children}</RootProvider>
+        <Provider>{children}</Provider>
         <Scripts />
       </body>
     </html>
