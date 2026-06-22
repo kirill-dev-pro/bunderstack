@@ -2,6 +2,10 @@
   "name": "bunderstack",
   "module": "src/index.ts",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
   "scripts": {
     "test": "bun test",
     "dev": "bun --hot examples/standalone/server.ts",
@@ -9,15 +13,15 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@libsql/client": "latest",
-    "better-auth": "latest",
-    "drizzle-orm": "latest",
-    "hono": "latest",
-    "zod": "latest"
+    "@libsql/client": "^0.17.4",
+    "better-auth": "^1.6.20",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.26",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "drizzle-kit": "latest"
+    "@types/bun": "^1.3.14",
+    "drizzle-kit": "^0.31.10"
   },
   "peerDependencies": {
     "typescript": "^5"
