@@ -1,6 +1,16 @@
-import { Hono } from 'hono'
-import { eq, isTable, getTableName, getTableColumns, like, or, type SQL } from 'drizzle-orm'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
+import {
+  eq,
+  isTable,
+  getTableName,
+  getTableColumns,
+  like,
+  or,
+  type SQL,
+} from 'drizzle-orm'
+import { Hono } from 'hono'
+
 import {
   checkAccess,
   resolveAccessUser,
@@ -16,7 +26,10 @@ export type CrudRouterOptions = {
   access: ResolvedAccess
 }
 
-function tableEntryForName(access: ResolvedAccess, tableName: string): ResolvedTableAccess | undefined {
+function tableEntryForName(
+  access: ResolvedAccess,
+  tableName: string,
+): ResolvedTableAccess | undefined {
   for (const entry of access.values()) {
     if (entry.tableName === tableName) return entry
   }
@@ -67,7 +80,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
     router.get(`/${name}`, async (c) => {
       const user = await resolveAccessUser(auth, c.req.raw.headers)
-      const denied = await enforce('list', tableAccess, { user, request: c.req.raw })
+      const denied = await enforce('list', tableAccess, {
+        user,
+        request: c.req.raw,
+      })
       if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
 
       const limit = Math.min(Number(c.req.query('limit')) || 20, 100)
@@ -86,7 +102,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).select().from(table).where(eq(idCol as any, id))
+      const rows = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
       if (!rows[0]) return c.json({ error: 'Not found' }, 404)
 
       const denied = await enforce('get', tableAccess, {
@@ -101,7 +120,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
     router.post(`/${name}`, async (c) => {
       const user = await resolveAccessUser(auth, c.req.raw.headers)
-      const denied = await enforce('create', tableAccess, { user, request: c.req.raw })
+      const denied = await enforce('create', tableAccess, {
+        user,
+        request: c.req.raw,
+      })
       if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
 
       let body: unknown
@@ -131,7 +153,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any).select().from(table).where(eq(idCol as any, id))
+      const existing = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
       if (!existing[0]) return c.json({ error: 'Not found' }, 404)
 
       const denied = await enforce('update', tableAccess, {
@@ -159,7 +184,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       )
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).update(table).set(values).where(eq(idCol as any, id)).returning()
+      const rows = await (db as any)
+        .update(table)
+        .set(values)
+        .where(eq(idCol as any, id))
+        .returning()
       if (!rows[0]) return c.json({ error: 'Not found' }, 404)
       return c.json(rows[0])
     })
@@ -169,7 +198,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any).select().from(table).where(eq(idCol as any, id))
+      const existing = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
       if (!existing[0]) return c.json({ error: 'Not found' }, 404)
 
       const denied = await enforce('delete', tableAccess, {

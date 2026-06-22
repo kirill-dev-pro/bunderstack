@@ -56,9 +56,11 @@ examples/
 ## Task 1: Install dependencies + update package.json
 
 **Files:**
+
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Produces: all runtime dependencies available for import in subsequent tasks
 
 - [ ] **Step 1: Install runtime dependencies**
@@ -128,10 +130,12 @@ git commit -m "chore: install hono, drizzle-orm, @libsql/client, better-auth, sh
 ## Task 2: Config layer
 
 **Files:**
+
 - Create: `src/config.ts`
 - Create: `tests/config.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `BunderstackConfig<TSchema>` — the public options type accepted by `createBunderstack`
   - `ResolvedConfig` — the internal fully-resolved config with env var fallbacks applied
@@ -213,33 +217,63 @@ import { z } from 'zod'
 
 const StorageConfigSchema = z.union([
   z.object({ local: z.union([z.string(), z.literal(true)]) }),
-  z.object({ s3: z.union([z.literal(true), z.object({ endpoint: z.string().optional() })]) }),
+  z.object({
+    s3: z.union([
+      z.literal(true),
+      z.object({ endpoint: z.string().optional() }),
+    ]),
+  }),
 ])
 
 export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.unknown()),
-  database: z.object({ url: z.string().optional(), authToken: z.string().optional() }).optional(),
-  auth: z.object({
-    emailPassword: z.boolean().optional(),
-    secret: z.string().optional(),
-    providers: z.object({
-      github: z.object({ clientId: z.string(), clientSecret: z.string() }).optional(),
-      google: z.object({ clientId: z.string(), clientSecret: z.string() }).optional(),
-    }).optional(),
-  }).optional(),
+  database: z
+    .object({ url: z.string().optional(), authToken: z.string().optional() })
+    .optional(),
+  auth: z
+    .object({
+      emailPassword: z.boolean().optional(),
+      secret: z.string().optional(),
+      providers: z
+        .object({
+          github: z
+            .object({ clientId: z.string(), clientSecret: z.string() })
+            .optional(),
+          google: z
+            .object({ clientId: z.string(), clientSecret: z.string() })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   storage: StorageConfigSchema.optional(),
 })
 
-export type BunderstackConfig<TSchema extends Record<string, unknown>> =
-  Omit<z.input<typeof BunderstackOptionsSchema>, 'schema'> & { schema: TSchema }
+export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
+  z.input<typeof BunderstackOptionsSchema>,
+  'schema'
+> & { schema: TSchema }
 
 export type ResolvedStorage =
   | { type: 'local'; path: string }
-  | { type: 's3'; bucket: string; region: string; endpoint?: string; accessKeyId: string; secretAccessKey: string }
+  | {
+      type: 's3'
+      bucket: string
+      region: string
+      endpoint?: string
+      accessKeyId: string
+      secretAccessKey: string
+    }
 
 export type ResolvedConfig = {
   database: { url: string; authToken?: string }
-  auth: { emailPassword: boolean; secret: string; providers: z.infer<typeof BunderstackOptionsSchema>['auth'] extends infer A ? NonNullable<NonNullable<A>['providers']> : never }
+  auth: {
+    emailPassword: boolean
+    secret: string
+    providers: z.infer<typeof BunderstackOptionsSchema>['auth'] extends infer A
+      ? NonNullable<NonNullable<A>['providers']>
+      : never
+  }
   storage: ResolvedStorage
 }
 
@@ -255,16 +289,25 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     },
     auth: {
       emailPassword: parsed.auth?.emailPassword ?? false,
-      secret: parsed.auth?.secret ?? process.env.AUTH_SECRET ?? 'dev-secret-change-in-prod',
+      secret:
+        parsed.auth?.secret ??
+        process.env.AUTH_SECRET ??
+        'dev-secret-change-in-prod',
       providers: parsed.auth?.providers ?? {},
     },
     storage: resolveStorage(parsed.storage),
   }
 }
 
-function resolveStorage(storage: z.infer<typeof StorageConfigSchema> | undefined): ResolvedStorage {
+function resolveStorage(
+  storage: z.infer<typeof StorageConfigSchema> | undefined,
+): ResolvedStorage {
   if (!storage) return { type: 'local', path: './uploads' }
-  if ('local' in storage) return { type: 'local', path: storage.local === true ? './uploads' : storage.local }
+  if ('local' in storage)
+    return {
+      type: 'local',
+      path: storage.local === true ? './uploads' : storage.local,
+    }
   const s3Cfg = typeof storage.s3 === 'object' ? storage.s3 : {}
   return {
     type: 's3',
@@ -288,7 +331,9 @@ export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  emailVerified: integer('email_verified', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -302,19 +347,27 @@ export const session = sqliteTable('session', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 export const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
-  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
-  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  accessTokenExpiresAt: integer('access_token_expires_at', {
+    mode: 'timestamp',
+  }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', {
+    mode: 'timestamp',
+  }),
   scope: text('scope'),
   password: text('password'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
@@ -336,7 +389,9 @@ export const posts = sqliteTable('posts', {
   title: text('title').notNull(),
   body: text('body'),
   authorId: text('author_id'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 ```
 
@@ -360,10 +415,12 @@ git commit -m "feat: config layer with zod validation and env var fallbacks"
 ## Task 3: Database layer
 
 **Files:**
+
 - Create: `src/db.ts`
 - Create: `tests/db.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ResolvedConfig['database']` from `src/config.ts`
 - Produces:
   - `createDb<TSchema>(schema, cfg) → LibSQLDatabase<TSchema>` — returns a fully-configured Drizzle instance using the libSQL driver
@@ -387,7 +444,7 @@ test('createDb returns a working Drizzle instance against in-memory SQLite', asy
       body TEXT,
       author_id TEXT,
       created_at INTEGER
-    )`
+    )`,
   )
 
   const inserted = await db.insert(posts).values({ title: 'Hello' }).returning()
@@ -442,15 +499,18 @@ git commit -m "feat: database layer — Drizzle/libSQL factory"
 ## Task 4: CRUD route generation
 
 **Files:**
+
 - Create: `src/crud.ts`
 - Create: `tests/crud.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createDb` from `src/db.ts`
 - Produces:
   - `buildCrudRouter<TSchema>(schema, db) → Hono` — Hono sub-app with REST CRUD routes for every Drizzle table in `schema` that has an `id` column; mounted at `/:tableName`
 
 Routes generated per table:
+
 ```
 GET    /:table           list  — ?limit=20&offset=0
 GET    /:table/:id       get
@@ -482,7 +542,7 @@ beforeAll(async () => {
       body TEXT,
       author_id TEXT,
       created_at INTEGER
-    )`
+    )`,
   )
   app = new Hono()
   app.route('/api', buildCrudRouter({ posts }, db))
@@ -495,7 +555,7 @@ test('POST /api/posts creates a record', async () => {
     body: JSON.stringify({ title: 'First post' }),
   })
   expect(res.status).toBe(201)
-  const body = await res.json() as { id: number; title: string }
+  const body = (await res.json()) as { id: number; title: string }
   expect(body.title).toBe('First post')
   expect(typeof body.id).toBe('number')
 })
@@ -503,7 +563,7 @@ test('POST /api/posts creates a record', async () => {
 test('GET /api/posts lists records', async () => {
   const res = await app.request('/api/posts')
   expect(res.status).toBe(200)
-  const body = await res.json() as { items: unknown[] }
+  const body = (await res.json()) as { items: unknown[] }
   expect(Array.isArray(body.items)).toBe(true)
   expect(body.items.length).toBeGreaterThan(0)
 })
@@ -511,7 +571,7 @@ test('GET /api/posts lists records', async () => {
 test('GET /api/posts/:id returns one record', async () => {
   const res = await app.request('/api/posts/1')
   expect(res.status).toBe(200)
-  const body = await res.json() as { id: number }
+  const body = (await res.json()) as { id: number }
   expect(body.id).toBe(1)
 })
 
@@ -527,7 +587,7 @@ test('PATCH /api/posts/:id updates a record', async () => {
     body: JSON.stringify({ title: 'Updated' }),
   })
   expect(res.status).toBe(200)
-  const body = await res.json() as { title: string }
+  const body = (await res.json()) as { title: string }
   expect(body.title).toBe('Updated')
 })
 
@@ -574,7 +634,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
       const offset = Number(c.req.query('offset') ?? 0)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items = await (db as any).select().from(table).limit(limit).offset(offset)
+      const items = await (db as any)
+        .select()
+        .from(table)
+        .limit(limit)
+        .offset(offset)
       return c.json({ items, limit, offset })
     })
 
@@ -582,7 +646,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).select().from(table).where(eq(idCol as any, id))
+      const rows = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
       if (!rows[0]) return c.json({ error: 'Not found' }, 404)
       return c.json(rows[0])
     })
@@ -599,7 +666,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       const body = await c.req.json()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).update(table).set(body).where(eq(idCol as any, id)).returning()
+      const rows = await (db as any)
+        .update(table)
+        .set(body)
+        .where(eq(idCol as any, id))
+        .returning()
       if (!rows[0]) return c.json({ error: 'Not found' }, 404)
       return c.json(rows[0])
     })
@@ -637,10 +708,12 @@ git commit -m "feat: auto-generate CRUD routes from Drizzle schema tables"
 ## Task 5: Handler assembly + createBunderstack entry point
 
 **Files:**
+
 - Create: `src/handler.ts`
 - Create: `src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `createDb` (db.ts), `buildCrudRouter` (crud.ts), `resolveConfig` (config.ts)
 - Produces:
   - `buildHandler(parts) → { handler, router }` — assembles the Hono app with health + CRUD routes
@@ -651,8 +724,8 @@ git commit -m "feat: auto-generate CRUD routes from Drizzle schema tables"
 type BunderstackApp<TSchema> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
-  auth: Auth           // BetterAuth instance — wired in Task 6
-  storage: StorageAdapter  // wired in Task 7
+  auth: Auth // BetterAuth instance — wired in Task 6
+  storage: StorageAdapter // wired in Task 7
   router: Hono
 }
 ```
@@ -727,7 +800,9 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   return {
     handler,
     db,
-    auth: { handler: async () => new Response('auth not configured', { status: 501 }) },
+    auth: {
+      handler: async () => new Response('auth not configured', { status: 501 }),
+    },
     storage: {},
     router,
   }
@@ -757,10 +832,12 @@ git commit -m "feat: core assembly — buildHandler and createBunderstack entry 
 ## Task 6: Auth integration (BetterAuth)
 
 **Files:**
+
 - Create: `src/auth.ts`
 - Modify: `src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `LibSQLDatabase` from `src/db.ts`, `ResolvedConfig['auth']` from `src/config.ts`
 - Produces:
   - `createAuth(db, cfg) → Auth` — returns a BetterAuth instance wired to the Drizzle DB
@@ -815,10 +892,16 @@ export function createAuth(
     secret: cfg.secret,
     socialProviders: {
       ...(cfg.providers.github && {
-        github: { clientId: cfg.providers.github.clientId, clientSecret: cfg.providers.github.clientSecret },
+        github: {
+          clientId: cfg.providers.github.clientId,
+          clientSecret: cfg.providers.github.clientSecret,
+        },
       }),
       ...(cfg.providers.google && {
-        google: { clientId: cfg.providers.google.clientId, clientSecret: cfg.providers.google.clientSecret },
+        google: {
+          clientId: cfg.providers.google.clientId,
+          clientSecret: cfg.providers.google.clientSecret,
+        },
       }),
     },
   })
@@ -855,7 +938,10 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options)
   const db = createDb(options.schema, config.database)
-  const auth = createAuth(db as LibSQLDatabase<Record<string, unknown>>, config.auth)
+  const auth = createAuth(
+    db as LibSQLDatabase<Record<string, unknown>>,
+    config.auth,
+  )
   const crudRouter = buildCrudRouter(options.schema, db)
   const { handler, router } = buildHandler({
     crudRouter,
@@ -889,11 +975,13 @@ git commit -m "feat: BetterAuth integration — email/password + OAuth wired to 
 ## Task 7: Storage abstraction (local filesystem)
 
 **Files:**
+
 - Create: `src/storage/index.ts`
 - Create: `src/storage/local.ts`
 - Create: `tests/storage/local.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `StorageAdapter` interface with `upload`, `get`, `delete`, `exists`
   - `LocalStorageAdapter` — uses `Bun.file` / `Bun.write`; stores files at `<basePath>/<fileId>`
@@ -902,8 +990,12 @@ git commit -m "feat: BetterAuth integration — email/password + OAuth wired to 
 ```typescript
 // StorageAdapter interface
 interface StorageAdapter {
-  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
-  get(fileId: string): Promise<Response>   // ready-to-serve Response
+  upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void>
+  get(fileId: string): Promise<Response> // ready-to-serve Response
   delete(fileId: string): Promise<void>
   exists(fileId: string): Promise<boolean>
 }
@@ -973,7 +1065,11 @@ export class LocalStorageAdapter {
     return join(this.basePath, fileId)
   }
 
-  async upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void> {
+  async upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void> {
     await mkdir(this.basePath, { recursive: true })
     const bytes = data instanceof Blob ? await data.arrayBuffer() : data
     await Bun.write(
@@ -984,9 +1080,13 @@ export class LocalStorageAdapter {
 
   async get(fileId: string): Promise<Response> {
     const file = Bun.file(this.filePath(fileId))
-    if (!(await file.exists())) return new Response('Not found', { status: 404 })
+    if (!(await file.exists()))
+      return new Response('Not found', { status: 404 })
     return new Response(file, {
-      headers: { 'Content-Type': file.type, 'Cache-Control': 'public, max-age=31536000' },
+      headers: {
+        'Content-Type': file.type,
+        'Cache-Control': 'public, max-age=31536000',
+      },
     })
   }
 
@@ -1011,7 +1111,11 @@ import { LocalStorageAdapter } from './local'
 export type { LocalStorageAdapter }
 
 export interface StorageAdapter {
-  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void>
   get(fileId: string): Promise<Response>
   delete(fileId: string): Promise<void>
   exists(fileId: string): Promise<boolean>
@@ -1020,7 +1124,9 @@ export interface StorageAdapter {
 export function createStorage(cfg: ResolvedStorage): StorageAdapter {
   if (cfg.type === 's3') {
     // S3 adapter wired in Task 8
-    throw new Error('S3 storage adapter not yet implemented — set storage: { local: true }')
+    throw new Error(
+      'S3 storage adapter not yet implemented — set storage: { local: true }',
+    )
   }
   return new LocalStorageAdapter(cfg.path)
 }
@@ -1046,10 +1152,12 @@ git commit -m "feat: storage abstraction — LocalStorageAdapter using Bun.file/
 ## Task 8: S3 storage adapter (Bun.S3Client)
 
 **Files:**
+
 - Create: `src/storage/s3.ts`
 - Modify: `src/storage/index.ts`
 
 **Interfaces:**
+
 - Consumes: `StorageAdapter` interface from `src/storage/index.ts`
 - Produces: `S3StorageAdapter` — uses `new Bun.S3Client(opts)` to upload/download/delete files
 
@@ -1111,7 +1219,11 @@ export class S3StorageAdapter implements StorageAdapter {
     })
   }
 
-  async upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void> {
+  async upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void> {
     const bytes = data instanceof Blob ? await data.arrayBuffer() : data
     await this.client.write(fileId, bytes, { type: contentType })
   }
@@ -1146,7 +1258,11 @@ import { S3StorageAdapter } from './s3'
 export type { LocalStorageAdapter, S3StorageAdapter }
 
 export interface StorageAdapter {
-  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void>
   get(fileId: string): Promise<Response>
   delete(fileId: string): Promise<void>
   exists(fileId: string): Promise<boolean>
@@ -1186,10 +1302,12 @@ git commit -m "feat: S3StorageAdapter using Bun.S3Client"
 ## Task 9: File validation
 
 **Files:**
+
 - Create: `src/storage/validation.ts`
 - Create: `tests/storage/validation.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `UploadRules` — config type for per-upload constraints
   - `validateUpload(file: File, rules: UploadRules) → void` — throws `UploadValidationError` on violation
@@ -1210,7 +1328,10 @@ class UploadValidationError extends Error {
 ```typescript
 // tests/storage/validation.test.ts
 import { test, expect } from 'bun:test'
-import { validateUpload, UploadValidationError } from '../../src/storage/validation'
+import {
+  validateUpload,
+  UploadValidationError,
+} from '../../src/storage/validation'
 
 function makeFile(type: string, sizeBytes: number): File {
   return new File([new Uint8Array(sizeBytes)], 'test.bin', { type })
@@ -1221,17 +1342,21 @@ test('passes when file meets all rules', () => {
     validateUpload(makeFile('image/jpeg', 1024), {
       allowedMimeTypes: ['image/jpeg'],
       maxSizeBytes: 5 * 1024 * 1024,
-    })
+    }),
   ).not.toThrow()
 })
 
 test('throws mime error for disallowed type', () => {
   expect(() =>
-    validateUpload(makeFile('application/pdf', 100), { allowedMimeTypes: ['image/jpeg'] })
+    validateUpload(makeFile('application/pdf', 100), {
+      allowedMimeTypes: ['image/jpeg'],
+    }),
   ).toThrow(UploadValidationError)
 
   try {
-    validateUpload(makeFile('application/pdf', 100), { allowedMimeTypes: ['image/jpeg'] })
+    validateUpload(makeFile('application/pdf', 100), {
+      allowedMimeTypes: ['image/jpeg'],
+    })
   } catch (e) {
     expect(e).toBeInstanceOf(UploadValidationError)
     if (e instanceof UploadValidationError) expect(e.reason).toBe('mime')
@@ -1251,7 +1376,9 @@ test('throws size error when file exceeds limit', () => {
 })
 
 test('no rules = always passes', () => {
-  expect(() => validateUpload(makeFile('video/mp4', 100 * 1024 * 1024), {})).not.toThrow()
+  expect(() =>
+    validateUpload(makeFile('video/mp4', 100 * 1024 * 1024), {}),
+  ).not.toThrow()
 })
 ```
 
@@ -1318,10 +1445,12 @@ git commit -m "feat: file validation — MIME type and size checks"
 ## Task 10: Image thumbnails
 
 **Files:**
+
 - Create: `src/storage/thumbnails.ts`
 - Create: `tests/storage/thumbnails.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `TransformSpec` — width/height/fit/format/quality params (matches `?w=&h=&fit=&format=&quality=` query string)
   - `transformImage(input: Buffer, spec: TransformSpec) → Promise<Buffer>`
@@ -1334,11 +1463,20 @@ git commit -m "feat: file validation — MIME type and size checks"
 // tests/storage/thumbnails.test.ts
 import { test, expect } from 'bun:test'
 import sharp from 'sharp'
-import { transformImage, transformHash, parseTransformSpec } from '../../src/storage/thumbnails'
+import {
+  transformImage,
+  transformHash,
+  parseTransformSpec,
+} from '../../src/storage/thumbnails'
 
 async function makeTestImage(width = 200, height = 200): Promise<Buffer> {
   return sharp({
-    create: { width, height, channels: 3, background: { r: 100, g: 150, b: 200 } },
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 100, g: 150, b: 200 },
+    },
   })
     .png()
     .toBuffer()
@@ -1361,7 +1499,12 @@ test('transformImage converts to webp when format=webp', async () => {
 
 test('transformImage returns buffer of smaller size after resize+compress', async () => {
   const input = await makeTestImage(1000, 1000)
-  const output = await transformImage(input, { w: 100, h: 100, format: 'webp', quality: 60 })
+  const output = await transformImage(input, {
+    w: 100,
+    h: 100,
+    format: 'webp',
+    quality: 60,
+  })
   expect(output.byteLength).toBeLessThan(input.byteLength)
 })
 
@@ -1415,7 +1558,10 @@ export interface TransformSpec {
   quality?: number
 }
 
-export async function transformImage(input: Buffer, spec: TransformSpec): Promise<Buffer> {
+export async function transformImage(
+  input: Buffer,
+  spec: TransformSpec,
+): Promise<Buffer> {
   let pipeline = sharp(input)
 
   if (spec.w !== undefined || spec.h !== undefined) {
@@ -1432,10 +1578,15 @@ export async function transformImage(input: Buffer, spec: TransformSpec): Promis
 }
 
 export function transformHash(spec: TransformSpec): string {
-  return createHash('sha256').update(JSON.stringify(spec)).digest('hex').slice(0, 16)
+  return createHash('sha256')
+    .update(JSON.stringify(spec))
+    .digest('hex')
+    .slice(0, 16)
 }
 
-export function parseTransformSpec(query: Record<string, string>): TransformSpec | null {
+export function parseTransformSpec(
+  query: Record<string, string>,
+): TransformSpec | null {
   const { w, h, fit, format, quality } = query
   if (!w && !h && !fit && !format && !quality) return null
 
@@ -1473,14 +1624,17 @@ git commit -m "feat: image thumbnails — sharp transforms with stable cache key
 ## Task 11: File upload HTTP route + wire storage into createBunderstack
 
 **Files:**
+
 - Modify: `src/handler.ts`
 - Modify: `src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `StorageAdapter` (storage/index.ts), `validateUpload` (storage/validation.ts), `transformImage` + `parseTransformSpec` (storage/thumbnails.ts)
 - Produces: `/files` routes in the Hono app
 
 File upload routes:
+
 ```
 POST   /files            — multipart/form-data; field "file"; returns { fileId, url }
 GET    /files/:fileId    — serve file; ?w=&h=&format=&fit= triggers on-the-fly transform+cache
@@ -1508,7 +1662,11 @@ import { createAuth } from './auth'
 import { createStorage, type StorageAdapter } from './storage/index'
 import { buildHandler } from './handler'
 import { validateUpload, type UploadRules } from './storage/validation'
-import { transformImage, parseTransformSpec, transformHash } from './storage/thumbnails'
+import {
+  transformImage,
+  parseTransformSpec,
+  transformHash,
+} from './storage/thumbnails'
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import { extname } from 'node:path'
@@ -1527,13 +1685,17 @@ export interface BunderstackStorageConfig {
   uploadRules?: UploadRules
 }
 
-function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageConfig = {}): Hono {
+function buildStorageRouter(
+  storage: StorageAdapter,
+  opts: BunderstackStorageConfig = {},
+): Hono {
   const router = new Hono()
 
   router.post('/', async (c) => {
     const body = await c.req.parseBody()
     const file = body['file']
-    if (!(file instanceof File)) return c.json({ error: 'No file field in request' }, 400)
+    if (!(file instanceof File))
+      return c.json({ error: 'No file field in request' }, 400)
 
     if (opts.uploadRules) {
       try {
@@ -1564,9 +1726,16 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
 
       const inputBuffer = Buffer.from(await original.clone().arrayBuffer())
       const transformed = await transformImage(inputBuffer, spec)
-      const contentType = spec.format ? `image/${spec.format}` : original.headers.get('Content-Type') ?? 'image/jpeg'
+      const contentType = spec.format
+        ? `image/${spec.format}`
+        : (original.headers.get('Content-Type') ?? 'image/jpeg')
       await storage.upload(cacheKey, transformed, contentType)
-      return new Response(transformed, { headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000' } })
+      return new Response(transformed, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000',
+        },
+      })
     }
 
     return storage.get(fileId)
@@ -1582,11 +1751,16 @@ function buildStorageRouter(storage: StorageAdapter, opts: BunderstackStorageCon
 }
 
 export function createBunderstack<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema> & { storageOptions?: BunderstackStorageConfig },
+  options: BunderstackConfig<TSchema> & {
+    storageOptions?: BunderstackStorageConfig
+  },
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options)
   const db = createDb(options.schema, config.database)
-  const auth = createAuth(db as LibSQLDatabase<Record<string, unknown>>, config.auth)
+  const auth = createAuth(
+    db as LibSQLDatabase<Record<string, unknown>>,
+    config.auth,
+  )
   const storage = createStorage(config.storage)
   const crudRouter = buildCrudRouter(options.schema, db)
   const storageRouter = buildStorageRouter(storage, options.storageOptions)
@@ -1626,6 +1800,7 @@ git commit -m "feat: file upload/serve/delete routes with on-the-fly thumbnail t
 ## Task 12: Standalone example + end-to-end smoke test
 
 **Files:**
+
 - Create: `examples/standalone/server.ts`
 - Create: `examples/standalone/drizzle.config.ts`
 
@@ -1766,22 +1941,25 @@ git commit -m "feat: standalone example — Bunderstack POC running on Bun.serve
 ## Task 13: Next.js integration example
 
 **Files:**
+
 - Create: `examples/nextjs/` — full Next.js 15 app with App Router
 - Create: `examples/nextjs/app/api/[...bunderstack]/route.ts`
 - Create: `examples/nextjs/app/page.tsx`
 - Create: `examples/nextjs/package.json`, `examples/nextjs/tsconfig.json`, `examples/nextjs/next.config.ts`
 
 **Interfaces:**
+
 - Consumes: `createBunderstack` from `src/index.ts` (via workspace reference / relative import)
 - Produces: proof that `app.handler` mounts into Next.js App Router with zero per-framework adapter
 
 The catch-all route pattern:
+
 ```ts
 // app/api/[...bunderstack]/route.ts
 import { app } from '../../../../bunderstack'
-export const GET  = (req: Request) => app.handler(req)
+export const GET = (req: Request) => app.handler(req)
 export const POST = (req: Request) => app.handler(req)
-export const PATCH  = (req: Request) => app.handler(req)
+export const PATCH = (req: Request) => app.handler(req)
 export const DELETE = (req: Request) => app.handler(req)
 ```
 
@@ -1857,9 +2035,9 @@ export const app = createBunderstack({
 // examples/nextjs/app/api/[...bunderstack]/route.ts
 import { app } from '../../../../bunderstack'
 
-export const GET    = (req: Request) => app.handler(req)
-export const POST   = (req: Request) => app.handler(req)
-export const PATCH  = (req: Request) => app.handler(req)
+export const GET = (req: Request) => app.handler(req)
+export const POST = (req: Request) => app.handler(req)
+export const PATCH = (req: Request) => app.handler(req)
 export const DELETE = (req: Request) => app.handler(req)
 ```
 
@@ -1871,13 +2049,25 @@ export default function Home() {
   return (
     <main style={{ fontFamily: 'monospace', padding: '2rem' }}>
       <h1>Bunderstack × Next.js</h1>
-      <p>REST API available at <code>/api/*</code></p>
+      <p>
+        REST API available at <code>/api/*</code>
+      </p>
       <ul>
-        <li><code>GET  /api/health</code></li>
-        <li><code>GET  /api/posts</code></li>
-        <li><code>POST /api/posts</code></li>
-        <li><code>POST /api/auth/sign-up/email</code></li>
-        <li><code>POST /api/files</code></li>
+        <li>
+          <code>GET /api/health</code>
+        </li>
+        <li>
+          <code>GET /api/posts</code>
+        </li>
+        <li>
+          <code>POST /api/posts</code>
+        </li>
+        <li>
+          <code>POST /api/auth/sign-up/email</code>
+        </li>
+        <li>
+          <code>POST /api/files</code>
+        </li>
       </ul>
     </main>
   )
@@ -1887,8 +2077,16 @@ export default function Home() {
 - [ ] **Step 7: Create `examples/nextjs/app/layout.tsx`**
 
 ```tsx
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
 }
 ```
 
@@ -1912,24 +2110,27 @@ git commit -m "feat: Next.js integration example — catch-all app.handler mount
 ## Task 14: TanStack Start integration example
 
 **Files:**
+
 - Create: `examples/tanstack-start/` — TanStack Start app
 - Create: `examples/tanstack-start/app/routes/api/$.ts`
 - Create: `examples/tanstack-start/package.json`, `tsconfig.json`, `app.config.ts`
 
 **Interfaces:**
+
 - Consumes: `createBunderstack` from `src/index.ts`
 - Produces: proof that `app.handler` mounts into TanStack Start via `createServerFileRoute`
 
 The catch-all route pattern:
+
 ```ts
 // app/routes/api/$.ts
 import { createServerFileRoute } from '@tanstack/start'
 import { app } from '../../../bunderstack'
 
 export const ServerRoute = createServerFileRoute('/api/$').methods({
-  GET:    ({ request }) => app.handler(request),
-  POST:   ({ request }) => app.handler(request),
-  PATCH:  ({ request }) => app.handler(request),
+  GET: ({ request }) => app.handler(request),
+  POST: ({ request }) => app.handler(request),
+  PATCH: ({ request }) => app.handler(request),
   DELETE: ({ request }) => app.handler(request),
 })
 ```
@@ -2005,9 +2206,9 @@ import { createServerFileRoute } from '@tanstack/start'
 import { app } from '../../../bunderstack'
 
 export const ServerRoute = createServerFileRoute('/api/$').methods({
-  GET:    ({ request }) => app.handler(request),
-  POST:   ({ request }) => app.handler(request),
-  PATCH:  ({ request }) => app.handler(request),
+  GET: ({ request }) => app.handler(request),
+  POST: ({ request }) => app.handler(request),
+  PATCH: ({ request }) => app.handler(request),
   DELETE: ({ request }) => app.handler(request),
 })
 ```
@@ -2041,11 +2242,19 @@ import { createFileRoute } from '@tanstack/react-router'
 export const Route = createFileRoute('/')({
   component: () => (
     <div>
-      <p>REST API available at <code>/api/*</code></p>
+      <p>
+        REST API available at <code>/api/*</code>
+      </p>
       <ul>
-        <li><code>GET  /api/health</code></li>
-        <li><code>GET  /api/posts</code></li>
-        <li><code>POST /api/posts</code></li>
+        <li>
+          <code>GET /api/health</code>
+        </li>
+        <li>
+          <code>GET /api/posts</code>
+        </li>
+        <li>
+          <code>POST /api/posts</code>
+        </li>
       </ul>
     </div>
   ),
@@ -2073,7 +2282,9 @@ export function createRouter() {
 }
 
 declare module '@tanstack/react-router' {
-  interface Register { router: ReturnType<typeof createRouter> }
+  interface Register {
+    router: ReturnType<typeof createRouter>
+  }
 }
 ```
 
@@ -2097,11 +2308,13 @@ git commit -m "feat: TanStack Start integration example — catch-all app.handle
 ## Task 15: Documentation website + technical landing page (Fumadocs)
 
 **Files:**
+
 - Create: `website/` — Next.js 15 + Fumadocs site
   - Landing page at `/`
   - Documentation at `/docs/**`
 
 **Interfaces:**
+
 - Consumes: nothing from the library code at runtime; documentation is static MDX content
 - Produces:
   - `website/` — a Next.js site using Fumadocs UI for docs, custom landing page at root
@@ -2109,6 +2322,7 @@ git commit -m "feat: TanStack Start integration example — catch-all app.handle
   - Built with `bun run build` inside `website/`
 
 Documentation sections (MDX files):
+
 - `index.mdx` — Introduction / Why Bunderstack
 - `getting-started.mdx` — Install, write schema, createBunderstack, run
 - `configuration.mdx` — All config options + env vars table
@@ -2120,6 +2334,7 @@ Documentation sections (MDX files):
 - `api-reference.mdx` — Full exported type surface
 
 Landing page sections:
+
 1. **Hero** — headline + one-liner + code snippet of `createBunderstack`
 2. **Why** — PocketBase pain points → Bunderstack's answer
 3. **Features grid** — 6 cards: CRUD, Auth, Storage, Thumbnails, Realtime (coming), Typed client (coming)
@@ -2195,8 +2410,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 - [ ] **Step 5: Create `website/app/globals.css`**
 
 ```css
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Geist Mono', 'JetBrains Mono', monospace; background: #0a0a0a; color: #e5e5e5; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: 'Geist Mono', 'JetBrains Mono', monospace;
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
 ```
 
 - [ ] **Step 6: Create the technical landing page `website/app/page.tsx`**
@@ -2231,49 +2456,160 @@ export const ServerRoute = createServerFileRoute('/api/$').methods({
 })`
 
 const features = [
-  { title: 'Auto CRUD',      desc: 'List, get, create, update, delete — generated from your Drizzle schema. Filter, paginate, sort.' },
-  { title: 'Auth built-in',  desc: 'BetterAuth under the hood. Email/password, OAuth, sessions — wired to your DB, zero config.' },
-  { title: 'File storage',   desc: 'Local filesystem or S3 (Bun.S3Client). Upload API, MIME validation, size limits.' },
-  { title: 'Thumbnails',     desc: 'On-the-fly image transforms via sharp. ?w=200&h=200&format=webp. Cached after first generate.' },
-  { title: 'Realtime',       desc: 'SSE subscriptions + broadcast-on-write. Typed events keyed to your schema. (Coming soon)' },
-  { title: 'Typed client',   desc: 'Codegen step emits a typed REST client. tRPC router + TanStack Query hooks. (Coming soon)' },
+  {
+    title: 'Auto CRUD',
+    desc: 'List, get, create, update, delete — generated from your Drizzle schema. Filter, paginate, sort.',
+  },
+  {
+    title: 'Auth built-in',
+    desc: 'BetterAuth under the hood. Email/password, OAuth, sessions — wired to your DB, zero config.',
+  },
+  {
+    title: 'File storage',
+    desc: 'Local filesystem or S3 (Bun.S3Client). Upload API, MIME validation, size limits.',
+  },
+  {
+    title: 'Thumbnails',
+    desc: 'On-the-fly image transforms via sharp. ?w=200&h=200&format=webp. Cached after first generate.',
+  },
+  {
+    title: 'Realtime',
+    desc: 'SSE subscriptions + broadcast-on-write. Typed events keyed to your schema. (Coming soon)',
+  },
+  {
+    title: 'Typed client',
+    desc: 'Codegen step emits a typed REST client. tRPC router + TanStack Query hooks. (Coming soon)',
+  },
 ]
 
 export default function HomePage() {
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '4rem 2rem' }}>
       {/* Nav */}
-      <nav style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6rem', fontSize: '0.875rem' }}>
-        <span style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1rem' }}>bunderstack</span>
+      <nav
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginBottom: '6rem',
+          fontSize: '0.875rem',
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            fontSize: '1rem',
+          }}
+        >
+          bunderstack
+        </span>
         <div style={{ display: 'flex', gap: '2rem' }}>
-          <Link href="/docs" style={{ color: '#a3a3a3', textDecoration: 'none' }}>Docs</Link>
-          <a href="https://github.com/bunderstack/bunderstack" style={{ color: '#a3a3a3', textDecoration: 'none' }}>GitHub</a>
+          <Link
+            href="/docs"
+            style={{ color: '#a3a3a3', textDecoration: 'none' }}
+          >
+            Docs
+          </Link>
+          <a
+            href="https://github.com/bunderstack/bunderstack"
+            style={{ color: '#a3a3a3', textDecoration: 'none' }}
+          >
+            GitHub
+          </a>
         </div>
       </nav>
 
       {/* Hero */}
       <header style={{ marginBottom: '5rem' }}>
-        <p style={{ color: '#a3a3a3', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem' }}>
+        <p
+          style={{
+            color: '#a3a3a3',
+            fontSize: '0.75rem',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: '1rem',
+          }}
+        >
           Bun · Drizzle · BetterAuth · Hono
         </p>
-        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: '1.5rem' }}>
-          The backend you assemble<br />
+        <h1
+          style={{
+            fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+            fontWeight: 800,
+            lineHeight: 1.1,
+            letterSpacing: '-0.03em',
+            marginBottom: '1.5rem',
+          }}
+        >
+          The backend you assemble
+          <br />
           <span style={{ color: '#6366f1' }}>every project.</span> Prebuilt.
         </h1>
-        <p style={{ color: '#a3a3a3', fontSize: '1.125rem', maxWidth: '600px', lineHeight: 1.6, marginBottom: '2.5rem' }}>
-          Give Bunderstack a Drizzle schema. Get auth, CRUD routes, file storage, and image thumbnails —
-          wired together and typed end to end. Mounts in TanStack Start, Next.js, or standalone Bun via a single
-          <code style={{ background: '#1a1a1a', padding: '0 0.3em', borderRadius: '3px' }}>Request → Response</code> handler.
+        <p
+          style={{
+            color: '#a3a3a3',
+            fontSize: '1.125rem',
+            maxWidth: '600px',
+            lineHeight: 1.6,
+            marginBottom: '2.5rem',
+          }}
+        >
+          Give Bunderstack a Drizzle schema. Get auth, CRUD routes, file
+          storage, and image thumbnails — wired together and typed end to end.
+          Mounts in TanStack Start, Next.js, or standalone Bun via a single
+          <code
+            style={{
+              background: '#1a1a1a',
+              padding: '0 0.3em',
+              borderRadius: '3px',
+            }}
+          >
+            Request → Response
+          </code>{' '}
+          handler.
         </p>
-        <pre style={{ background: '#111', border: '1px solid #222', borderRadius: '8px', padding: '1rem 1.25rem', fontSize: '0.875rem', marginBottom: '2rem', display: 'inline-block' }}>
+        <pre
+          style={{
+            background: '#111',
+            border: '1px solid #222',
+            borderRadius: '8px',
+            padding: '1rem 1.25rem',
+            fontSize: '0.875rem',
+            marginBottom: '2rem',
+            display: 'inline-block',
+          }}
+        >
           <code style={{ color: '#a3a3a3' }}>$ </code>
           <code>{INSTALL_CODE}</code>
         </pre>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <Link href="/docs/getting-started" style={{ background: '#6366f1', color: '#fff', padding: '0.625rem 1.5rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem' }}>
+          <Link
+            href="/docs/getting-started"
+            style={{
+              background: '#6366f1',
+              color: '#fff',
+              padding: '0.625rem 1.5rem',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+            }}
+          >
             Get Started →
           </Link>
-          <Link href="/docs" style={{ background: '#1a1a1a', color: '#e5e5e5', padding: '0.625rem 1.5rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '0.875rem', border: '1px solid #333' }}>
+          <Link
+            href="/docs"
+            style={{
+              background: '#1a1a1a',
+              color: '#e5e5e5',
+              padding: '0.625rem 1.5rem',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              border: '1px solid #333',
+            }}
+          >
             Documentation
           </Link>
         </div>
@@ -2281,24 +2617,82 @@ export default function HomePage() {
 
       {/* Quick start */}
       <section style={{ marginBottom: '5rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: '#a3a3a3', letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+        <h2
+          style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            marginBottom: '1rem',
+            color: '#a3a3a3',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+          }}
+        >
           Quick start
         </h2>
-        <pre style={{ background: '#111', border: '1px solid #222', borderRadius: '8px', padding: '1.5rem', fontSize: '0.8125rem', lineHeight: 1.7, overflowX: 'auto' }}>
+        <pre
+          style={{
+            background: '#111',
+            border: '1px solid #222',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            fontSize: '0.8125rem',
+            lineHeight: 1.7,
+            overflowX: 'auto',
+          }}
+        >
           <code>{QUICKSTART_CODE}</code>
         </pre>
       </section>
 
       {/* Features */}
       <section style={{ marginBottom: '5rem' }}>
-        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '2rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <h2
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            marginBottom: '2rem',
+            color: '#a3a3a3',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
           What you get
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1px', background: '#222', border: '1px solid #222', borderRadius: '8px', overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '1px',
+            background: '#222',
+            border: '1px solid #222',
+            borderRadius: '8px',
+            overflow: 'hidden',
+          }}
+        >
           {features.map((f) => (
-            <div key={f.title} style={{ background: '#0a0a0a', padding: '1.5rem' }}>
-              <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.9375rem' }}>{f.title}</h3>
-              <p style={{ color: '#737373', fontSize: '0.8125rem', lineHeight: 1.6 }}>{f.desc}</p>
+            <div
+              key={f.title}
+              style={{ background: '#0a0a0a', padding: '1.5rem' }}
+            >
+              <h3
+                style={{
+                  fontWeight: 700,
+                  marginBottom: '0.5rem',
+                  fontSize: '0.9375rem',
+                }}
+              >
+                {f.title}
+              </h3>
+              <p
+                style={{
+                  color: '#737373',
+                  fontSize: '0.8125rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                {f.desc}
+              </p>
             </div>
           ))}
         </div>
@@ -2306,7 +2700,16 @@ export default function HomePage() {
 
       {/* Framework portability */}
       <section style={{ marginBottom: '5rem' }}>
-        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '2rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <h2
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            marginBottom: '2rem',
+            color: '#a3a3a3',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
           One handler, every framework
         </h2>
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -2315,9 +2718,35 @@ export default function HomePage() {
             { label: 'Next.js App Router', code: NEXTJS_CODE },
             { label: 'TanStack Start', code: TANSTACK_CODE },
           ].map(({ label, code }) => (
-            <div key={label} style={{ border: '1px solid #222', borderRadius: '8px', overflow: 'hidden' }}>
-              <div style={{ background: '#111', padding: '0.5rem 1rem', fontSize: '0.75rem', color: '#737373', borderBottom: '1px solid #222' }}>{label}</div>
-              <pre style={{ background: '#0d0d0d', padding: '1.25rem', fontSize: '0.8125rem', lineHeight: 1.7, overflowX: 'auto', margin: 0 }}>
+            <div
+              key={label}
+              style={{
+                border: '1px solid #222',
+                borderRadius: '8px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  background: '#111',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.75rem',
+                  color: '#737373',
+                  borderBottom: '1px solid #222',
+                }}
+              >
+                {label}
+              </div>
+              <pre
+                style={{
+                  background: '#0d0d0d',
+                  padding: '1.25rem',
+                  fontSize: '0.8125rem',
+                  lineHeight: 1.7,
+                  overflowX: 'auto',
+                  margin: 0,
+                }}
+              >
                 <code>{code}</code>
               </pre>
             </div>
@@ -2326,29 +2755,102 @@ export default function HomePage() {
       </section>
 
       {/* Progressive disclosure */}
-      <section style={{ marginBottom: '5rem', border: '1px solid #222', borderRadius: '8px', padding: '2rem' }}>
-        <h2 style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#a3a3a3', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+      <section
+        style={{
+          marginBottom: '5rem',
+          border: '1px solid #222',
+          borderRadius: '8px',
+          padding: '2rem',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            marginBottom: '1.5rem',
+            color: '#a3a3a3',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
           You never hit a wall
         </h2>
         {[
-          { level: 'Level 0', desc: 'createBunderstack({ schema }) — working backend, zero ceremony' },
-          { level: 'Level 1', desc: 'Pass config: auth providers, storage target, access rules' },
-          { level: 'Level 2', desc: 'Reach into app.db, app.auth, app.storage, app.router' },
-          { level: 'Level 3', desc: 'Bypass Bunderstack for a route; write plain Hono + Drizzle' },
+          {
+            level: 'Level 0',
+            desc: 'createBunderstack({ schema }) — working backend, zero ceremony',
+          },
+          {
+            level: 'Level 1',
+            desc: 'Pass config: auth providers, storage target, access rules',
+          },
+          {
+            level: 'Level 2',
+            desc: 'Reach into app.db, app.auth, app.storage, app.router',
+          },
+          {
+            level: 'Level 3',
+            desc: 'Bypass Bunderstack for a route; write plain Hono + Drizzle',
+          },
         ].map(({ level, desc }) => (
-          <div key={level} style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', marginBottom: '1rem' }}>
-            <span style={{ color: '#6366f1', fontWeight: 700, fontSize: '0.8125rem', minWidth: '60px', paddingTop: '0.1rem' }}>{level}</span>
-            <span style={{ color: '#a3a3a3', fontSize: '0.875rem', lineHeight: 1.5 }}>{desc}</span>
+          <div
+            key={level}
+            style={{
+              display: 'flex',
+              gap: '1.5rem',
+              alignItems: 'flex-start',
+              marginBottom: '1rem',
+            }}
+          >
+            <span
+              style={{
+                color: '#6366f1',
+                fontWeight: 700,
+                fontSize: '0.8125rem',
+                minWidth: '60px',
+                paddingTop: '0.1rem',
+              }}
+            >
+              {level}
+            </span>
+            <span
+              style={{
+                color: '#a3a3a3',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+              }}
+            >
+              {desc}
+            </span>
           </div>
         ))}
       </section>
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid #222', paddingTop: '2rem', color: '#525252', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+      <footer
+        style={{
+          borderTop: '1px solid #222',
+          paddingTop: '2rem',
+          color: '#525252',
+          fontSize: '0.75rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+        }}
+      >
         <span>© 2026 Bunderstack</span>
         <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <Link href="/docs" style={{ color: '#525252', textDecoration: 'none' }}>Docs</Link>
-          <a href="https://github.com/bunderstack/bunderstack" style={{ color: '#525252', textDecoration: 'none' }}>GitHub</a>
+          <Link
+            href="/docs"
+            style={{ color: '#525252', textDecoration: 'none' }}
+          >
+            Docs
+          </Link>
+          <a
+            href="https://github.com/bunderstack/bunderstack"
+            style={{ color: '#525252', textDecoration: 'none' }}
+          >
+            GitHub
+          </a>
         </div>
       </footer>
     </div>
@@ -2378,11 +2880,20 @@ export default function Layout({ children }: { children: ReactNode }) {
 ```tsx
 import { getPage, getPages } from '@/lib/source'
 import type { Metadata } from 'next'
-import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/page'
+import {
+  DocsPage,
+  DocsBody,
+  DocsTitle,
+  DocsDescription,
+} from 'fumadocs-ui/page'
 import { notFound } from 'next/navigation'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 
-export default async function Page({ params }: { params: { slug?: string[] } }) {
+export default async function Page({
+  params,
+}: {
+  params: { slug?: string[] }
+}) {
   const page = getPage(params.slug)
   if (!page) notFound()
 
@@ -2403,7 +2914,11 @@ export async function generateStaticParams() {
   return getPages().map((page) => ({ slug: page.slugs }))
 }
 
-export async function generateMetadata({ params }: { params: { slug?: string[] } }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug?: string[] }
+}): Promise<Metadata> {
   const page = getPage(params.slug)
   if (!page) notFound()
   return { title: page.data.title, description: page.data.description }
@@ -2443,6 +2958,7 @@ export const { getPage, getPages } = source
 - [ ] **Step 11: Create documentation MDX files**
 
 `website/content/docs/index.mdx`:
+
 ```mdx
 ---
 title: Introduction
@@ -2471,7 +2987,8 @@ None of these are hidden. `app.db` is just Drizzle. `app.auth` is just BetterAut
 ```
 
 `website/content/docs/getting-started.mdx`:
-```mdx
+
+````mdx
 ---
 title: Getting Started
 description: Install Bunderstack and have a working backend in under 5 minutes
@@ -2484,6 +3001,7 @@ description: Install Bunderstack and have a working backend in under 5 minutes
 ```bash
 bun add bunderstack
 ```
+````
 
 ## Write your schema
 
@@ -2531,7 +3049,8 @@ bun run server.ts
 ```bash
 bunx drizzle-kit push
 ```
-```
+
+````
 
 `website/content/docs/configuration.mdx`:
 ```mdx
@@ -2565,21 +3084,22 @@ createBunderstack({
   storage?: { local: string | true }  // local path, or true for './uploads'
            | { s3: true | { endpoint?: string } }  // reads S3_* env vars
 })
-```
+````
 
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `file:./data.db` | libSQL connection string |
-| `DATABASE_AUTH_TOKEN` | — | Turso auth token |
-| `AUTH_SECRET` | `dev-secret-...` | BetterAuth secret — required in prod |
-| `S3_BUCKET` | — | S3 bucket name |
-| `S3_REGION` | `us-east-1` | S3 region |
-| `S3_ACCESS_KEY_ID` | — | S3 access key |
-| `S3_SECRET_ACCESS_KEY` | — | S3 secret key |
-| `S3_ENDPOINT` | — | Custom endpoint (R2, MinIO) |
-```
+| Variable               | Default          | Description                          |
+| ---------------------- | ---------------- | ------------------------------------ |
+| `DATABASE_URL`         | `file:./data.db` | libSQL connection string             |
+| `DATABASE_AUTH_TOKEN`  | —                | Turso auth token                     |
+| `AUTH_SECRET`          | `dev-secret-...` | BetterAuth secret — required in prod |
+| `S3_BUCKET`            | —                | S3 bucket name                       |
+| `S3_REGION`            | `us-east-1`      | S3 region                            |
+| `S3_ACCESS_KEY_ID`     | —                | S3 access key                        |
+| `S3_SECRET_ACCESS_KEY` | —                | S3 secret key                        |
+| `S3_ENDPOINT`          | —                | Custom endpoint (R2, MinIO)          |
+
+````
 
 `website/content/docs/crud.mdx`:
 ```mdx
@@ -2611,8 +3131,9 @@ curl -X POST /api/posts -H 'Content-Type: application/json' \
 # List with pagination
 curl '/api/posts?limit=10&offset=20'
 # → { items: [...], limit: 10, offset: 20 }
-```
-```
+````
+
+````
 
 `website/content/docs/auth.mdx`:
 ```mdx
@@ -2633,7 +3154,7 @@ createBunderstack({
   schema,
   auth: { emailPassword: true, secret: process.env.AUTH_SECRET },
 })
-```
+````
 
 ```bash
 # Sign up
@@ -2667,7 +3188,8 @@ createBunderstack({
 
 Your schema must include the BetterAuth tables. Copy them from `examples/standalone/schema.ts`:
 `user`, `session`, `account`, `verification`.
-```
+
+````
 
 `website/content/docs/storage.mdx`:
 ```mdx
@@ -2683,7 +3205,7 @@ description: File uploads, local filesystem and S3
 ```bash
 curl -X POST /files -F "file=@photo.jpg"
 # → 201 { fileId: "a1b2c3.jpg", url: "/files/a1b2c3.jpg" }
-```
+````
 
 ## Retrieve a file
 
@@ -2726,7 +3248,8 @@ createBunderstack({
   },
 })
 ```
-```
+
+````
 
 `website/content/docs/thumbnails.mdx`:
 ```mdx
@@ -2761,10 +3284,11 @@ and caches the variant; every subsequent request is served from cache.
 
 # AVIF at 80% quality
 /files/photo.jpg?format=avif&quality=80
-```
+````
 
 The transform cache key is `<fileId>__<hash(spec)>.<format>` stored alongside originals.
-```
+
+````
 
 `website/content/docs/framework-portability.mdx`:
 ```mdx
@@ -2783,16 +3307,16 @@ Every modern TypeScript framework knows how to call a fetch handler.
 ```ts
 import { app } from './bunderstack'
 Bun.serve({ fetch: app.handler })
-```
+````
 
 ## Next.js (App Router)
 
 ```ts
 // app/api/[...bunderstack]/route.ts
 import { app } from '@/bunderstack'
-export const GET    = (req: Request) => app.handler(req)
-export const POST   = (req: Request) => app.handler(req)
-export const PATCH  = (req: Request) => app.handler(req)
+export const GET = (req: Request) => app.handler(req)
+export const POST = (req: Request) => app.handler(req)
+export const PATCH = (req: Request) => app.handler(req)
 export const DELETE = (req: Request) => app.handler(req)
 ```
 
@@ -2803,9 +3327,9 @@ export const DELETE = (req: Request) => app.handler(req)
 import { createServerFileRoute } from '@tanstack/start'
 import { app } from '~/bunderstack'
 export const ServerRoute = createServerFileRoute('/api/$').methods({
-  GET:    ({ request }) => app.handler(request),
-  POST:   ({ request }) => app.handler(request),
-  PATCH:  ({ request }) => app.handler(request),
+  GET: ({ request }) => app.handler(request),
+  POST: ({ request }) => app.handler(request),
+  PATCH: ({ request }) => app.handler(request),
   DELETE: ({ request }) => app.handler(request),
 })
 ```
@@ -2816,7 +3340,8 @@ SSE needs a long-lived connection. On serverless (Vercel, Netlify),
 REST/auth/storage work perfectly via the fetch handler, but realtime
 requires a persistent runtime (Railway, Fly.io, Render, or a separate
 long-lived Bun process) or an external pub/sub (Upstash, Ably).
-```
+
+````
 
 `website/content/docs/api-reference.mdx`:
 ```mdx
@@ -2833,7 +3358,7 @@ description: Complete exported surface of Bunderstack
 function createBunderstack<TSchema extends Record<string, unknown>>(
   options: BunderstackConfig<TSchema>
 ): BunderstackApp<TSchema>
-```
+````
 
 ### BunderstackConfig
 
@@ -2859,10 +3384,10 @@ type BunderstackConfig<TSchema> = {
 ```ts
 type BunderstackApp<TSchema> = {
   handler: (req: Request) => Promise<Response>
-  db:      LibSQLDatabase<TSchema>   // raw Drizzle instance
-  auth:    Auth                       // raw BetterAuth instance
+  db: LibSQLDatabase<TSchema> // raw Drizzle instance
+  auth: Auth // raw BetterAuth instance
   storage: StorageAdapter
-  router:  Hono
+  router: Hono
 }
 ```
 
@@ -2870,7 +3395,11 @@ type BunderstackApp<TSchema> = {
 
 ```ts
 interface StorageAdapter {
-  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void>
   get(fileId: string): Promise<Response>
   delete(fileId: string): Promise<void>
   exists(fileId: string): Promise<boolean>
@@ -2881,8 +3410,8 @@ interface StorageAdapter {
 
 ```ts
 interface UploadRules {
-  allowedMimeTypes?: string[]   // e.g. ['image/jpeg', 'image/png']
-  maxSizeBytes?: number         // e.g. 5 * 1024 * 1024
+  allowedMimeTypes?: string[] // e.g. ['image/jpeg', 'image/png']
+  maxSizeBytes?: number // e.g. 5 * 1024 * 1024
 }
 ```
 
@@ -2897,7 +3426,8 @@ interface TransformSpec {
   quality?: number
 }
 ```
-```
+
+````
 
 - [ ] **Step 12: Create `website/content/docs/meta.json`**
 
@@ -2916,7 +3446,7 @@ interface TransformSpec {
     "api-reference"
   ]
 }
-```
+````
 
 - [ ] **Step 13: Install deps and build the website**
 
@@ -2938,6 +3468,7 @@ git commit -m "feat: Fumadocs documentation site + technical landing page"
 ## Task 16: Final verification pass — smoke tests across all examples
 
 **Files:**
+
 - Create: `scripts/smoke-test.sh` — runs all smoke tests in sequence
 - Create: `scripts/smoke-test-nextjs.sh` — Next.js-specific smoke tests
 
@@ -2946,6 +3477,7 @@ git commit -m "feat: Fumadocs documentation site + technical landing page"
 - [ ] **Step 1: Create `.gitignore` additions for example DBs and uploads**
 
 Add to `.gitignore`:
+
 ```
 examples/standalone/data.db
 examples/standalone/uploads/
@@ -2972,6 +3504,7 @@ Expected: `posts` + auth tables created in `examples/standalone/data.db`.
 - [ ] **Step 4: Start standalone server and run smoke tests**
 
 Start server in background:
+
 ```bash
 bun run examples/standalone/server.ts &
 SERVER_PID=$!
@@ -2979,6 +3512,7 @@ sleep 1
 ```
 
 Smoke tests:
+
 ```bash
 # Health
 curl -sf http://localhost:3001/health | grep -q '"status":"ok"' && echo "✅ health" || echo "❌ health"
@@ -3030,6 +3564,7 @@ cd website && bun run build
 ```
 
 Expected: all pages compile. Check key pages:
+
 ```bash
 ls website/.next/server/app/
 # should include: page.html, docs/page.html, docs/getting-started/page.html
@@ -3062,6 +3597,7 @@ Expected: all tests pass, output pristine.
 - [ ] **Step 9: Write a summary of what works, what's pending, and any known limitations**
 
 Create `STATUS.md` at the project root:
+
 ```markdown
 # Bunderstack POC — Status
 
@@ -3098,6 +3634,7 @@ git commit -m "feat: final verification pass — smoke tests, STATUS.md"
 ## Self-Review Checklist
 
 **Spec coverage:**
+
 - [x] `createBunderstack({ schema })` entry point — Task 5
 - [x] `app.handler (req) => Response` — Task 5
 - [x] `app.db` raw Drizzle — Task 5
@@ -3113,6 +3650,7 @@ git commit -m "feat: final verification pass — smoke tests, STATUS.md"
 - [x] TanStack Start / Next.js mount pattern documented in plan.md — shown in `app.handler` export
 
 **Not included in POC (post-MVP):**
+
 - Realtime / SSE (Phase 3)
 - Typed client codegen (Phase 4)
 - CLI (`bunderstack dev / db push` — users call `bunx drizzle-kit` directly)
@@ -3123,6 +3661,7 @@ git commit -m "feat: final verification pass — smoke tests, STATUS.md"
 **Placeholder scan:** No TBDs, no "implement later", no "similar to Task N" references found.
 
 **Type consistency:**
+
 - `buildCrudRouter` signature consistent between Task 4 and Task 5
 - `StorageAdapter` interface defined in Task 7, implemented in Task 8, consumed in Task 11 — names match
 - `TransformSpec`, `transformImage`, `parseTransformSpec`, `transformHash` defined in Task 10, imported in Task 11 — names match

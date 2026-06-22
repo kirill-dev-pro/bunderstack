@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/libsql'
 import { createClient } from '@libsql/client'
+import { drizzle } from 'drizzle-orm/libsql'
 
 export function createDb<TSchema extends Record<string, unknown>>(
   schema: TSchema,

@@ -24,7 +24,13 @@ export function Auth({
         >
           <label>
             Email
-            <input type="email" name="email" id="email" required autoComplete="email" />
+            <input
+              type="email"
+              name="email"
+              id="email"
+              required
+              autoComplete="email"
+            />
           </label>
           <label>
             Password

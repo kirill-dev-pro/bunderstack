@@ -1,7 +1,8 @@
-import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import * as React from 'react'
+import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
+import * as React from 'react'
+
 import { api, listParams, queryClient } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
@@ -11,7 +12,9 @@ import { UserAvatar } from '~/components/UserAvatar'
 export const Route = createFileRoute('/users/$userId')({
   loader: async ({ params }) => {
     try {
-      const profile = await queryClient.ensureQueryData(api.user.getQuery(params.userId))
+      const profile = await queryClient.ensureQueryData(
+        api.user.getQuery(params.userId),
+      )
       const [posts, follows, users, likes, retweets] = await Promise.all([
         queryClient.ensureQueryData(api.posts.listQuery(listParams)),
         queryClient.ensureQueryData(api.follows.listQuery(listParams)),
@@ -21,7 +24,8 @@ export const Route = createFileRoute('/users/$userId')({
       ])
       return { profile, posts, follows, users, likes, retweets }
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404) throw notFound()
+      if (err instanceof BunderstackApiError && err.status === 404)
+        throw notFound()
       throw err
     }
   },
@@ -62,8 +66,12 @@ function UserProfilePage() {
     [allPosts, userId],
   )
 
-  const followerCount = (follows.items ?? []).filter((f) => f.followingId === userId).length
-  const followingCount = (follows.items ?? []).filter((f) => f.followerId === userId).length
+  const followerCount = (follows.items ?? []).filter(
+    (f) => f.followingId === userId,
+  ).length
+  const followingCount = (follows.items ?? []).filter(
+    (f) => f.followerId === userId,
+  ).length
 
   if (!profile) {
     return (
@@ -76,16 +84,21 @@ function UserProfilePage() {
 
   return (
     <AppShell user={currentUser}>
-      <Link to="/" className="back-link">← Home</Link>
+      <Link to="/" className="back-link">
+        ← Home
+      </Link>
 
       <article className="card profile-card">
         <UserAvatar name={profile.name} image={profile.image} size={80} />
         <div className="profile-meta">
           <h1>{profile.name}</h1>
           <p>{profile.email}</p>
-          {profile.about ? <p className="profile-about">{profile.about}</p> : null}
+          {profile.about ? (
+            <p className="profile-about">{profile.about}</p>
+          ) : null}
           <p>
-            <strong>{followingCount}</strong> following · <strong>{followerCount}</strong> followers
+            <strong>{followingCount}</strong> following ·{' '}
+            <strong>{followerCount}</strong> followers
           </p>
           <div className="profile-actions">
             <FollowButton
@@ -94,7 +107,9 @@ function UserProfilePage() {
               follows={follows.items ?? []}
             />
             {currentUser?.id === profile.id ? (
-              <Link to="/profile" role="button" className="outline">Edit avatar</Link>
+              <Link to="/profile" role="button" className="outline">
+                Edit avatar
+              </Link>
             ) : null}
           </div>
         </div>
@@ -103,7 +118,9 @@ function UserProfilePage() {
       <section>
         <h2>Posts</h2>
         {userPosts.length === 0 ? (
-          <article className="card"><p>No posts yet.</p></article>
+          <article className="card">
+            <p>No posts yet.</p>
+          </article>
         ) : (
           <div className="feed-list feed-list--x">
             {userPosts.map((post) => (

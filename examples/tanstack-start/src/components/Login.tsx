@@ -1,10 +1,16 @@
-import { useRouter } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
+
 import { authClient } from '~/utils/auth-client'
 import { toast } from '~/utils/oat'
+
 import { Auth } from './Auth'
 
-function mutationStatus(isPending: boolean, isError: boolean, isSuccess: boolean) {
+function mutationStatus(
+  isPending: boolean,
+  isError: boolean,
+  isSuccess: boolean,
+) {
   if (isPending) return 'pending' as const
   if (isError) return 'error' as const
   if (isSuccess) return 'success' as const
@@ -17,7 +23,8 @@ export function Login() {
   const loginMutation = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
       const { error } = await authClient.signIn.email(data)
-      if (error) return { error: true, message: error.message ?? 'Login failed' }
+      if (error)
+        return { error: true, message: error.message ?? 'Login failed' }
       return { error: false, message: '' }
     },
     onSuccess: async (data) => {
@@ -36,8 +43,12 @@ export function Login() {
 
   const signupMutation = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
-      const { error } = await authClient.signUp.email({ ...data, name: data.email.split('@')[0] })
-      if (error) return { error: true, message: error.message ?? 'Signup failed' }
+      const { error } = await authClient.signUp.email({
+        ...data,
+        name: data.email.split('@')[0],
+      })
+      if (error)
+        return { error: true, message: error.message ?? 'Signup failed' }
       return { error: false, message: '' }
     },
     onSuccess: async (data) => {
@@ -57,7 +68,11 @@ export function Login() {
   return (
     <Auth
       actionText="Log in"
-      status={mutationStatus(loginMutation.isPending, loginMutation.isError, loginMutation.isSuccess)}
+      status={mutationStatus(
+        loginMutation.isPending,
+        loginMutation.isError,
+        loginMutation.isSuccess,
+      )}
       onSubmit={(e) => {
         const formData = new FormData(e.target as HTMLFormElement)
         loginMutation.mutate({

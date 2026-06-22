@@ -1,10 +1,17 @@
-import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { UserAvatar } from '~/components/UserAvatar'
+
+import { Link } from '@tanstack/react-router'
+
 import { SearchBox } from '~/components/SearchBox'
+import { UserAvatar } from '~/components/UserAvatar'
 
 type AppShellProps = {
-  user: { id: string; email: string; name: string; image?: string | null } | null
+  user: {
+    id: string
+    email: string
+    name: string
+    image?: string | null
+  } | null
   children: ReactNode
   aside?: ReactNode
   onCompose?: () => void
@@ -22,9 +29,13 @@ export function AppShell({ user, children, aside, onCompose }: AppShellProps) {
           {user ? (
             <>
               {onCompose ? (
-                <button type="button" onClick={onCompose}>Post</button>
+                <button type="button" onClick={onCompose}>
+                  Post
+                </button>
               ) : null}
-              <Link to="/users/$userId" params={{ userId: user.id }}>Profile</Link>
+              <Link to="/users/$userId" params={{ userId: user.id }}>
+                Profile
+              </Link>
               <Link to="/profile">Settings</Link>
               <div className="app-nav-user">
                 <UserAvatar name={user.name} image={user.image} size={32} />
@@ -45,8 +56,12 @@ export function AppShell({ user, children, aside, onCompose }: AppShellProps) {
         {aside ?? (
           <aside className="app-aside">
             <article className="card">
-              <header><h3>Demo</h3></header>
-              <p><code>bun run seed</code> — alice@example.com / password123</p>
+              <header>
+                <h3>Demo</h3>
+              </header>
+              <p>
+                <code>bun run seed</code> — alice@example.com / password123
+              </p>
             </article>
           </aside>
         )}

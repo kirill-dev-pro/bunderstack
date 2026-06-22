@@ -1,7 +1,13 @@
-import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 
-export const AUTH_TABLE_NAMES = new Set(['user', 'session', 'account', 'verification'])
+import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
+
+export const AUTH_TABLE_NAMES = new Set([
+  'user',
+  'session',
+  'account',
+  'verification',
+])
 
 const EXPOSEABLE_AUTH_TABLES = new Set(['user'])
 
@@ -61,10 +67,23 @@ export type ResolvedTableAccess = {
 
 export type ResolvedAccess = Map<string, ResolvedTableAccess>
 
-const DEFAULT_READONLY = ['id', 'createdAt', 'updatedAt', 'created_at', 'updated_at']
+const DEFAULT_READONLY = [
+  'id',
+  'createdAt',
+  'updatedAt',
+  'created_at',
+  'updated_at',
+]
 
-function getSchemaTables<TSchema extends Record<string, unknown>>(schema: TSchema) {
-  const tables: { key: string; table: SQLiteTable; name: string; columns: string[] }[] = []
+function getSchemaTables<TSchema extends Record<string, unknown>>(
+  schema: TSchema,
+) {
+  const tables: {
+    key: string
+    table: SQLiteTable
+    name: string
+    columns: string[]
+  }[] = []
   for (const [key, value] of Object.entries(schema)) {
     if (!isTable(value)) continue
     const table = value as SQLiteTable
@@ -75,7 +94,10 @@ function getSchemaTables<TSchema extends Record<string, unknown>>(schema: TSchem
   return tables
 }
 
-function resolveDefaults(input: TableAccessInput, ownerColumn?: string): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
+function resolveDefaults(
+  input: TableAccessInput,
+  ownerColumn?: string,
+): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
   return {
     ownerColumn,
     list: input.list ?? 'public',
@@ -84,18 +106,27 @@ function resolveDefaults(input: TableAccessInput, ownerColumn?: string): Omit<Re
     update: input.update ?? (ownerColumn ? 'owner' : 'deny'),
     delete: input.delete ?? (ownerColumn ? 'owner' : 'deny'),
     writableColumns: input.writableColumns,
-    readonlyColumns: [...DEFAULT_READONLY, ...(input.readonlyColumns ?? []), ...(ownerColumn ? [ownerColumn] : [])],
+    readonlyColumns: [
+      ...DEFAULT_READONLY,
+      ...(input.readonlyColumns ?? []),
+      ...(ownerColumn ? [ownerColumn] : []),
+    ],
     searchableColumns: input.searchableColumns,
   }
 }
 
-function detectOwnerColumn(columns: string[], input?: TableAccessInput): string | undefined {
+function detectOwnerColumn(
+  columns: string[],
+  input?: TableAccessInput,
+): string | undefined {
   if (input?.ownerColumn) return input.ownerColumn
   if (columns.includes('userId')) return 'userId'
   return undefined
 }
 
-export function validateAndResolveAccess<TSchema extends Record<string, unknown>>(
+export function validateAndResolveAccess<
+  TSchema extends Record<string, unknown>,
+>(
   schema: TSchema,
   accessInput?: Record<string, TableAccessInput>,
 ): ResolvedAccess {
@@ -106,7 +137,9 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
   if (accessInput) {
     for (const key of Object.keys(accessInput)) {
       if (!tableByKey.has(key)) {
-        throw new Error(`[bunderstack] access.${key} does not match any table in schema`)
+        throw new Error(
+          `[bunderstack] access.${key} does not match any table in schema`,
+        )
       }
       const tableName = tableByKey.get(key)!.name
       const input = accessInput[key]
@@ -130,7 +163,9 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
 
       const ownerColumn = input.ownerColumn ?? 'id'
       if (!columns.includes(ownerColumn)) {
-        throw new Error(`[bunderstack] access.${key}.ownerColumn "${ownerColumn}" is not a column on table "${name}"`)
+        throw new Error(
+          `[bunderstack] access.${key}.ownerColumn "${ownerColumn}" is not a column on table "${name}"`,
+        )
       }
 
       const defaults = resolveDefaults(
@@ -142,7 +177,9 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
         ownerColumn,
       )
 
-      const existingReadonly = defaults.readonlyColumns.filter((col) => columns.includes(col))
+      const existingReadonly = defaults.readonlyColumns.filter((col) =>
+        columns.includes(col),
+      )
       const resolvedReadonly = [...new Set(existingReadonly)]
 
       for (const col of [
@@ -151,7 +188,9 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
         ...resolvedReadonly,
       ]) {
         if (!columns.includes(col)) {
-          throw new Error(`[bunderstack] access.${key} references unknown column "${col}" on table "${name}"`)
+          throw new Error(
+            `[bunderstack] access.${key} references unknown column "${col}" on table "${name}"`,
+          )
         }
       }
 
@@ -167,17 +206,24 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
 
     const ownerColumn = detectOwnerColumn(columns, input)
     const hasExplicitRules = input !== undefined
-    const hasConventionOwner = ownerColumn !== undefined && input?.ownerColumn === undefined && columns.includes('userId')
+    const hasConventionOwner =
+      ownerColumn !== undefined &&
+      input?.ownerColumn === undefined &&
+      columns.includes('userId')
 
     if (!hasExplicitRules && !hasConventionOwner) continue
     if (!ownerColumn && input?.crud !== true) continue
 
     if (input?.ownerColumn && !columns.includes(input.ownerColumn)) {
-      throw new Error(`[bunderstack] access.${key}.ownerColumn "${input.ownerColumn}" is not a column on table "${name}"`)
+      throw new Error(
+        `[bunderstack] access.${key}.ownerColumn "${input.ownerColumn}" is not a column on table "${name}"`,
+      )
     }
 
     const defaults = resolveDefaults(input ?? {}, ownerColumn)
-    const existingReadonly = defaults.readonlyColumns.filter((col) => columns.includes(col))
+    const existingReadonly = defaults.readonlyColumns.filter((col) =>
+      columns.includes(col),
+    )
     const resolvedReadonly = [...new Set(existingReadonly)]
 
     for (const col of [
@@ -186,13 +232,19 @@ export function validateAndResolveAccess<TSchema extends Record<string, unknown>
       ...resolvedReadonly,
     ]) {
       if (!columns.includes(col)) {
-        throw new Error(`[bunderstack] access.${key} references unknown column "${col}" on table "${name}"`)
+        throw new Error(
+          `[bunderstack] access.${key} references unknown column "${col}" on table "${name}"`,
+        )
       }
     }
 
-    const needsOwner = [defaults.update, defaults.delete].some((r) => r === 'owner')
+    const needsOwner = [defaults.update, defaults.delete].some(
+      (r) => r === 'owner',
+    )
     if (needsOwner && !ownerColumn) {
-      throw new Error(`[bunderstack] access.${key} requires ownerColumn for owner-based update/delete rules`)
+      throw new Error(
+        `[bunderstack] access.${key} requires ownerColumn for owner-based update/delete rules`,
+      )
     }
 
     resolved.set(key, {
@@ -223,7 +275,9 @@ export async function checkAccess(
   if (rule === 'deny') return { allowed: false, status: 403 }
 
   if (typeof rule === 'function') {
-    return (await rule(ctx)) ? { allowed: true, status: 403 } : { allowed: false, status: 403 }
+    return (await rule(ctx))
+      ? { allowed: true, status: 403 }
+      : { allowed: false, status: 403 }
   }
 
   if (rule === 'public') return { allowed: true, status: 403 }
@@ -254,7 +308,8 @@ export function sanitizeWriteBody(
 
   for (const [key, value] of Object.entries(body)) {
     if (readonly.has(key)) continue
-    if (access.writableColumns && !access.writableColumns.includes(key)) continue
+    if (access.writableColumns && !access.writableColumns.includes(key))
+      continue
     out[key] = value
   }
 

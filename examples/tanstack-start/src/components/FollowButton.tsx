@@ -1,4 +1,5 @@
 import * as React from 'react'
+
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 
@@ -8,11 +9,18 @@ type FollowButtonProps = {
   follows: Array<{ id: number; followerId: string; followingId: string }>
 }
 
-export function FollowButton({ currentUserId, targetUserId, follows }: FollowButtonProps) {
+export function FollowButton({
+  currentUserId,
+  targetUserId,
+  follows,
+}: FollowButtonProps) {
   const existing = React.useMemo(
     () =>
       currentUserId
-        ? follows.find((f) => f.followerId === currentUserId && f.followingId === targetUserId)
+        ? follows.find(
+            (f) =>
+              f.followerId === currentUserId && f.followingId === targetUserId,
+          )
         : undefined,
     [currentUserId, follows, targetUserId],
   )

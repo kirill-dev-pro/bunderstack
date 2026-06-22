@@ -9,7 +9,7 @@ description: Complete exported surface of Bunderstack
 
 ```ts
 function createBunderstack<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema>
+  options: BunderstackConfig<TSchema>,
 ): BunderstackApp<TSchema>
 ```
 
@@ -37,10 +37,10 @@ type BunderstackConfig<TSchema> = {
 ```ts
 type BunderstackApp<TSchema> = {
   handler: (req: Request) => Promise<Response>
-  db:      LibSQLDatabase<TSchema>
-  auth:    Auth
+  db: LibSQLDatabase<TSchema>
+  auth: Auth
   storage: StorageAdapter
-  router:  Hono
+  router: Hono
 }
 ```
 
@@ -48,7 +48,11 @@ type BunderstackApp<TSchema> = {
 
 ```ts
 interface StorageAdapter {
-  upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void>
+  upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void>
   get(fileId: string): Promise<Response>
   delete(fileId: string): Promise<void>
   exists(fileId: string): Promise<boolean>
@@ -68,7 +72,8 @@ interface UploadRules {
 
 ```ts
 interface TransformSpec {
-  w?: number; h?: number
+  w?: number
+  h?: number
   fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
   format?: 'webp' | 'jpeg' | 'png' | 'avif'
   quality?: number

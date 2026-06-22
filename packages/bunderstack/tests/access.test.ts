@@ -1,6 +1,12 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
-import { defineAccess, validateAndResolveAccess, checkAccess, AUTH_TABLE_NAMES } from '../src/access'
+
+import {
+  defineAccess,
+  validateAndResolveAccess,
+  checkAccess,
+  AUTH_TABLE_NAMES,
+} from '../src/access'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -65,14 +71,21 @@ test('validateAndResolveAccess allows exposed user table', () => {
 })
 
 test('defineAccess validates and returns rules', () => {
-  const rules = defineAccess({ posts }, { posts: { ownerColumn: 'userId', list: 'authenticated' } })
+  const rules = defineAccess(
+    { posts },
+    { posts: { ownerColumn: 'userId', list: 'authenticated' } },
+  )
   expect(rules.posts.list).toBe('authenticated')
 })
 
 test('checkAccess owner rule allows matching user', async () => {
   const result = await checkAccess(
     'owner',
-    { user: { id: 'u1', email: 'a@b.com' }, request: new Request('http://x'), row: { userId: 'u1' } },
+    {
+      user: { id: 'u1', email: 'a@b.com' },
+      request: new Request('http://x'),
+      row: { userId: 'u1' },
+    },
     'userId',
   )
   expect(result.allowed).toBe(true)
@@ -81,7 +94,11 @@ test('checkAccess owner rule allows matching user', async () => {
 test('checkAccess owner rule denies non-owner', async () => {
   const result = await checkAccess(
     'owner',
-    { user: { id: 'u1', email: 'a@b.com' }, request: new Request('http://x'), row: { userId: 'u2' } },
+    {
+      user: { id: 'u1', email: 'a@b.com' },
+      request: new Request('http://x'),
+      row: { userId: 'u2' },
+    },
     'userId',
   )
   expect(result.allowed).toBe(false)
@@ -89,7 +106,10 @@ test('checkAccess owner rule denies non-owner', async () => {
 })
 
 test('checkAccess authenticated requires session', async () => {
-  const denied = await checkAccess('authenticated', { user: null, request: new Request('http://x') })
+  const denied = await checkAccess('authenticated', {
+    user: null,
+    request: new Request('http://x'),
+  })
   expect(denied.allowed).toBe(false)
   expect(denied.status).toBe(401)
 })

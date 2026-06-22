@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createBunderstackQueryClient } from 'bunderstack-query'
+
 import type * as schema from './schema'
 
 export const queryClient = new QueryClient({

@@ -22,7 +22,11 @@ export class S3StorageAdapter implements StorageAdapter {
     })
   }
 
-  async upload(fileId: string, data: Blob | ArrayBuffer, contentType: string): Promise<void> {
+  async upload(
+    fileId: string,
+    data: Blob | ArrayBuffer,
+    contentType: string,
+  ): Promise<void> {
     const bytes = data instanceof Blob ? await data.arrayBuffer() : data
     await this.client.write(fileId, bytes, { type: contentType })
   }

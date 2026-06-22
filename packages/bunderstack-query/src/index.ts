@@ -1,7 +1,10 @@
-import { validateAndResolveAccess, type TableAccessInput } from 'bunderstack/access'
 import type { QueryClient } from '@tanstack/react-query'
-import { attachMutationOptions } from './mutation-options.ts'
-import { createTableClient } from './table-client.ts'
+
+import {
+  validateAndResolveAccess,
+  type TableAccessInput,
+} from 'bunderstack/access'
+
 import type {
   BunderstackQueryClient,
   CrudTableKey,
@@ -9,6 +12,9 @@ import type {
   InferSelect,
   TableQueryOptions,
 } from './types.ts'
+
+import { attachMutationOptions } from './mutation-options.ts'
+import { createTableClient } from './table-client.ts'
 
 type BaseOptions = {
   baseUrl?: string
@@ -66,7 +72,11 @@ export function createBunderstackQueryClient<
       const client = {} as BunderstackQueryClient<TSchema, TTables[number]>
 
       for (const tableKey of options.tables) {
-        const tableClient = createTableClient({ tableName: tableKey, baseUrl, fetch: fetchFn })
+        const tableClient = createTableClient({
+          tableName: tableKey,
+          baseUrl,
+          fetch: fetchFn,
+        })
         ;(client as Record<string, unknown>)[tableKey] = {
           ...tableClient,
           ...attachMutationOptions(tableClient, options.queryClient),
@@ -93,7 +103,11 @@ export function createBunderstackQueryClient<
       const baseUrl = options.baseUrl ?? '/api'
       const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
       const client = {} as BunderstackQueryClient<S, CrudTableKey<S>>
-      const config = { baseUrl, fetch: fetchFn, queryClient: options.queryClient }
+      const config = {
+        baseUrl,
+        fetch: fetchFn,
+        queryClient: options.queryClient,
+      }
 
       const resolved = validateAndResolveAccess(options.schema, options.access)
       for (const [tableKey, tableAccess] of resolved) {

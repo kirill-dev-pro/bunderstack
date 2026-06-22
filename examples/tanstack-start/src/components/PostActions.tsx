@@ -1,5 +1,6 @@
-import * as React from 'react'
 import { Link } from '@tanstack/react-router'
+import * as React from 'react'
+
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 
@@ -25,19 +26,31 @@ export function PostActions({
     [likes, postId, currentUserId],
   )
   const myRt = React.useMemo(
-    () => retweets.find((r) => r.postId === postId && r.userId === currentUserId),
+    () =>
+      retweets.find((r) => r.postId === postId && r.userId === currentUserId),
     [retweets, postId, currentUserId],
   )
   const likeCount = likes.filter((r) => r.postId === postId).length
   const rtCount = retweets.filter((r) => r.postId === postId).length
 
-  const likeCreate = useToastMutation(api.likes.createMutation({ errorMessage: 'Could not like' }))
-  const likeDelete = useToastMutation(api.likes.deleteMutation({ errorMessage: 'Could not unlike' }))
-  const rtCreate = useToastMutation(api.retweets.createMutation({ errorMessage: 'Could not repost' }))
-  const rtDelete = useToastMutation(api.retweets.deleteMutation({ errorMessage: 'Could not undo repost' }))
+  const likeCreate = useToastMutation(
+    api.likes.createMutation({ errorMessage: 'Could not like' }),
+  )
+  const likeDelete = useToastMutation(
+    api.likes.deleteMutation({ errorMessage: 'Could not unlike' }),
+  )
+  const rtCreate = useToastMutation(
+    api.retweets.createMutation({ errorMessage: 'Could not repost' }),
+  )
+  const rtDelete = useToastMutation(
+    api.retweets.deleteMutation({ errorMessage: 'Could not undo repost' }),
+  )
 
   const pending =
-    likeCreate.isPending || likeDelete.isPending || rtCreate.isPending || rtDelete.isPending
+    likeCreate.isPending ||
+    likeDelete.isPending ||
+    rtCreate.isPending ||
+    rtDelete.isPending
 
   const replyTo = `/posts/${postId}`
 

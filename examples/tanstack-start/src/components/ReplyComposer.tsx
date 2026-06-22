@@ -1,5 +1,6 @@
-import * as React from 'react'
 import { Link } from '@tanstack/react-router'
+import * as React from 'react'
+
 import { api } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
@@ -11,7 +12,12 @@ type ReplyComposerProps = {
   onPosted?: () => void
 }
 
-export function ReplyComposer({ user, replyToId, placeholder, onPosted }: ReplyComposerProps) {
+export function ReplyComposer({
+  user,
+  replyToId,
+  placeholder,
+  onPosted,
+}: ReplyComposerProps) {
   const [body, setBody] = React.useState('')
 
   const createMutation = useToastMutation(
@@ -55,7 +61,10 @@ export function ReplyComposer({ user, replyToId, placeholder, onPosted }: ReplyC
           onChange={(e) => setBody(e.target.value)}
           placeholder={placeholder ?? 'Post your reply'}
         />
-        <button type="submit" disabled={createMutation.isPending || !body.trim()}>
+        <button
+          type="submit"
+          disabled={createMutation.isPending || !body.trim()}
+        >
           {createMutation.isPending ? 'Posting…' : 'Reply'}
         </button>
       </div>

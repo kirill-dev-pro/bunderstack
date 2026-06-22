@@ -1,7 +1,8 @@
 // tests/storage/local.test.ts
 import { test, expect, afterAll } from 'bun:test'
-import { LocalStorageAdapter } from '../../src/storage/local'
 import { rmSync } from 'node:fs'
+
+import { LocalStorageAdapter } from '../../src/storage/local'
 
 const basePath = './.test-uploads'
 

@@ -1,5 +1,6 @@
 // examples/standalone/server.ts
 import { createBunderstackAsync } from 'bunderstack'
+
 import * as schema from './schema'
 
 const app = await createBunderstackAsync({

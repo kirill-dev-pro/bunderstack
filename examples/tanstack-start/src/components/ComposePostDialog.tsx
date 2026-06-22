@@ -1,8 +1,14 @@
-import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { uploadFile, fileIdFromUrl, thumbnailUrl, type UploadedFile } from '~/components/ImageUpload'
-import { UserAvatar } from '~/components/UserAvatar'
+import * as React from 'react'
+
 import { api } from '~/api-client'
+import {
+  uploadFile,
+  fileIdFromUrl,
+  thumbnailUrl,
+  type UploadedFile,
+} from '~/components/ImageUpload'
+import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { closeDialog, showDialog, toast } from '~/utils/oat'
 
@@ -13,7 +19,12 @@ type ComposePostDialogProps = {
   onPosted?: () => void
 }
 
-export function ComposePostDialog({ dialogRef, user, replyToId, onPosted }: ComposePostDialogProps) {
+export function ComposePostDialog({
+  dialogRef,
+  user,
+  replyToId,
+  onPosted,
+}: ComposePostDialogProps) {
   const [body, setBody] = React.useState('')
   const [imageUrl, setImageUrl] = React.useState<string | null>(null)
   const [uploading, setUploading] = React.useState(false)
@@ -82,10 +93,18 @@ export function ComposePostDialog({ dialogRef, user, replyToId, onPosted }: Comp
           {previewFileId ? (
             <figure className="compose-preview">
               <img
-                src={thumbnailUrl(previewFileId, { w: 320, h: 200, format: 'webp' })}
+                src={thumbnailUrl(previewFileId, {
+                  w: 320,
+                  h: 200,
+                  format: 'webp',
+                })}
                 alt="Attachment preview"
               />
-              <button type="button" className="outline small" onClick={() => setImageUrl(null)}>
+              <button
+                type="button"
+                className="outline small"
+                onClick={() => setImageUrl(null)}
+              >
                 Remove image
               </button>
             </figure>
@@ -105,7 +124,9 @@ export function ComposePostDialog({ dialogRef, user, replyToId, onPosted }: Comp
                 setImageUrl(uploaded.url)
                 toast.success('Image attached')
               } catch (err) {
-                toast.error(err instanceof Error ? err.message : 'Upload failed')
+                toast.error(
+                  err instanceof Error ? err.message : 'Upload failed',
+                )
               } finally {
                 setUploading(false)
                 if (fileInputRef.current) fileInputRef.current.value = ''
@@ -124,10 +145,17 @@ export function ComposePostDialog({ dialogRef, user, replyToId, onPosted }: Comp
             {uploading ? 'Uploading…' : 'Attach image'}
           </button>
           <div>
-            <button type="button" className="outline" onClick={() => closeDialog(dialogRef.current)}>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => closeDialog(dialogRef.current)}
+            >
               Cancel
             </button>
-            <button type="submit" disabled={createMutation.isPending || uploading}>
+            <button
+              type="submit"
+              disabled={createMutation.isPending || uploading}
+            >
               {createMutation.isPending ? 'Posting…' : 'Post'}
             </button>
           </div>

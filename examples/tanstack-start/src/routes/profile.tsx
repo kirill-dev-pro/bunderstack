@@ -1,9 +1,10 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import * as React from 'react'
+
+import { api } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { ImageUpload, thumbnailUrl } from '~/components/ImageUpload'
-import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 
 export const Route = createFileRoute('/profile')({
@@ -41,20 +42,28 @@ function ProfilePage() {
 
   if (!user) return null
 
-  const avatarFileId = user.image?.replace(/^\/api\/files\//, '').split('?')[0] ?? null
+  const avatarFileId =
+    user.image?.replace(/^\/api\/files\//, '').split('?')[0] ?? null
 
   return (
     <AppShell user={user}>
       <header>
         <h1>Profile settings</h1>
-        <p>Update your avatar and bio — searchable via <code>GET /api/user?q=</code>.</p>
+        <p>
+          Update your avatar and bio — searchable via{' '}
+          <code>GET /api/user?q=</code>.
+        </p>
       </header>
 
       <article className="card vstack">
         <div className="profile-card">
           {avatarFileId ? (
             <img
-              src={thumbnailUrl(avatarFileId, { w: 128, h: 128, format: 'webp' })}
+              src={thumbnailUrl(avatarFileId, {
+                w: 128,
+                h: 128,
+                format: 'webp',
+              })}
               alt="Avatar"
               width={128}
               height={128}
@@ -68,7 +77,10 @@ function ProfilePage() {
             <ImageUpload
               label="Avatar"
               onUploaded={async (file) => {
-                await avatarMutation.mutateAsync({ id: user.id, data: { image: file.url } })
+                await avatarMutation.mutateAsync({
+                  id: user.id,
+                  data: { image: file.url },
+                })
               }}
               disabled={avatarMutation.isPending}
             />
@@ -78,7 +90,9 @@ function ProfilePage() {
                 data-variant="danger"
                 className="outline"
                 disabled={avatarMutation.isPending}
-                onClick={() => avatarMutation.mutate({ id: user.id, data: { image: null } })}
+                onClick={() =>
+                  avatarMutation.mutate({ id: user.id, data: { image: null } })
+                }
               >
                 Remove avatar
               </button>

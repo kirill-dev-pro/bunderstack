@@ -3,6 +3,7 @@
  * Run: bun run seed
  */
 import { createBunderstackAsync, eq } from 'bunderstack'
+
 import { access } from '../src/access'
 import * as schema from '../src/schema'
 import { follows, likes, posts, retweets, user } from '../src/schema'
@@ -14,7 +15,8 @@ const SEED_USERS = [
     name: 'Alice Chen',
     email: 'alice@example.com',
     image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alice',
-    about: 'Core maintainer. Drizzle schema → auto-CRUD. Search: access control',
+    about:
+      'Core maintainer. Drizzle schema → auto-CRUD. Search: access control',
   },
   {
     name: 'Bob Rivera',
@@ -30,7 +32,11 @@ const SEED_USERS = [
   },
 ] as const
 
-const EDUCATIONAL_POSTS: Array<{ author: (typeof SEED_USERS)[number]['email']; title: string; body: string }> = [
+const EDUCATIONAL_POSTS: Array<{
+  author: (typeof SEED_USERS)[number]['email']
+  title: string
+  body: string
+}> = [
   {
     author: 'alice@example.com',
     title: 'Schema-first auto-CRUD',
@@ -142,7 +148,11 @@ for (const seedUser of SEED_USERS) {
 
   await app.db
     .update(user)
-    .set({ image: seedUser.image, about: seedUser.about, updatedAt: new Date() })
+    .set({
+      image: seedUser.image,
+      about: seedUser.about,
+      updatedAt: new Date(),
+    })
     .where(eq(user.id, userId))
 }
 
@@ -170,12 +180,20 @@ const bobId = userIds.get('bob@example.com')
 const carolId = userIds.get('carol@example.com')
 
 if (aliceId && bobId) {
-  await app.db.insert(follows).values({ followerId: aliceId, followingId: bobId })
-  await app.db.insert(follows).values({ followerId: bobId, followingId: aliceId })
+  await app.db
+    .insert(follows)
+    .values({ followerId: aliceId, followingId: bobId })
+  await app.db
+    .insert(follows)
+    .values({ followerId: bobId, followingId: aliceId })
 }
 if (aliceId && carolId) {
-  await app.db.insert(follows).values({ followerId: aliceId, followingId: carolId })
-  await app.db.insert(follows).values({ followerId: carolId, followingId: aliceId })
+  await app.db
+    .insert(follows)
+    .values({ followerId: aliceId, followingId: carolId })
+  await app.db
+    .insert(follows)
+    .values({ followerId: carolId, followingId: aliceId })
 }
 
 if (bobId && postIds[0]) {

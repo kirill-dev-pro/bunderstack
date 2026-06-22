@@ -31,11 +31,11 @@ bun run --cwd examples/nextjs db:push
 
 Use separate terminals — each binds a different port.
 
-| Example | Command | URL |
-|---------|---------|-----|
+| Example                | Command                                   | URL                   |
+| ---------------------- | ----------------------------------------- | --------------------- |
 | Standalone (Bun.serve) | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
-| TanStack Start | `bun run dev:tanstack` | http://localhost:3000 |
-| Next.js | `bun run dev:nextjs` | http://localhost:3002 |
+| TanStack Start         | `bun run dev:tanstack`                    | http://localhost:3000 |
+| Next.js                | `bun run dev:nextjs`                      | http://localhost:3002 |
 
 ### Standalone
 
@@ -62,12 +62,12 @@ bun run --cwd examples/tanstack-start seed   # once
 
 Demo accounts (password `password123`): `alice@example.com`, `bob@example.com`, `carol@example.com`
 
-| Route | Purpose |
-|-------|---------|
-| `/` | Feed — For you / Following tabs, compose, comments |
-| `/users/:id` | Profile, follow, posts |
-| `/profile` | Avatar upload (auth required) |
-| `/login`, `/signup` | BetterAuth |
+| Route               | Purpose                                            |
+| ------------------- | -------------------------------------------------- |
+| `/`                 | Feed — For you / Following tabs, compose, comments |
+| `/users/:id`        | Profile, follow, posts                             |
+| `/profile`          | Avatar upload (auth required)                      |
+| `/login`, `/signup` | BetterAuth                                         |
 
 ### Next.js
 
@@ -116,8 +116,8 @@ useMutation(api.posts.createMutation())
 
 ## Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd) |
-| `AUTH_SECRET` | dev default | BetterAuth secret |
-| `NODE_ENV` | — | `production` disables auto schema provisioning |
+| Variable       | Default          | Description                                    |
+| -------------- | ---------------- | ---------------------------------------------- |
+| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                  |
+| `AUTH_SECRET`  | dev default      | BetterAuth secret                              |
+| `NODE_ENV`     | —                | `production` disables auto schema provisioning |

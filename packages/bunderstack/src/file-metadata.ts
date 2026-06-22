@@ -1,4 +1,5 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
 import type { OperationRule } from './access.ts'
 
 const META_TABLE = 'bunderstack_file_meta'
@@ -15,7 +16,9 @@ export const DEFAULT_STORAGE_ACCESS: Required<StorageAccessConfig> = {
   delete: 'owner',
 }
 
-export async function ensureFileMetaTable(db: LibSQLDatabase<Record<string, unknown>>): Promise<void> {
+export async function ensureFileMetaTable(
+  db: LibSQLDatabase<Record<string, unknown>>,
+): Promise<void> {
   await db.$client.execute(
     `CREATE TABLE IF NOT EXISTS ${META_TABLE} (
       file_id TEXT PRIMARY KEY,

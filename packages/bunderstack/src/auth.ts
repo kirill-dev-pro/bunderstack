@@ -1,7 +1,9 @@
+import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
 // src/auth.ts
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
 import type { ResolvedConfig } from './config.ts'
 
 export function createAuth(
@@ -14,10 +16,16 @@ export function createAuth(
     secret: cfg.secret,
     socialProviders: {
       ...(cfg.providers.github && {
-        github: { clientId: cfg.providers.github.clientId, clientSecret: cfg.providers.github.clientSecret },
+        github: {
+          clientId: cfg.providers.github.clientId,
+          clientSecret: cfg.providers.github.clientSecret,
+        },
       }),
       ...(cfg.providers.google && {
-        google: { clientId: cfg.providers.google.clientId, clientSecret: cfg.providers.google.clientSecret },
+        google: {
+          clientId: cfg.providers.google.clientId,
+          clientSecret: cfg.providers.google.clientSecret,
+        },
       }),
     },
   })

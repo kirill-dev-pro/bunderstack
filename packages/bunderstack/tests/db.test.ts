@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test'
-import { createDb } from '../src/db'
+
 import { posts } from '../../../examples/standalone/schema'
+import { createDb } from '../src/db'
 
 test('createDb returns a working Drizzle instance against in-memory SQLite', async () => {
   const db = createDb({ posts }, { url: ':memory:' })
@@ -13,7 +14,7 @@ test('createDb returns a working Drizzle instance against in-memory SQLite', asy
       body TEXT,
       author_id TEXT,
       created_at INTEGER
-    )`
+    )`,
   )
 
   const inserted = await db.insert(posts).values({ title: 'Hello' }).returning()

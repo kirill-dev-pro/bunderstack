@@ -8,7 +8,10 @@ export interface TransformSpec {
   quality?: number
 }
 
-export async function transformImage(input: Buffer, spec: TransformSpec): Promise<Buffer> {
+export async function transformImage(
+  input: Buffer,
+  spec: TransformSpec,
+): Promise<Buffer> {
   let img = new Bun.Image(input)
 
   if (spec.w !== undefined && spec.h !== undefined) {
@@ -21,18 +24,27 @@ export async function transformImage(input: Buffer, spec: TransformSpec): Promis
 
   const q = spec.quality
   switch (spec.format) {
-    case 'webp': return img.webp({ quality: q }).buffer()
-    case 'png':  return img.png().buffer()
-    case 'avif': return img.avif({ quality: q }).buffer()
-    default:     return img.jpeg({ quality: q }).buffer()
+    case 'webp':
+      return img.webp({ quality: q }).buffer()
+    case 'png':
+      return img.png().buffer()
+    case 'avif':
+      return img.avif({ quality: q }).buffer()
+    default:
+      return img.jpeg({ quality: q }).buffer()
   }
 }
 
 export function transformHash(spec: TransformSpec): string {
-  return createHash('sha256').update(JSON.stringify(spec)).digest('hex').slice(0, 16)
+  return createHash('sha256')
+    .update(JSON.stringify(spec))
+    .digest('hex')
+    .slice(0, 16)
 }
 
-export function parseTransformSpec(query: Record<string, string>): TransformSpec | null {
+export function parseTransformSpec(
+  query: Record<string, string>,
+): TransformSpec | null {
   const { w, h, fit, format, quality } = query
   if (!w && !h && !fit && !format && !quality) return null
 

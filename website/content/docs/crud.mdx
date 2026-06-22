@@ -10,26 +10,27 @@ For tables that opt into auto-CRUD, Bunderstack generates secured REST routes.
 **Auth tables** (`user`, `session`, `account`, `verification`) are never exposed.
 
 **Other tables** require either:
+
 - a `userId` column (convention — owner-scoped update/delete), or
 - explicit `access` rules in `createBunderstack`.
 
 ## Default rules (when `userId` or `ownerColumn` is set)
 
-| Operation | Default |
-|-----------|---------|
-| `GET` list / by id | Public |
-| `POST` create | Public — owner column is **server-set** from session, never trusted from body |
-| `PATCH` / `DELETE` | Owner only |
+| Operation          | Default                                                                       |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `GET` list / by id | Public                                                                        |
+| `POST` create      | Public — owner column is **server-set** from session, never trusted from body |
+| `PATCH` / `DELETE` | Owner only                                                                    |
 
 ## Routes
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/:table` | List — `?limit=20&offset=0` |
-| `GET` | `/api/:table/:id` | Get by id |
-| `POST` | `/api/:table` | Create (body: JSON) |
-| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
-| `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
+| Method   | Path              | Description                 |
+| -------- | ----------------- | --------------------------- |
+| `GET`    | `/api/:table`     | List — `?limit=20&offset=0` |
+| `GET`    | `/api/:table/:id` | Get by id                   |
+| `POST`   | `/api/:table`     | Create (body: JSON)         |
+| `PATCH`  | `/api/:table/:id` | Update (body: JSON)         |
+| `DELETE` | `/api/:table/:id` | Delete — 204 No Content     |
 
 ## Access configuration
 
@@ -46,7 +47,11 @@ export const access = defineAccess(schema, {
   },
 })
 
-export const app = createBunderstack({ schema, auth: { emailPassword: true }, access })
+export const app = createBunderstack({
+  schema,
+  auth: { emailPassword: true },
+  access,
+})
 ```
 
 ### Rule values

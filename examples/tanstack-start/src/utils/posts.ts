@@ -1,4 +1,5 @@
 import type { InferSelect } from 'bunderstack-query'
+
 import type { posts } from '~/schema'
 
 export type Post = InferSelect<typeof posts>

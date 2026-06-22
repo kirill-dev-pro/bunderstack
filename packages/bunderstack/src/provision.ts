@@ -1,10 +1,14 @@
+import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 export type ProvisionMode = boolean | 'auto'
 
-export function shouldProvision(mode: ProvisionMode | undefined, force?: boolean): boolean {
+export function shouldProvision(
+  mode: ProvisionMode | undefined,
+  force?: boolean,
+): boolean {
   if (force) return true
   const resolved = mode ?? 'auto'
   if (resolved === false) return false
@@ -34,7 +38,11 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
   const { pushSQLiteSchema } = await import('drizzle-kit/api')
   const result = await pushSQLiteSchema(schema, db)
 
-  if (result.hasDataLoss && !options?.force && process.env.NODE_ENV === 'production') {
+  if (
+    result.hasDataLoss &&
+    !options?.force &&
+    process.env.NODE_ENV === 'production'
+  ) {
     throw new Error(
       '[bunderstack] Schema push would cause data loss. Run `bunx drizzle-kit push` or call app.provision({ force: true }).',
     )
@@ -51,6 +59,8 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
   await result.apply()
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[bunderstack] provisioned ${result.statementsToExecute.length} schema change(s)`)
+    console.log(
+      `[bunderstack] provisioned ${result.statementsToExecute.length} schema change(s)`,
+    )
   }
 }

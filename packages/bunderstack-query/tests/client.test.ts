@@ -1,6 +1,10 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, integer, text } from 'bunderstack'
-import { createBunderstackQueryClient, BunderstackApiError } from '../src/index.ts'
+
+import {
+  createBunderstackQueryClient,
+  BunderstackApiError,
+} from '../src/index.ts'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -13,12 +17,27 @@ const posts = sqliteTable('posts', {
 const schema = { posts }
 
 const mockPosts = [
-  { id: 1, title: 'First', body: 'Hello', userId: 'u1', createdAt: '2026-01-01T00:00:00.000Z' },
-  { id: 2, title: 'Second', body: 'World', userId: 'u2', createdAt: '2026-01-02T00:00:00.000Z' },
+  {
+    id: 1,
+    title: 'First',
+    body: 'Hello',
+    userId: 'u1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 2,
+    title: 'Second',
+    body: 'World',
+    userId: 'u2',
+    createdAt: '2026-01-02T00:00:00.000Z',
+  },
 ]
 
-function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
-  return ((url: string, init?: RequestInit) => handler(url, init)) as typeof fetch
+function mockFetch(
+  handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
+): typeof fetch {
+  return ((url: string, init?: RequestInit) =>
+    handler(url, init)) as typeof fetch
 }
 
 test('withSchema exposes tables', () => {
@@ -29,7 +48,9 @@ test('withSchema exposes tables', () => {
 
 test('withTables exposes tables by name', () => {
   type Schema = { posts: typeof posts }
-  const client = createBunderstackQueryClient<Schema>().withTables({ tables: ['posts'] as const })
+  const client = createBunderstackQueryClient<Schema>().withTables({
+    tables: ['posts'] as const,
+  })
   expect(client.posts).toBeDefined()
   expect(client.posts.keys.all).toEqual(['posts'])
 })
@@ -39,7 +60,11 @@ test('list fetches paginated results', async () => {
     schema,
     fetch: mockFetch((url) => {
       expect(url).toBe('/api/posts?limit=2&offset=0')
-      return Response.json({ items: mockPosts.slice(0, 2), limit: 2, offset: 0 })
+      return Response.json({
+        items: mockPosts.slice(0, 2),
+        limit: 2,
+        offset: 0,
+      })
     }),
   })
 
@@ -56,7 +81,10 @@ test('create sends POST with credentials', async () => {
       expect(init?.method).toBe('POST')
       expect(init?.credentials).toBe('include')
       expect(JSON.parse(init?.body as string)).toEqual({ title: 'New post' })
-      return Response.json({ ...mockPosts[0], title: 'New post' }, { status: 201 })
+      return Response.json(
+        { ...mockPosts[0], title: 'New post' },
+        { status: 201 },
+      )
     }),
   })
 
@@ -94,7 +122,9 @@ test('delete sends DELETE and handles 204', async () => {
 test('throws BunderstackApiError on failure', async () => {
   const client = createBunderstackQueryClient().withSchema({
     schema,
-    fetch: mockFetch(() => Response.json({ error: 'Forbidden' }, { status: 403 })),
+    fetch: mockFetch(() =>
+      Response.json({ error: 'Forbidden' }, { status: 403 }),
+    ),
   })
 
   try {
@@ -110,17 +140,25 @@ test('throws BunderstackApiError on failure', async () => {
 test('query keys are stable', () => {
   const client = createBunderstackQueryClient().withSchema({ schema })
   const keys = client.posts.keys
-  expect(keys.list({ limit: 10, offset: 0 })).toEqual(['posts', 'list', { limit: 10, offset: 0 }])
+  expect(keys.list({ limit: 10, offset: 0 })).toEqual([
+    'posts',
+    'list',
+    { limit: 10, offset: 0 },
+  ])
   expect(keys.detail(42)).toEqual(['posts', 'detail', 42])
 })
 
 test('listQuery matches list query key', () => {
   const client = createBunderstackQueryClient().withSchema({ schema })
   const params = { limit: 5, offset: 10 }
-  expect(client.posts.listQuery(params).queryKey).toEqual(client.posts.keys.list(params))
+  expect(client.posts.listQuery(params).queryKey).toEqual(
+    client.posts.keys.list(params),
+  )
 })
 
 test('getQuery matches detail query key', () => {
   const client = createBunderstackQueryClient().withSchema({ schema })
-  expect(client.posts.getQuery(42).queryKey).toEqual(client.posts.keys.detail(42))
+  expect(client.posts.getQuery(42).queryKey).toEqual(
+    client.posts.keys.detail(42),
+  )
 })

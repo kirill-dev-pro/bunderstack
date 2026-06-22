@@ -1,6 +1,7 @@
-import * as React from 'react'
-import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import * as React from 'react'
+
 import { api, listParams } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 
@@ -46,8 +47,16 @@ export function SearchBox({ className }: SearchBoxProps) {
 
       {open && term.length >= 2 ? (
         <div className="search-results card" role="listbox">
-          {loading ? <p><small>Searching…</small></p> : null}
-          {!loading && !hasResults ? <p><small>No results for “{term}”</small></p> : null}
+          {loading ? (
+            <p>
+              <small>Searching…</small>
+            </p>
+          ) : null}
+          {!loading && !hasResults ? (
+            <p>
+              <small>No results for “{term}”</small>
+            </p>
+          ) : null}
 
           {users.length > 0 ? (
             <section>
@@ -61,7 +70,11 @@ export function SearchBox({ className }: SearchBoxProps) {
                       className="search-hit"
                       onClick={() => setOpen(false)}
                     >
-                      <UserAvatar name={person.name} image={person.image} size={32} />
+                      <UserAvatar
+                        name={person.name}
+                        image={person.image}
+                        size={32}
+                      />
                       <div>
                         <strong>{person.name}</strong>
                         {person.about ? <small>{person.about}</small> : null}
@@ -81,7 +94,10 @@ export function SearchBox({ className }: SearchBoxProps) {
                   <li key={post.id}>
                     <div className="search-hit">
                       <strong>{post.title}</strong>
-                      <small>{post.body.slice(0, 120)}{post.body.length > 120 ? '…' : ''}</small>
+                      <small>
+                        {post.body.slice(0, 120)}
+                        {post.body.length > 120 ? '…' : ''}
+                      </small>
                     </div>
                   </li>
                 ))}

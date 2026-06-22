@@ -1,13 +1,23 @@
 type ToastOptions = {
   variant?: 'success' | 'danger' | 'warning' | ''
-  placement?: 'top-right' | 'top-left' | 'top-center' | 'bottom-right' | 'bottom-left' | 'bottom-center'
+  placement?:
+    | 'top-right'
+    | 'top-left'
+    | 'top-center'
+    | 'bottom-right'
+    | 'bottom-left'
+    | 'bottom-center'
   duration?: number
 }
 
 declare global {
   interface Window {
     ot?: {
-      toast: ((message: string, title?: string, options?: ToastOptions) => void) & {
+      toast: ((
+        message: string,
+        title?: string,
+        options?: ToastOptions,
+      ) => void) & {
         el: (element: Element, options?: ToastOptions) => void
         clear: (placement?: string) => void
       }
@@ -20,7 +30,11 @@ function otToast() {
   return window.ot?.toast
 }
 
-export function showToast(message: string, title?: string, options?: ToastOptions) {
+export function showToast(
+  message: string,
+  title?: string,
+  options?: ToastOptions,
+) {
   const toast = otToast()
   if (typeof toast === 'function') toast(message, title, options)
 }

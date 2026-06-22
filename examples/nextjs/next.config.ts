@@ -1,6 +1,7 @@
+import type { NextConfig } from 'next'
+
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { NextConfig } from 'next'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
@@ -21,7 +22,9 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals = [
-        ...(Array.isArray(config.externals) ? config.externals : [config.externals]),
+        ...(Array.isArray(config.externals)
+          ? config.externals
+          : [config.externals]),
         ...serverPackages,
         /^@libsql\//,
       ]

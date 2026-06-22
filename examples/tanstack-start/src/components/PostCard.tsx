@@ -1,15 +1,18 @@
-import * as React from 'react'
+import type { InferSelect } from 'bunderstack-query'
+
 import { Link } from '@tanstack/react-router'
+import * as React from 'react'
+
+import type { user } from '~/schema'
+
 import { api } from '~/api-client'
 import { PostImagePreview } from '~/components/ImageLightbox'
 import { PostActions } from '~/components/PostActions'
 import { PostTime } from '~/components/PostTime'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
-import type { InferSelect } from 'bunderstack-query'
-import type { user } from '~/schema'
-import { countReplies, handleFromEmail, type Post } from '~/utils/posts'
 import { closeDialog, showDialog } from '~/utils/oat'
+import { countReplies, handleFromEmail, type Post } from '~/utils/posts'
 
 type Author = InferSelect<typeof user>
 
@@ -68,7 +71,11 @@ export function PostCard({
         <div className="post-x-meta">
           {author ? (
             <>
-              <Link to="/users/$userId" params={{ userId: author.id }} className="post-x-name">
+              <Link
+                to="/users/$userId"
+                params={{ userId: author.id }}
+                className="post-x-name"
+              >
                 {author.name}
               </Link>
               <span className="post-x-handle">@{handle}</span>
@@ -80,7 +87,11 @@ export function PostCard({
             ·
           </span>
           {variant === 'feed' || variant === 'reply' ? (
-            <Link to="/posts/$postId" params={{ postId: String(post.id) }} className="post-x-time-link">
+            <Link
+              to="/posts/$postId"
+              params={{ postId: String(post.id) }}
+              className="post-x-time-link"
+            >
               <PostTime value={post.createdAt} />
             </Link>
           ) : (
@@ -130,7 +141,9 @@ export function PostCard({
 
       <div className="post-x-body">
         <p>{post.body}</p>
-        {post.imageUrl ? <PostImagePreview imageUrl={post.imageUrl} alt="Post attachment" /> : null}
+        {post.imageUrl ? (
+          <PostImagePreview imageUrl={post.imageUrl} alt="Post attachment" />
+        ) : null}
       </div>
 
       <PostActions
@@ -144,7 +157,9 @@ export function PostCard({
   )
 
   return (
-    <article className={`post-x${variant === 'reply' ? ' post-x--reply' : ''}${variant === 'detail' ? ' post-x--detail' : ''}`}>
+    <article
+      className={`post-x${variant === 'reply' ? ' post-x--reply' : ''}${variant === 'detail' ? ' post-x--detail' : ''}`}
+    >
       {author ? (
         <Link
           to="/users/$userId"
@@ -162,7 +177,11 @@ export function PostCard({
 
       <div className="post-x-content">
         {variant === 'feed' ? (
-          <Link to="/posts/$postId" params={{ postId: String(post.id) }} className="post-x-stretch-link">
+          <Link
+            to="/posts/$postId"
+            params={{ postId: String(post.id) }}
+            className="post-x-stretch-link"
+          >
             <span className="sr-only">View post</span>
           </Link>
         ) : null}
@@ -177,7 +196,10 @@ export function PostCard({
             if (!editBody.trim()) return
             updateMutation.mutate({
               id: post.id,
-              data: { body: editBody.trim(), title: editBody.trim().slice(0, 80) || 'Post' },
+              data: {
+                body: editBody.trim(),
+                title: editBody.trim().slice(0, 80) || 'Post',
+              },
             })
           }}
         >
@@ -196,7 +218,11 @@ export function PostCard({
             </label>
           </div>
           <footer>
-            <button type="button" className="outline" onClick={() => closeDialog(editDialogRef.current)}>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => closeDialog(editDialogRef.current)}
+            >
               Cancel
             </button>
             <button type="submit" disabled={updateMutation.isPending}>

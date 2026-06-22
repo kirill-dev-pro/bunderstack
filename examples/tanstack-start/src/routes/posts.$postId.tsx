@@ -1,7 +1,8 @@
-import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import * as React from 'react'
+import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
+import * as React from 'react'
+
 import { api, listParams, queryClient } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { PostCard } from '~/components/PostCard'
@@ -23,7 +24,8 @@ export const Route = createFileRoute('/posts/$postId')({
       ])
       return { post, posts, users, likes, retweets }
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404) throw notFound()
+      if (err instanceof BunderstackApiError && err.status === 404)
+        throw notFound()
       throw err
     }
   },
@@ -54,7 +56,10 @@ function PostThreadPage() {
     [users.items],
   )
 
-  const replies = React.useMemo(() => getThreadReplies(postId, allPosts), [postId, allPosts])
+  const replies = React.useMemo(
+    () => getThreadReplies(postId, allPosts),
+    [postId, allPosts],
+  )
 
   if (!post) {
     return (

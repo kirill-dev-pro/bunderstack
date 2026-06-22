@@ -7,7 +7,12 @@ type UserAvatarProps = {
   className?: string
 }
 
-export function UserAvatar({ name, image, size = 40, className = '' }: UserAvatarProps) {
+export function UserAvatar({
+  name,
+  image,
+  size = 40,
+  className = '',
+}: UserAvatarProps) {
   const initials = name
     .split(' ')
     .map((part) => part[0])

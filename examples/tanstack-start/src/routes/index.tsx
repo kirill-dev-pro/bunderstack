@@ -1,18 +1,25 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
+
 import { api, listParams, queryClient } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
-import { ComposePostDialog, ComposePostTrigger } from '~/components/ComposePostDialog'
+import {
+  ComposePostDialog,
+  ComposePostTrigger,
+} from '~/components/ComposePostDialog'
 import { FollowButton } from '~/components/FollowButton'
 import { PostCard } from '~/components/PostCard'
 import { UserAvatar } from '~/components/UserAvatar'
-import { isTopLevel } from '~/utils/posts'
 import { showDialog } from '~/utils/oat'
+import { isTopLevel } from '~/utils/posts'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab: search.tab === 'following' ? ('following' as const) : ('for-you' as const),
+    tab:
+      search.tab === 'following'
+        ? ('following' as const)
+        : ('for-you' as const),
   }),
   loader: async () => {
     const [posts, users, follows, likes, retweets] = await Promise.all([
@@ -67,7 +74,9 @@ function FeedPage() {
       .filter(isTopLevel)
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     if (tab === 'following' && user) {
-      return items.filter((p) => p.userId === user.id || followingIds.has(p.userId))
+      return items.filter(
+        (p) => p.userId === user.id || followingIds.has(p.userId),
+      )
     }
     return items
   }, [allPosts, tab, user, followingIds])
@@ -91,8 +100,16 @@ function FeedPage() {
           <ul className="who-list">
             {suggestions.map((person) => (
               <li key={person.id} className="who-row">
-                <Link to="/users/$userId" params={{ userId: person.id }} className="who-user">
-                  <UserAvatar name={person.name} image={person.image} size={40} />
+                <Link
+                  to="/users/$userId"
+                  params={{ userId: person.id }}
+                  className="who-user"
+                >
+                  <UserAvatar
+                    name={person.name}
+                    image={person.image}
+                    size={40}
+                  />
                   <div>
                     <strong>{person.name}</strong>
                     <small>{person.email}</small>
@@ -111,7 +128,11 @@ function FeedPage() {
     ) : null
 
   return (
-    <AppShell user={user} onCompose={user ? openCompose : undefined} aside={aside}>
+    <AppShell
+      user={user}
+      onCompose={user ? openCompose : undefined}
+      aside={aside}
+    >
       <header className="feed-header">
         <h1>Home</h1>
         <nav aria-label="Feed tabs" className="feed-tabs">

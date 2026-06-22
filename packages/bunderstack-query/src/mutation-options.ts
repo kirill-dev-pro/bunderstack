@@ -1,9 +1,13 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
+
 import type { TableClient } from './table-client.ts'
 
 export type TableMutationOptions<TRow, TCreate, TUpdate> = {
   createMutation: (
-    options?: Omit<UseMutationOptions<TRow, Error, Partial<TCreate>>, 'mutationFn'>,
+    options?: Omit<
+      UseMutationOptions<TRow, Error, Partial<TCreate>>,
+      'mutationFn'
+    >,
   ) => UseMutationOptions<TRow, Error, Partial<TCreate>>
   updateMutation: (
     options?: Omit<
@@ -12,7 +16,10 @@ export type TableMutationOptions<TRow, TCreate, TUpdate> = {
     >,
   ) => UseMutationOptions<TRow, Error, { id: string | number; data: TUpdate }>
   deleteMutation: (
-    options?: Omit<UseMutationOptions<void, Error, string | number>, 'mutationFn'>,
+    options?: Omit<
+      UseMutationOptions<void, Error, string | number>,
+      'mutationFn'
+    >,
   ) => UseMutationOptions<void, Error, string | number>
 }
 
@@ -21,7 +28,8 @@ export function attachMutationOptions<TRow, TCreate, TUpdate>(
   queryClient?: QueryClient,
 ): TableMutationOptions<TRow, TCreate, TUpdate> {
   const invalidate = () => {
-    if (queryClient) void queryClient.invalidateQueries({ queryKey: table.keys.all })
+    if (queryClient)
+      void queryClient.invalidateQueries({ queryKey: table.keys.all })
   }
 
   return {
@@ -43,7 +51,8 @@ export function attachMutationOptions<TRow, TCreate, TUpdate>(
           table.update(id, data),
         onSuccess: (data, variables, context) => {
           invalidate()
-          if (queryClient) void queryClient.setQueryData(table.keys.detail(variables.id), data)
+          if (queryClient)
+            void queryClient.setQueryData(table.keys.detail(variables.id), data)
           onSuccess?.(data, variables, context)
         },
         ...rest,

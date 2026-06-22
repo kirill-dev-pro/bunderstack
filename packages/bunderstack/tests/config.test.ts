@@ -1,7 +1,8 @@
 // tests/config.test.ts
 import { test, expect } from 'bun:test'
-import { resolveConfig } from '../src/config'
+
 import * as schema from '../../../examples/standalone/schema'
+import { resolveConfig } from '../src/config'
 
 test('resolveConfig applies SQLite default url', () => {
   const cfg = resolveConfig({ schema })

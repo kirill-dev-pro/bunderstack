@@ -1,4 +1,5 @@
 import { createBunderstack, type BunderstackApp } from 'bunderstack'
+
 import * as schema from '../standalone/schema'
 
 let appPromise: Promise<BunderstackApp<typeof schema>> | null = null

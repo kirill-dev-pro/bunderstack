@@ -1,6 +1,7 @@
 import { test, expect, beforeAll } from 'bun:test'
-import { createBunderstack } from '../src/index'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+
+import { createBunderstack } from '../src/index'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),

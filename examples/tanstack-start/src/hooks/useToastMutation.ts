@@ -1,7 +1,13 @@
 import { useMutation, type UseMutationOptions } from '@tanstack/react-query'
+
 import { toast } from '~/utils/oat'
 
-export function useToastMutation<TData, TError extends Error, TVariables, TContext>(
+export function useToastMutation<
+  TData,
+  TError extends Error,
+  TVariables,
+  TContext,
+>(
   options: UseMutationOptions<TData, TError, TVariables, TContext> & {
     successMessage?: string
     errorMessage?: string

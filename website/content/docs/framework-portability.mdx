@@ -19,9 +19,9 @@ Bun.serve({ fetch: app.handler })
 ```ts
 // app/api/[...bunderstack]/route.ts
 import { app } from '@/bunderstack'
-export const GET    = (req: Request) => app.handler(req)
-export const POST   = (req: Request) => app.handler(req)
-export const PATCH  = (req: Request) => app.handler(req)
+export const GET = (req: Request) => app.handler(req)
+export const POST = (req: Request) => app.handler(req)
+export const PATCH = (req: Request) => app.handler(req)
 export const DELETE = (req: Request) => app.handler(req)
 ```
 
@@ -32,9 +32,9 @@ export const DELETE = (req: Request) => app.handler(req)
 import { createServerFileRoute } from '@tanstack/start'
 import { app } from '~/bunderstack'
 export const ServerRoute = createServerFileRoute('/api/$').methods({
-  GET:    ({ request }) => app.handler(request),
-  POST:   ({ request }) => app.handler(request),
-  PATCH:  ({ request }) => app.handler(request),
+  GET: ({ request }) => app.handler(request),
+  POST: ({ request }) => app.handler(request),
+  PATCH: ({ request }) => app.handler(request),
   DELETE: ({ request }) => app.handler(request),
 })
 ```
