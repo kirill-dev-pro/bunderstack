@@ -14,6 +14,12 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate"
   },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "better-auth": "^1.0.0",
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.0.0"
+  },
   "peerDependencies": {
     "typescript": "^5"
   }

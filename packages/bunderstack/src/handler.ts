@@ -17,7 +17,7 @@ export function buildHandler(parts: HandlerParts): {
   app.route("/api", parts.crudRouter);
 
   if (parts.authHandler) {
-    app.on(["GET", "POST"], "/auth/*", (c) => parts.authHandler!(c.req.raw));
+    app.all("/api/auth/*", (c) => parts.authHandler!(c.req.raw));
   }
 
   if (parts.storageRouter) {
