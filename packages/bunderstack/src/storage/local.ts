@@ -3,7 +3,8 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export class LocalStorageAdapter {
-  constructor(private readonly basePath: string) {}
+  private readonly basePath: string
+  constructor(basePath: string) { this.basePath = basePath }
 
   private filePath(fileId: string) {
     return join(this.basePath, fileId)
