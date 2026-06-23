@@ -5,24 +5,24 @@ import { nitro } from 'nitro/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  server: {
-    port: 3000,
-    fs: { allow: ['../..'] },
-  },
+  // server: {
+  //   port: 3000,
+  //   fs: { allow: ['../..'] },
+  // },
   resolve: {
     tsconfigPaths: true,
   },
   ssr: {
     external: [
-      'bunderstack',
-      'better-auth',
-      '@better-auth/core',
-      'drizzle-orm',
-      '@libsql/client',
-      'hono',
-      'defu',
-      'drizzle-kit',
-      'drizzle-kit/api',
+      // 'bunderstack',
+      // 'drizzle-orm',
+      // 'better-auth',
+      // '@better-auth/core',
+      // '@libsql/client',
+      // 'hono',
+      // 'defu',
+      // 'drizzle-kit',
+      // 'drizzle-kit/api',
     ],
   },
   plugins: [
@@ -31,6 +31,6 @@ export default defineConfig({
       srcDirectory: 'src',
     }),
     viteReact(),
-    nitro(),
+    nitro({ preset: 'bun' }),
   ],
 })

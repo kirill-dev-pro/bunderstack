@@ -18,7 +18,7 @@ import { createTableClient } from './table-client.ts'
 
 type BaseOptions = {
   baseUrl?: string
-  fetch?: typeof fetch
+  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   queryClient?: QueryClient
 }
 
