@@ -15,6 +15,7 @@ import { createAuth } from './auth.ts'
 import { resolveConfig, type BunderstackConfig } from './config.ts'
 import { buildCrudRouter } from './crud.ts'
 import { createDb } from './db.ts'
+import { ErrorCode, apiError } from './errors.ts'
 import {
   checkFileAccess,
   DEFAULT_STORAGE_ACCESS,
@@ -62,18 +63,31 @@ function buildStorageRouter(
   router.post('/', async (c) => {
     const user = await resolveAccessUser(auth, c.req.raw.headers)
     const denied = await checkFileAccess(access.create, null, user?.id ?? null)
-    if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+    if (!denied.allowed) {
+      return apiError(
+        c,
+        ErrorCode.FORBIDDEN,
+        'Forbidden',
+        denied.status === 401 ? 401 : 403,
+      )
+    }
 
     const body = await c.req.parseBody()
     const file = body['file']
-    if (!(file instanceof File))
-      return c.json({ error: 'No file field in request' }, 400)
+    if (!(file instanceof File)) {
+      return apiError(c, ErrorCode.VALIDATION_ERROR, 'No file field in request', 400)
+    }
 
     if (opts.uploadRules) {
       try {
         validateUpload(file, opts.uploadRules)
       } catch (err) {
-        return c.json({ error: (err as Error).message }, 422)
+        return apiError(
+          c,
+          ErrorCode.VALIDATION_ERROR,
+          (err as Error).message,
+          422,
+        )
       }
     }
 
@@ -89,7 +103,14 @@ function buildStorageRouter(
     const user = await resolveAccessUser(auth, c.req.raw.headers)
     const ownerId = await getFileOwner(db, fileId)
     const denied = await checkFileAccess(access.get, ownerId, user?.id ?? null)
-    if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+    if (!denied.allowed) {
+      return apiError(
+        c,
+        ErrorCode.FORBIDDEN,
+        'Forbidden',
+        denied.status === 401 ? 401 : 403,
+      )
+    }
 
     const query = c.req.query() as Record<string, string>
     const spec = parseTransformSpec(query)
@@ -133,7 +154,14 @@ function buildStorageRouter(
       ownerId,
       user?.id ?? null,
     )
-    if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+    if (!denied.allowed) {
+      return apiError(
+        c,
+        ErrorCode.FORBIDDEN,
+        'Forbidden',
+        denied.status === 401 ? 401 : 403,
+      )
+    }
 
     await storage.delete(fileId)
     await deleteFileMeta(db, fileId)
@@ -163,6 +191,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   const crudRouter = buildCrudRouter(options.schema, db, {
     auth: config.auth.emailPassword ? auth : undefined,
     access: resolvedAccess,
+    idempotency: options.idempotency,
   })
   const storageRouter = buildStorageRouter(
     storage,
@@ -174,6 +203,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     crudRouter,
     authHandler: (req) => auth.handler(req),
     storageRouter,
+    rateLimit: options.rateLimit,
   })
 
   const app: BunderstackApp<TSchema> = {

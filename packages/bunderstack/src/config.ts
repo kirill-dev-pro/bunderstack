@@ -2,6 +2,8 @@
 import { z } from 'zod'
 
 import type { TableAccessInput } from './access.ts'
+import type { IdempotencyConfig } from './idempotency.ts'
+import type { RateLimitConfig } from './rate-limit.ts'
 
 const StorageConfigSchema = z.union([
   z.object({ local: z.union([z.string(), z.literal(true)]) }),
@@ -53,6 +55,18 @@ export const BunderstackOptionsSchema = z.object({
     })
     .optional(),
   storage: StorageConfigSchema.optional(),
+  rateLimit: z
+    .union([
+      z.boolean(),
+      z.object({
+        windowMs: z.number().optional(),
+        max: z.number().optional(),
+      }),
+    ])
+    .optional(),
+  idempotency: z
+    .union([z.boolean(), z.object({ ttlMs: z.number().optional() })])
+    .optional(),
 })
 
 export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
@@ -61,6 +75,8 @@ export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
 > & {
   schema: TSchema
   access?: Record<string, TableAccessInput>
+  rateLimit?: boolean | RateLimitConfig
+  idempotency?: boolean | IdempotencyConfig
 }
 
 export type ResolvedStorage =

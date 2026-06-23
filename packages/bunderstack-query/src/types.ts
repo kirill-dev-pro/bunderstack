@@ -7,15 +7,27 @@ import type { TableClient } from './table-client.ts'
 export type Paginated<T> = {
   items: T[]
   limit: number
-  offset: number
+  offset?: number
+  cursor?: string
+  nextCursor?: string
+  hasMore: boolean
+  total?: number
+  q?: string
+  sort?: string
+  order?: 'asc' | 'desc'
 }
 
 export type ListParams = {
   limit?: number
   offset?: number
-  /** Passed as `?q=` when the table has `searchableColumns` in access rules. */
+  sort?: string
+  order?: 'asc' | 'desc'
   q?: string
-}
+  cursor?: string
+  count?: boolean
+  /** Keyset pagination — first page omits offset. Used by listInfiniteQuery. */
+  cursorMode?: boolean
+} & Record<string, string | number | boolean | null | undefined>
 
 export type InferSelect<T> = T extends { $inferSelect: infer R } ? R : never
 

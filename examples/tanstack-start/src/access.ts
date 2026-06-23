@@ -17,6 +17,9 @@ export const access = defineAccess(schema, {
   },
   posts: {
     searchableColumns: ['title', 'body'],
+    filterableColumns: ['replyToId', 'userId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
   },
   follows: {
     ownerColumn: 'followerId',
@@ -25,6 +28,9 @@ export const access = defineAccess(schema, {
     create: 'authenticated',
     update: 'deny',
     delete: 'owner',
+    filterableColumns: ['followerId', 'followingId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
   },
   likes: {
     ownerColumn: 'userId',
@@ -33,6 +39,9 @@ export const access = defineAccess(schema, {
     create: 'authenticated',
     update: 'deny',
     delete: 'owner',
+    filterableColumns: ['postId', 'userId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
   },
   retweets: {
     ownerColumn: 'userId',
@@ -41,6 +50,9 @@ export const access = defineAccess(schema, {
     create: 'authenticated',
     update: 'deny',
     delete: 'owner',
+    filterableColumns: ['postId', 'userId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
   },
   session: { crud: false },
   account: { crud: false },

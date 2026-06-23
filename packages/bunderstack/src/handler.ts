@@ -1,10 +1,13 @@
 // src/handler.ts
 import { Hono } from 'hono'
 
+import { createRateLimiter, type RateLimitConfig } from './rate-limit.ts'
+
 interface HandlerParts {
   crudRouter: Hono
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
+  rateLimit?: boolean | RateLimitConfig
 }
 
 export function buildHandler(parts: HandlerParts): {
@@ -12,6 +15,7 @@ export function buildHandler(parts: HandlerParts): {
   router: Hono
 } {
   const app = new Hono()
+  const checkRateLimit = createRateLimiter(parts.rateLimit)
 
   const health = (c: { json: (data: unknown) => Response }) =>
     c.json({ status: 'ok' })
@@ -28,7 +32,11 @@ export function buildHandler(parts: HandlerParts): {
     app.route('/files', parts.storageRouter)
   }
 
-  const handler = (req: Request): Promise<Response> =>
-    Promise.resolve(app.fetch(req))
+  const inner = (req: Request): Promise<Response> => Promise.resolve(app.fetch(req))
+  const handler = async (req: Request): Promise<Response> => {
+    const limited = await checkRateLimit(req)
+    if (limited) return limited
+    return inner(req)
+  }
   return { handler, router: app }
 }

@@ -2,6 +2,17 @@ import type { ListParams, Paginated } from './types.ts'
 
 import { BunderstackApiError } from './errors.ts'
 
+const RESERVED_LIST_PARAMS = new Set([
+  'limit',
+  'offset',
+  'sort',
+  'order',
+  'q',
+  'cursor',
+  'count',
+  'cursorMode',
+])
+
 export type TableClientConfig = {
   tableName: string
   baseUrl: string
@@ -52,14 +63,45 @@ export function createTableClient<
   }
 
   const list = (params: ListParams = {}) => {
-    const limit = params.limit ?? 20
-    const offset = params.offset ?? 0
-    const qs = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-    })
+    const qs = new URLSearchParams()
+
+    if (params.limit !== undefined) qs.set('limit', String(params.limit))
+    if (params.offset !== undefined) qs.set('offset', String(params.offset))
+    if (params.sort) qs.set('sort', params.sort)
+    if (params.order) qs.set('order', params.order)
     if (params.q?.trim()) qs.set('q', params.q.trim())
+    if (params.cursor) qs.set('cursor', params.cursor)
+    if (params.count) qs.set('count', 'true')
+
+    for (const [key, value] of Object.entries(params)) {
+      if (RESERVED_LIST_PARAMS.has(key)) continue
+      if (value === undefined) continue
+      qs.set(key, value === null ? 'null' : String(value))
+    }
+
+    if (!qs.has('limit')) qs.set('limit', '20')
+    if (!qs.has('offset') && !qs.has('cursor') && !params.cursorMode) {
+      qs.set('offset', '0')
+    }
+
     return request<Paginated<TRow>>(`?${qs}`)
+  }
+
+  const listInfiniteQuery = (params: ListParams = {}) => {
+    const { offset: _offset, cursor: _cursor, cursorMode: _cursorMode, ...base } =
+      params
+    return {
+      queryKey: [...keys.list(params), 'infinite'] as const,
+      queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+        list({
+          ...base,
+          cursorMode: true,
+          ...(pageParam ? { cursor: pageParam } : {}),
+        }),
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: (lastPage: Paginated<TRow>) =>
+        lastPage.nextCursor ?? undefined,
+    }
   }
 
   const get = (id: string | number) => request<TRow>(`/${id}`)
@@ -78,6 +120,7 @@ export function createTableClient<
       queryKey: keys.list(params),
       queryFn: () => list(params),
     }),
+    listInfiniteQuery,
     getQuery: (id: string | number) => ({
       queryKey: keys.detail(id),
       queryFn: () => get(id),

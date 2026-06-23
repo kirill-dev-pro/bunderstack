@@ -11,18 +11,26 @@ import { UserAvatar } from '~/components/UserAvatar'
 
 export const Route = createFileRoute('/users/$userId')({
   loader: async ({ params }) => {
+    const userPostsParams = {
+      userId: params.userId,
+      sort: 'createdAt',
+      order: 'desc',
+      limit: 100,
+      offset: 0,
+    } as const
+
     try {
       const profile = await queryClient.ensureQueryData(
         api.user.getQuery(params.userId),
       )
       const [posts, follows, users, likes, retweets] = await Promise.all([
-        queryClient.ensureQueryData(api.posts.listQuery(listParams)),
+        queryClient.ensureQueryData(api.posts.listQuery(userPostsParams)),
         queryClient.ensureQueryData(api.follows.listQuery(listParams)),
         queryClient.ensureQueryData(api.user.listQuery(listParams)),
         queryClient.ensureQueryData(api.likes.listQuery(listParams)),
         queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
       ])
-      return { profile, posts, follows, users, likes, retweets }
+      return { profile, posts, follows, users, likes, retweets, userPostsParams }
     } catch (err) {
       if (err instanceof BunderstackApiError && err.status === 404)
         throw notFound()
@@ -37,9 +45,10 @@ function UserProfilePage() {
   const { user: currentUser } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()
+  const userPostsParams = initial.userPostsParams
 
   const { data: profileData } = useQuery(api.user.getQuery(userId))
-  const { data: postsData } = useQuery(api.posts.listQuery(listParams))
+  const { data: postsData } = useQuery(api.posts.listQuery(userPostsParams))
   const { data: followsData } = useQuery(api.follows.listQuery(listParams))
   const { data: usersData } = useQuery(api.user.listQuery(listParams))
   const { data: likesData } = useQuery(api.likes.listQuery(listParams))
@@ -59,13 +68,7 @@ function UserProfilePage() {
     [users.items],
   )
 
-  const userPosts = React.useMemo(
-    () =>
-      allPosts
-        .filter((post) => post.userId === userId)
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
-    [allPosts, userId],
-  )
+  const userPosts = allPosts
 
   const followerCount = (follows.items ?? []).filter(
     (f) => f.followingId === userId,

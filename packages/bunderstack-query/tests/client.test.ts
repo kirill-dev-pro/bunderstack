@@ -64,6 +64,7 @@ test('list fetches paginated results', async () => {
         items: mockPosts.slice(0, 2),
         limit: 2,
         offset: 0,
+        hasMore: true,
       })
     }),
   })
@@ -71,6 +72,37 @@ test('list fetches paginated results', async () => {
   const result = await client.posts.list({ limit: 2, offset: 0 })
   expect(result.items).toHaveLength(2)
   expect(result.limit).toBe(2)
+  expect(result.hasMore).toBe(true)
+})
+
+test('list builds filter, sort, and count query params', async () => {
+  const client = createBunderstackQueryClient().withSchema({
+    schema,
+    fetch: mockFetch((url) => {
+      expect(url).toBe(
+        '/api/posts?limit=5&offset=0&sort=createdAt&order=asc&count=true&replyToId=5',
+      )
+      return Response.json({
+        items: mockPosts,
+        limit: 5,
+        offset: 0,
+        hasMore: false,
+        total: 2,
+        sort: 'createdAt',
+        order: 'asc',
+      })
+    }),
+  })
+
+  const result = await client.posts.list({
+    limit: 5,
+    offset: 0,
+    sort: 'createdAt',
+    order: 'asc',
+    count: true,
+    replyToId: 5,
+  })
+  expect(result.total).toBe(2)
 })
 
 test('create sends POST with credentials', async () => {
@@ -123,7 +155,7 @@ test('throws BunderstackApiError on failure', async () => {
   const client = createBunderstackQueryClient().withSchema({
     schema,
     fetch: mockFetch(() =>
-      Response.json({ error: 'Forbidden' }, { status: 403 }),
+      Response.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 }),
     ),
   })
 
@@ -134,6 +166,7 @@ test('throws BunderstackApiError on failure', async () => {
     expect(err).toBeInstanceOf(BunderstackApiError)
     expect((err as BunderstackApiError).status).toBe(403)
     expect((err as BunderstackApiError).message).toBe('Forbidden')
+    expect((err as BunderstackApiError).code).toBe('FORBIDDEN')
   }
 })
 
@@ -161,4 +194,54 @@ test('getQuery matches detail query key', () => {
   expect(client.posts.getQuery(42).queryKey).toEqual(
     client.posts.keys.detail(42),
   )
+})
+
+test('listInfiniteQuery uses cursor pagination', async () => {
+  let call = 0
+  const client = createBunderstackQueryClient().withSchema({
+    schema,
+    fetch: mockFetch((url) => {
+      call++
+      if (call === 1) {
+        expect(url).toBe(
+          '/api/posts?limit=2&sort=createdAt&order=desc&replyToId=null',
+        )
+        return Response.json({
+          items: [mockPosts[0]],
+          limit: 2,
+          hasMore: true,
+          nextCursor: 'c1',
+        })
+      }
+      expect(url).toContain('cursor=c1')
+      expect(url).toContain('replyToId=null')
+      expect(url).not.toContain('offset=')
+      return Response.json({
+        items: [mockPosts[1]],
+        limit: 2,
+        hasMore: false,
+      })
+    }),
+  })
+
+  const opts = client.posts.listInfiniteQuery({
+    limit: 2,
+    sort: 'createdAt',
+    order: 'desc',
+    replyToId: null,
+  })
+  expect(opts.queryKey).toEqual([
+    'posts',
+    'list',
+    { limit: 2, sort: 'createdAt', order: 'desc', replyToId: null },
+    'infinite',
+  ])
+
+  const page1 = await opts.queryFn({ pageParam: undefined })
+  expect(page1.nextCursor).toBe('c1')
+  expect(opts.getNextPageParam(page1)).toBe('c1')
+
+  const page2 = await opts.queryFn({ pageParam: 'c1' })
+  expect(page2.items).toHaveLength(1)
+  expect(opts.getNextPageParam(page2)).toBeUndefined()
 })

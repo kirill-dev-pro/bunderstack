@@ -36,11 +36,24 @@ beforeAll(async () => {
   const access = validateAndResolveAccess(
     { posts },
     {
-      posts: { ownerColumn: 'authorId', searchableColumns: ['title', 'body'] },
+      posts: {
+        ownerColumn: 'authorId',
+        searchableColumns: ['title', 'body'],
+        filterableColumns: ['authorId'],
+        sortableColumns: ['createdAt', 'id'],
+        defaultSort: { column: 'createdAt', order: 'desc' },
+      },
     },
   )
   app = new Hono()
-  app.route('/api', buildCrudRouter({ posts }, db, { auth: testAuth, access }))
+  app.route(
+    '/api',
+    buildCrudRouter({ posts }, db, {
+      auth: testAuth,
+      access,
+      idempotency: true,
+    }),
+  )
 })
 
 test('POST /api/posts creates a record', async () => {
@@ -72,9 +85,10 @@ test('POST /api/posts ignores client-supplied owner column', async () => {
 test('GET /api/posts lists records', async () => {
   const res = await app.request('/api/posts')
   expect(res.status).toBe(200)
-  const body = (await res.json()) as { items: unknown[] }
+  const body = (await res.json()) as { items: unknown[]; hasMore: boolean }
   expect(Array.isArray(body.items)).toBe(true)
   expect(body.items.length).toBeGreaterThan(0)
+  expect(typeof body.hasMore).toBe('boolean')
 })
 
 test('GET /api/posts/:id returns one record', async () => {
@@ -159,4 +173,131 @@ test('GET /api/posts?q= filters searchable columns', async () => {
   const miss = await app.request('/api/posts?q=NoSuchTermXYZ')
   const missBody = (await miss.json()) as { items: unknown[] }
   expect(missBody.items.length).toBe(0)
+})
+
+test('GET /api/posts defaults to stable sort order', async () => {
+  const res = await app.request('/api/posts?limit=10&sort=createdAt&order=asc')
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as {
+    items: { id: number; createdAt: string | Date }[]
+    sort: string
+    order: string
+  }
+  expect(body.sort).toBe('createdAt')
+  expect(body.order).toBe('asc')
+  for (let i = 1; i < body.items.length; i++) {
+    const prev = +new Date(body.items[i - 1]!.createdAt)
+    const next = +new Date(body.items[i]!.createdAt)
+    expect(next).toBeGreaterThanOrEqual(prev)
+  }
+})
+
+test('GET /api/posts?authorId= filters by column', async () => {
+  await app.request('/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-test-user': 'filter-user' },
+    body: JSON.stringify({ title: 'Filter me' }),
+  })
+
+  const res = await app.request('/api/posts?authorId=filter-user')
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as { items: { authorId: string | null }[] }
+  expect(body.items.every((p) => p.authorId === 'filter-user')).toBe(true)
+})
+
+test('GET /api/posts rejects unknown filter column', async () => {
+  const res = await app.request('/api/posts?unknown=1')
+  expect(res.status).toBe(400)
+  const body = (await res.json()) as { code: string }
+  expect(body.code).toBe('VALIDATION_ERROR')
+})
+
+test('GET /api/posts rejects invalid limit', async () => {
+  const res = await app.request('/api/posts?limit=-1')
+  expect(res.status).toBe(400)
+})
+
+test('GET /api/posts?count=true returns total and hasMore', async () => {
+  const res = await app.request('/api/posts?count=true&limit=1&offset=0')
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as {
+    total: number
+    hasMore: boolean
+    items: unknown[]
+  }
+  expect(body.total).toBeGreaterThan(0)
+  expect(body.hasMore).toBe(body.total > body.items.length)
+})
+
+test('GET /api/posts cursor pagination returns distinct pages', async () => {
+  const page1 = await app.request('/api/posts?limit=2&sort=id&order=asc')
+  const body1 = (await page1.json()) as {
+    items: { id: number }[]
+    nextCursor?: string
+    hasMore: boolean
+  }
+  expect(body1.items).toHaveLength(2)
+  expect(body1.nextCursor).toBeTruthy()
+
+  const page2 = await app.request(
+    `/api/posts?limit=2&sort=id&order=asc&cursor=${encodeURIComponent(body1.nextCursor!)}`,
+  )
+  const body2 = (await page2.json()) as { items: { id: number }[] }
+  expect(body2.items[0]!.id).toBeGreaterThan(body1.items[1]!.id)
+})
+
+test('GET /api/posts rejects cursor with offset', async () => {
+  const res = await app.request('/api/posts?cursor=abc&offset=1')
+  expect(res.status).toBe(400)
+})
+
+test('POST /api/posts replays idempotent create', async () => {
+  const key = crypto.randomUUID()
+  const payload = { title: 'Idempotent post' }
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-test-user': 'user-1',
+    'Idempotency-Key': key,
+  }
+
+  const first = await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  })
+  const second = await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  })
+
+  expect(first.status).toBe(201)
+  expect(second.status).toBe(201)
+  expect(second.headers.get('Idempotency-Replayed')).toBe('true')
+  const a = await first.json()
+  const b = await second.json()
+  expect(a).toEqual(b)
+})
+
+test('POST /api/posts conflicts on idempotency key with different body', async () => {
+  const key = crypto.randomUUID()
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-test-user': 'user-1',
+    'Idempotency-Key': key,
+  }
+
+  await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ title: 'First body' }),
+  })
+  const conflict = await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ title: 'Different body' }),
+  })
+  expect(conflict.status).toBe(409)
+  const body = (await conflict.json()) as { code: string }
+  expect(body.code).toBe('IDEMPOTENCY_CONFLICT')
 })

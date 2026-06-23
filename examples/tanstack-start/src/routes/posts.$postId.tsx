@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
   Link,
   createFileRoute,
@@ -8,26 +8,35 @@ import {
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
-import { api, listParams, queryClient } from '~/api-client'
+import {
+  api,
+  listParams,
+  queryClient,
+  replyParams,
+} from '~/api-client'
 import { AppShell } from '~/components/AppShell'
+import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
 import { ReplyComposer } from '~/components/ReplyComposer'
-import { getThreadReplies } from '~/utils/posts'
 
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params }) => {
     const postId = Number(params.postId)
     if (!Number.isFinite(postId)) throw notFound()
 
+    const repliesQuery = replyParams(postId)
+
     try {
-      const [post, posts, users, likes, retweets] = await Promise.all([
+      await Promise.all([
         queryClient.ensureQueryData(api.posts.getQuery(postId)),
-        queryClient.ensureQueryData(api.posts.listQuery(listParams)),
+        queryClient.prefetchInfiniteQuery(
+          api.posts.listInfiniteQuery(repliesQuery),
+        ),
         queryClient.ensureQueryData(api.user.listQuery(listParams)),
         queryClient.ensureQueryData(api.likes.listQuery(listParams)),
         queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
       ])
-      return { post, posts, users, likes, retweets }
+      return { repliesQuery }
     } catch (err) {
       if (err instanceof BunderstackApiError && err.status === 404)
         throw notFound()
@@ -43,28 +52,37 @@ function PostThreadPage() {
   const { user } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()
+  const repliesQuery = initial.repliesQuery
 
   const { data: postData } = useQuery(api.posts.getQuery(postId))
-  const { data: postsData } = useQuery(api.posts.listQuery(listParams))
+  const {
+    data: repliesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery(api.posts.listInfiniteQuery(repliesQuery))
   const { data: usersData } = useQuery(api.user.listQuery(listParams))
   const { data: likesData } = useQuery(api.likes.listQuery(listParams))
   const { data: retweetsData } = useQuery(api.retweets.listQuery(listParams))
 
-  const post = postData ?? initial.post
-  const posts = postsData ?? initial.posts
-  const users = usersData ?? initial.users
-  const likes = likesData ?? initial.likes
-  const retweets = retweetsData ?? initial.retweets
+  const post = postData
+  const users = usersData
+  const likes = likesData
+  const retweets = retweetsData
 
-  const allPosts = posts.items ?? []
-  const authorMap = React.useMemo(
-    () => new Map((users.items ?? []).map((u) => [u.id, u])),
-    [users.items],
+  const replyItems = React.useMemo(
+    () => repliesData?.pages.flatMap((page) => page.items) ?? [],
+    [repliesData?.pages],
   )
 
-  const replies = React.useMemo(
-    () => getThreadReplies(postId, allPosts),
-    [postId, allPosts],
+  const allPosts = React.useMemo(() => {
+    if (!post) return replyItems
+    return [post, ...replyItems]
+  }, [post, replyItems])
+
+  const authorMap = React.useMemo(
+    () => new Map((users?.items ?? []).map((u) => [u.id, u])),
+    [users?.items],
   )
 
   if (!post) {
@@ -92,8 +110,8 @@ function PostThreadPage() {
           post={post}
           author={authorMap.get(post.userId)}
           allPosts={allPosts}
-          likes={likes.items ?? []}
-          retweets={retweets.items ?? []}
+          likes={likes?.items ?? []}
+          retweets={retweets?.items ?? []}
           authorMap={authorMap}
           currentUserId={user?.id ?? null}
           variant="detail"
@@ -106,25 +124,31 @@ function PostThreadPage() {
         />
 
         <section className="thread-replies" aria-label="Replies">
-          {replies.length === 0 ? (
+          {replyItems.length === 0 ? (
             <p className="thread-empty">
               <small>No replies yet. Be the first to reply.</small>
             </p>
           ) : (
-            replies.map((reply) => (
+            replyItems.map((reply) => (
               <PostCard
                 key={reply.id}
                 post={reply}
                 author={authorMap.get(reply.userId)}
                 allPosts={allPosts}
-                likes={likes.items ?? []}
-                retweets={retweets.items ?? []}
+                likes={likes?.items ?? []}
+                retweets={retweets?.items ?? []}
                 authorMap={authorMap}
                 currentUserId={user?.id ?? null}
                 variant="reply"
               />
             ))
           )}
+          <LoadMore
+            hasMore={Boolean(hasNextPage)}
+            loading={isFetchingNextPage}
+            onLoadMore={() => void fetchNextPage()}
+            label="Load more replies"
+          />
         </section>
       </div>
     </AppShell>

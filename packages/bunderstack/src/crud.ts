@@ -4,10 +4,6 @@ import {
   eq,
   isTable,
   getTableName,
-  getTableColumns,
-  like,
-  or,
-  type SQL,
 } from 'drizzle-orm'
 import { Hono } from 'hono'
 
@@ -20,10 +16,19 @@ import {
   type ResolvedAccess,
   type ResolvedTableAccess,
 } from './access.ts'
+import { ErrorCode, apiError, ListQueryError } from './errors.ts'
+import {
+  lookupIdempotency,
+  resolveIdempotencyConfig,
+  storeIdempotency,
+  type IdempotencyConfig,
+} from './idempotency.ts'
+import { executeList, parseListParams } from './list-query.ts'
 
 export type CrudRouterOptions = {
   auth?: AuthSessionResolver
   access: ResolvedAccess
+  idempotency?: boolean | IdempotencyConfig
 }
 
 function tableEntryForName(
@@ -46,20 +51,6 @@ async function enforce(
   return result
 }
 
-function buildSearchWhere(
-  table: Parameters<typeof getTableColumns>[0],
-  searchableColumns: string[] | undefined,
-  q: string,
-): SQL | undefined {
-  if (!q || !searchableColumns?.length) return undefined
-  const columns = getTableColumns(table)
-  const pattern = `%${q.replace(/[%_\\]/g, (ch) => `\\${ch}`)}%`
-  const conditions = searchableColumns
-    .filter((name) => name in columns)
-    .map((name) => like(columns[name]!, pattern))
-  return conditions.length ? or(...conditions) : undefined
-}
-
 export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   schema: TSchema,
   db: LibSQLDatabase<TSchema>,
@@ -67,6 +58,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 ): Hono {
   const router = new Hono()
   const { auth, access } = options
+  const idempotency = resolveIdempotencyConfig(options.idempotency)
 
   for (const table of Object.values(schema)) {
     if (!isTable(table)) continue
@@ -84,17 +76,37 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         user,
         request: c.req.raw,
       })
-      if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
 
-      const limit = Math.min(Number(c.req.query('limit')) || 20, 100)
-      const offset = Number(c.req.query('offset')) || 0
-      const q = c.req.query('q')?.trim().slice(0, 100) ?? ''
-      const where = buildSearchWhere(table, tableAccess.searchableColumns, q)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (db as any).select().from(table)
-      if (where) query = query.where(where)
-      const items = await query.limit(limit).offset(offset)
-      return c.json({ items, limit, offset, ...(q ? { q } : {}) })
+      try {
+        const params = parseListParams(new URL(c.req.url), tableAccess)
+        const result = await executeList(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          table,
+          tableAccess,
+          params,
+          idCol,
+        )
+        return c.json(result)
+      } catch (err) {
+        if (err instanceof ListQueryError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            400,
+            err.details,
+          )
+        }
+        throw err
+      }
     })
 
     router.get(`/${name}/:id`, async (c) => {
@@ -106,14 +118,23 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         .select()
         .from(table)
         .where(eq(idCol as any, id))
-      if (!rows[0]) return c.json({ error: 'Not found' }, 404)
+      if (!rows[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
 
       const denied = await enforce('get', tableAccess, {
         user,
         request: c.req.raw,
         row: rows[0] as Record<string, unknown>,
       })
-      if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
 
       return c.json(rows[0])
     })
@@ -124,16 +145,52 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         user,
         request: c.req.raw,
       })
-      if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
 
+      const rawBody = await c.req.text()
       let body: unknown
       try {
-        body = await c.req.json()
+        body = rawBody ? JSON.parse(rawBody) : null
       } catch {
-        return c.json({ error: 'Invalid JSON' }, 400)
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
       if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        return c.json({ error: 'Invalid JSON body' }, 400)
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
+      }
+
+      const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
+      if (idempotency && idempotencyKey) {
+        const lookup = await lookupIdempotency(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          name,
+          idempotencyKey,
+          rawBody,
+          idempotency,
+        )
+        if (lookup.type === 'conflict') {
+          return apiError(
+            c,
+            ErrorCode.IDEMPOTENCY_CONFLICT,
+            'Idempotency key reused with different body',
+            409,
+          )
+        }
+        if (lookup.type === 'replay') {
+          return new Response(lookup.response, {
+            status: lookup.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Replayed': 'true',
+            },
+          })
+        }
       }
 
       const values = sanitizeWriteBody(
@@ -145,7 +202,21 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await (db as any).insert(table).values(values).returning()
-      return c.json(rows[0], 201)
+      const created = rows[0]
+
+      if (idempotency && idempotencyKey) {
+        await storeIdempotency(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          name,
+          idempotencyKey,
+          rawBody,
+          201,
+          created,
+          idempotency,
+        )
+      }
+
+      return c.json(created, 201)
     })
 
     router.patch(`/${name}/:id`, async (c) => {
@@ -157,23 +228,32 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         .select()
         .from(table)
         .where(eq(idCol as any, id))
-      if (!existing[0]) return c.json({ error: 'Not found' }, 404)
+      if (!existing[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
 
       const denied = await enforce('update', tableAccess, {
         user,
         request: c.req.raw,
         row: existing[0] as Record<string, unknown>,
       })
-      if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
 
       let body: unknown
       try {
         body = await c.req.json()
       } catch {
-        return c.json({ error: 'Invalid JSON' }, 400)
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
       if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        return c.json({ error: 'Invalid JSON body' }, 400)
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
       }
 
       const values = sanitizeWriteBody(
@@ -189,7 +269,9 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         .set(values)
         .where(eq(idCol as any, id))
         .returning()
-      if (!rows[0]) return c.json({ error: 'Not found' }, 404)
+      if (!rows[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
       return c.json(rows[0])
     })
 
@@ -202,14 +284,23 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         .select()
         .from(table)
         .where(eq(idCol as any, id))
-      if (!existing[0]) return c.json({ error: 'Not found' }, 404)
+      if (!existing[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
 
       const denied = await enforce('delete', tableAccess, {
         user,
         request: c.req.raw,
         row: existing[0] as Record<string, unknown>,
       })
-      if (!denied.allowed) return c.json({ error: 'Forbidden' }, denied.status)
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).delete(table).where(eq(idCol as any, id))

@@ -34,6 +34,23 @@ export type OperationRule =
 
 export type CrudOperation = 'list' | 'get' | 'create' | 'update' | 'delete'
 
+const RESERVED_LIST_PARAMS = new Set([
+  'limit',
+  'offset',
+  'sort',
+  'order',
+  'q',
+  'cursor',
+  'count',
+])
+
+export type SortOrder = 'asc' | 'desc'
+
+export type DefaultSort = {
+  column: string
+  order: SortOrder
+}
+
 export type TableAccessInput = {
   crud?: boolean
   /** Opt the BetterAuth `user` table into auto-CRUD (read profiles, owner-update image). */
@@ -48,6 +65,12 @@ export type TableAccessInput = {
   readonlyColumns?: string[]
   /** Columns matched by `?q=` on list — opt-in; omitted columns are never searched. */
   searchableColumns?: string[]
+  /** Columns filterable via flat `?column=value` query params. */
+  filterableColumns?: string[]
+  /** Columns allowed in `?sort=`. Defaults to `['id']`. */
+  sortableColumns?: string[]
+  /** Default list ordering when `?sort` is omitted. Defaults to `{ column: 'id', order: 'desc' }`. */
+  defaultSort?: DefaultSort
 }
 
 export type ResolvedTableAccess = {
@@ -63,6 +86,9 @@ export type ResolvedTableAccess = {
   writableColumns?: string[]
   readonlyColumns: string[]
   searchableColumns?: string[]
+  filterableColumns: string[]
+  sortableColumns: string[]
+  defaultSort: DefaultSort
 }
 
 export type ResolvedAccess = Map<string, ResolvedTableAccess>
@@ -94,10 +120,67 @@ function getSchemaTables<TSchema extends Record<string, unknown>>(
   return tables
 }
 
+function resolveListAccess(
+  input: TableAccessInput,
+  columns: string[],
+): Pick<
+  ResolvedTableAccess,
+  'filterableColumns' | 'sortableColumns' | 'defaultSort'
+> {
+  const sortableColumns =
+    input.sortableColumns ?? (columns.includes('id') ? ['id'] : [])
+  const defaultSort = input.defaultSort ?? {
+    column: sortableColumns[0] ?? 'id',
+    order: 'desc' as const,
+  }
+
+  if (!columns.includes(defaultSort.column)) {
+    throw new Error(
+      `[bunderstack] defaultSort.column "${defaultSort.column}" is not a column on this table`,
+    )
+  }
+  if (!sortableColumns.includes(defaultSort.column)) {
+    throw new Error(
+      `[bunderstack] defaultSort.column "${defaultSort.column}" must be listed in sortableColumns`,
+    )
+  }
+
+  const filterableColumns = input.filterableColumns ?? []
+  for (const col of filterableColumns) {
+    if (RESERVED_LIST_PARAMS.has(col)) {
+      throw new Error(
+        `[bunderstack] filterableColumns cannot include reserved query param "${col}"`,
+      )
+    }
+    if (!columns.includes(col)) {
+      throw new Error(
+        `[bunderstack] filterableColumns references unknown column "${col}"`,
+      )
+    }
+  }
+
+  for (const col of sortableColumns) {
+    if (RESERVED_LIST_PARAMS.has(col)) {
+      throw new Error(
+        `[bunderstack] sortableColumns cannot include reserved query param "${col}"`,
+      )
+    }
+    if (!columns.includes(col)) {
+      throw new Error(
+        `[bunderstack] sortableColumns references unknown column "${col}"`,
+      )
+    }
+  }
+
+  return { filterableColumns, sortableColumns, defaultSort }
+}
+
 function resolveDefaults(
   input: TableAccessInput,
-  ownerColumn?: string,
+  ownerColumn: string | undefined,
+  columns: string[],
 ): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
+  const listAccess = resolveListAccess(input, columns)
   return {
     ownerColumn,
     list: input.list ?? 'public',
@@ -112,6 +195,7 @@ function resolveDefaults(
       ...(ownerColumn ? [ownerColumn] : []),
     ],
     searchableColumns: input.searchableColumns,
+    ...listAccess,
   }
 }
 
@@ -175,6 +259,7 @@ export function validateAndResolveAccess<
           delete: input.delete ?? 'deny',
         },
         ownerColumn,
+        columns,
       )
 
       const existingReadonly = defaults.readonlyColumns.filter((col) =>
@@ -185,6 +270,8 @@ export function validateAndResolveAccess<
       for (const col of [
         ...(defaults.writableColumns ?? []),
         ...(defaults.searchableColumns ?? []),
+        ...defaults.filterableColumns,
+        ...defaults.sortableColumns,
         ...resolvedReadonly,
       ]) {
         if (!columns.includes(col)) {
@@ -220,7 +307,7 @@ export function validateAndResolveAccess<
       )
     }
 
-    const defaults = resolveDefaults(input ?? {}, ownerColumn)
+    const defaults = resolveDefaults(input ?? {}, ownerColumn, columns)
     const existingReadonly = defaults.readonlyColumns.filter((col) =>
       columns.includes(col),
     )
@@ -229,6 +316,8 @@ export function validateAndResolveAccess<
     for (const col of [
       ...(defaults.writableColumns ?? []),
       ...(defaults.searchableColumns ?? []),
+      ...defaults.filterableColumns,
+      ...defaults.sortableColumns,
       ...resolvedReadonly,
     ]) {
       if (!columns.includes(col)) {

@@ -11,7 +11,49 @@ Bunderstack generates secured REST routes from your Drizzle schema.
 
 | Method   | Path              | Description                          |
 | -------- | ----------------- | ------------------------------------ |
-| `GET`    | `/api/:table`     | List — `?limit=20&offset=0&q=search` |
+| `GET`    | `/api/:table`     | List — see [List query](#list-query) below |
+
+## List query
+
+Reserved query params: `limit`, `offset`, `sort`, `order`, `q`, `cursor`, `count`.
+
+| Param | Example | Description |
+| ----- | ------- | ----------- |
+| `limit` | `?limit=20` | Page size (1–100, default 20) |
+| `offset` | `?offset=0` | Skip rows (offset mode) |
+| `sort` | `?sort=createdAt` | Sort column (must be in `sortableColumns`) |
+| `order` | `?order=desc` | `asc` or `desc` |
+| `q` | `?q=hello` | Text search on `searchableColumns` |
+| `count` | `?count=true` | Include `total` in response |
+| `cursor` | `?cursor=...` | Keyset pagination (cannot combine with `offset`) |
+| Filters | `?replyToId=5` | Equality filter on `filterableColumns` |
+
+List response:
+
+```json
+{
+  "items": [],
+  "limit": 20,
+  "offset": 0,
+  "hasMore": true,
+  "total": 42,
+  "sort": "createdAt",
+  "order": "desc",
+  "nextCursor": "..."
+}
+```
+
+`hasMore` is always returned. Use `count=true` when you need an exact `total`.
+
+### Cursor vs offset
+
+- **Offset** — simple, good for admin UIs and small datasets
+- **Cursor** — stable for feeds; pass `nextCursor` from the previous response with the same `sort` and `order`
+
+```bash
+GET /api/posts?limit=20&sort=createdAt&order=desc
+GET /api/posts?limit=20&sort=createdAt&order=desc&cursor=<nextCursor>
+```
 | `GET`    | `/api/:table/:id` | Get by id                            |
 | `POST`   | `/api/:table`     | Create (body: JSON)                  |
 | `PATCH`  | `/api/:table/:id` | Update (body: JSON)                  |
@@ -37,6 +79,9 @@ export const access = defineAccess(schema, {
     update: 'owner',
     delete: 'owner',
     searchableColumns: ['title', 'body'],
+    filterableColumns: ['replyToId', 'userId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
   },
   comments: {
     ownerColumn: 'userId',
@@ -75,7 +120,57 @@ Add `searchableColumns` to enable `?q=` on list:
 
 ```bash
 GET /api/posts?q=hello&limit=20&offset=0
+GET /api/posts?replyToId=5&sort=createdAt&order=asc
 ```
+
+### Filters and sorting
+
+Add `filterableColumns` for flat equality filters (`?column=value`). Add `sortableColumns` and optional `defaultSort`:
+
+```ts
+posts: {
+  filterableColumns: ['replyToId', 'userId'],
+  sortableColumns: ['createdAt', 'id'],
+  defaultSort: { column: 'createdAt', order: 'desc' },
+}
+```
+
+Filter values are coerced to the column type. Pass `null` with `?replyToId=null` for top-level posts.
+
+## Error responses
+
+Errors return `{ error, code?, details? }`:
+
+| Code | Status | When |
+| ---- | ------ | ---- |
+| `VALIDATION_ERROR` | 400 | Bad query params or JSON body |
+| `INVALID_CURSOR` | 400 | Malformed or mismatched cursor |
+| `FORBIDDEN` | 401/403 | Access denied |
+| `NOT_FOUND` | 404 | Missing record |
+| `RATE_LIMITED` | 429 | Rate limit exceeded |
+| `IDEMPOTENCY_CONFLICT` | 409 | Idempotency key reused with different body |
+
+## Rate limiting (opt-in)
+
+```ts
+createBunderstack({
+  schema,
+  rateLimit: { windowMs: 60_000, max: 100 },
+})
+```
+
+In-memory per process — use a shared store for multi-instance deployments.
+
+## POST idempotency (opt-in)
+
+```ts
+createBunderstack({
+  schema,
+  idempotency: true,
+})
+```
+
+Send `Idempotency-Key: <uuid>` on `POST` creates. Replays return the original response with `Idempotency-Replayed: true`.
 
 ## Exposing the user table
 
