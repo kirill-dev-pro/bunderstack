@@ -2,10 +2,10 @@
  * Seed demo users, educational posts, follows, likes, and threaded replies.
  * Run: bun run seed
  */
-import { createBunderstackAsync, eq } from 'bunderstack'
+import { eq } from 'bunderstack'
 
-import { access } from '../src/access'
-import * as schema from '../src/schema'
+import { app } from '~/bunderstack'
+
 import { follows, likes, posts, retweets, user } from '../src/schema'
 
 const PASSWORD = 'password123'
@@ -103,18 +103,6 @@ const EDUCATIONAL_POSTS: Array<{
     body: 'Log in as alice@example.com and edit this post. Log in as bob and PATCH the same id — Bunderstack returns 403. That is row-level security.',
   },
 ]
-
-const app = await createBunderstackAsync({
-  schema,
-  access,
-  database: { url: 'file:./data.db' },
-  auth: {
-    emailAndPassword: { enabled: true },
-    secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
-  },
-  storage: { local: './uploads' },
-  provision: true,
-})
 
 const userIds = new Map<string, string>()
 
