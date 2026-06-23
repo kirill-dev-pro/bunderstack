@@ -3,8 +3,7 @@ name: bunderstack-tanstack
 services:
   app:
     build:
-      # Build context is the monorepo root (needed for workspace packages)
-      context: ../..
+      context: .
       dockerfile: examples/tanstack-start/Dockerfile
     ports:
       - "${PORT:-3000}:3000"
