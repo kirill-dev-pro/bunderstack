@@ -39,6 +39,7 @@ COPY --from=builder /repo/examples/tanstack-start/node_modules ./examples/tansta
 COPY --from=builder /repo/examples/tanstack-start/drizzle.config.ts ./examples/tanstack-start/drizzle.config.ts
 COPY --from=builder /repo/examples/tanstack-start/scripts/ ./examples/tanstack-start/scripts/
 COPY --from=builder /repo/examples/tanstack-start/src/ ./examples/tanstack-start/src/
+COPY --from=builder /repo/examples/tanstack-start/tsconfig.json ./examples/tanstack-start/tsconfig.json
 
 EXPOSE 3000
 
