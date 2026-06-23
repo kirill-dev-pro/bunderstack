@@ -8,7 +8,7 @@ import * as schema from './schema'
 
 export const app = await createBunderstackAsync({
   schema,
-  auth: { emailPassword: true },
+  auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
   },

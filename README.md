@@ -8,7 +8,7 @@ import * as schema from './schema'
 
 const app = await createBunderstackAsync({
   schema,
-  auth: { emailPassword: true },
+  auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
   },
@@ -128,9 +128,9 @@ BetterAuth is pre-configured. Enable email/password and OAuth providers in confi
 
 ```ts
 auth: {
-  emailPassword: true,
+  emailAndPassword: { enabled: true },
   secret: process.env.AUTH_SECRET,
-  providers: {
+  socialProviders: {
     github: { clientId: '...', clientSecret: '...' },
     google: { clientId: '...', clientSecret: '...' },
   },
@@ -224,7 +224,7 @@ provision: false
 import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 
-const app = await createBunderstackAsync({ schema, auth: { emailPassword: true } })
+const app = await createBunderstackAsync({ schema, auth: { emailAndPassword: { enabled: true } } })
 
 Bun.serve({ port: 3001, fetch: app.handler })
 ```
@@ -320,9 +320,9 @@ createBunderstack({
   },
 
   auth: {
-    emailPassword: true,     // Enable email/password auth
-    secret: '...',           // JWT secret. Defaults to AUTH_SECRET env var.
-    providers: {
+    emailAndPassword: { enabled: true }, // Enable email/password auth
+    secret: '...',                       // JWT secret. Defaults to AUTH_SECRET env var.
+    socialProviders: {
       github: { clientId: '...', clientSecret: '...' },
       google: { clientId: '...', clientSecret: '...' },
     },

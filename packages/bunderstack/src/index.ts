@@ -6,11 +6,7 @@ import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import { extname } from 'node:path'
 
-import {
-  validateAndResolveAccess,
-  resolveAccessUser,
-  defineAccess,
-} from './access.ts'
+import { validateAndResolveAccess, resolveAccessUser } from './access.ts'
 import { createAuth } from './auth.ts'
 import { resolveConfig, type BunderstackConfig } from './config.ts'
 import { buildCrudRouter } from './crud.ts'
@@ -75,7 +71,12 @@ function buildStorageRouter(
     const body = await c.req.parseBody()
     const file = body['file']
     if (!(file instanceof File)) {
-      return apiError(c, ErrorCode.VALIDATION_ERROR, 'No file field in request', 400)
+      return apiError(
+        c,
+        ErrorCode.VALIDATION_ERROR,
+        'No file field in request',
+        400,
+      )
     }
 
     if (opts.uploadRules) {
@@ -189,14 +190,14 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     options.access,
   )
   const crudRouter = buildCrudRouter(options.schema, db, {
-    auth: config.auth.emailPassword ? auth : undefined,
+    auth,
     access: resolvedAccess,
     idempotency: options.idempotency,
   })
   const storageRouter = buildStorageRouter(
     storage,
     db as LibSQLDatabase<Record<string, unknown>>,
-    config.auth.emailPassword ? auth : undefined,
+    auth,
     options.storageOptions,
   )
   const { handler, router } = buildHandler({
@@ -237,7 +238,11 @@ export async function createBunderstackAsync<
 }
 
 export { resolveConfig } from './config.ts'
-export type { BunderstackConfig, ResolvedConfig } from './config.ts'
+export type {
+  BetterAuthConfig,
+  BunderstackConfig,
+  ResolvedConfig,
+} from './config.ts'
 export { provisionSchema, shouldProvision } from './provision.ts'
 export type { ProvisionMode } from './provision.ts'
 export {

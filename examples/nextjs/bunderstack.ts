@@ -10,7 +10,7 @@ export function getApp() {
       const app = createBunderstack({
         schema,
         database: { url: 'file:./data.db' },
-        auth: { emailPassword: true },
+        auth: { emailAndPassword: { enabled: true } },
         access: { posts: { ownerColumn: 'authorId' } },
         storage: { local: './uploads' },
       })

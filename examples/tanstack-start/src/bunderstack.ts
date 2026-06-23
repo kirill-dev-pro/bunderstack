@@ -8,7 +8,8 @@ export const app = await createBunderstackAsync({
   access,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
   auth: {
-    emailPassword: true,
+    baseURL: process.env.APP_URL,
+    emailAndPassword: { enabled: true },
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
   },
   storage: { local: './uploads' },

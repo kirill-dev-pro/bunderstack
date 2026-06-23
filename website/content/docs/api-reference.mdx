@@ -19,14 +19,7 @@ function createBunderstack<TSchema extends Record<string, unknown>>(
 type BunderstackConfig<TSchema> = {
   schema: TSchema
   database?: { url?: string; authToken?: string }
-  auth?: {
-    emailPassword?: boolean
-    secret?: string
-    providers?: {
-      github?: { clientId: string; clientSecret: string }
-      google?: { clientId: string; clientSecret: string }
-    }
-  }
+  auth?: BetterAuthConfig // native BetterAuth options (except database)
   storage?: { local: string | true } | { s3: true | { endpoint?: string } }
   storageOptions?: { uploadRules?: UploadRules }
 }

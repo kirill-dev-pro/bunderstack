@@ -23,14 +23,7 @@ createBunderstack({
     writableColumns?: string[],
     readonlyColumns?: string[],
   }>,
-  auth: {
-    emailPassword?: boolean,
-    secret?: string,
-    providers?: {
-      github?: { clientId: string, clientSecret: string },
-      google?: { clientId: string, clientSecret: string },
-    },
-  },
+  auth?: BetterAuthConfig, // native BetterAuth options (except database) — see better-auth.com/docs
   storage?: { local: string | true } | { s3: true | { endpoint?: string } },
   storageOptions?: {
     uploadRules?: { allowedMimeTypes?: string[], maxSizeBytes?: number },

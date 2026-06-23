@@ -51,6 +51,5 @@ test('resolveConfig s3 true reads env vars', () => {
 
 test('resolveConfig auth defaults', () => {
   const cfg = resolveConfig({ schema })
-  expect(cfg.auth.emailPassword).toBe(false)
   expect(typeof cfg.auth.secret).toBe('string')
 })

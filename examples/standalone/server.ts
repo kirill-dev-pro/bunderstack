@@ -6,7 +6,7 @@ import * as schema from './schema'
 const app = await createBunderstackAsync({
   schema,
   database: { url: 'file:./data.db' },
-  auth: { emailPassword: true },
+  auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'authorId' },
   },

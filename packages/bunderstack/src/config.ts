@@ -1,9 +1,15 @@
 // src/config.ts
+import { betterAuth } from 'better-auth'
 import { z } from 'zod'
 
 import type { TableAccessInput } from './access.ts'
 import type { IdempotencyConfig } from './idempotency.ts'
 import type { RateLimitConfig } from './rate-limit.ts'
+
+export type BetterAuthConfig = Omit<
+  NonNullable<Parameters<typeof betterAuth>[0]>,
+  'database'
+>
 
 const StorageConfigSchema = z.union([
   z.object({ local: z.union([z.string(), z.literal(true)]) }),
@@ -38,22 +44,7 @@ export const BunderstackOptionsSchema = z.object({
   database: z
     .object({ url: z.string().optional(), authToken: z.string().optional() })
     .optional(),
-  auth: z
-    .object({
-      emailPassword: z.boolean().optional(),
-      secret: z.string().optional(),
-      providers: z
-        .object({
-          github: z
-            .object({ clientId: z.string(), clientSecret: z.string() })
-            .optional(),
-          google: z
-            .object({ clientId: z.string(), clientSecret: z.string() })
-            .optional(),
-        })
-        .optional(),
-    })
-    .optional(),
+  auth: z.record(z.unknown()).optional(),
   storage: StorageConfigSchema.optional(),
   rateLimit: z
     .union([
@@ -71,10 +62,11 @@ export const BunderstackOptionsSchema = z.object({
 
 export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
   z.input<typeof BunderstackOptionsSchema>,
-  'schema' | 'access'
+  'schema' | 'access' | 'auth'
 > & {
   schema: TSchema
   access?: Record<string, TableAccessInput>
+  auth?: BetterAuthConfig
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
 }
@@ -90,13 +82,9 @@ export type ResolvedStorage =
       secretAccessKey: string
     }
 
-type AuthProviders = NonNullable<
-  NonNullable<z.infer<typeof BunderstackOptionsSchema>['auth']>['providers']
->
-
 export type ResolvedConfig = {
   database: { url: string; authToken?: string }
-  auth: { emailPassword: boolean; secret: string; providers: AuthProviders }
+  auth: BetterAuthConfig
   storage: ResolvedStorage
 }
 
@@ -110,14 +98,16 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       url: parsed.database?.url ?? process.env.DATABASE_URL ?? 'file:./data.db',
       authToken: parsed.database?.authToken ?? process.env.DATABASE_AUTH_TOKEN,
     },
-    auth: {
-      emailPassword: parsed.auth?.emailPassword ?? false,
-      secret:
-        parsed.auth?.secret ??
-        process.env.AUTH_SECRET ??
-        'dev-secret-change-in-prod',
-      providers: parsed.auth?.providers ?? {},
-    },
+    auth: (() => {
+      const authInput = (parsed.auth ?? {}) as BetterAuthConfig
+      return {
+        ...authInput,
+        secret:
+          authInput.secret ??
+          process.env.AUTH_SECRET ??
+          'dev-secret-change-in-prod',
+      }
+    })(),
     storage: resolveStorage(parsed.storage),
   }
 }

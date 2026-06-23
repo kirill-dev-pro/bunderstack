@@ -50,7 +50,7 @@ import * as schema from './schema'
 
 export const app = await createBunderstackAsync({
   schema,
-  auth: { emailPassword: true },
+  auth: { emailAndPassword: { enabled: true } },
 })
 ```
 
@@ -101,7 +101,7 @@ export const access = defineAccess(schema, {
 
 ```ts
 // bunderstack.ts
-export const app = await createBunderstackAsync({ schema, access, auth: { emailPassword: true } })
+export const app = await createBunderstackAsync({ schema, access, auth: { emailAndPassword: { enabled: true } } })
 ```
 
 ## Next steps

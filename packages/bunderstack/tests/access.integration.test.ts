@@ -48,7 +48,7 @@ beforeAll(async () => {
     schema,
     database: { url: ':memory:' },
     provision: false,
-    auth: { emailPassword: false },
+    auth: {},
   })
   await app.provision({ force: true })
 })
