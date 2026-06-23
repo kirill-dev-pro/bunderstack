@@ -6,7 +6,7 @@ import * as schema from './schema'
 export const app = await createBunderstackAsync({
   schema,
   access,
-  database: { url: 'file:./data.db' },
+  database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
   auth: {
     emailPassword: true,
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
