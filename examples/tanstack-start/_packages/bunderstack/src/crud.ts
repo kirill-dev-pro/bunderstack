@@ -1,0 +1,312 @@
+import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+
+import {
+  eq,
+  isTable,
+  getTableName,
+} from 'drizzle-orm'
+import { Hono } from 'hono'
+
+import {
+  checkAccess,
+  resolveAccessUser,
+  sanitizeWriteBody,
+  type AuthSessionResolver,
+  type CrudOperation,
+  type ResolvedAccess,
+  type ResolvedTableAccess,
+} from './access.ts'
+import { ErrorCode, apiError, ListQueryError } from './errors.ts'
+import {
+  lookupIdempotency,
+  resolveIdempotencyConfig,
+  storeIdempotency,
+  type IdempotencyConfig,
+} from './idempotency.ts'
+import { executeList, parseListParams } from './list-query.ts'
+
+export type CrudRouterOptions = {
+  auth?: AuthSessionResolver
+  access: ResolvedAccess
+  idempotency?: boolean | IdempotencyConfig
+}
+
+function tableEntryForName(
+  access: ResolvedAccess,
+  tableName: string,
+): ResolvedTableAccess | undefined {
+  for (const entry of access.values()) {
+    if (entry.tableName === tableName) return entry
+  }
+  return undefined
+}
+
+async function enforce(
+  operation: CrudOperation,
+  access: ResolvedTableAccess,
+  ctx: Parameters<typeof checkAccess>[1],
+) {
+  const rule = access[operation]
+  const result = await checkAccess(rule, ctx, access.ownerColumn)
+  return result
+}
+
+export function buildCrudRouter<TSchema extends Record<string, unknown>>(
+  schema: TSchema,
+  db: LibSQLDatabase<TSchema>,
+  options: CrudRouterOptions,
+): Hono {
+  const router = new Hono()
+  const { auth, access } = options
+  const idempotency = resolveIdempotencyConfig(options.idempotency)
+
+  for (const table of Object.values(schema)) {
+    if (!isTable(table)) continue
+
+    const name = getTableName(table as Parameters<typeof getTableName>[0])
+    const tableAccess = tableEntryForName(access, name)
+    if (!tableAccess?.enabled) continue
+
+    const idCol = (table as unknown as Record<string, unknown>)['id']
+    if (!idCol) continue
+
+    router.get(`/${name}`, async (c) => {
+      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const denied = await enforce('list', tableAccess, {
+        user,
+        request: c.req.raw,
+      })
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
+
+      try {
+        const params = parseListParams(new URL(c.req.url), tableAccess)
+        const result = await executeList(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          table,
+          tableAccess,
+          params,
+          idCol,
+        )
+        return c.json(result)
+      } catch (err) {
+        if (err instanceof ListQueryError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            400,
+            err.details,
+          )
+        }
+        throw err
+      }
+    })
+
+    router.get(`/${name}/:id`, async (c) => {
+      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const rawId = c.req.param('id')
+      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
+      if (!rows[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
+      const denied = await enforce('get', tableAccess, {
+        user,
+        request: c.req.raw,
+        row: rows[0] as Record<string, unknown>,
+      })
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
+
+      return c.json(rows[0])
+    })
+
+    router.post(`/${name}`, async (c) => {
+      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const denied = await enforce('create', tableAccess, {
+        user,
+        request: c.req.raw,
+      })
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
+
+      const rawBody = await c.req.text()
+      let body: unknown
+      try {
+        body = rawBody ? JSON.parse(rawBody) : null
+      } catch {
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
+      }
+
+      const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
+      if (idempotency && idempotencyKey) {
+        const lookup = await lookupIdempotency(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          name,
+          idempotencyKey,
+          rawBody,
+          idempotency,
+        )
+        if (lookup.type === 'conflict') {
+          return apiError(
+            c,
+            ErrorCode.IDEMPOTENCY_CONFLICT,
+            'Idempotency key reused with different body',
+            409,
+          )
+        }
+        if (lookup.type === 'replay') {
+          return new Response(lookup.response, {
+            status: lookup.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Replayed': 'true',
+            },
+          })
+        }
+      }
+
+      const values = sanitizeWriteBody(
+        body as Record<string, unknown>,
+        tableAccess,
+        'create',
+        user?.id ?? null,
+      )
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await (db as any).insert(table).values(values).returning()
+      const created = rows[0]
+
+      if (idempotency && idempotencyKey) {
+        await storeIdempotency(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          name,
+          idempotencyKey,
+          rawBody,
+          201,
+          created,
+          idempotency,
+        )
+      }
+
+      return c.json(created, 201)
+    })
+
+    router.patch(`/${name}/:id`, async (c) => {
+      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const rawId = c.req.param('id')
+      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
+      if (!existing[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
+      const denied = await enforce('update', tableAccess, {
+        user,
+        request: c.req.raw,
+        row: existing[0] as Record<string, unknown>,
+      })
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
+
+      let body: unknown
+      try {
+        body = await c.req.json()
+      } catch {
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
+      }
+
+      const values = sanitizeWriteBody(
+        body as Record<string, unknown>,
+        tableAccess,
+        'update',
+        user?.id ?? null,
+      )
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = await (db as any)
+        .update(table)
+        .set(values)
+        .where(eq(idCol as any, id))
+        .returning()
+      if (!rows[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+      return c.json(rows[0])
+    })
+
+    router.delete(`/${name}/:id`, async (c) => {
+      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const rawId = c.req.param('id')
+      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await (db as any)
+        .select()
+        .from(table)
+        .where(eq(idCol as any, id))
+      if (!existing[0]) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
+      const denied = await enforce('delete', tableAccess, {
+        user,
+        request: c.req.raw,
+        row: existing[0] as Record<string, unknown>,
+      })
+      if (!denied.allowed) {
+        return apiError(
+          c,
+          ErrorCode.FORBIDDEN,
+          'Forbidden',
+          denied.status === 401 ? 401 : 403,
+        )
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).delete(table).where(eq(idCol as any, id))
+      return new Response(null, { status: 204 })
+    })
+  }
+
+  return router
+}

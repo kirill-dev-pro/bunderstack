@@ -1,52 +1,43 @@
 ########################################
-# Stage 1: Fetch monorepo workspace packages
+# Stage 1: Build
 #
-# Dokploy sets the build context to the directory containing docker-compose.yml
-# (examples/tanstack-start/), so packages/ at the repo root is unreachable.
-# We sparse-clone only the packages/ dir from the same repo to work around this.
-########################################
-FROM alpine/git:latest AS mono-packages
-
-ARG REPO_URL=https://github.com/kirill-dev-pro/bunderstack.git
-ARG REPO_BRANCH=main
-
-RUN git clone --depth=1 --filter=blob:none --sparse \
-        --branch="${REPO_BRANCH}" "${REPO_URL}" /repo \
-    && cd /repo \
-    && git sparse-checkout set packages package.json bun.lock
-
-########################################
-# Stage 2: Build
+# Build context = examples/tanstack-start/ (Dokploy limitation).
+# Workspace packages are vendored in _packages/ so no monorepo root is needed.
 ########################################
 FROM oven/bun:1 AS builder
 
-WORKDIR /repo
+WORKDIR /app
 
-# Monorepo root from sparse clone
-COPY --from=mono-packages /repo/package.json ./package.json
-COPY --from=mono-packages /repo/bun.lock ./bun.lock
-COPY --from=mono-packages /repo/packages ./packages
+COPY . .
 
-# Example source (build context = examples/tanstack-start/)
-COPY . ./examples/tanstack-start/
+# Swap workspace:* refs for local vendored paths so bun install can resolve them
+RUN bun --eval "
+const fs = require('fs');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+pkg.dependencies['bunderstack'] = 'file:./_packages/bunderstack';
+pkg.dependencies['bunderstack-query'] = 'file:./_packages/bunderstack-query';
+fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+const qPkg = JSON.parse(fs.readFileSync('_packages/bunderstack-query/package.json', 'utf8'));
+qPkg.dependencies['bunderstack'] = 'file:../bunderstack';
+fs.writeFileSync('_packages/bunderstack-query/package.json', JSON.stringify(qPkg, null, 2));
+"
 
 RUN bun install
 
-WORKDIR /repo/examples/tanstack-start
 RUN bun run build
 
 ########################################
-# Stage 3: Runtime
+# Stage 2: Runtime
 ########################################
 FROM oven/bun:1
 
 WORKDIR /app
 
-COPY --from=builder /repo/examples/tanstack-start/.output ./.output
-COPY --from=builder /repo/node_modules ./node_modules
-COPY --from=builder /repo/packages ./packages
-COPY --from=builder /repo/examples/tanstack-start/drizzle.config.ts ./drizzle.config.ts
-COPY --from=builder /repo/examples/tanstack-start/src/schema.ts ./src/schema.ts
+COPY --from=builder /app/.output ./.output
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/_packages ./_packages
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder /app/src/schema.ts ./src/schema.ts
 
 EXPOSE 3000
 
