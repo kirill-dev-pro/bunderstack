@@ -23,6 +23,7 @@ FROM oven/bun:1
 
 WORKDIR /app
 
+
 # Bundled Nitro server output
 COPY --from=builder /repo/examples/tanstack-start/.output ./.output
 
@@ -36,7 +37,8 @@ COPY --from=builder /repo/node_modules ./node_modules
 COPY --from=builder /repo/examples/tanstack-start/package.json ./examples/tanstack-start/package.json
 COPY --from=builder /repo/examples/tanstack-start/node_modules ./examples/tanstack-start/node_modules
 COPY --from=builder /repo/examples/tanstack-start/drizzle.config.ts ./examples/tanstack-start/drizzle.config.ts
-COPY --from=builder /repo/examples/tanstack-start/src/schema.ts ./examples/tanstack-start/src/schema.ts
+COPY --from=builder /repo/examples/tanstack-start/scripts/ ./examples/tanstack-start/scripts/
+COPY --from=builder /repo/examples/tanstack-start/src/ ./examples/tanstack-start/src/
 
 EXPOSE 3000
 
