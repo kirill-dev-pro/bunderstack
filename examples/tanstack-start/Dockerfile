@@ -11,16 +11,9 @@ WORKDIR /app
 COPY . .
 
 # Swap workspace:* refs for local vendored paths so bun install can resolve them
-RUN bun --eval "
-const fs = require('fs');
-const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-pkg.dependencies['bunderstack'] = 'file:./_packages/bunderstack';
-pkg.dependencies['bunderstack-query'] = 'file:./_packages/bunderstack-query';
-fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-const qPkg = JSON.parse(fs.readFileSync('_packages/bunderstack-query/package.json', 'utf8'));
-qPkg.dependencies['bunderstack'] = 'file:../bunderstack';
-fs.writeFileSync('_packages/bunderstack-query/package.json', JSON.stringify(qPkg, null, 2));
-"
+RUN sed -i 's|"bunderstack": "workspace:\*"|"bunderstack": "file:./_packages/bunderstack"|' package.json \
+    && sed -i 's|"bunderstack-query": "workspace:\*"|"bunderstack-query": "file:./_packages/bunderstack-query"|' package.json \
+    && sed -i 's|"bunderstack": "workspace:\*"|"bunderstack": "file:../bunderstack"|' _packages/bunderstack-query/package.json
 
 RUN bun install
 
