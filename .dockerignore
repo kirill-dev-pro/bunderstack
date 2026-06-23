@@ -1,0 +1,12 @@
+.git/
+**/node_modules/
+**/.output/
+**/.vinxi/
+**/.nitro/
+**/dist/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/uploads/
+docs/
+.github/

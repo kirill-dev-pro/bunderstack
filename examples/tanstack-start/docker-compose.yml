@@ -1,0 +1,27 @@
+name: bunderstack-tanstack
+
+services:
+  app:
+    build:
+      # Build context is the monorepo root (needed for workspace packages)
+      context: ../..
+      dockerfile: examples/tanstack-start/Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "file:/data/db/data.db"
+      AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET env var is required}"
+    volumes:
+      - db_data:/data/db
+      - uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  db_data:
+  uploads:
