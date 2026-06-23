@@ -4,7 +4,10 @@ services:
   app:
     build:
       context: .
-      dockerfile: examples/tanstack-start/Dockerfile
+      dockerfile: Dockerfile
+      args:
+        REPO_URL: https://github.com/kirill-dev-pro/bunderstack.git
+        REPO_BRANCH: main
     ports:
       - "${PORT:-3000}:3000"
     environment:
