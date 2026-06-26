@@ -257,6 +257,13 @@ export type {
   AccessContext,
   AccessUser,
 } from './access.ts'
+export {
+  typeid,
+  generate as generateTypeId,
+  parse as parseTypeId,
+  asTypeId,
+} from './typeid.ts'
+export type { TypeId } from './typeid.ts'
 export type { StorageAccessConfig } from './file-metadata.ts'
 export type { StorageAdapter } from './storage/index.ts'
 export type { UploadRules } from './storage/validation.ts'
