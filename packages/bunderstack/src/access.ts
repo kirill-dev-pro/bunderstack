@@ -23,6 +23,7 @@ export type AccessContext = {
   request: Request
   row?: Record<string, unknown>
   body?: Record<string, unknown>
+  session?: { activeOrganizationId: string | null } | null
 }
 
 export type OperationRule =
@@ -31,6 +32,9 @@ export type OperationRule =
   | 'owner'
   | 'deny'
   | ((ctx: AccessContext) => boolean | Promise<boolean>)
+
+export type ScopeMap = Record<string, string | string[]>
+export type ScopeResolver = (ctx: AccessContext) => ScopeMap
 
 export type CrudOperation = 'list' | 'get' | 'create' | 'update' | 'delete'
 
@@ -71,6 +75,7 @@ export type TableAccessInput = {
   sortableColumns?: string[]
   /** Default list ordering when `?sort` is omitted. Defaults to `{ column: 'id', order: 'desc' }`. */
   defaultSort?: DefaultSort
+  scope?: ScopeResolver
 }
 
 export type ResolvedTableAccess = {
@@ -89,6 +94,7 @@ export type ResolvedTableAccess = {
   filterableColumns: string[]
   sortableColumns: string[]
   defaultSort: DefaultSort
+  scope?: ScopeResolver
 }
 
 export type ResolvedAccess = Map<string, ResolvedTableAccess>
@@ -195,6 +201,7 @@ function resolveDefaults(
       ...(ownerColumn ? [ownerColumn] : []),
     ],
     searchableColumns: input.searchableColumns,
+    scope: input.scope,
     ...listAccess,
   }
 }
@@ -356,6 +363,33 @@ export function defineAccess<TSchema extends Record<string, unknown>>(
   return rules
 }
 
+export function rowMatchesScope(
+  row: Record<string, unknown>,
+  scope: ScopeMap,
+): boolean {
+  for (const [col, expected] of Object.entries(scope)) {
+    const actual = row[col]
+    if (actual == null) return false
+    if (Array.isArray(expected)) {
+      if (!expected.map(String).includes(String(actual))) return false
+    } else if (String(actual) !== String(expected)) {
+      return false
+    }
+  }
+  return true
+}
+
+export function stampScope(
+  values: Record<string, unknown>,
+  scope: ScopeMap,
+): Record<string, unknown> {
+  const out = { ...values }
+  for (const [col, expected] of Object.entries(scope)) {
+    if (!Array.isArray(expected)) out[col] = expected
+  }
+  return out
+}
+
 export async function checkAccess(
   rule: OperationRule,
   ctx: AccessContext,
@@ -417,6 +451,7 @@ export type AuthSessionResolver = {
   api: {
     getSession: (opts: { headers: Headers }) => Promise<{
       user: { id: string; email: string; name?: string } | null
+      session?: { activeOrganizationId?: string | null } | null
     } | null>
   }
 }
@@ -432,5 +467,22 @@ export async function resolveAccessUser(
     id: session.user.id,
     email: session.user.email,
     name: session.user.name,
+  }
+}
+
+export async function resolveSession(
+  auth: AuthSessionResolver | undefined,
+  headers: Headers,
+): Promise<{ user: AccessUser | null; activeOrganizationId: string | null }> {
+  if (!auth) return { user: null, activeOrganizationId: null }
+  const session = await auth.api.getSession({ headers })
+  if (!session?.user) return { user: null, activeOrganizationId: null }
+  return {
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
+    },
+    activeOrganizationId: session.session?.activeOrganizationId ?? null,
   }
 }
