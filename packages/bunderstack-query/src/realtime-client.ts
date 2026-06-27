@@ -58,6 +58,7 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   let abort: AbortController | null = null
   let backoff = 1000
   let watchdog: ReturnType<typeof setTimeout> | null = null
+  let backoffTimer: ReturnType<typeof setTimeout> | null = null
 
   function setStatus(s: RealtimeStatus) { config.onStatus?.(s) }
 
@@ -148,7 +149,8 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
       // Reconnect with jittered backoff (cap 30s). lastEventId drives replay.
       const wait = Math.min(backoff, 30000) * (0.5 + Math.random())
       backoff = Math.min(backoff * 2, 30000)
-      await new Promise((r) => setTimeout(r, wait))
+      await new Promise<void>((r) => { backoffTimer = setTimeout(r, wait) })
+      backoffTimer = null
     }
     setStatus('closed')
   }
@@ -156,7 +158,7 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   // Refocus => force an immediate reconnect + catch-up (no waiting on backoff).
   const onVisible = () => {
     if (closed) return
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    if (document.visibilityState === 'visible') {
       backoff = 1000
       abort?.abort()
     }
@@ -172,7 +174,8 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
     },
     close() {
       closed = true
-      if (watchdog) clearTimeout(watchdog)
+      if (watchdog) { clearTimeout(watchdog); watchdog = null }
+      if (backoffTimer) { clearTimeout(backoffTimer); backoffTimer = null }
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
       abort?.abort()
       setStatus('closed')
