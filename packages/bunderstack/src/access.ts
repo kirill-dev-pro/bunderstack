@@ -390,6 +390,23 @@ export function stampScope(
   return out
 }
 
+export function checkAccessSync(
+  rule: Exclude<OperationRule, (ctx: AccessContext) => boolean | Promise<boolean>>,
+  ctx: AccessContext,
+  ownerColumn?: string,
+): { allowed: boolean } {
+  if (rule === 'deny') return { allowed: false }
+  if (rule === 'public') return { allowed: true }
+  if (!ctx.user) return { allowed: false }
+  if (rule === 'authenticated') return { allowed: true }
+  if (rule === 'owner') {
+    if (!ownerColumn) return { allowed: false }
+    const owner = ctx.row?.[ownerColumn]
+    return { allowed: owner != null && String(owner) === ctx.user.id }
+  }
+  return { allowed: false }
+}
+
 export async function checkAccess(
   rule: OperationRule,
   ctx: AccessContext,
