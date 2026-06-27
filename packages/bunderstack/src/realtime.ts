@@ -103,7 +103,7 @@ export function buildRealtimeRouter(
 
   router.post('/realtime', async (c) => {
     const body = (await c.req.json().catch(() => null)) as
-      | { clientId?: string; subscriptions?: string[] }
+      | { clientId?: string; subscriptions?: string[]; since?: number | null }
       | null
     if (!body?.clientId || !Array.isArray(body.subscriptions)) {
       return c.json({ error: 'clientId and subscriptions required' }, 400)
@@ -112,12 +112,13 @@ export function buildRealtimeRouter(
       opts.auth,
       c.req.raw.headers,
     )
-    broker.setContext(body.clientId, {
+    const { gap } = broker.setContext(body.clientId, {
       user,
       activeOrganizationId,
       subscriptions: new Set(body.subscriptions),
+      since: body.since ?? null,
     })
-    return new Response(null, { status: 204 })
+    return c.json({ gap }, 200)
   })
 
   return router
