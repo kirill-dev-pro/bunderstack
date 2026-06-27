@@ -1,0 +1,30 @@
+{
+  "name": "bunderstack-example-kanban",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "bun .output/server/index.mjs",
+    "db:push": "drizzle-kit push --config=drizzle.config.ts",
+    "seed": "bun scripts/seed.ts"
+  },
+  "dependencies": {
+    "@knadh/oat": "^0.6.2",
+    "@solidjs/router": "^0.15.4",
+    "@tanstack/solid-query": "^5.101.1",
+    "@thisbeyond/solid-dnd": "^0.7.5",
+    "better-auth": "^1.0.0",
+    "bunderstack": "workspace:*",
+    "bunderstack-query": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "marked": "^14.0.0",
+    "solid-js": "1.9.13"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.0",
+    "nitro": "^3.0.260610-beta",
+    "vite": "^8.0.0",
+    "vite-plugin-solid": "^2.11.12"
+  }
+}
