@@ -31,7 +31,7 @@ it('applies a create event: sets detail cache and invalidates the list', async (
   stream.push({ eventId: 1, action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } })
   await Promise.resolve(); await new Promise((r) => setTimeout(r, 5))
 
-  expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toEqual({ id: 'card_1', title: 'A' })
+  expect(qc.getQueryData(['cards', 'detail', 'card_1']) as unknown).toEqual({ id: 'card_1', title: 'A' })
   expect(posted[0]).toEqual({ clientId: 'c1', subscriptions: ['cards'], since: null })
   rt.close()
 })

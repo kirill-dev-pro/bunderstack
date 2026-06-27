@@ -83,12 +83,13 @@ describe('realtime broker — event ids + buffer', () => {
     broker.publish('boards', 'create', { id: 'b3', organizationId: 'org_1', title: '3' })
     // Reconnect from before everything: since=0 -> replay should only have the last 2 (ids 2,3) and report gap.
     const a = sub(broker, 'org_1', ['boards'])
+    // Memory broker setContext is synchronous; cast away the union to avoid TS2339.
     const res = broker.setContext(a.id, {
       user: { id: 'u_1', email: 'a@b.c' },
       activeOrganizationId: 'org_1',
       subscriptions: new Set(['boards']),
       since: 0,
-    })
+    }) as { gap: boolean }
     expect(res.gap).toBe(true)
     expect(a.received.map((e: any) => e.eventId)).toEqual([2, 3])
   })
