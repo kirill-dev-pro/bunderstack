@@ -64,7 +64,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   options: CrudRouterOptions,
 ): Hono {
   const router = new Hono()
-  const { auth, access } = options
+  const { auth, access, broker } = options
   const idempotency = resolveIdempotencyConfig(options.idempotency)
 
   const scopeFor = (
@@ -232,6 +232,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await (db as any).insert(table).values(stamped).returning()
       const created = rows[0]
+      broker?.publish(name, 'create', created as Record<string, unknown>)
 
       if (idempotency && idempotencyKey) {
         await storeIdempotency(
@@ -308,6 +309,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       if (!rows[0]) {
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
+      broker?.publish(name, 'update', rows[0] as Record<string, unknown>)
       return c.json(rows[0])
     })
 
@@ -347,6 +349,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).delete(table).where(eq(idCol as any, id))
+      broker?.publish(name, 'delete', existing[0] as Record<string, unknown>)
       return new Response(null, { status: 204 })
     })
   }
