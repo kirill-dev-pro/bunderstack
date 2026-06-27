@@ -25,22 +25,7 @@ export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.string(), z.unknown()),
   /** Auto-push schema in non-production. Set `true` to always provision, `false` to never. */
   provision: z.union([z.boolean(), z.literal('auto')]).optional(),
-  access: z
-    .record(
-      z.string(),
-      z.object({
-        crud: z.boolean().optional(),
-        ownerColumn: z.string().optional(),
-        list: z.enum(['public', 'authenticated', 'owner', 'deny']).optional(),
-        get: z.enum(['public', 'authenticated', 'owner', 'deny']).optional(),
-        create: z.enum(['public', 'authenticated', 'owner', 'deny']).optional(),
-        update: z.enum(['public', 'authenticated', 'owner', 'deny']).optional(),
-        delete: z.enum(['public', 'authenticated', 'owner', 'deny']).optional(),
-        writableColumns: z.array(z.string()).optional(),
-        readonlyColumns: z.array(z.string()).optional(),
-      }),
-    )
-    .optional(),
+  access: z.record(z.string(), z.any()).optional(),
   database: z
     .object({ url: z.string().optional(), authToken: z.string().optional() })
     .optional(),
@@ -58,6 +43,9 @@ export const BunderstackOptionsSchema = z.object({
   idempotency: z
     .union([z.boolean(), z.object({ ttlMs: z.number().optional() })])
     .optional(),
+  realtime: z
+    .union([z.boolean(), z.object({ keepaliveMs: z.number().optional() })])
+    .optional(),
 })
 
 export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
@@ -69,6 +57,7 @@ export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
   auth?: BetterAuthConfig
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
+  realtime?: boolean | { keepaliveMs?: number }
 }
 
 export type ResolvedStorage =
