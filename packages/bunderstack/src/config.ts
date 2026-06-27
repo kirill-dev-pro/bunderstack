@@ -75,6 +75,7 @@ export type ResolvedConfig = {
   database: { url: string; authToken?: string }
   auth: BetterAuthConfig
   storage: ResolvedStorage
+  realtime?: boolean | { keepaliveMs?: number }
 }
 
 export function resolveConfig<TSchema extends Record<string, unknown>>(
@@ -98,6 +99,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       }
     })(),
     storage: resolveStorage(parsed.storage),
+    realtime: parsed.realtime,
   }
 }
 

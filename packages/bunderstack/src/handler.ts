@@ -7,6 +7,7 @@ interface HandlerParts {
   crudRouter: Hono
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
+  realtimeRouter?: Hono
   rateLimit?: boolean | RateLimitConfig
 }
 
@@ -30,6 +31,10 @@ export function buildHandler(parts: HandlerParts): {
   if (parts.storageRouter) {
     app.route('/api/files', parts.storageRouter)
     app.route('/files', parts.storageRouter)
+  }
+
+  if (parts.realtimeRouter) {
+    app.route('/api', parts.realtimeRouter)
   }
 
   const inner = (req: Request): Promise<Response> => Promise.resolve(app.fetch(req))

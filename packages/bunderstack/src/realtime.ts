@@ -1,8 +1,12 @@
 // packages/bunderstack/src/realtime.ts
+import { Hono } from 'hono'
+
 import {
   checkAccessSync,
+  resolveSession,
   rowMatchesScope,
   type AccessUser,
+  type AuthSessionResolver,
   type ResolvedAccess,
   type ResolvedTableAccess,
 } from './access.ts'
@@ -52,6 +56,63 @@ function scopeOk(
 ): boolean {
   if (!entry.scope) return true
   return rowMatchesScope(record, entry.scope(ctx))
+}
+
+export function buildRealtimeRouter(
+  broker: RealtimeBroker,
+  opts: { auth?: AuthSessionResolver; keepaliveMs?: number },
+): Hono {
+  const router = new Hono()
+  const keepaliveMs = opts.keepaliveMs ?? 30000
+
+  router.get('/realtime', (c) => {
+    const encoder = new TextEncoder()
+    let handle: { id: string }
+    let keepalive: ReturnType<typeof setInterval>
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const send = (data: string) =>
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+        handle = broker.register(send)
+        send(JSON.stringify({ clientId: handle.id }))
+        keepalive = setInterval(() => controller.enqueue(encoder.encode(': ping\n\n')), keepaliveMs)
+      },
+      cancel() {
+        clearInterval(keepalive)
+        broker.unregister(handle.id)
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
+  })
+
+  router.post('/realtime', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as
+      | { clientId?: string; subscriptions?: string[] }
+      | null
+    if (!body?.clientId || !Array.isArray(body.subscriptions)) {
+      return c.json({ error: 'clientId and subscriptions required' }, 400)
+    }
+    const { user, activeOrganizationId } = await resolveSession(
+      opts.auth,
+      c.req.raw.headers,
+    )
+    broker.setContext(body.clientId, {
+      user,
+      activeOrganizationId,
+      subscriptions: new Set(body.subscriptions),
+    })
+    return new Response(null, { status: 204 })
+  })
+
+  return router
 }
 
 export function createRealtimeBroker(opts: {

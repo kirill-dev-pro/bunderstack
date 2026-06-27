@@ -20,6 +20,7 @@ import {
   type ResolvedTableAccess,
   type ScopeMap,
 } from './access.ts'
+import type { RealtimeBroker } from './realtime.ts'
 import { buildScopeWhere } from './scope.ts'
 import { ErrorCode, apiError, ListQueryError } from './errors.ts'
 import {
@@ -34,6 +35,7 @@ export type CrudRouterOptions = {
   auth?: AuthSessionResolver
   access: ResolvedAccess
   idempotency?: boolean | IdempotencyConfig
+  broker?: RealtimeBroker
 }
 
 function tableEntryForName(

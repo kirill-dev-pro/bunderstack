@@ -21,6 +21,7 @@ import {
   type StorageAccessConfig,
 } from './file-metadata.ts'
 import { buildHandler } from './handler.ts'
+import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'
 import { provisionSchema, type ProvisionMode } from './provision.ts'
 import { createStorage, type StorageAdapter } from './storage/index.ts'
 import {
@@ -189,11 +190,22 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     options.schema,
     options.access,
   )
+  const broker = config.realtime
+    ? createRealtimeBroker({ access: resolvedAccess })
+    : undefined
   const crudRouter = buildCrudRouter(options.schema, db, {
     auth,
     access: resolvedAccess,
     idempotency: options.idempotency,
+    broker,
   })
+  const realtimeRouter = broker
+    ? buildRealtimeRouter(broker, {
+        auth,
+        keepaliveMs:
+          typeof config.realtime === 'object' ? config.realtime.keepaliveMs : undefined,
+      })
+    : undefined
   const storageRouter = buildStorageRouter(
     storage,
     db as LibSQLDatabase<Record<string, unknown>>,
@@ -204,6 +216,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     crudRouter,
     authHandler: (req) => auth.handler(req),
     storageRouter,
+    realtimeRouter,
     rateLimit: options.rateLimit,
   })
 
