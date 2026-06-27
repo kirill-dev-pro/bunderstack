@@ -447,8 +447,10 @@ export function sanitizeWriteBody(
   const readonly = new Set(access.readonlyColumns)
 
   for (const [key, value] of Object.entries(body)) {
-    // On create, allow client-supplied `id` even if it appears in readonlyColumns
+    // On create, allow client-supplied `id` even if it appears in readonlyColumns,
+    // but still respect an explicit writableColumns allowlist if provided.
     if (mode === 'create' && key === 'id') {
+      if (access.writableColumns && !access.writableColumns.includes(key)) continue
       out[key] = value
       continue
     }
