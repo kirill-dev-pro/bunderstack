@@ -34,7 +34,7 @@ describe('realtime broker', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards'])
     broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
-    expect(a.received).toEqual([{ action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } }])
+    expect(a.received).toEqual([{ eventId: 1, action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } }])
   })
   it('does NOT deliver cross-org events (scope)', () => {
     const broker = createRealtimeBroker({ access })
@@ -60,5 +60,36 @@ describe('realtime broker', () => {
     broker.unregister(a.id)
     broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
     expect(a.received).toEqual([])
+  })
+})
+
+describe('realtime broker — event ids + buffer', () => {
+  it('stamps a monotonic eventId on each published payload', () => {
+    const broker = createRealtimeBroker({ access })
+    const a = sub(broker, 'org_1', ['boards'])
+    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
+    broker.publish('boards', 'update', { id: 'b1', organizationId: 'org_1', title: 'Y' })
+    expect(a.received).toEqual([
+      { eventId: 1, action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } },
+      { eventId: 2, action: 'update', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'Y' } },
+    ])
+  })
+
+  it('keeps only the last bufferSize events in the replay buffer', () => {
+    const broker = createRealtimeBroker({ access, bufferSize: 2 })
+    // No subscribers yet — events go to the buffer only.
+    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: '1' })
+    broker.publish('boards', 'create', { id: 'b2', organizationId: 'org_1', title: '2' })
+    broker.publish('boards', 'create', { id: 'b3', organizationId: 'org_1', title: '3' })
+    // Reconnect from before everything: since=0 -> replay should only have the last 2 (ids 2,3) and report gap.
+    const a = sub(broker, 'org_1', ['boards'])
+    const res = broker.setContext(a.id, {
+      user: { id: 'u_1', email: 'a@b.c' },
+      activeOrganizationId: 'org_1',
+      subscriptions: new Set(['boards']),
+      since: 0,
+    })
+    expect(res.gap).toBe(true)
+    expect(a.received.map((e: any) => e.eventId)).toEqual([2, 3])
   })
 })

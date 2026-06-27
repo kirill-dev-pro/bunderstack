@@ -191,7 +191,11 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     options.access,
   )
   const broker = config.realtime
-    ? createRealtimeBroker({ access: resolvedAccess })
+    ? createRealtimeBroker({
+        access: resolvedAccess,
+        bufferSize:
+          typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined,
+      })
     : undefined
   const crudRouter = buildCrudRouter(options.schema, db, {
     auth,

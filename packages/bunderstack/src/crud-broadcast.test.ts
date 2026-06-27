@@ -33,5 +33,5 @@ it('publishes a create event after insert', async () => {
     body: JSON.stringify({ id: 'b1', title: 'X' }),
   }))
 
-  expect(received).toContainEqual({ action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } })
+  expect(received).toContainEqual({ eventId: 1, action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } })
 })

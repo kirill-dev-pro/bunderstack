@@ -21,6 +21,13 @@ type Subscriber = {
   subscriptions: Set<string>
 }
 
+type BufferedEvent = {
+  eventId: number
+  table: string
+  action: RealtimeAction
+  record: Record<string, unknown>
+}
+
 export type RealtimeBroker = {
   register(send: (data: string) => void): { id: string }
   setContext(
@@ -29,8 +36,9 @@ export type RealtimeBroker = {
       user: AccessUser | null
       activeOrganizationId: string | null
       subscriptions: Set<string>
+      since?: number | null
     },
-  ): void
+  ): { gap: boolean }
   unregister(id: string): void
   publish(
     table: string,
@@ -117,27 +125,67 @@ export function buildRealtimeRouter(
 
 export function createRealtimeBroker(opts: {
   access: ResolvedAccess
+  bufferSize?: number
 }): RealtimeBroker {
   const subscribers = new Map<string, Subscriber>()
+  const bufferSize = opts.bufferSize ?? 1000
+  const buffer: BufferedEvent[] = []
+  let nextId = 1
+
+  // Returns true when this subscriber should receive this record (topic + access + scope).
+  function deliverable(
+    s: Subscriber,
+    table: string,
+    record: Record<string, unknown>,
+    id: unknown,
+  ): boolean {
+    const entry = tableEntry(opts.access, table)
+    if (!entry) return false
+    const topicMatch =
+      s.subscriptions.has(table) ||
+      (id != null && s.subscriptions.has(`${table}/${String(id)}`))
+    if (!topicMatch) return false
+    const ctx = {
+      user: s.user,
+      request: new Request('http://realtime.local'),
+      row: record,
+      session: { activeOrganizationId: s.activeOrganizationId },
+    }
+    if (typeof entry.get === 'function') return false // function get-rules unsupported on realtime v1
+    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) return false
+    if (!scopeOk(entry, ctx, record)) return false
+    return true
+  }
 
   return {
     register(send) {
       const id = crypto.randomUUID()
       subscribers.set(id, {
-        id,
-        send,
-        user: null,
-        activeOrganizationId: null,
-        subscriptions: new Set(),
+        id, send, user: null, activeOrganizationId: null, subscriptions: new Set(),
       })
       return { id }
     },
     setContext(id, ctx) {
       const s = subscribers.get(id)
-      if (!s) return
+      if (!s) return { gap: false }
       s.user = ctx.user
       s.activeOrganizationId = ctx.activeOrganizationId
       s.subscriptions = ctx.subscriptions
+
+      const since = ctx.since ?? null
+      if (since == null) return { gap: false } // fresh client; current data already loaded by queries
+
+      const maxId = nextId - 1
+      // since ahead of anything we issued => server restarted / different epoch => full catch-up.
+      if (since > maxId) return { gap: true }
+      const oldest = buffer.length ? buffer[0]!.eventId : nextId
+      const gap = since < oldest - 1 // events between since and oldest were evicted
+      for (const e of buffer) {
+        if (e.eventId <= since) continue
+        if (!deliverable(s, e.table, e.record, e.record['id'])) continue
+        s.send(JSON.stringify({ eventId: e.eventId, action: e.action, table: e.table, record: e.record }))
+      }
+      return { gap }
     },
     unregister(id) {
       subscribers.delete(id)
@@ -145,27 +193,17 @@ export function createRealtimeBroker(opts: {
     publish(table, action, record) {
       const entry = tableEntry(opts.access, table)
       if (!entry) return
+      const eventId = nextId++
+      buffer.push({ eventId, table, action, record })
+      if (buffer.length > bufferSize) buffer.shift()
       const id = record['id']
-      const payload = JSON.stringify({ action, table, record })
-
+      const payload = JSON.stringify({ eventId, action, table, record })
       for (const s of subscribers.values()) {
-        const topicMatch =
-          s.subscriptions.has(table) ||
-          (id != null && s.subscriptions.has(`${table}/${String(id)}`))
-        if (!topicMatch) continue
-
-        const ctx = {
-          user: s.user,
-          request: new Request('http://realtime.local'),
-          row: record,
-          session: { activeOrganizationId: s.activeOrganizationId },
-        }
-
-        if (typeof entry.get === 'function') continue // function get-rules unsupported on realtime v1
-        if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) continue
-        if (!scopeOk(entry, ctx, record)) continue
+        if (!deliverable(s, table, record, id)) continue
         s.send(payload)
       }
     },
   }
 }
+
+export const createMemoryRealtimeBroker = createRealtimeBroker

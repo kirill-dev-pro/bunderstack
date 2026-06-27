@@ -44,7 +44,13 @@ export const BunderstackOptionsSchema = z.object({
     .union([z.boolean(), z.object({ ttlMs: z.number().optional() })])
     .optional(),
   realtime: z
-    .union([z.boolean(), z.object({ keepaliveMs: z.number().optional() })])
+    .union([
+      z.boolean(),
+      z.object({
+        keepaliveMs: z.number().optional(),
+        bufferSize: z.number().optional(),
+      }),
+    ])
     .optional(),
 })
 
@@ -57,7 +63,7 @@ export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
   auth?: BetterAuthConfig
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
-  realtime?: boolean | { keepaliveMs?: number }
+  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number }
 }
 
 export type ResolvedStorage =
@@ -75,7 +81,7 @@ export type ResolvedConfig = {
   database: { url: string; authToken?: string }
   auth: BetterAuthConfig
   storage: ResolvedStorage
-  realtime?: boolean | { keepaliveMs?: number }
+  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number }
 }
 
 export function resolveConfig<TSchema extends Record<string, unknown>>(
