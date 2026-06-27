@@ -284,12 +284,14 @@ export async function executeList<T extends Record<string, unknown>>(
   access: ResolvedTableAccess,
   params: ParsedListParams,
   idCol: unknown,
+  scopeWhere?: SQL,
 ): Promise<ListResult<T>> {
   const searchWhere = buildSearchWhere(table, access.searchableColumns, params.q)
   const filterWhere = buildFilterWhere(table, params.filters)
   let where = and(
     ...(searchWhere ? [searchWhere] : []),
     ...(filterWhere ? [filterWhere] : []),
+    ...(scopeWhere ? [scopeWhere] : []),
   )
 
   if (params.cursor) {
