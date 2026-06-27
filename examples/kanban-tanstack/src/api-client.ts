@@ -30,5 +30,14 @@ export const listParams = { limit: 100, offset: 0 } as const
 export const api = createBunderstackQueryClient<typeof schema>().withTables({
   queryClient,
   fetch: isomorphicFetch,
-  tables: ['boards', 'lists', 'cards', 'comments', 'activity', 'user'] as const,
+  tables: [
+    'boards',
+    'lists',
+    'cards',
+    'comments',
+    'activity',
+    'attachments',
+    'reactions',
+    'user',
+  ] as const,
 })

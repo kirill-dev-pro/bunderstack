@@ -39,7 +39,8 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       ...seo({
         title: 'Kanban',
-        description: 'Org-scoped kanban boards with realtime updates on Bunderstack',
+        description:
+          'Org-scoped kanban boards with realtime updates on Bunderstack',
       }),
     ],
     links: [{ rel: 'stylesheet', href: appCss }],

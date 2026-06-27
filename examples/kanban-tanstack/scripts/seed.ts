@@ -9,7 +9,9 @@ const users = [
 
 const created: { id: string }[] = []
 for (const u of users) {
-  const res = await auth.api.signUpEmail({ body: { ...u, password: 'password123' } })
+  const res = await auth.api.signUpEmail({
+    body: { ...u, password: 'password123' },
+  })
   created.push({ id: res.user.id })
 }
 
@@ -31,7 +33,10 @@ for (const u of created) {
 }
 
 const boardId = (
-  await db.insert(schema.boards).values({ organizationId: orgId, title: 'Roadmap' }).returning()
+  await db
+    .insert(schema.boards)
+    .values({ organizationId: orgId, title: 'Roadmap' })
+    .returning()
 )[0]!.id
 const listDefs = ['Backlog', 'In Progress', 'Done']
 let pos = 1000

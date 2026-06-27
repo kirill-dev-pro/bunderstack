@@ -1,3 +1,5 @@
+import type { InferSelect } from 'bunderstack-query'
+
 import {
   DndContext,
   DragOverlay,
@@ -8,30 +10,28 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { useQuery } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  notFound,
-  redirect,
-} from '@tanstack/react-router'
+import { createFileRoute, Link, notFound, redirect } from '@tanstack/react-router'
+import { BunderstackApiError } from 'bunderstack-query'
 import { useEffect, useMemo, useState } from 'react'
 
-import { BunderstackApiError } from 'bunderstack-query'
-import type { InferSelect } from 'bunderstack-query'
 import type * as schema from '~/schema'
 
 import { api, listParams, queryClient } from '~/api-client'
 import { BoardSettingsDialog } from '~/components/BoardSettingsDialog'
 import { CardDialog } from '~/components/CardDialog'
-import { KanbanCard } from '~/components/KanbanCard'
+import { cardCoverFromAttachments, KanbanCard } from '~/components/KanbanCard'
 import { KanbanShell } from '~/components/KanbanShell'
 import { ListColumn } from '~/components/ListColumn'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { boardBackgroundClass } from '~/lib/board-backgrounds'
 import { getRealtime } from '~/lib/realtime'
 import { authClient } from '~/utils/auth-client'
 
 type Card = InferSelect<typeof schema.cards>
 type List = InferSelect<typeof schema.lists>
+type Attachment = InferSelect<typeof schema.attachments>
+type Reaction = InferSelect<typeof schema.reactions>
 
 export const Route = createFileRoute('/boards/$boardId')({
   beforeLoad: ({ context }) => {
@@ -53,7 +53,8 @@ export const Route = createFileRoute('/boards/$boardId')({
       ])
       return board
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404) throw notFound()
+      if (err instanceof BunderstackApiError && err.status === 404)
+        throw notFound()
       throw err
     }
   },
@@ -67,7 +68,14 @@ function BoardPage() {
   const [activeCard, setActiveCard] = useState<Card | null>(null)
 
   useEffect(() => {
-    void getRealtime().subscribe(['lists', 'cards', 'comments', 'activity'])
+    void getRealtime().subscribe([
+      'lists',
+      'cards',
+      'comments',
+      'activity',
+      'attachments',
+      'reactions',
+    ])
   }, [])
 
   const { data: listsData, isLoading: listsLoading } = useQuery(
@@ -78,6 +86,12 @@ function BoardPage() {
   )
   const { data: commentsData } = useQuery(
     api.comments.listQuery({ limit: 500 }),
+  )
+  const { data: attachmentsData } = useQuery(
+    api.attachments.listQuery({ limit: 500 }),
+  )
+  const { data: reactionsData } = useQuery(
+    api.reactions.listQuery({ limit: 500 }),
   )
   const { data: usersData } = useQuery(api.user.listQuery(listParams))
 
@@ -97,15 +111,46 @@ function BoardPage() {
     return map
   }, [usersData])
 
+  const cardIds = useMemo(
+    () => new Set((cardsData?.items ?? []).map((c) => c.id)),
+    [cardsData],
+  )
+
   const commentCounts = useMemo(() => {
-    const cardIds = new Set((cardsData?.items ?? []).map((c) => c.id))
     const map: Record<string, number> = {}
     for (const c of commentsData?.items ?? []) {
       if (!cardIds.has(c.cardId)) continue
       map[c.cardId] = (map[c.cardId] ?? 0) + 1
     }
     return map
-  }, [commentsData, cardsData])
+  }, [commentsData, cardIds])
+
+  const attachmentCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of attachmentsData?.items ?? []) {
+      if (a.targetType !== 'card' || !cardIds.has(a.targetId)) continue
+      map[a.targetId] = (map[a.targetId] ?? 0) + 1
+    }
+    return map
+  }, [attachmentsData, cardIds])
+
+  const cardCovers = useMemo(() => {
+    const byCard = new Map<string, Attachment[]>()
+    for (const a of attachmentsData?.items ?? []) {
+      if (a.targetType !== 'card' || !cardIds.has(a.targetId)) continue
+      const arr = byCard.get(a.targetId) ?? []
+      arr.push(a)
+      byCard.set(a.targetId, arr)
+    }
+    const map: Record<string, string | null> = {}
+    for (const [id, atts] of byCard) {
+      map[id] = cardCoverFromAttachments(atts)
+    }
+    return map
+  }, [attachmentsData, cardIds])
+
+  const allReactions = reactionsData?.items ?? []
+  const allAttachments = attachmentsData?.items ?? []
 
   const cardsByList = useMemo(() => {
     const map = new Map<string, Card[]>()
@@ -160,9 +205,11 @@ function BoardPage() {
     if (!targetListId) return
 
     const card = cardsData?.items?.find((c) => c.id === cardId)
-    if (!card || card.listId === targetListId && over.id === cardId) return
+    if (!card || (card.listId === targetListId && over.id === cardId)) return
 
-    const siblings = (cardsByList.get(targetListId) ?? []).filter((c) => c.id !== cardId)
+    const siblings = (cardsByList.get(targetListId) ?? []).filter(
+      (c) => c.id !== cardId,
+    )
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
 
     moveCard.mutate(
@@ -189,27 +236,35 @@ function BoardPage() {
     successMessage: 'List created',
   })
 
+  const bgClass = boardBackgroundClass(board.background)
+
   return (
     <KanbanShell user={user!} boardTitle={board.title}>
-      <div className="board-view">
+      <div className={`board-view ${bgClass}`}>
         <div className="board-toolbar">
           <h1>{board.title}</h1>
           <div className="board-toolbar-actions">
             <div className="board-toolbar-members">
-              {(members ?? []).slice(0, 5).map((m: { userId: string; user?: { name?: string } }) => (
-                <UserAvatar
-                  key={m.userId}
-                  name={m.user?.name ?? userNames[m.userId] ?? '?'}
-                  size={28}
-                />
-              ))}
+              {(members ?? [])
+                .slice(0, 5)
+                .map((m: { userId: string; user?: { name?: string } }) => (
+                  <UserAvatar
+                    key={m.userId}
+                    name={m.user?.name ?? userNames[m.userId] ?? '?'}
+                    size={28}
+                  />
+                ))}
             </div>
+            <Link to="/org/settings" className="outline board-share-btn">
+              Share
+            </Link>
             <button
               type="button"
               className="outline board-settings-btn"
               onClick={() => setSettingsOpen(true)}
+              aria-label="Board settings"
             >
-              Settings
+              ⚙
             </button>
           </div>
         </div>
@@ -239,6 +294,9 @@ function BoardPage() {
                         boardId={boardId}
                         colorIndex={i}
                         commentCounts={commentCounts}
+                        attachmentCounts={attachmentCounts}
+                        cardCovers={cardCovers}
+                        cardReactions={allReactions}
                         userNames={userNames}
                       />
                     ))}
@@ -278,6 +336,13 @@ function BoardPage() {
                   <KanbanCard
                     card={activeCard}
                     commentCount={commentCounts[activeCard.id] ?? 0}
+                    attachmentCount={attachmentCounts[activeCard.id] ?? 0}
+                    coverUrl={cardCovers[activeCard.id]}
+                    reactions={allReactions.filter(
+                      (r) =>
+                        r.targetType === 'card' &&
+                        r.targetId === activeCard.id,
+                    )}
                     assigneeName={
                       activeCard.assigneeId
                         ? userNames[activeCard.assigneeId]
@@ -300,7 +365,13 @@ function BoardPage() {
         members={members ?? []}
         listNames={listNames}
       />
-      <CardDialog userId={user!.id} userNames={userNames} listNames={listNames} />
+      <CardDialog
+        userId={user!.id}
+        userNames={userNames}
+        listNames={listNames}
+        allAttachments={allAttachments}
+        allReactions={allReactions}
+      />
     </KanbanShell>
   )
 }

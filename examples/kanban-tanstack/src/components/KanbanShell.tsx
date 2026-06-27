@@ -36,6 +36,9 @@ export function KanbanShell({ user, children, boardTitle }: KanbanShellProps) {
 
           <div className="kanban-header-actions">
             <OrgSwitcher />
+            <Link to="/org/settings" className="kanban-workspace-link">
+              Workspace
+            </Link>
             <UserAvatar name={user.name} image={user.image} size={32} />
             <Link to="/logout">Log out</Link>
           </div>

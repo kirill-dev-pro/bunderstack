@@ -1,6 +1,7 @@
+import type { InferSelect } from 'bunderstack-query'
+
 import { useQuery } from '@tanstack/react-query'
 
-import type { InferSelect } from 'bunderstack-query'
 import type * as schema from '~/schema'
 
 import { api } from '~/api-client'
@@ -112,8 +113,14 @@ export function ActivityList({
   if (isLoading) {
     return (
       <div>
-        <div className="skeleton" style={{ height: '3rem', marginBottom: '0.5rem' }} />
-        <div className="skeleton" style={{ height: '3rem', marginBottom: '0.5rem' }} />
+        <div
+          className="skeleton"
+          style={{ height: '3rem', marginBottom: '0.5rem' }}
+        />
+        <div
+          className="skeleton"
+          style={{ height: '3rem', marginBottom: '0.5rem' }}
+        />
         <div className="skeleton" style={{ height: '3rem' }} />
       </div>
     )
@@ -122,7 +129,9 @@ export function ActivityList({
   const items = data?.items ?? []
   if (!items.length) {
     return (
-      <p style={{ fontSize: '0.8rem', color: 'var(--oat-muted)' }}>{emptyLabel}</p>
+      <p style={{ fontSize: '0.8rem', color: 'var(--oat-muted)' }}>
+        {emptyLabel}
+      </p>
     )
   }
 
@@ -133,7 +142,9 @@ export function ActivityList({
       {items.map((item) => (
         <li key={item.id} className="activity-item">
           <div>
-            <div>{formatActivity(item, { cardScope, userNames, listNames })}</div>
+            <div>
+              {formatActivity(item, { cardScope, userNames, listNames })}
+            </div>
             <time dateTime={toDate(item.createdAt)?.toISOString()}>
               {relativeTime(item.createdAt)}
             </time>

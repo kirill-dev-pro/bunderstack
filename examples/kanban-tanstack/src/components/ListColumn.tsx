@@ -1,20 +1,19 @@
+import type { InferSelect } from 'bunderstack-query'
+
 import { useDroppable } from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useState } from 'react'
 
-import type { InferSelect } from 'bunderstack-query'
 import type * as schema from '~/schema'
 
-import { useToastMutation } from '~/hooks/useToastMutation'
 import { api } from '~/api-client'
-
-import { KanbanCard } from './KanbanCard'
+import { cardCoverFromAttachments, KanbanCard } from '~/components/KanbanCard'
+import { useToastMutation } from '~/hooks/useToastMutation'
 
 type Card = InferSelect<typeof schema.cards>
 type List = InferSelect<typeof schema.lists>
+type Attachment = InferSelect<typeof schema.attachments>
+type Reaction = InferSelect<typeof schema.reactions>
 
 const COLUMN_COLORS = ['#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']
 
@@ -24,6 +23,9 @@ type ListColumnProps = {
   boardId: string
   colorIndex: number
   commentCounts: Record<string, number>
+  attachmentCounts: Record<string, number>
+  cardCovers: Record<string, string | null>
+  cardReactions: Reaction[]
   userNames: Record<string, string>
 }
 
@@ -33,6 +35,9 @@ export function ListColumn({
   boardId,
   colorIndex,
   commentCounts,
+  attachmentCounts,
+  cardCovers,
+  cardReactions,
   userNames,
 }: ListColumnProps) {
   const [adding, setAdding] = useState(false)
@@ -70,6 +75,11 @@ export function ListColumn({
               key={card.id}
               card={card}
               commentCount={commentCounts[card.id] ?? 0}
+              attachmentCount={attachmentCounts[card.id] ?? 0}
+              coverUrl={cardCovers[card.id]}
+              reactions={cardReactions.filter(
+                (r) => r.targetType === 'card' && r.targetId === card.id,
+              )}
               assigneeName={
                 card.assigneeId ? userNames[card.assigneeId] : undefined
               }
@@ -99,15 +109,26 @@ export function ListColumn({
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
             />
-            <button type="submit" disabled={createCard.isPending || !title.trim()}>
+            <button
+              type="submit"
+              disabled={createCard.isPending || !title.trim()}
+            >
               Add card
             </button>
-            <button type="button" className="outline" onClick={() => setAdding(false)}>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => setAdding(false)}
+            >
               Cancel
             </button>
           </form>
         ) : (
-          <button type="button" className="outline" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="outline"
+            onClick={() => setAdding(true)}
+          >
             + Add card
           </button>
         )}

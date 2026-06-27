@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import { api } from '~/api-client'
 import { authClient } from '~/utils/auth-client'
@@ -26,9 +26,7 @@ export function OrgSwitcher() {
   }, [qc])
 
   if (orgs.length <= 1) {
-    return orgs[0] ? (
-      <span className="org-switcher">{orgs[0].name}</span>
-    ) : null
+    return orgs[0] ? <span className="org-switcher">{orgs[0].name}</span> : null
   }
 
   return (

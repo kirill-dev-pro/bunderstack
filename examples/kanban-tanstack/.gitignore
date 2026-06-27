@@ -5,3 +5,4 @@ app.config.timestamp_*.js
 data.db
 .nitro/
 .output/
+uploads/

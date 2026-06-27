@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { api, listParams, queryClient } from '~/api-client'
 import { KanbanShell } from '~/components/KanbanShell'
 import { useToastMutation } from '~/hooks/useToastMutation'
+import { boardTileClass } from '~/lib/board-backgrounds'
 import { getRealtime } from '~/lib/realtime'
 import { authClient } from '~/utils/auth-client'
 
@@ -13,7 +14,9 @@ export const Route = createFileRoute('/')({
     if (!context.user) throw redirect({ to: '/login' })
   },
   loader: async () => {
-    await queryClient.ensureQueryData(api.boards.listQuery({ ...listParams, limit: 50 }))
+    await queryClient.ensureQueryData(
+      api.boards.listQuery({ ...listParams, limit: 50 }),
+    )
   },
   component: BoardsPage,
 })
@@ -45,6 +48,14 @@ function BoardsPage() {
     })()
   }, [])
 
+  const { data: pendingInvites } = useQuery({
+    queryKey: ['user-invitations'],
+    queryFn: async () => {
+      const res = await authClient.organization.listUserInvitations()
+      return res.data ?? []
+    },
+  })
+
   const { data, isLoading } = useQuery(
     api.boards.listQuery({ ...listParams, limit: 50 }),
   )
@@ -61,6 +72,21 @@ function BoardsPage() {
   return (
     <KanbanShell user={user!}>
       <div className="boards-page">
+        {(pendingInvites?.length ?? 0) > 0 ? (
+          <div className="invite-banner">
+            <p>
+              You have {pendingInvites!.length} pending workspace invitation
+              {pendingInvites!.length === 1 ? '' : 's'}.
+            </p>
+            <Link
+              to="/invite/$invitationId"
+              params={{ invitationId: pendingInvites![0]!.id }}
+            >
+              View invitation
+            </Link>
+          </div>
+        ) : null}
+
         <header className="boards-page-header">
           <h1>Your boards</h1>
           <p>Pick a board or create a new one for your organization.</p>
@@ -76,7 +102,7 @@ function BoardsPage() {
                   key={board.id}
                   to="/boards/$boardId"
                   params={{ boardId: board.id }}
-                  className="board-tile"
+                  className={`board-tile ${boardTileClass(board.id, board.background)}`}
                 >
                   <span className="board-tile-title">{board.title}</span>
                   <span className="board-tile-meta">
@@ -99,7 +125,10 @@ function BoardsPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
-              <button type="submit" disabled={!title.trim() || createBoard.isPending}>
+              <button
+                type="submit"
+                disabled={!title.trim() || createBoard.isPending}
+              >
                 Create board
               </button>
             </form>

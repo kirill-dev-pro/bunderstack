@@ -1,4 +1,5 @@
 import { defineAccess, type AccessContext } from 'bunderstack/access'
+
 import * as schema from './schema'
 
 const orgScope = (ctx: AccessContext) => ({
@@ -48,6 +49,23 @@ export const access = defineAccess(schema, {
     filterableColumns: ['boardId', 'cardId'],
     sortableColumns: ['createdAt', 'id'],
     defaultSort: { column: 'createdAt', order: 'desc' },
+  },
+  attachments: {
+    ...orgTable,
+    ownerColumn: 'uploaderId',
+    filterableColumns: ['targetType', 'targetId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'asc' },
+  },
+  reactions: {
+    ...orgTable,
+    ownerColumn: 'userId',
+    create: 'authenticated',
+    update: 'deny',
+    delete: 'owner',
+    filterableColumns: ['targetType', 'targetId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'asc' },
   },
   user: { exposeAuthTable: true, list: 'authenticated', get: 'authenticated' },
   session: { crud: false },

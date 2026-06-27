@@ -33,13 +33,13 @@ bun run --cwd examples/kanban-tanstack db:push
 
 Use separate terminals — each binds a different port.
 
-| Example                | Command                                   | URL                   |
-| ---------------------- | ----------------------------------------- | --------------------- |
-| Standalone (Bun.serve) | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
-| TanStack Start         | `bun run dev:tanstack`                    | http://localhost:3000 |
-| Next.js                | `bun run dev:nextjs`                      | http://localhost:3002 |
-| Kanban (Solid + Vite)  | `bun run dev:kanban`                      | http://localhost:5174 |
-| Kanban (TanStack Start)| `bun run dev:kanban-tanstack`             | http://localhost:5175 |
+| Example                 | Command                                   | URL                   |
+| ----------------------- | ----------------------------------------- | --------------------- |
+| Standalone (Bun.serve)  | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
+| TanStack Start          | `bun run dev:tanstack`                    | http://localhost:3000 |
+| Next.js                 | `bun run dev:nextjs`                      | http://localhost:3002 |
+| Kanban (Solid + Vite)   | `bun run dev:kanban`                      | http://localhost:5174 |
+| Kanban (TanStack Start) | `bun run dev:kanban-tanstack`             | http://localhost:5175 |
 
 ### Standalone
 
@@ -92,11 +92,11 @@ bun run --cwd examples/kanban-solid-1.9 seed   # once
 
 Demo accounts (password `password123`): `alice@example.com`, `bob@example.com`, `carol@example.com`
 
-| Route            | Purpose                |
-| ---------------- | ---------------------- |
-| `/login`         | BetterAuth             |
-| `/`              | Boards in active org   |
-| `/boards/:id`    | Kanban + drag-and-drop |
+| Route         | Purpose                |
+| ------------- | ---------------------- |
+| `/login`      | BetterAuth             |
+| `/`           | Boards in active org   |
+| `/boards/:id` | Kanban + drag-and-drop |
 
 ### Kanban (TanStack Start)
 

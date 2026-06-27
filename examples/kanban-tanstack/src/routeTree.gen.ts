@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OrgSettingsRouteImport } from './routes/org.settings'
+import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as BoardsBoardIdRouteImport } from './routes/boards.$boardId'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 
@@ -28,6 +30,16 @@ const LoginRoute = LoginRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrgSettingsRoute = OrgSettingsRouteImport.update({
+  id: '/org/settings',
+  path: '/org/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
+  id: '/invite/$invitationId',
+  path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BoardsBoardIdRoute = BoardsBoardIdRouteImport.update({
@@ -47,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/api/$': typeof ApiSplatRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/org/settings': typeof OrgSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +68,8 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/api/$': typeof ApiSplatRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/org/settings': typeof OrgSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +78,37 @@ export interface FileRoutesById {
   '/logout': typeof LogoutRoute
   '/api/$': typeof ApiSplatRoute
   '/boards/$boardId': typeof BoardsBoardIdRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/org/settings': typeof OrgSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/logout' | '/api/$' | '/boards/$boardId'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/logout'
+    | '/api/$'
+    | '/boards/$boardId'
+    | '/invite/$invitationId'
+    | '/org/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/logout' | '/api/$' | '/boards/$boardId'
-  id: '__root__' | '/' | '/login' | '/logout' | '/api/$' | '/boards/$boardId'
+  to:
+    | '/'
+    | '/login'
+    | '/logout'
+    | '/api/$'
+    | '/boards/$boardId'
+    | '/invite/$invitationId'
+    | '/org/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/logout'
+    | '/api/$'
+    | '/boards/$boardId'
+    | '/invite/$invitationId'
+    | '/org/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +117,8 @@ export interface RootRouteChildren {
   LogoutRoute: typeof LogoutRoute
   ApiSplatRoute: typeof ApiSplatRoute
   BoardsBoardIdRoute: typeof BoardsBoardIdRoute
+  InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  OrgSettingsRoute: typeof OrgSettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +144,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/org/settings': {
+      id: '/org/settings'
+      path: '/org/settings'
+      fullPath: '/org/settings'
+      preLoaderRoute: typeof OrgSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$invitationId': {
+      id: '/invite/$invitationId'
+      path: '/invite/$invitationId'
+      fullPath: '/invite/$invitationId'
+      preLoaderRoute: typeof InviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/boards/$boardId': {
       id: '/boards/$boardId'
       path: '/boards/$boardId'
@@ -125,6 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   LogoutRoute: LogoutRoute,
   ApiSplatRoute: ApiSplatRoute,
   BoardsBoardIdRoute: BoardsBoardIdRoute,
+  InviteInvitationIdRoute: InviteInvitationIdRoute,
+  OrgSettingsRoute: OrgSettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

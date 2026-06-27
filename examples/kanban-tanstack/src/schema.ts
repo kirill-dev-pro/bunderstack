@@ -1,12 +1,14 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 import { typeid } from 'bunderstack'
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
 
 // --- BetterAuth core ---
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  emailVerified: integer('email_verified', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -19,19 +21,27 @@ export const session = sqliteTable('session', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   activeOrganizationId: text('active_organization_id'),
 })
 export const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
-  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
-  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  accessTokenExpiresAt: integer('access_token_expires_at', {
+    mode: 'timestamp',
+  }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', {
+    mode: 'timestamp',
+  }),
   scope: text('scope'),
   password: text('password'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
@@ -57,19 +67,27 @@ export const organization = sqliteTable('organization', {
 })
 export const member = sqliteTable('member', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   role: text('role').notNull().default('member'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 export const invitation = sqliteTable('invitation', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   role: text('role'),
   status: text('status').notNull().default('pending'),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  inviterId: text('inviter_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  inviterId: text('inviter_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 // --- App tables (typeid + denormalized organizationId) ---
@@ -77,7 +95,10 @@ export const boards = sqliteTable('boards', {
   id: typeid('board').primaryKey(),
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  background: text('background').default('blue'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const lists = sqliteTable('lists', {
   id: typeid('list').primaryKey(),
@@ -85,7 +106,9 @@ export const lists = sqliteTable('lists', {
   boardId: text('board_id').notNull(),
   title: text('title').notNull(),
   position: real('position').notNull().default(1000),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const cards = sqliteTable('cards', {
   id: typeid('card').primaryKey(),
@@ -96,7 +119,9 @@ export const cards = sqliteTable('cards', {
   description: text('description'),
   assigneeId: text('assignee_id'),
   position: real('position').notNull().default(1000),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const comments = sqliteTable('comments', {
   id: typeid('cmt').primaryKey(),
@@ -104,7 +129,9 @@ export const comments = sqliteTable('comments', {
   cardId: text('card_id').notNull(),
   authorId: text('author_id'),
   body: text('body').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const activity = sqliteTable('activity', {
   id: typeid('act').primaryKey(),
@@ -114,5 +141,33 @@ export const activity = sqliteTable('activity', {
   actorId: text('actor_id'),
   type: text('type').notNull(),
   data: text('data', { mode: 'json' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
+})
+export const attachments = sqliteTable('attachments', {
+  id: typeid('att').primaryKey(),
+  organizationId: text('organization_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: text('target_id').notNull(),
+  uploaderId: text('uploader_id').references(() => user.id),
+  fileUrl: text('file_url').notNull(),
+  fileName: text('file_name'),
+  mimeType: text('mime_type'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
+})
+export const reactions = sqliteTable('reactions', {
+  id: typeid('rxn').primaryKey(),
+  organizationId: text('organization_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: text('target_id').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id),
+  emoji: text('emoji').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })

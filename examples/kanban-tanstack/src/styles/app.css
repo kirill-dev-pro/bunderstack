@@ -9,6 +9,35 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Bridge legacy fallbacks to Oat tokens */
+:root {
+  --oat-bg: var(--background);
+  --oat-fg: var(--foreground);
+  --oat-border: var(--border);
+  --oat-muted: var(--muted-foreground);
+  --kanban-list-bg: light-dark(
+    color-mix(in srgb, #fff 72%, transparent),
+    color-mix(in srgb, #18181b 78%, transparent)
+  );
+  --kanban-list-border: light-dark(
+    color-mix(in srgb, #fff 55%, transparent),
+    color-mix(in srgb, #fff 12%, transparent)
+  );
+  --kanban-list-fg: light-dark(#172554, #f4f4f5);
+  --kanban-list-muted: light-dark(#475569, #a1a1aa);
+  --kanban-card-bg: var(--card);
+  --kanban-card-fg: var(--card-foreground);
+  --kanban-board-btn-bg: light-dark(
+    color-mix(in srgb, #fff 18%, transparent),
+    color-mix(in srgb, #000 28%, transparent)
+  );
+  --kanban-board-btn-border: light-dark(
+    color-mix(in srgb, #fff 45%, transparent),
+    color-mix(in srgb, #fff 22%, transparent)
+  );
+  --kanban-board-btn-fg: #fff;
+}
+
 /* --- Layout shell --- */
 
 .kanban-layout {
@@ -336,6 +365,25 @@ body {
   border: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 80%, transparent);
 }
 
+.board-view[class*='board-bg-'] .list-column {
+  background: var(--kanban-list-bg);
+  border-color: var(--kanban-list-border);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 8%, transparent);
+}
+
+.board-view[class*='board-bg-'] .list-column-header h3 {
+  color: var(--kanban-list-fg);
+}
+
+.board-view[class*='board-bg-'] .list-column-count {
+  background: light-dark(
+    color-mix(in srgb, #000 8%, transparent),
+    color-mix(in srgb, #fff 12%, transparent)
+  );
+  color: var(--kanban-list-muted);
+}
+
 .list-column-accent {
   height: 4px;
   border-radius: 0.75rem 0.75rem 0 0;
@@ -404,11 +452,23 @@ body {
   padding: 0.65rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid var(--oat-border, #e2e8f0);
-  background: var(--oat-bg, canvas);
+  background: var(--kanban-card-bg, var(--card));
+  color: var(--kanban-card-fg, var(--card-foreground));
   cursor: grab;
   text-align: left;
   width: 100%;
   transition: box-shadow 0.15s, border-color 0.15s;
+  font: inherit;
+}
+
+.board-view[class*='board-bg-'] .kanban-card {
+  background: var(--kanban-card-bg);
+  color: var(--kanban-card-fg);
+  border-color: light-dark(
+    color-mix(in srgb, var(--border) 85%, transparent),
+    color-mix(in srgb, #fff 14%, transparent)
+  );
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 12%, transparent);
 }
 
 .kanban-card:hover {
@@ -426,7 +486,6 @@ body {
   font-size: 0.875rem;
   line-height: 1.35;
   margin: 0 0 0.35rem;
-  color: var(--foreground);
 }
 
 .kanban-card-preview {
@@ -630,4 +689,595 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* --- Board backgrounds --- */
+
+.board-bg-blue {
+  background: linear-gradient(160deg, #0079bf 0%, #026aa7 100%);
+}
+
+.board-bg-green {
+  background: linear-gradient(160deg, #519839 0%, #3f6f21 100%);
+}
+
+.board-bg-purple {
+  background: linear-gradient(160deg, #89609e 0%, #6b4c7a 100%);
+}
+
+.board-bg-orange {
+  background: linear-gradient(160deg, #d29034 0%, #b87a1f 100%);
+}
+
+.board-bg-red {
+  background: linear-gradient(160deg, #b04632 0%, #8c3628 100%);
+}
+
+.board-bg-pink {
+  background: linear-gradient(160deg, #cd5a91 0%, #a84774 100%);
+}
+
+.board-bg-teal {
+  background: linear-gradient(160deg, #4bbf6b 0%, #2d8f4e 100%);
+}
+
+.board-bg-slate {
+  background: linear-gradient(160deg, #455a64 0%, #37474f 100%);
+}
+
+.board-tile-bg-blue { background: linear-gradient(135deg, #0079bf, #026aa7); color: #fff; border-color: transparent; }
+.board-tile-bg-green { background: linear-gradient(135deg, #519839, #3f6f21); color: #fff; border-color: transparent; }
+.board-tile-bg-purple { background: linear-gradient(135deg, #89609e, #6b4c7a); color: #fff; border-color: transparent; }
+.board-tile-bg-orange { background: linear-gradient(135deg, #d29034, #b87a1f); color: #fff; border-color: transparent; }
+.board-tile-bg-red { background: linear-gradient(135deg, #b04632, #8c3628); color: #fff; border-color: transparent; }
+.board-tile-bg-pink { background: linear-gradient(135deg, #cd5a91, #a84774); color: #fff; border-color: transparent; }
+.board-tile-bg-teal { background: linear-gradient(135deg, #4bbf6b, #2d8f4e); color: #fff; border-color: transparent; }
+.board-tile-bg-slate { background: linear-gradient(135deg, #455a64, #37474f); color: #fff; border-color: transparent; }
+
+.board-tile.board-tile-bg-blue .board-tile-meta,
+.board-tile.board-tile-bg-green .board-tile-meta,
+.board-tile.board-tile-bg-purple .board-tile-meta,
+.board-tile.board-tile-bg-orange .board-tile-meta,
+.board-tile.board-tile-bg-red .board-tile-meta,
+.board-tile.board-tile-bg-pink .board-tile-meta,
+.board-tile.board-tile-bg-teal .board-tile-meta,
+.board-tile.board-tile-bg-slate .board-tile-meta {
+  color: color-mix(in srgb, #fff 75%, transparent);
+}
+
+.board-view.board-bg-blue .board-toolbar h1,
+.board-view.board-bg-green .board-toolbar h1,
+.board-view.board-bg-purple .board-toolbar h1,
+.board-view.board-bg-orange .board-toolbar h1,
+.board-view.board-bg-red .board-toolbar h1,
+.board-view.board-bg-pink .board-toolbar h1,
+.board-view.board-bg-teal .board-toolbar h1,
+.board-view.board-bg-slate .board-toolbar h1 {
+  color: #fff;
+}
+
+.board-view[class*='board-bg-'] .board-toolbar {
+  color: #fff;
+}
+
+.board-view[class*='board-bg-'] .board-toolbar .outline,
+.board-view[class*='board-bg-'] .board-share-btn {
+  color: var(--kanban-board-btn-fg);
+  border-color: var(--kanban-board-btn-border);
+  background: var(--kanban-board-btn-bg);
+}
+
+.board-view[class*='board-bg-'] .board-toolbar .outline:hover:not(:disabled),
+.board-view[class*='board-bg-'] .board-share-btn:hover {
+  background: light-dark(
+    color-mix(in srgb, #fff 28%, transparent),
+    color-mix(in srgb, #000 42%, transparent)
+  );
+}
+
+.board-view[class*='board-bg-'] .board-toolbar-members .user-avatar {
+  border-color: color-mix(in srgb, #000 25%, transparent);
+}
+
+.board-view[class*='board-bg-'] .list-add-card .outline,
+.board-view[class*='board-bg-'] .add-list-form .outline {
+  color: var(--kanban-list-fg);
+  border-color: light-dark(
+    color-mix(in srgb, #000 12%, transparent),
+    color-mix(in srgb, #fff 18%, transparent)
+  );
+  background: light-dark(
+    color-mix(in srgb, #fff 35%, transparent),
+    color-mix(in srgb, #fff 8%, transparent)
+  );
+}
+
+.board-view[class*='board-bg-'] .add-list-form {
+  border-color: light-dark(
+    color-mix(in srgb, #fff 45%, transparent),
+    color-mix(in srgb, #fff 22%, transparent)
+  );
+  background: var(--kanban-list-bg);
+  backdrop-filter: blur(10px);
+}
+
+.board-view[class*='board-bg-'] .add-list-form input {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.board-view[class*='board-bg-'] .list-add-form textarea {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.board-view[class*='board-bg-'] .kanban-badge {
+  background: light-dark(
+    color-mix(in srgb, #000 8%, transparent),
+    color-mix(in srgb, #fff 10%, transparent)
+  );
+  color: var(--kanban-list-muted);
+}
+
+.board-share-btn {
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.kanban-workspace-link {
+  font-size: 0.875rem;
+  color: var(--oat-muted, #64748b);
+  text-decoration: none;
+}
+
+.kanban-workspace-link:hover {
+  color: var(--oat-fg, inherit);
+}
+
+/* --- Card covers & badges --- */
+
+.kanban-card--cover {
+  padding: 0;
+  overflow: hidden;
+}
+
+.kanban-card-cover {
+  height: 5rem;
+  overflow: hidden;
+}
+
+.kanban-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.kanban-card-content {
+  padding: 0.65rem 0.75rem;
+}
+
+.kanban-card--cover .kanban-card-content {
+  padding-top: 0.5rem;
+}
+
+.kanban-badge--reactions {
+  font-size: 0.75rem;
+}
+
+/* --- Trello card dialog --- */
+
+.card-dialog--trello {
+  max-width: 56rem;
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
+}
+
+.card-dialog--trello .card-dialog-inner {
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+.card-dialog-list-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--oat-muted, #64748b);
+  margin-bottom: 0.25rem;
+}
+
+.card-dialog-title-input {
+  width: 100%;
+  font-size: 1.35rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
+  color: inherit;
+}
+
+.card-dialog-title-input:focus {
+  outline: 2px solid color-mix(in srgb, #0ea5e9 50%, transparent);
+  border-radius: 0.25rem;
+}
+
+.card-dialog-close {
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem 0.6rem;
+}
+
+.card-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12rem;
+  gap: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .card-dialog-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-dialog-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--oat-muted, #64748b);
+}
+
+.card-dialog-sidebar-section h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--oat-muted, #64748b);
+}
+
+.card-dialog-sidebar-section {
+  margin-bottom: 1rem;
+}
+
+.sidebar-action-btn {
+  width: 100%;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.comment-item {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.comment-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.comment-item-header time {
+  font-size: 0.7rem;
+  color: var(--oat-muted, #64748b);
+}
+
+.comment-form {
+  margin-top: 0.75rem;
+}
+
+.comment-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.pending-attachments {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8rem;
+  color: var(--oat-muted, #64748b);
+}
+
+/* --- Attachments --- */
+
+.attachment-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+
+.attachment-gallery--compact {
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+}
+
+.attachment-item {
+  position: relative;
+}
+
+.attachment-thumb-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--oat-border, #e2e8f0);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  cursor: pointer;
+  background: transparent;
+}
+
+.attachment-thumb-btn img {
+  width: 100%;
+  height: 5rem;
+  object-fit: cover;
+  display: block;
+}
+
+.attachment-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--oat-border, #e2e8f0);
+  font-size: 0.8rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.attachment-delete {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: none;
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachment-lightbox {
+  border: none;
+  padding: 0;
+  max-width: 90vw;
+  background: transparent;
+}
+
+.attachment-lightbox::backdrop {
+  background: color-mix(in srgb, #000 60%, transparent);
+}
+
+.attachment-lightbox-inner {
+  position: relative;
+}
+
+.attachment-lightbox-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+
+.attachment-lightbox-image {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 0.5rem;
+}
+
+/* --- Reactions --- */
+
+.reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--oat-border, #e2e8f0);
+  background: var(--oat-bg, canvas);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.reaction-pill--mine {
+  border-color: color-mix(in srgb, #0ea5e9 55%, var(--oat-border, #e2e8f0));
+  background: color-mix(in srgb, #0ea5e9 12%, var(--oat-bg, canvas));
+}
+
+.reaction-count {
+  font-size: 0.7rem;
+  color: var(--oat-muted, #64748b);
+}
+
+.reaction-add-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1px dashed var(--oat-border, #e2e8f0);
+  background: transparent;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--oat-muted, #64748b);
+}
+
+.reaction-picker-wrap {
+  position: relative;
+}
+
+.emoji-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(6, 1.75rem);
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--oat-border, #e2e8f0);
+  background: var(--oat-bg, canvas);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 15%, transparent);
+  margin-top: 0.25rem;
+}
+
+.emoji-picker-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0.15rem;
+}
+
+.emoji-picker-btn:hover {
+  background: color-mix(in srgb, var(--oat-border, #e2e8f0) 40%, transparent);
+}
+
+/* --- Org settings --- */
+
+.org-settings-page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.org-settings-header h1 {
+  margin: 0 0 0.25rem;
+}
+
+.org-settings-subtitle {
+  margin: 0;
+  color: var(--oat-muted, #64748b);
+}
+
+.org-settings-section {
+  margin-top: 2rem;
+}
+
+.org-settings-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.org-members-list,
+.org-invites-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.org-member-row,
+.org-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 60%, transparent);
+}
+
+.org-member-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+}
+
+.org-member-info span {
+  font-size: 0.75rem;
+  color: var(--oat-muted, #64748b);
+}
+
+.role-badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--oat-border, #e2e8f0) 45%, transparent);
+  text-transform: capitalize;
+}
+
+.org-invite-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.org-invite-form input {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.org-invite-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.invite-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #0ea5e9 12%, var(--oat-bg, canvas));
+  border: 1px solid color-mix(in srgb, #0ea5e9 35%, transparent);
+  font-size: 0.875rem;
+}
+
+.invite-banner a {
+  white-space: nowrap;
+}
+
+.invite-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.invite-card {
+  width: min(100%, 28rem);
+}
+
+.invite-card h1 {
+  margin: 0 0 0.75rem;
+}
+
+.invite-warning {
+  padding: 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  font-size: 0.875rem;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
