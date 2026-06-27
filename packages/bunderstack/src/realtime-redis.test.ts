@@ -37,6 +37,24 @@ function sub(broker: ReturnType<typeof createRedisRealtimeBroker>, org: string, 
 }
 
 describe('redis realtime broker', () => {
+  it('publish() resolves (never rejects) when redis incr/lpush throws', async () => {
+    // Regression guard for Fix A: a redis network blip must not produce an
+    // unhandledRejection that can crash the process. The broker is called with
+    // void broker?.publish(...) — a fire-and-forget that cannot attach .catch.
+    const failingRedis: RedisLike = {
+      async incr() { throw new Error('redis connection lost') },
+      async publish() { return 1 },
+      async subscribe(_ch, _listener) {},
+      async lpush() { return 1 },
+      async ltrim() {},
+      async lrange() { return [] },
+    }
+    const broker = createRedisRealtimeBroker({ access, redis: failingRedis })
+    await broker.ready
+    // Must resolve, not reject — even though incr() throws.
+    await expect(broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })).resolves.toBeUndefined()
+  })
+
   it('fans out a published event to a same-org subscriber with a monotonic eventId', async () => {
     const broker = createRedisRealtimeBroker({ access, redis: makeFakeRedis() })
     await broker.ready

@@ -110,7 +110,14 @@ export function createRedisRealtimeBroker(opts: {
       if (since == null) return { gap: false }
 
       // Log is LPUSH-ed (newest first); read newest->oldest, filter id>since.
-      const raw = await opts.redis.lrange(logKey, 0, bufferSize - 1)
+      // If redis is unavailable, return { gap: true } so the client falls back
+      // to a full refetch rather than 500-ing the POST handler.
+      let raw: string[]
+      try {
+        raw = await opts.redis.lrange(logKey, 0, bufferSize - 1)
+      } catch {
+        return { gap: true }
+      }
       const events = raw
         .map((r) => JSON.parse(r) as WireEvent)
         .filter((e) => e.eventId > since)
@@ -128,12 +135,19 @@ export function createRedisRealtimeBroker(opts: {
     },
     async publish(table, action, record) {
       if (!tableEntry(opts.access, table)) return
-      const eventId = await opts.redis.incr(counterKey)
-      const evt: WireEvent = { eventId, table, action, record }
-      const msg = JSON.stringify(evt)
-      await opts.redis.lpush(logKey, msg)
-      await opts.redis.ltrim(logKey, 0, bufferSize - 1)
-      await opts.redis.publish(channel, msg)
+      try {
+        const eventId = await opts.redis.incr(counterKey)
+        const evt: WireEvent = { eventId, table, action, record }
+        const msg = JSON.stringify(evt)
+        await opts.redis.lpush(logKey, msg)
+        await opts.redis.ltrim(logKey, 0, bufferSize - 1)
+        await opts.redis.publish(channel, msg)
+      } catch {
+        // Broadcast is best-effort: a redis blip must not reject the floating
+        // promise (callers use `void broker?.publish(...)` with no .catch).
+        // Correctness self-heals: reconnecting clients use the since/gap replay
+        // path which issues a full refetch when events were missed.
+      }
     },
   }
 }

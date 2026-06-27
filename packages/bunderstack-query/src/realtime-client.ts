@@ -37,6 +37,14 @@ export type RealtimeClientConfig = {
   queryClient: QueryClient
   tables: string[]
   fetch?: typeof fetch
+  /**
+   * How often the server sends a keepalive ping (milliseconds). Defaults to 30 000.
+   *
+   * INVARIANT: this value MUST be >= the server's `realtime.keepaliveMs`.
+   * The client watchdog fires at ~1.5× keepaliveMs; if this is set lower than
+   * the server's interval, the watchdog reconnects before the server's ping
+   * arrives and causes a reconnect storm.
+   */
   keepaliveMs?: number
   onStatus?: (s: RealtimeStatus) => void
 }
