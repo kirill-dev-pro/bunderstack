@@ -49,6 +49,9 @@ export const BunderstackOptionsSchema = z.object({
       z.object({
         keepaliveMs: z.number().optional(),
         bufferSize: z.number().optional(),
+        redis: z
+          .union([z.string(), z.object({ url: z.string(), token: z.string().optional() })])
+          .optional(),
       }),
     ])
     .optional(),
@@ -63,7 +66,13 @@ export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
   auth?: BetterAuthConfig
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
-  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number }
+  realtime?:
+    | boolean
+    | {
+        keepaliveMs?: number
+        bufferSize?: number
+        redis?: string | { url: string; token?: string }
+      }
 }
 
 export type ResolvedStorage =
@@ -81,7 +90,13 @@ export type ResolvedConfig = {
   database: { url: string; authToken?: string }
   auth: BetterAuthConfig
   storage: ResolvedStorage
-  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number }
+  realtime?:
+    | boolean
+    | {
+        keepaliveMs?: number
+        bufferSize?: number
+        redis?: string | { url: string; token?: string }
+      }
 }
 
 export function resolveConfig<TSchema extends Record<string, unknown>>(
@@ -107,6 +122,18 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     storage: resolveStorage(parsed.storage),
     realtime: parsed.realtime,
   }
+}
+
+export function resolveRealtimeRedisUrl(
+  realtime: ResolvedConfig['realtime'],
+): string | undefined {
+  const fromConfig =
+    typeof realtime === 'object' && realtime.redis
+      ? typeof realtime.redis === 'string'
+        ? realtime.redis
+        : realtime.redis.url
+      : undefined
+  return fromConfig ?? process.env.REDIS_URL ?? undefined
 }
 
 function resolveStorage(

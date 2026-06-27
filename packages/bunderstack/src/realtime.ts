@@ -38,13 +38,13 @@ export type RealtimeBroker = {
       subscriptions: Set<string>
       since?: number | null
     },
-  ): { gap: boolean }
+  ): { gap: boolean } | Promise<{ gap: boolean }>
   unregister(id: string): void
   publish(
     table: string,
     action: RealtimeAction,
     record: Record<string, unknown>,
-  ): void
+  ): void | Promise<void>
 }
 
 function tableEntry(
@@ -112,7 +112,7 @@ export function buildRealtimeRouter(
       opts.auth,
       c.req.raw.headers,
     )
-    const { gap } = broker.setContext(body.clientId, {
+    const { gap } = await broker.setContext(body.clientId, {
       user,
       activeOrganizationId,
       subscriptions: new Set(body.subscriptions),

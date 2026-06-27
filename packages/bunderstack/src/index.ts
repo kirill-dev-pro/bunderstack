@@ -22,6 +22,8 @@ import {
 } from './file-metadata.ts'
 import { buildHandler } from './handler.ts'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'
+import { createRedisRealtimeBroker } from './realtime-redis.ts'
+import { resolveRealtimeRedisUrl } from './config.ts'
 import { provisionSchema, type ProvisionMode } from './provision.ts'
 import { createStorage, type StorageAdapter } from './storage/index.ts'
 import {
@@ -190,12 +192,31 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     options.schema,
     options.access,
   )
+  const realtimeBufferSize =
+    typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
+  const redisUrl = config.realtime ? resolveRealtimeRedisUrl(config.realtime) : undefined
   const broker = config.realtime
-    ? createRealtimeBroker({
-        access: resolvedAccess,
-        bufferSize:
-          typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined,
-      })
+    ? redisUrl
+      ? createRedisRealtimeBroker({
+          access: resolvedAccess,
+          redis: (() => {
+            // Redis pub/sub requires a dedicated connection (subscribe puts the client into
+            // a restricted state). We use one client for commands and a second for subscribe.
+            const cmdClient = new Bun.RedisClient(redisUrl)
+            const subClient = new Bun.RedisClient(redisUrl)
+            return {
+              incr: (key: string) => cmdClient.incr(key),
+              publish: (channel: string, message: string) => cmdClient.publish(channel, message),
+              subscribe: (channel: string, listener: (msg: string) => void) =>
+                subClient.subscribe(channel, listener),
+              lpush: (key: string, value: string) => cmdClient.lpush(key, value),
+              ltrim: (key: string, start: number, stop: number) => cmdClient.ltrim(key, start, stop),
+              lrange: (key: string, start: number, stop: number) => cmdClient.lrange(key, start, stop),
+            }
+          })(),
+          bufferSize: realtimeBufferSize,
+        })
+      : createRealtimeBroker({ access: resolvedAccess, bufferSize: realtimeBufferSize })
     : undefined
   const crudRouter = buildCrudRouter(options.schema, db, {
     auth,
