@@ -12,6 +12,8 @@
     "dev:standalone": "bun run --cwd examples/standalone dev",
     "dev:nextjs": "bun run --cwd examples/nextjs dev",
     "dev:tanstack": "bun run --cwd examples/tanstack-start dev",
+    "dev:kanban": "bun run --cwd examples/kanban-solid-1.9 dev",
+    "dev:kanban-tanstack": "bun run --cwd examples/kanban-tanstack dev",
     "db:push": "bun run --cwd examples/standalone db:push && bun run --cwd examples/tanstack-start db:push && bun run --cwd examples/nextjs db:push",
     "lint": "oxlint --fix",
     "format": "oxfmt"
@@ -20,5 +22,6 @@
     "@types/bun": "^1.3.14",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0"
-  }
+  },
+  "packageManager": "pnpm@10.22.0+sha512.bf049efe995b28f527fd2b41ae0474ce29186f7edcb3bf545087bd61fbbebb2bf75362d1307fda09c2d288e1e499787ac12d4fcb617a974718a6051f2eee741c"
 }

@@ -1,6 +1,6 @@
 # Bunderstack Examples
 
-Three integration examples showing how to mount `app.handler` in different frameworks.
+Integration examples showing how to mount `app.handler` in different frameworks.
 
 ## Prerequisites
 
@@ -25,6 +25,8 @@ Or per example:
 bun run --cwd examples/standalone db:push
 bun run --cwd examples/tanstack-start db:push
 bun run --cwd examples/nextjs db:push
+bun run --cwd examples/kanban-solid-1.9 db:push
+bun run --cwd examples/kanban-tanstack db:push
 ```
 
 ## Run examples
@@ -36,6 +38,8 @@ Use separate terminals — each binds a different port.
 | Standalone (Bun.serve) | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
 | TanStack Start         | `bun run dev:tanstack`                    | http://localhost:3000 |
 | Next.js                | `bun run dev:nextjs`                      | http://localhost:3002 |
+| Kanban (Solid + Vite)  | `bun run dev:kanban`                      | http://localhost:5174 |
+| Kanban (TanStack Start)| `bun run dev:kanban-tanstack`             | http://localhost:5175 |
 
 ### Standalone
 
@@ -76,6 +80,34 @@ App Router catch-all at `/api/*` forwarding to `app.handler`.
 ```bash
 bun run dev:nextjs
 ```
+
+### Kanban (Solid)
+
+Realtime kanban — orgs, boards, lists, cards, comments, activity. Solid 1.9 + Oat, SSE realtime via `bunderstack-query`.
+
+```bash
+bun run dev:kanban
+bun run --cwd examples/kanban-solid-1.9 seed   # once
+```
+
+Demo accounts (password `password123`): `alice@example.com`, `bob@example.com`, `carol@example.com`
+
+| Route            | Purpose                |
+| ---------------- | ---------------------- |
+| `/login`         | BetterAuth             |
+| `/`              | Boards in active org   |
+| `/boards/:id`    | Kanban + drag-and-drop |
+
+### Kanban (TanStack Start)
+
+Same kanban domain on **TanStack Start + React** — polished Oat UI, `@dnd-kit`, SSR-friendly `api/$.tsx` mount (no Vite API plugin).
+
+```bash
+bun run dev:kanban-tanstack
+bun run --cwd examples/kanban-tanstack seed   # once
+```
+
+Same demo accounts. Routes match the Solid example.
 
 ## Tests
 

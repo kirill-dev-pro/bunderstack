@@ -1,0 +1,306 @@
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { useQuery } from '@tanstack/react-query'
+import {
+  createFileRoute,
+  notFound,
+  redirect,
+} from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
+
+import { BunderstackApiError } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack-query'
+import type * as schema from '~/schema'
+
+import { api, listParams, queryClient } from '~/api-client'
+import { BoardSettingsDialog } from '~/components/BoardSettingsDialog'
+import { CardDialog } from '~/components/CardDialog'
+import { KanbanCard } from '~/components/KanbanCard'
+import { KanbanShell } from '~/components/KanbanShell'
+import { ListColumn } from '~/components/ListColumn'
+import { UserAvatar } from '~/components/UserAvatar'
+import { useToastMutation } from '~/hooks/useToastMutation'
+import { getRealtime } from '~/lib/realtime'
+import { authClient } from '~/utils/auth-client'
+
+type Card = InferSelect<typeof schema.cards>
+type List = InferSelect<typeof schema.lists>
+
+export const Route = createFileRoute('/boards/$boardId')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+  },
+  loader: async ({ params }) => {
+    try {
+      const board = await queryClient.ensureQueryData(
+        api.boards.getQuery(params.boardId),
+      )
+      await Promise.all([
+        queryClient.ensureQueryData(
+          api.lists.listQuery({ boardId: params.boardId, ...listParams }),
+        ),
+        queryClient.ensureQueryData(
+          api.cards.listQuery({ boardId: params.boardId, limit: 500 }),
+        ),
+        queryClient.ensureQueryData(api.user.listQuery(listParams)),
+      ])
+      return board
+    } catch (err) {
+      if (err instanceof BunderstackApiError && err.status === 404) throw notFound()
+      throw err
+    }
+  },
+  component: BoardPage,
+})
+
+function BoardPage() {
+  const { user } = Route.useRouteContext()
+  const { boardId } = Route.useParams()
+  const board = Route.useLoaderData()
+  const [activeCard, setActiveCard] = useState<Card | null>(null)
+
+  useEffect(() => {
+    void getRealtime().subscribe(['lists', 'cards', 'comments', 'activity'])
+  }, [])
+
+  const { data: listsData, isLoading: listsLoading } = useQuery(
+    api.lists.listQuery({ boardId, ...listParams }),
+  )
+  const { data: cardsData } = useQuery(
+    api.cards.listQuery({ boardId, limit: 500 }),
+  )
+  const { data: commentsData } = useQuery(
+    api.comments.listQuery({ limit: 500 }),
+  )
+  const { data: usersData } = useQuery(api.user.listQuery(listParams))
+
+  const { data: members } = useQuery({
+    queryKey: ['org-members', boardId],
+    queryFn: async () => {
+      const org = await authClient.organization.getFullOrganization()
+      return org.data?.members ?? []
+    },
+  })
+
+  const userNames = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const u of usersData?.items ?? []) {
+      map[u.id] = u.name
+    }
+    return map
+  }, [usersData])
+
+  const commentCounts = useMemo(() => {
+    const cardIds = new Set((cardsData?.items ?? []).map((c) => c.id))
+    const map: Record<string, number> = {}
+    for (const c of commentsData?.items ?? []) {
+      if (!cardIds.has(c.cardId)) continue
+      map[c.cardId] = (map[c.cardId] ?? 0) + 1
+    }
+    return map
+  }, [commentsData, cardsData])
+
+  const cardsByList = useMemo(() => {
+    const map = new Map<string, Card[]>()
+    for (const card of cardsData?.items ?? []) {
+      const arr = map.get(card.listId) ?? []
+      arr.push(card)
+      map.set(card.listId, arr)
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.position - b.position)
+    }
+    return map
+  }, [cardsData])
+
+  const lists = (listsData?.items ?? []).sort((a, b) => a.position - b.position)
+
+  const listNames = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const l of lists) map[l.id] = l.title
+    return map
+  }, [lists])
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const moveCard = useToastMutation({
+    ...api.cards.updateMutation(),
+  })
+
+  const logMove = useToastMutation({
+    ...api.activity.createMutation(),
+  })
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  function resolveListId(overId: string): string | null {
+    if (lists.some((l) => l.id === overId)) return overId
+    for (const [listId, cards] of cardsByList) {
+      if (cards.some((c) => c.id === overId)) return listId
+    }
+    return null
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    setActiveCard(null)
+    const { active, over } = event
+    if (!over) return
+
+    const cardId = String(active.id)
+    const targetListId = resolveListId(String(over.id))
+    if (!targetListId) return
+
+    const card = cardsData?.items?.find((c) => c.id === cardId)
+    if (!card || card.listId === targetListId && over.id === cardId) return
+
+    const siblings = (cardsByList.get(targetListId) ?? []).filter((c) => c.id !== cardId)
+    const newPos = (siblings.at(-1)?.position ?? 0) + 1000
+
+    moveCard.mutate(
+      { id: cardId, data: { listId: targetListId, position: newPos } },
+      {
+        onSuccess: () => {
+          logMove.mutate({
+            boardId,
+            cardId,
+            actorId: user!.id,
+            type: 'moved',
+            data: { listId: targetListId },
+          })
+        },
+      },
+    )
+  }
+
+  const [newListTitle, setNewListTitle] = useState('')
+  const createList = useToastMutation({
+    ...api.lists.createMutation({
+      onSuccess: () => setNewListTitle(''),
+    }),
+    successMessage: 'List created',
+  })
+
+  return (
+    <KanbanShell user={user!} boardTitle={board.title}>
+      <div className="board-view">
+        <div className="board-toolbar">
+          <h1>{board.title}</h1>
+          <div className="board-toolbar-actions">
+            <div className="board-toolbar-members">
+              {(members ?? []).slice(0, 5).map((m: { userId: string; user?: { name?: string } }) => (
+                <UserAvatar
+                  key={m.userId}
+                  name={m.user?.name ?? userNames[m.userId] ?? '?'}
+                  size={28}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              className="outline board-settings-btn"
+              onClick={() => setSettingsOpen(true)}
+            >
+              Settings
+            </button>
+          </div>
+        </div>
+
+        <div className="board-workspace">
+          <div className="board-columns-wrap">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={({ active }) => {
+                const card = cardsData?.items?.find((c) => c.id === active.id)
+                if (card) setActiveCard(card)
+              }}
+              onDragEnd={onDragEnd}
+              onDragCancel={() => setActiveCard(null)}
+            >
+              <div className="board-columns">
+                {listsLoading
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="skeleton skeleton-column" />
+                    ))
+                  : lists.map((list: List, i: number) => (
+                      <ListColumn
+                        key={list.id}
+                        list={list}
+                        cards={cardsByList.get(list.id) ?? []}
+                        boardId={boardId}
+                        colorIndex={i}
+                        commentCounts={commentCounts}
+                        userNames={userNames}
+                      />
+                    ))}
+
+                <div className="add-list-form">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (!newListTitle.trim()) return
+                      const lastPos = lists.at(-1)?.position ?? 0
+                      createList.mutate({
+                        boardId,
+                        title: newListTitle.trim(),
+                        position: lastPos + 1000,
+                      })
+                    }}
+                  >
+                    <input
+                      placeholder="New list title"
+                      value={newListTitle}
+                      onChange={(e) => setNewListTitle(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      className="outline"
+                      style={{ marginTop: '0.5rem', width: '100%' }}
+                      disabled={!newListTitle.trim()}
+                    >
+                      + Add list
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <DragOverlay>
+                {activeCard ? (
+                  <KanbanCard
+                    card={activeCard}
+                    commentCount={commentCounts[activeCard.id] ?? 0}
+                    assigneeName={
+                      activeCard.assigneeId
+                        ? userNames[activeCard.assigneeId]
+                        : undefined
+                    }
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        </div>
+      </div>
+
+      <BoardSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        boardId={boardId}
+        boardTitle={board.title}
+        userNames={userNames}
+        members={members ?? []}
+        listNames={listNames}
+      />
+      <CardDialog userId={user!.id} userNames={userNames} listNames={listNames} />
+    </KanbanShell>
+  )
+}
