@@ -9,13 +9,18 @@ import { Hono } from 'hono'
 
 import {
   checkAccess,
-  resolveAccessUser,
+  resolveSession,
+  rowMatchesScope,
+  stampScope,
   sanitizeWriteBody,
+  type AccessUser,
   type AuthSessionResolver,
   type CrudOperation,
   type ResolvedAccess,
   type ResolvedTableAccess,
+  type ScopeMap,
 } from './access.ts'
+import { buildScopeWhere } from './scope.ts'
 import { ErrorCode, apiError, ListQueryError } from './errors.ts'
 import {
   lookupIdempotency,
@@ -60,6 +65,12 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   const { auth, access } = options
   const idempotency = resolveIdempotencyConfig(options.idempotency)
 
+  const scopeFor = (
+    tableAccess: ResolvedTableAccess,
+    ctx: { user: AccessUser | null; session: { activeOrganizationId: string | null } | null; request: Request },
+  ): ScopeMap | undefined =>
+    tableAccess.scope ? tableAccess.scope({ ...ctx }) : undefined
+
   for (const table of Object.values(schema)) {
     if (!isTable(table)) continue
 
@@ -71,9 +82,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     if (!idCol) continue
 
     router.get(`/${name}`, async (c) => {
-      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const session = { activeOrganizationId }
       const denied = await enforce('list', tableAccess, {
         user,
+        session,
         request: c.req.raw,
       })
       if (!denied.allowed) {
@@ -87,12 +100,15 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       try {
         const params = parseListParams(new URL(c.req.url), tableAccess)
+        const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+        const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
         const result = await executeList(
           db as LibSQLDatabase<Record<string, unknown>>,
           table,
           tableAccess,
           params,
           idCol,
+          scopeWhere,
         )
         return c.json(result)
       } catch (err) {
@@ -110,7 +126,8 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.get(`/${name}/:id`, async (c) => {
-      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,6 +141,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       const denied = await enforce('get', tableAccess, {
         user,
+        session,
         request: c.req.raw,
         row: rows[0] as Record<string, unknown>,
       })
@@ -136,13 +154,20 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         )
       }
 
+      const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+      if (scope && !rowMatchesScope(rows[0] as Record<string, unknown>, scope)) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
       return c.json(rows[0])
     })
 
     router.post(`/${name}`, async (c) => {
-      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const session = { activeOrganizationId }
       const denied = await enforce('create', tableAccess, {
         user,
+        session,
         request: c.req.raw,
       })
       if (!denied.allowed) {
@@ -200,8 +225,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         user?.id ?? null,
       )
 
+      const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+      const stamped = scope ? stampScope(values, scope) : values
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).insert(table).values(values).returning()
+      const rows = await (db as any).insert(table).values(stamped).returning()
       const created = rows[0]
 
       if (idempotency && idempotencyKey) {
@@ -220,7 +247,8 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.patch(`/${name}/:id`, async (c) => {
-      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -232,8 +260,14 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
+      const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+      if (scope && !rowMatchesScope(existing[0] as Record<string, unknown>, scope)) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
       const denied = await enforce('update', tableAccess, {
         user,
+        session,
         request: c.req.raw,
         row: existing[0] as Record<string, unknown>,
       })
@@ -276,7 +310,8 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.delete(`/${name}/:id`, async (c) => {
-      const user = await resolveAccessUser(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,8 +323,14 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
+      const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+      if (scope && !rowMatchesScope(existing[0] as Record<string, unknown>, scope)) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
+
       const denied = await enforce('delete', tableAccess, {
         user,
+        session,
         request: c.req.raw,
         row: existing[0] as Record<string, unknown>,
       })

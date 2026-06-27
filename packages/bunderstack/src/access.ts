@@ -306,7 +306,7 @@ export function validateAndResolveAccess<
       columns.includes('userId')
 
     if (!hasExplicitRules && !hasConventionOwner) continue
-    if (!ownerColumn && input?.crud !== true) continue
+    if (!ownerColumn && input?.crud !== true && !input?.scope) continue
 
     if (input?.ownerColumn && !columns.includes(input.ownerColumn)) {
       throw new Error(
