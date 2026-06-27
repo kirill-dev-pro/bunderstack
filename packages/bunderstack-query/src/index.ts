@@ -140,3 +140,5 @@ export type {
 } from './types.ts'
 export { createTableClient } from './table-client.ts'
 export type { TableClient, TableClientConfig } from './table-client.ts'
+export { createRealtimeClient } from './realtime-client.ts'
+export type { RealtimeClientConfig } from './realtime-client.ts'
