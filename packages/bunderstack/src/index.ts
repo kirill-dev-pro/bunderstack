@@ -16,9 +16,16 @@ import { provisionSchema, type ProvisionMode } from './provision.ts'
 import type { StorageAdapter } from './storage/index.ts'
 import { createBucketStorages } from './storage/registry.ts'
 import { buildBucketStorageRouter } from './storage/router.ts'
+import { deleteFileWithDerivatives } from './storage/delete.ts'
+import { sweepOrphans } from './storage/sweep.ts'
 import { deleteFileMetaRow } from './storage/file-meta.ts'
 
 type AuthInstance = ReturnType<typeof createAuth>
+
+/** Default age before an unconfirmed `pending` file is treated as an orphan. */
+const DEFAULT_PENDING_TTL_MS = 30 * 60_000
+/** How often the auto-started orphan sweep runs. */
+const SWEEP_INTERVAL_MS = 10 * 60_000
 
 /**
  * Public storage facade exposed as `app.storage`. Object-level operations live
@@ -26,10 +33,16 @@ type AuthInstance = ReturnType<typeof createAuth>
  * must also clean the file-meta row.
  */
 export interface StorageFacade {
-  /** Delete an object and its file-meta row. `fileId` is `<bucket>/<id>`. */
+  /** Delete an object, its transform derivatives, and its file-meta row. `fileId` is `<bucket>/<id>`. */
   delete(fileId: string): Promise<void>
   /** Get the raw adapter for a bucket, or `undefined` if it isn't declared. */
   bucket(name: string): StorageAdapter | undefined
+  /**
+   * Reap stale `pending` uploads older than `olderThanMs` (default 30m). Runs
+   * automatically on an interval; exposed for manual/test invocation. Returns
+   * the count reaped.
+   */
+  sweep(olderThanMs?: number): Promise<number>
 }
 
 export type BunderstackApp<TSchema extends Record<string, unknown>> = {
@@ -106,7 +119,6 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   const registry = createBucketStorages(config.storage)
   const storageRouter = buildBucketStorageRouter({
     registry,
-    defaultBucket: config.storage.defaultBucket,
     db: db as LibSQLDatabase<Record<string, unknown>>,
     auth,
   })
@@ -114,17 +126,41 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     async delete(fileId) {
       const bucketName = fileId.split('/')[0] ?? ''
       const entry = registry.get(bucketName)
-      if (entry) await entry.adapter.delete(fileId)
-      // T6b: also reap transform-cache derivatives under `${fileId}__transforms/`.
-      await deleteFileMetaRow(
-        db as LibSQLDatabase<Record<string, unknown>>,
-        fileId,
-      )
+      if (entry) {
+        await deleteFileWithDerivatives(
+          entry.adapter,
+          db as LibSQLDatabase<Record<string, unknown>>,
+          fileId,
+        )
+      } else {
+        // Unknown bucket: no adapter to clean, but still drop the meta row.
+        await deleteFileMetaRow(
+          db as LibSQLDatabase<Record<string, unknown>>,
+          fileId,
+        )
+      }
     },
     bucket(name) {
       return registry.get(name)?.adapter
     },
+    sweep(olderThanMs = DEFAULT_PENDING_TTL_MS) {
+      return sweepOrphans(
+        registry,
+        db as LibSQLDatabase<Record<string, unknown>>,
+        olderThanMs,
+      )
+    },
   }
+  // Auto-reap orphaned `pending` uploads. `unref()` keeps this from holding the
+  // process (and test runners) open.
+  const sweepTimer = setInterval(() => {
+    void sweepOrphans(
+      registry,
+      db as LibSQLDatabase<Record<string, unknown>>,
+      DEFAULT_PENDING_TTL_MS,
+    ).catch(() => {})
+  }, SWEEP_INTERVAL_MS)
+  sweepTimer.unref?.()
   const { handler, router } = buildHandler({
     crudRouter,
     authHandler: (req) => auth.handler(req),

@@ -1,5 +1,5 @@
 // src/storage/local.ts
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export class LocalStorageAdapter {
@@ -50,5 +50,18 @@ export class LocalStorageAdapter {
     const file = Bun.file(this.filePath(key))
     if (!(await file.exists())) return null
     return { size: file.size, contentType: file.type }
+  }
+
+  async list(prefix: string): Promise<string[]> {
+    const cleanPrefix = prefix.replace(/\/$/, '')
+    const dir = join(this.basePath, cleanPrefix)
+    let entries: string[]
+    try {
+      entries = await readdir(dir)
+    } catch {
+      // Missing dir (or prefix isn't a directory) → no derivatives.
+      return []
+    }
+    return entries.map((name) => `${cleanPrefix}/${name}`)
   }
 }

@@ -79,4 +79,9 @@ export class S3StorageAdapter implements StorageAdapter {
     if (!this.publicUrl) return undefined
     return `${this.publicUrl.replace(/\/$/, '')}/${key}`
   }
+
+  async list(prefix: string): Promise<string[]> {
+    const res = await this.client.list({ prefix })
+    return res.contents?.map((c) => c.key) ?? []
+  }
 }

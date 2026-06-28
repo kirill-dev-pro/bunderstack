@@ -21,4 +21,6 @@ export interface StorageAdapter {
   presignGet?(key: string, opts: PresignGetOptions): Promise<string>
   stat?(key: string): Promise<{ size: number; contentType: string } | null>
   publicUrlFor?(key: string): string | undefined
+  /** List full object keys under a prefix (used to reap transform derivatives). */
+  list?(prefix: string): Promise<string[]>
 }

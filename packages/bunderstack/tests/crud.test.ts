@@ -8,6 +8,8 @@ import { posts } from '../../../examples/standalone/schema'
 import { validateAndResolveAccess } from '../src/access'
 import { buildCrudRouter } from '../src/crud'
 import { createDb } from '../src/db'
+import { withInternalTables } from '../src/internal-tables'
+import { provisionSchema } from '../src/provision'
 
 const testAuth = {
   api: {
@@ -24,14 +26,14 @@ let db: LibSQLDatabase<{ posts: typeof posts }>
 
 beforeAll(async () => {
   db = createDb({ posts }, { url: ':memory:' })
-  await db.$client.execute(
-    `CREATE TABLE IF NOT EXISTS posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      body TEXT,
-      author_id TEXT,
-      created_at INTEGER
-    )`,
+  // Provision the posts table plus bunderstack's internal tables (the
+  // idempotency table is no longer auto-created at runtime). Provisioning the
+  // full schema avoids drizzle-kit prompting to drop unknown tables.
+  const merged = withInternalTables({ posts })
+  await provisionSchema(
+    db as unknown as LibSQLDatabase<typeof merged>,
+    merged,
+    { force: true },
   )
   const access = validateAndResolveAccess(
     { posts },

@@ -20,6 +20,7 @@ import {
   sumReadySize,
   type FileMetaRow,
 } from './file-meta.ts'
+import { deleteFileWithDerivatives } from './delete.ts'
 import type { BucketStorageRegistry } from './registry.ts'
 import {
   parseTransformSpec,
@@ -29,7 +30,6 @@ import {
 
 export interface BucketStorageRouterOptions {
   registry: BucketStorageRegistry
-  defaultBucket: string
   db: LibSQLDatabase<Record<string, unknown>>
   auth: AuthSessionResolver | undefined
   /** Default presign TTL (seconds) for PUT/GET URLs. */
@@ -378,11 +378,18 @@ export function buildBucketStorageRouter(
       const cacheKey = `${fileId}__transforms/${transformHash(spec)}${ext}`
 
       if (await adapter.exists(cacheKey)) {
-        return adapter.get(cacheKey)
+        const cached = await adapter.get(cacheKey)
+        // Re-attach caching headers so cached derivatives match fresh serves
+        // (the adapter may not preserve Cache-Control on read).
+        const headers = new Headers(cached.headers)
+        headers.set('Cache-Control', 'public, max-age=31536000')
+        return new Response(cached.body, { status: cached.status, headers })
       }
 
       const original = await adapter.get(fileId)
-      if (original.status === 404) return original
+      if (original.status === 404) {
+        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+      }
 
       const inputBuffer = Buffer.from(await original.clone().arrayBuffer())
       const transformed = await transformImage(inputBuffer, spec)
@@ -452,11 +459,8 @@ export function buildBucketStorageRouter(
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }
 
-    await adapter.delete(fileId)
-    // T6: also reap transform-cache derivatives under `${fileId}__transforms/`
-    // once the adapter gains a `list` capability (orphan sweep covers them
-    // meanwhile, since they share the fileId prefix).
-    await deleteFileMetaRow(db, fileId)
+    // Removes the original, any transform-cache derivatives, and the meta row.
+    await deleteFileWithDerivatives(adapter, db, fileId)
     return new Response(null, { status: 204 })
   })
 
@@ -477,6 +481,8 @@ async function quotaExceeded(
   scopeJson: string | null,
   incoming: number,
 ): Promise<boolean> {
+  // Anonymous uploads (no ownerId) aren't attributed to a per-user bucket, so
+  // they intentionally bypass `perUser` here. `perScope` (below) still applies.
   if (quota.perUserBytes !== undefined && ownerId !== undefined) {
     const current = await sumReadySize(db, { bucket, ownerId })
     if (current + incoming > quota.perUserBytes) return true
