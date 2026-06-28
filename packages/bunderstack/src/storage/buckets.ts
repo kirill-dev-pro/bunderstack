@@ -82,8 +82,10 @@ export function parseSize(value: string | number): number {
   const match = /^(\d+(?:\.\d+)?)\s*([a-z]*)$/i.exec(trimmed)
   if (!match) throw new Error(`[bunderstack] invalid size "${value}"`)
 
-  const num = parseFloat(match[1])
-  const unit = match[2].toLowerCase()
+  const numStr = match[1]
+  if (numStr === undefined) throw new Error(`[bunderstack] invalid size "${value}"`)
+  const num = parseFloat(numStr)
+  const unit = (match[2] ?? '').toLowerCase()
 
   if (unit === '') return Math.floor(num)
 

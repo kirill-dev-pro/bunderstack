@@ -13,7 +13,7 @@ afterAll(() => {
 test('upload writes file and exists returns true', async () => {
   const adapter = new LocalStorageAdapter(basePath)
   const data = new TextEncoder().encode('hello storage')
-  await adapter.upload('test-file.txt', data, 'text/plain')
+  await adapter.upload('test-file.txt', data.buffer, 'text/plain')
   expect(await adapter.exists('test-file.txt')).toBe(true)
 })
 
@@ -41,7 +41,7 @@ test('stat returns size and contentType after upload', async () => {
   const adapter = new LocalStorageAdapter(basePath)
   const content = 'stat test content'
   const data = new TextEncoder().encode(content)
-  await adapter.upload('stat-file.txt', data, 'text/plain')
+  await adapter.upload('stat-file.txt', data.buffer, 'text/plain')
   const info = await adapter.stat!('stat-file.txt')
   expect(info).not.toBeNull()
   expect(info!.size).toBe(data.byteLength)

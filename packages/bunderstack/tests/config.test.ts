@@ -16,19 +16,22 @@ test('resolveConfig picks up DATABASE_URL env', () => {
   delete process.env.DATABASE_URL
 })
 
-test('resolveConfig defaults to local storage', () => {
+test('resolveConfig defaults to a local default bucket', () => {
   const cfg = resolveConfig({ schema })
-  expect(cfg.storage.type).toBe('local')
-  if (cfg.storage.type === 'local') {
-    expect(cfg.storage.path).toBe('./uploads')
+  expect(cfg.storage.defaultBucket).toBe('default')
+  const backend = cfg.storage.buckets.get('default')?.backend
+  expect(backend?.type).toBe('local')
+  if (backend?.type === 'local') {
+    expect(backend.path).toBe('./uploads')
   }
 })
 
 test('resolveConfig accepts custom local path', () => {
   const cfg = resolveConfig({ schema, storage: { local: './my-uploads' } })
-  expect(cfg.storage.type).toBe('local')
-  if (cfg.storage.type === 'local') {
-    expect(cfg.storage.path).toBe('./my-uploads')
+  const backend = cfg.storage.buckets.get('default')?.backend
+  expect(backend?.type).toBe('local')
+  if (backend?.type === 'local') {
+    expect(backend.path).toBe('./my-uploads')
   }
 })
 
@@ -38,10 +41,11 @@ test('resolveConfig s3 true reads env vars', () => {
   process.env.S3_ACCESS_KEY_ID = 'key'
   process.env.S3_SECRET_ACCESS_KEY = 'secret'
   const cfg = resolveConfig({ schema, storage: { s3: true } })
-  expect(cfg.storage.type).toBe('s3')
-  if (cfg.storage.type === 's3') {
-    expect(cfg.storage.bucket).toBe('my-bucket')
-    expect(cfg.storage.region).toBe('eu-west-1')
+  const backend = cfg.storage.buckets.get('default')?.backend
+  expect(backend?.type).toBe('s3')
+  if (backend?.type === 's3') {
+    expect(backend.bucket).toBe('my-bucket')
+    expect(backend.region).toBe('eu-west-1')
   }
   delete process.env.S3_BUCKET
   delete process.env.S3_REGION

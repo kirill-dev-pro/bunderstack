@@ -181,7 +181,8 @@ export function scopeToJson(scope: ScopeMap | undefined | null): string | null {
   const sorted = keys.sort()
   const ordered: Record<string, string | string[]> = {}
   for (const k of sorted) {
-    ordered[k] = scope[k]
+    const value = scope[k]
+    if (value !== undefined) ordered[k] = value
   }
   return JSON.stringify(ordered)
 }

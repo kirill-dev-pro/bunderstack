@@ -75,7 +75,7 @@ test('defineAccess validates and returns rules', () => {
     { posts },
     { posts: { ownerColumn: 'userId', list: 'authenticated' } },
   )
-  expect(rules.posts.list).toBe('authenticated')
+  expect(rules.posts!.list).toBe('authenticated')
 })
 
 test('checkAccess owner rule allows matching user', async () => {

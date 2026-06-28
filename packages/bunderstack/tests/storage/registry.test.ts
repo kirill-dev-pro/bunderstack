@@ -121,8 +121,8 @@ test('createBucketStorages each BucketStorage.bucket matches resolved bucket', (
   const registry = createBucketStorages(resolved)
   const avatarsBucket = registry.get('avatars')!.bucket
   const docsBucket = registry.get('documents')!.bucket
-  expect(avatarsBucket).toBe(resolved.buckets.get('avatars'))
-  expect(docsBucket).toBe(resolved.buckets.get('documents'))
+  expect(avatarsBucket).toBe(resolved.buckets.get('avatars')!)
+  expect(docsBucket).toBe(resolved.buckets.get('documents')!)
 })
 
 test('createBucketStorages s3 adapter exposes presignPut as function', () => {

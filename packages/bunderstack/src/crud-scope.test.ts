@@ -43,8 +43,8 @@ describe('crud scope', () => {
   it('list only returns rows in the active org', async () => {
     const router = await makeRouter('org_1')
     const res = await router.fetch(new Request('http://x/boards'))
-    const body = await res.json()
-    expect(body.items.map((b: { id: string }) => b.id)).toEqual(['b1'])
+    const body = (await res.json()) as { items: { id: string }[] }
+    expect(body.items.map((b) => b.id)).toEqual(['b1'])
   })
   it('get of an out-of-scope row is 404', async () => {
     const router = await makeRouter('org_1')
@@ -58,7 +58,7 @@ describe('crud scope', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: 'b3', title: 'New', organizationId: 'org_2' }),
     }))
-    const body = await res.json()
+    const body = (await res.json()) as { organizationId: string }
     expect(body.organizationId).toBe('org_1')
   })
   it('update of an out-of-scope row is 404', async () => {
