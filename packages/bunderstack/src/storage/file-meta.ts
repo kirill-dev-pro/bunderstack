@@ -189,7 +189,12 @@ export function scopeToJson(scope: ScopeMap | undefined | null): string | null {
 
 export function parseScopeJson(json: string | null): ScopeMap | null {
   if (json == null) return null
-  return JSON.parse(json) as ScopeMap
+  try {
+    return JSON.parse(json) as ScopeMap
+  } catch {
+    // Corrupt/legacy scope_json should not crash a read; treat as no scope.
+    return null
+  }
 }
 
 export function fileMatchesScope(

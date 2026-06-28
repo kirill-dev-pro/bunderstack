@@ -435,6 +435,35 @@ test('confirm oversize → 413 + row/object gone', async () => {
   expect(await fake.exists(pj.fileId)).toBe(false)
 })
 
+test('confirm reconciles quota against real size → 413 + row/object gone', async () => {
+  const reg: BucketStorageRegistry = new Map([
+    ['photos', s3Bucket('photos', fake, { quota: { perUserBytes: 4 } })],
+  ])
+  await makeApp(reg)
+
+  const pres = await app.request('/api/files/photos/presign', {
+    method: 'POST',
+    headers: { 'x-test-user': 'u1', 'content-type': 'application/json' },
+    body: JSON.stringify({ filename: 'p.png', contentType: 'image/png' }),
+  })
+  const pj = (await pres.json()) as { fileId: string; confirmUrl: string }
+  // Real upload (5 bytes) exceeds the 4-byte quota, which presign couldn't know.
+  await fake._putDirect(pj.fileId, new Uint8Array([1, 2, 3, 4, 5]), 'image/png')
+
+  const conf = await app.request(pj.confirmUrl, {
+    method: 'POST',
+    headers: { 'x-test-user': 'u1' },
+  })
+  expect(conf.status).toBe(413)
+  expect(await fake.exists(pj.fileId)).toBe(false)
+
+  // GET must 404 since the meta row was removed too.
+  const get = await app.request(`/api/files/${pj.fileId}`, {
+    headers: { 'x-test-user': 'u1' },
+  })
+  expect(get.status).toBe(404)
+})
+
 test('presign on local bucket → mode proxy, no row created', async () => {
   const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
   await makeApp(reg)

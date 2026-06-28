@@ -289,6 +289,9 @@ export function buildBucketStorageRouter(
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }
 
+    // ownerId-only gate: confirm finalizes a pending upload, so it only checks
+    // that the caller owns the row (matching who presigned it). The full
+    // `access.create`/`get` rules ran at presign and run again on read.
     if (row.ownerId != null && row.ownerId !== (user?.id ?? null)) {
       return apiError(c, ErrorCode.FORBIDDEN, 'Forbidden', 403)
     }
@@ -322,6 +325,25 @@ export function buildBucketStorageRouter(
         `Content type ${info.contentType || '(none)'} not allowed`,
         422,
       )
+    }
+
+    // Quota reconciliation: presign reserved the worst-case `maxSize`; now we
+    // know the real size. The pending row isn't counted by `sumReadySize`
+    // (ready-only), so this compares existing usage + the actual bytes.
+    if (bucket.quota) {
+      const over = await quotaExceeded(
+        db,
+        bucket.name,
+        bucket.quota,
+        row.ownerId ?? undefined,
+        row.scopeJson,
+        info.size,
+      )
+      if (over) {
+        await adapter.delete(fileId)
+        await deleteFileMetaRow(db, fileId)
+        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Quota exceeded', 413)
+      }
     }
 
     await markFileReady(db, fileId, {
