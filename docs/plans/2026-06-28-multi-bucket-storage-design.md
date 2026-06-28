@@ -2,7 +2,11 @@
 
 Date: 2026-06-28
 Status: Approved design, pre-implementation
-Scope: `packages/bunderstack` core storage layer
+Scope: `packages/bunderstack` core storage layer. Example apps
+(`kanban-tanstack`, `standalone`, `nextjs`, `tanstack-start`) use the old
+`storageOptions` + flat `/api/files/:id` API and will break; their migration is
+**deferred to a follow-up branch** (root `bun test` only covers the package).
+`storage: { local: './uploads' }` still parses (→ implicit `default` bucket).
 
 ## Goal
 
@@ -120,8 +124,10 @@ DELETE /api/files/:bucket/:id          → access-check, delete bytes + meta + t
 - Unknown `:bucket` → `404` with a clear `ErrorCode`.
 - GET **redirects (302) rather than proxies whenever it can** — offloads
   bandwidth to S3/CDN. Presigned URLs are short-lived (~60s).
-- `Content-Disposition` carried from stored metadata so `report.pdf` downloads
-  with its real name, not a UUID.
+- `Content-Disposition` (original `filename` from metadata) is set on the
+  **proxy path** only — public-shared and local. Presigned redirects can't carry
+  it (see Bun presign limitation in §5); the app uses metadata `filename` for
+  display.
 - Transform query params (`?w=…&format=…`) are **rejected unless the bucket has
   `transforms: true`** — a private document bucket can't be coerced into running
   sharp.
@@ -217,13 +223,24 @@ interface StorageAdapter {
 **Presigned path:**
 
 1. `POST /:bucket/presign` → access-check `create`, capture `scope_json`, write
-   `pending` row, return `{ fileId, uploadUrl, fields }`. The presign embeds a
-   `content-length-range` condition from `upload.maxSize` and a `Content-Type`
-   condition from `accept` — enforcement when we never see the bytes.
+   `pending` row, return `{ fileId, uploadUrl }`. The PUT presign pins
+   `Content-Type` via Bun's `type` option.
 2. Client PUTs straight to S3.
-3. `POST /:bucket/:id/confirm` → `HEAD` the object, write real `size` /
-   `content_type`, flip `pending` → `ready`. Constraint violation → delete +
+3. `POST /:bucket/:id/confirm` → `stat` the object, write real `size` /
+   `content_type`, flip `pending` → `ready`. Size/type violation → delete +
    reject.
+
+> **Bun presign limitation (carry as a code comment).** Bun's
+> `S3Client.presign(key, { method, expiresIn, type, acl })` is a plain
+> SigV4-signed URL: it can pin `Content-Type` on a PUT but has **no
+> `content-length-range` / POST-policy**, so upload size cannot be enforced
+> at presign time — it is enforced **only at `confirm`** via `stat`. Likewise
+> there is no signed `response-content-disposition`, so presigned downloads
+> surface the object key, not the original filename (we store `filename` in
+> metadata for app-UI display; the proxy path still sets `Content-Disposition`
+> properly). Both are accepted for now; a future swap of the S3 client could
+> lift them. The `confirm`-time `stat` is therefore the authoritative size gate
+> for the presigned path.
 
 **Proxy path (local/tiny):** validate `maxSize`/`accept` against the actual
 `File`, stream to storage, write `ready` directly. No confirm.
