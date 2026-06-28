@@ -1,5 +1,8 @@
 import * as React from 'react'
 
+/** Must match `defaultBucket` in `src/bunderstack.ts`. */
+export const FILES_BUCKET = 'attachments'
+
 export type UploadedFile = {
   fileId: string
   url: string
@@ -10,7 +13,7 @@ export async function uploadFile(file: File): Promise<UploadedFile> {
   const form = new FormData()
   form.append('file', file)
 
-  const res = await fetch('/api/files', {
+  const res = await fetch(`/api/files/${FILES_BUCKET}`, {
     method: 'POST',
     body: form,
     credentials: 'include',

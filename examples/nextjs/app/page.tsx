@@ -19,7 +19,7 @@ export default function Home() {
           <code>POST /api/auth/sign-up/email</code>
         </li>
         <li>
-          <code>POST /api/files</code>
+          <code>POST /api/files/default</code>
         </li>
       </ul>
     </main>

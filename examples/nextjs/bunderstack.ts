@@ -12,7 +12,11 @@ export function getApp() {
         database: { url: 'file:./data.db' },
         auth: { emailAndPassword: { enabled: true } },
         access: { posts: { ownerColumn: 'authorId' } },
-        storage: { local: './uploads' },
+        storage: {
+          local: './uploads',
+          defaultBucket: 'default',
+          buckets: { default: {} },
+        },
       })
       await app.provision()
       return app

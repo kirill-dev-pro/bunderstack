@@ -70,7 +70,7 @@ const EDUCATIONAL_POSTS: Array<{
   {
     author: 'carol@example.com',
     title: 'File storage API',
-    body: 'POST /api/files uploads with mime/size rules. GET serves originals; ?w=&h=&format=webp returns on-the-fly thumbnails via sharp.',
+    body: 'POST /api/files/attachments uploads with mime/size rules. GET serves originals; ?w=&h=&format=webp returns on-the-fly thumbnails via sharp.',
   },
   {
     author: 'carol@example.com',

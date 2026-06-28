@@ -12,12 +12,19 @@ export const app = await createBunderstackAsync({
     emailAndPassword: { enabled: true },
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
   },
-  storage: { local: './uploads' },
-  storageOptions: {
-    access: { create: 'authenticated', get: 'public', delete: 'owner' },
-    uploadRules: {
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-      maxSizeBytes: 10 * 1024 * 1024,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'attachments',
+    buckets: {
+      attachments: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: {
+          maxSize: '10mb',
+          accept: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        },
+        transforms: true,
+      },
     },
   },
 })

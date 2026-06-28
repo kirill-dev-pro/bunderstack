@@ -51,8 +51,8 @@ API routes:
 
 - `GET /api/health`
 - `GET|POST /api/posts`
-- `POST /api/files` — multipart upload (`file` field)
-- `GET /api/files/:id?w=200&h=200&format=webp` — thumbnails
+- `POST /api/files/uploads` — multipart upload (`file` field)
+- `GET /api/files/uploads/:id?w=200&h=200&format=webp` — thumbnails
 - `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`
 
 ### TanStack Start
