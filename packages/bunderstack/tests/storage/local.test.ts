@@ -36,3 +36,35 @@ test('get returns 404 for missing file', async () => {
   const res = await adapter.get('does-not-exist.txt')
   expect(res.status).toBe(404)
 })
+
+test('stat returns size and contentType after upload', async () => {
+  const adapter = new LocalStorageAdapter(basePath)
+  const content = 'stat test content'
+  const data = new TextEncoder().encode(content)
+  await adapter.upload('stat-file.txt', data, 'text/plain')
+  const info = await adapter.stat!('stat-file.txt')
+  expect(info).not.toBeNull()
+  expect(info!.size).toBe(data.byteLength)
+  expect(typeof info!.contentType).toBe('string')
+})
+
+test('stat returns null for missing file', async () => {
+  const adapter = new LocalStorageAdapter(basePath)
+  const info = await adapter.stat!('does-not-exist.txt')
+  expect(info).toBeNull()
+})
+
+test('LocalStorageAdapter does not expose presignPut', () => {
+  const adapter = new LocalStorageAdapter(basePath)
+  expect((adapter as unknown as Record<string, unknown>)['presignPut']).toBeUndefined()
+})
+
+test('LocalStorageAdapter does not expose presignGet', () => {
+  const adapter = new LocalStorageAdapter(basePath)
+  expect((adapter as unknown as Record<string, unknown>)['presignGet']).toBeUndefined()
+})
+
+test('LocalStorageAdapter does not expose publicUrlFor', () => {
+  const adapter = new LocalStorageAdapter(basePath)
+  expect((adapter as unknown as Record<string, unknown>)['publicUrlFor']).toBeUndefined()
+})

@@ -45,4 +45,10 @@ export class LocalStorageAdapter {
   async exists(fileId: string): Promise<boolean> {
     return Bun.file(this.filePath(fileId)).exists()
   }
+
+  async stat(key: string): Promise<{ size: number; contentType: string } | null> {
+    const file = Bun.file(this.filePath(key))
+    if (!(await file.exists())) return null
+    return { size: file.size, contentType: file.type }
+  }
 }
