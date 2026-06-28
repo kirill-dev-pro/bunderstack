@@ -2,6 +2,8 @@ import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 
 import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
 
+import { INTERNAL_TABLE_NAMES } from './internal-tables.ts'
+
 export const AUTH_TABLE_NAMES = new Set([
   'user',
   'session',
@@ -248,6 +250,7 @@ export function validateAndResolveAccess<
   for (const { key, name, columns } of tables) {
     const input = accessInput?.[key]
     if (input?.crud === false) continue
+    if (INTERNAL_TABLE_NAMES.has(name)) continue
 
     if (AUTH_TABLE_NAMES.has(name)) {
       if (!input?.exposeAuthTable || !EXPOSEABLE_AUTH_TABLES.has(name)) continue
