@@ -1,13 +1,13 @@
 // tests/storage/registry.test.ts
 import { test, expect } from 'bun:test'
 
-import { resolveBuckets } from '../../src/storage/buckets.ts'
-import { LocalStorageAdapter } from '../../src/storage/local.ts'
+import { resolveBuckets } from './buckets.ts'
+import { LocalStorageAdapter } from './local.ts'
 import {
   createAdapter,
   createBucketStorages,
-} from '../../src/storage/registry.ts'
-import { S3StorageAdapter } from '../../src/storage/s3.ts'
+} from './registry.ts'
+import { S3StorageAdapter } from './s3.ts'
 
 const fakeEnv = {
   S3_ACCESS_KEY_ID: 'fake-key',

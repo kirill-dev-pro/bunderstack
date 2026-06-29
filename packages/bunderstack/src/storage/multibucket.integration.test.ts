@@ -2,7 +2,7 @@
 import { test, expect, afterAll } from 'bun:test'
 import { rm } from 'node:fs/promises'
 
-import { createBunderstackAsync } from '../../src/index'
+import { createBunderstackAsync } from '../index'
 
 const TMP_DIR = './.tmp-uploads-test'
 

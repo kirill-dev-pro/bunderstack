@@ -1,8 +1,8 @@
 import { test, expect, beforeAll } from 'bun:test'
 
-import { createDb } from '../../src/db.ts'
-import { bunderstackFiles, INTERNAL_TABLES } from '../../src/internal-tables.ts'
-import { provisionSchema } from '../../src/provision.ts'
+import { createDb } from '../db.ts'
+import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables.ts'
+import { provisionSchema } from '../provision.ts'
 import {
   insertPendingFile,
   insertReadyFile,
@@ -14,7 +14,7 @@ import {
   scopeToJson,
   parseScopeJson,
   fileMatchesScope,
-} from '../../src/storage/file-meta.ts'
+} from './file-meta.ts'
 
 let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
 

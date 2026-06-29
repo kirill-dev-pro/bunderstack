@@ -7,20 +7,20 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ResolvedBucket } from '../../src/storage/buckets.ts'
-import type { BucketStorageRegistry } from '../../src/storage/registry.ts'
+import type { ResolvedBucket } from './buckets.ts'
+import type { BucketStorageRegistry } from './registry.ts'
 
-import { createDb } from '../../src/db.ts'
-import { bunderstackFiles, INTERNAL_TABLES } from '../../src/internal-tables.ts'
-import { provisionSchema } from '../../src/provision.ts'
-import { deleteFileWithDerivatives } from '../../src/storage/delete.ts'
+import { createDb } from '../db.ts'
+import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables.ts'
+import { provisionSchema } from '../provision.ts'
+import { deleteFileWithDerivatives } from './delete.ts'
 import {
   getFileMeta,
   insertPendingFile,
   insertReadyFile,
-} from '../../src/storage/file-meta.ts'
-import { LocalStorageAdapter } from '../../src/storage/local.ts'
-import { sweepOrphans } from '../../src/storage/sweep.ts'
+} from './file-meta.ts'
+import { LocalStorageAdapter } from './local.ts'
+import { sweepOrphans } from './sweep.ts'
 
 let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
 let dbAny: LibSQLDatabase<Record<string, unknown>>

@@ -1,7 +1,7 @@
 // tests/storage/s3.test.ts
 import { test, expect } from 'bun:test'
 
-import { S3StorageAdapter } from '../../src/storage/s3'
+import { S3StorageAdapter } from './s3'
 
 const fakeAdapter = () =>
   new S3StorageAdapter({

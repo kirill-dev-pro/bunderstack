@@ -6,7 +6,7 @@ import {
   transformImage,
   transformHash,
   parseTransformSpec,
-} from '../../src/storage/thumbnails'
+} from './thumbnails'
 
 function crc32(buf: Buffer): number {
   let crc = 0xffffffff

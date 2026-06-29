@@ -8,18 +8,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
-import type { AuthSessionResolver, ScopeMap } from '../../src/access'
-import type { ResolvedBucket } from '../../src/storage/buckets'
-import type { StorageAdapter } from '../../src/storage/index'
+import type { AuthSessionResolver, ScopeMap } from '../access'
+import type { ResolvedBucket } from './buckets'
+import type { StorageAdapter } from './index'
 import type {
   BucketStorage,
   BucketStorageRegistry,
-} from '../../src/storage/registry'
+} from './registry'
 
-import { createDb } from '../../src/db'
-import { INTERNAL_TABLES } from '../../src/internal-tables'
-import { LocalStorageAdapter } from '../../src/storage/local'
-import { buildBucketStorageRouter } from '../../src/storage/router'
+import { createDb } from '../db'
+import { INTERNAL_TABLES } from '../internal-tables'
+import { LocalStorageAdapter } from './local'
+import { buildBucketStorageRouter } from './router'
 
 // ─── PNG fixture (mirrors thumbnails.test.ts) ───────────────────────────────
 
