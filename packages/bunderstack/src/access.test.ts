@@ -6,7 +6,7 @@ import {
   validateAndResolveAccess,
   checkAccess,
   AUTH_TABLE_NAMES,
-} from '../src/access'
+} from './access'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),

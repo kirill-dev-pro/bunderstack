@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { createDb } from '../src/db'
+import { createDb } from './db'
 import {
   encode,
   decode,
@@ -10,7 +10,7 @@ import {
   parse,
   asTypeId,
   typeid,
-} from '../src/typeid'
+} from './typeid'
 
 // Official TypeID spec test vector (encode/decode the raw 16-byte UUID).
 const VECTOR_UUID = '01890a5d-ac96-774b-bcce-b302099a8057'

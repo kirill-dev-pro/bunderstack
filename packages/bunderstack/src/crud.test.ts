@@ -5,11 +5,11 @@ import { test, expect, beforeAll } from 'bun:test'
 import { Hono } from 'hono'
 
 import { posts } from '../../../examples/standalone/schema'
-import { validateAndResolveAccess } from '../src/access'
-import { buildCrudRouter } from '../src/crud'
-import { createDb } from '../src/db'
-import { withInternalTables } from '../src/internal-tables'
-import { provisionSchema } from '../src/provision'
+import { validateAndResolveAccess } from './access'
+import { buildCrudRouter } from './crud'
+import { createDb } from './db'
+import { withInternalTables } from './internal-tables'
+import { provisionSchema } from './provision'
 
 const testAuth = {
   api: {

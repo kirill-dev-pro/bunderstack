@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test'
 
 import * as schema from '../../../examples/standalone/schema'
-import { resolveConfig } from '../src/config'
+import { resolveConfig } from './config'
 
 test('resolveConfig applies SQLite default url', () => {
   const cfg = resolveConfig({ schema })

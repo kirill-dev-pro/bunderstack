@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { createDb } from '../src/db'
+import { createDb } from './db'
 
 // Local fixture built with THIS package's drizzle-orm instance, so the table's
 // branded types match the db client createDb produces. (Importing the table

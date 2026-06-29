@@ -2,8 +2,8 @@
 import { test, expect } from 'bun:test'
 
 import * as schema from '../../../examples/standalone/schema'
-import { createAuth } from '../src/auth'
-import { createDb } from '../src/db'
+import { createAuth } from './auth'
+import { createDb } from './db'
 
 test('createAuth returns an object with a handler function', () => {
   const db = createDb(schema, { url: ':memory:' })

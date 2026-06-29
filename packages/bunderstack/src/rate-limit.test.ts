@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { Hono } from 'hono'
 
-import { createRateLimiter } from '../src/rate-limit'
+import { createRateLimiter } from './rate-limit'
 
 test('rate limiter returns 429 after max requests', async () => {
   const limiter = createRateLimiter({ windowMs: 60_000, max: 2 })

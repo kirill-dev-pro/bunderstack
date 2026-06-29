@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 
-import { shouldProvision } from '../src/provision'
+import { shouldProvision } from './provision'
 
 test('shouldProvision auto skips production', () => {
   const prev = process.env.NODE_ENV
