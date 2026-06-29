@@ -11,10 +11,10 @@ pass, there are no TODO/FIXME markers in `src/`, and the working tree is clean.
 The remaining loose ends are cosmetic but worth closing before merge:
 
 1. The `src/` layout is inconsistent. `storage/` is a folder grouping 10
-   related files, but the other multi-file domains (`crud`, `realtime`) are flat
-   files at the top level. Tests are also split: most module tests live in
-   `src/` next to their code, while storage's tests live in a separate
-   `tests/storage/` tree.
+   related files, but `realtime` — which also spans two source files
+   (`realtime.ts` + `realtime-redis.ts`) — is flat at the top level. Tests are
+   also split: most module tests live in `src/` next to their code, while
+   storage's tests live in a separate `tests/storage/` tree.
 2. Five TypeScript errors remain (`bunx tsc --noEmit`):
    - 3 in `src/index.ts` (lines 116, 124, 135) — the raw better-auth instance
      no longer structurally satisfies our internal `AuthSessionResolver`.
@@ -41,17 +41,15 @@ changes; all 116 tests must still pass and `tsc --noEmit` must reach zero errors
 
 ## Section 1 — Directory restructure
 
-Mirror the `storage/` folder pattern for the two multi-file domains, and
-co-locate **all** tests under `src/`.
+A domain earns a folder only when it has more than one source file. `realtime`
+has two (`index.ts` + `redis.ts`) and becomes a folder; `crud` is a single
+source file and stays flat as `crud.ts`. All tests co-locate under `src/` —
+flat next to flat source, inside the folder for foldered domains.
 
 Target layout:
 
 ```
 src/
-  crud/
-    index.ts          # from crud.ts
-    *.test.ts         # crud-broadcast.test.ts, crud-scope.test.ts (from src/),
-                      #   crud.test.ts (from tests/)
   realtime/
     index.ts          # from realtime.ts
     redis.ts          # from realtime-redis.ts
@@ -61,8 +59,8 @@ src/
                       #   in alongside source
     *.ts
     *.test.ts
-  # singletons stay flat:
-  access.ts  auth.ts  config.ts  db.ts  errors.ts  handler.ts
+  # singletons stay flat (crud included — one source file):
+  access.ts  auth.ts  config.ts  crud.ts  db.ts  errors.ts  handler.ts
   idempotency.ts  index.ts  internal-tables.ts  list-query.ts
   provision.ts  rate-limit.ts  scope.ts  typeid.ts
 ```
@@ -71,11 +69,10 @@ Test relocation, exhaustively:
 
 | Destination | Test files moved in |
 | --- | --- |
-| `src/crud/` | `src/crud-broadcast.test.ts`, `src/crud-scope.test.ts`, `tests/crud.test.ts` |
 | `src/realtime/` | `src/realtime.test.ts`, `src/realtime-sse.test.ts`, `src/realtime-redis.test.ts` |
 | `src/storage/` | all 9 of `tests/storage/*.test.ts` |
-| `src/` (flat, from `tests/`) | `access.test.ts`, `access.integration.test.ts`, `auth.test.ts`, `config.test.ts`, `db.test.ts`, `internal-tables.test.ts`, `provision.test.ts`, `provision.integration.test.ts`, `rate-limit.test.ts`, `typeid.test.ts` |
-| `src/` (already there, unchanged) | `access-sanitize.test.ts`, `config-access.test.ts`, `index.test.ts`, `scope-where.test.ts`, `scope.test.ts` |
+| `src/` (flat, from `tests/`) | `crud.test.ts`, `access.test.ts`, `access.integration.test.ts`, `auth.test.ts`, `config.test.ts`, `db.test.ts`, `internal-tables.test.ts`, `provision.test.ts`, `provision.integration.test.ts`, `rate-limit.test.ts`, `typeid.test.ts` |
+| `src/` (flat, already there, unchanged) | `crud-broadcast.test.ts`, `crud-scope.test.ts`, `access-sanitize.test.ts`, `config-access.test.ts`, `index.test.ts`, `scope-where.test.ts`, `scope.test.ts` |
 
 No filename collisions exist between the `tests/` files moving to flat `src/`
 and the tests already there (e.g. `access.test.ts` vs the existing
@@ -84,14 +81,13 @@ and the tests already there (e.g. `access.test.ts` vs the existing
 Decisions:
 - `realtime/` uses `index.ts` + `redis.ts` (not a `core.ts` + barrel split) —
   fewer files, matches storage's flat-ish style.
-- `crud.ts` becomes `crud/index.ts` (single source file; tests beside it).
+- `crud` stays a flat `crud.ts`: a folder for a single source file is ceremony,
+  not structure. A domain earns a folder only when it has 2+ source files.
 
 Import updates:
-- `src/index.ts`: `./crud.ts` -> `./crud/index.ts`,
-  `./realtime.ts` -> `./realtime/index.ts`,
-  `./realtime-redis.ts` -> `./realtime/redis.ts`.
-- Any other importers of `crud`, `realtime`, `realtime-redis` update to the new
-  paths.
+- `src/index.ts`: `./realtime.ts` -> `./realtime/index.ts`,
+  `./realtime-redis.ts` -> `./realtime/redis.ts`. `./crud.ts` is unchanged.
+- Any other importers of `realtime`, `realtime-redis` update to the new paths.
 - Test files update their relative imports to the source under the new tree.
 - The `tests/` directory is emptied and removed. `tsconfig.json` `include`
   already covers `src/**/*.ts`; the `tests/**/*.ts` glob becomes a no-op and may
