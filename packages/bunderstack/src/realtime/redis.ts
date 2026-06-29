@@ -53,6 +53,37 @@ function tableEntry(
   return undefined
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isRealtimeAction(value: unknown): value is RealtimeAction {
+  return value === 'create' || value === 'update' || value === 'delete'
+}
+
+function parseWireEvent(raw: string): WireEvent | null {
+  try {
+    const value = JSON.parse(raw)
+    if (
+      !isRecord(value) ||
+      typeof value.eventId !== 'number' ||
+      typeof value.table !== 'string' ||
+      !isRealtimeAction(value.action) ||
+      !isRecord(value.record)
+    ) {
+      return null
+    }
+    return {
+      eventId: value.eventId,
+      table: value.table,
+      action: value.action,
+      record: value.record,
+    }
+  } catch {
+    return null
+  }
+}
+
 export function createRedisRealtimeBroker(opts: {
   access: ResolvedAccess
   redis: RedisLike
@@ -100,11 +131,8 @@ export function createRedisRealtimeBroker(opts: {
   // Subscribe once; all local delivery happens here.
   const ready = opts.redis
     .subscribe(channel, (message) => {
-      try {
-        fanOut(JSON.parse(message) as WireEvent)
-      } catch {
-        /* ignore malformed */
-      }
+      const evt = parseWireEvent(message)
+      if (evt) fanOut(evt)
     })
     .then(() => undefined)
 
@@ -141,13 +169,12 @@ export function createRedisRealtimeBroker(opts: {
         return { gap: true }
       }
       const events = raw
-        .map((r) => JSON.parse(r) as WireEvent)
+        .map(parseWireEvent)
+        .filter((e) => e !== null)
         .filter((e) => e.eventId > since)
         .sort((a, b) => a.eventId - b.eventId)
 
-      const oldestInLog = raw.length
-        ? (JSON.parse(raw[raw.length - 1]!) as WireEvent).eventId
-        : since + 1
+      const oldestInLog = events.length ? events[0]!.eventId : since + 1
       const gap = oldestInLog > since + 1
       for (const e of events) {
         if (deliverable(s, e.table, e.record)) s.send(JSON.stringify(e))

@@ -28,6 +28,12 @@ type BufferedEvent = {
   record: Record<string, unknown>
 }
 
+type RealtimeContextBody = {
+  clientId: string
+  subscriptions: string[]
+  since?: number | null
+}
+
 export type RealtimeBroker = {
   register(send: (data: string) => void): { id: string }
   setContext(
@@ -57,6 +63,22 @@ function tableEntry(
   return undefined
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isRealtimeContextBody(value: unknown): value is RealtimeContextBody {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.clientId === 'string' &&
+    Array.isArray(value.subscriptions) &&
+    value.subscriptions.every((item) => typeof item === 'string') &&
+    (value.since === undefined ||
+      value.since === null ||
+      typeof value.since === 'number')
+  )
+}
+
 function scopeOk(
   entry: ResolvedTableAccess,
   ctx: Parameters<typeof checkAccessSync>[1],
@@ -73,7 +95,7 @@ export function buildRealtimeRouter(
   const router = new Hono()
   const keepaliveMs = opts.keepaliveMs ?? 30000
 
-  router.get('/realtime', (c) => {
+  router.get('/realtime', () => {
     const encoder = new TextEncoder()
     let handle: { id: string }
     let keepalive: ReturnType<typeof setInterval>
@@ -105,12 +127,8 @@ export function buildRealtimeRouter(
   })
 
   router.post('/realtime', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as {
-      clientId?: string
-      subscriptions?: string[]
-      since?: number | null
-    } | null
-    if (!body?.clientId || !Array.isArray(body.subscriptions)) {
+    const body = await c.req.json().catch(() => null)
+    if (!isRealtimeContextBody(body)) {
       return c.json({ error: 'clientId and subscriptions required' }, 400)
     }
     const { user, activeOrganizationId } = await resolveSession(

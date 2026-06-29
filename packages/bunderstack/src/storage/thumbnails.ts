@@ -51,11 +51,14 @@ export function parseTransformSpec(
   const spec: TransformSpec = {}
   if (w) spec.w = Number(w)
   if (h) spec.h = Number(h)
-  if (fit && ['fill', 'inside'].includes(fit)) {
-    spec.fit = fit as TransformSpec['fit']
-  }
-  if (format && ['webp', 'jpeg', 'png', 'avif'].includes(format)) {
-    spec.format = format as TransformSpec['format']
+  if (fit === 'fill' || fit === 'inside') spec.fit = fit
+  if (
+    format === 'webp' ||
+    format === 'jpeg' ||
+    format === 'png' ||
+    format === 'avif'
+  ) {
+    spec.format = format
   }
   if (quality) spec.quality = Math.min(100, Math.max(1, Number(quality)))
   return spec

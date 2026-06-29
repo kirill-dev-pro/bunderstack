@@ -56,7 +56,7 @@ export function withInternalTables<TSchema extends Record<string, unknown>>(
 ): TSchema & typeof INTERNAL_TABLES {
   for (const value of Object.values(schema)) {
     if (isTable(value)) {
-      const name = getTableName(value as Parameters<typeof getTableName>[0])
+      const name = getTableName(value)
       if (INTERNAL_TABLE_NAMES.has(name)) {
         throw new Error(
           `[bunderstack] table name "${name}" is reserved by bunderstack`,

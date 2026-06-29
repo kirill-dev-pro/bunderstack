@@ -34,6 +34,12 @@ export function toAuthSessionResolver(
         const result = await auth.api.getSession({ headers })
         if (result && 'user' in result && result.user) {
           const session = 'session' in result ? result.session : null
+          const activeOrganizationId =
+            session &&
+            'activeOrganizationId' in session &&
+            typeof session.activeOrganizationId === 'string'
+              ? session.activeOrganizationId
+              : null
           return {
             user: {
               id: result.user.id,
@@ -41,11 +47,7 @@ export function toAuthSessionResolver(
               name: result.user.name,
             },
             session: session
-              ? {
-                  activeOrganizationId:
-                    (session as { activeOrganizationId?: string | null })
-                      .activeOrganizationId ?? null,
-                }
+              ? { activeOrganizationId }
               : null,
           }
         }

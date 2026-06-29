@@ -62,7 +62,7 @@ function bytesToUuid(bytes: Uint8Array): string {
 export function generate<P extends string>(prefix: P): TypeId<P> {
   if (!isValidPrefix(prefix))
     throw new Error(`Invalid typeid prefix: "${prefix}"`)
-  const bytes = Bun.randomUUIDv7('buffer') as Uint8Array
+  const bytes = Bun.randomUUIDv7('buffer')
   return `${prefix}_${encode(bytes)}` as TypeId<P>
 }
 

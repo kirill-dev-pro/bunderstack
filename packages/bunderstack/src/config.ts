@@ -101,7 +101,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       authToken: parsed.database?.authToken ?? process.env.DATABASE_AUTH_TOKEN,
     },
     auth: (() => {
-      const authInput = (parsed.auth ?? {}) as BetterAuthConfig
+      const authInput = options.auth ?? {}
       return {
         ...authInput,
         secret:
@@ -110,7 +110,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
           'dev-secret-change-in-prod',
       }
     })(),
-    storage: resolveBuckets(parsed.storage as StorageConfigInput | undefined),
+    storage: resolveBuckets(options.storage),
     realtime: parsed.realtime,
   }
 }

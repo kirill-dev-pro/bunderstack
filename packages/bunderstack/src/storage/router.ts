@@ -10,7 +10,6 @@ import type {
   AccessContext,
   AuthSessionResolver,
   OperationRule,
-  ScopeMap,
 } from '../access.ts'
 import type { BucketStorageRegistry } from './registry.ts'
 
@@ -104,6 +103,10 @@ function sanitizeFilename(name: string): string {
   return name.replace(/["\\\r\n]/g, '')
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
 // ─── Factory ────────────────────────────────────────────────────────────────
 
 export function buildBucketStorageRouter(
@@ -140,8 +143,7 @@ export function buildBucketStorageRouter(
     let body: Record<string, unknown> = {}
     try {
       const parsed = await c.req.json()
-      if (parsed && typeof parsed === 'object')
-        body = parsed as Record<string, unknown>
+      if (isRecord(parsed)) body = parsed
     } catch {
       body = {}
     }
@@ -164,7 +166,7 @@ export function buildBucketStorageRouter(
       typeof body.contentType === 'string' ? body.contentType : undefined
 
     const requesterScope = bucket.scope?.(ctx)
-    const scopeJson = scopeToJson(requesterScope as ScopeMap | undefined)
+    const scopeJson = scopeToJson(requesterScope)
 
     // Quota pre-check: reserve the configured max upload size.
     if (bucket.quota) {
@@ -251,7 +253,7 @@ export function buildBucketStorageRouter(
     }
 
     const requesterScope = bucket.scope?.(ctx)
-    const scopeJson = scopeToJson(requesterScope as ScopeMap | undefined)
+    const scopeJson = scopeToJson(requesterScope)
 
     if (bucket.quota) {
       const over = await quotaExceeded(
@@ -393,12 +395,12 @@ export function buildBucketStorageRouter(
     const denied = await gate(bucket.access.get, ctx, c)
     if (denied) return denied
 
-    const requesterScope = bucket.scope?.(ctx) as ScopeMap | undefined
+    const requesterScope = bucket.scope?.(ctx)
     if (!fileMatchesScope(row, requesterScope)) {
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }
 
-    const spec = parseTransformSpec(c.req.query() as Record<string, string>)
+    const spec = parseTransformSpec(c.req.query())
     if (spec) {
       if (!bucket.transforms) {
         return apiError(
@@ -432,10 +434,7 @@ export function buildBucketStorageRouter(
       const contentType = spec.format
         ? `image/${spec.format}`
         : (original.headers.get('Content-Type') ?? 'image/jpeg')
-      const transformedAb = transformed.buffer.slice(
-        transformed.byteOffset,
-        transformed.byteOffset + transformed.byteLength,
-      ) as ArrayBuffer
+      const transformedAb = Uint8Array.from(transformed).buffer
       await adapter.upload(cacheKey, transformedAb, contentType)
       return new Response(transformedAb, {
         headers: {
@@ -492,7 +491,7 @@ export function buildBucketStorageRouter(
     const denied = await gate(bucket.access.delete, ctx, c)
     if (denied) return denied
 
-    const requesterScope = bucket.scope?.(ctx) as ScopeMap | undefined
+    const requesterScope = bucket.scope?.(ctx)
     if (!fileMatchesScope(row, requesterScope)) {
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }

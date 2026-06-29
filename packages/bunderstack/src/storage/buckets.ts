@@ -121,7 +121,7 @@ function resolveSharedBackend(
   if ('local' in input && input.local !== undefined) {
     return {
       type: 'local',
-      path: input.local === true ? './uploads' : (input.local as string),
+      path: input.local === true ? './uploads' : input.local,
     }
   }
 
@@ -184,10 +184,10 @@ function resolveSingleBucket(
 
   const defaultGet: OperationRule = visibility === 'public' ? 'public' : 'owner'
 
-  const access = {
-    create: input.access?.create ?? ('authenticated' as OperationRule),
+  const access: ResolvedBucket['access'] = {
+    create: input.access?.create ?? 'authenticated',
     get: input.access?.get ?? defaultGet,
-    delete: input.access?.delete ?? ('owner' as OperationRule),
+    delete: input.access?.delete ?? 'owner',
   }
 
   let upload: ResolvedBucket['upload'] | undefined = undefined

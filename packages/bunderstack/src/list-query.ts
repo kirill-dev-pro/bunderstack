@@ -59,6 +59,22 @@ type CursorPayload = {
   id: string | number
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isCursorPayload(value: unknown): value is CursorPayload {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.sort === 'string' &&
+    (value.order === 'asc' || value.order === 'desc') &&
+    (value.v === null ||
+      typeof value.v === 'string' ||
+      typeof value.v === 'number') &&
+    (typeof value.id === 'string' || typeof value.id === 'number')
+  )
+}
+
 function parseBoolean(value: string | undefined): boolean {
   if (!value) return false
   const v = value.toLowerCase()
@@ -230,16 +246,8 @@ export function decodeCursor(cursor: string): CursorPayload {
   try {
     const parsed = JSON.parse(
       Buffer.from(cursor, 'base64url').toString('utf8'),
-    ) as CursorPayload
-    if (
-      !parsed ||
-      typeof parsed.sort !== 'string' ||
-      (parsed.order !== 'asc' && parsed.order !== 'desc') ||
-      (parsed.v !== null &&
-        typeof parsed.v !== 'string' &&
-        typeof parsed.v !== 'number') ||
-      (typeof parsed.id !== 'string' && typeof parsed.id !== 'number')
-    ) {
+    )
+    if (!isCursorPayload(parsed)) {
       throw new Error('invalid cursor shape')
     }
     return parsed

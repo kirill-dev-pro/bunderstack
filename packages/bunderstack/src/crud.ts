@@ -1,6 +1,6 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
-import { eq, isTable, getTableName } from 'drizzle-orm'
+import { eq, getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import { Hono } from 'hono'
 
 import type { RealtimeBroker } from './realtime/index.ts'
@@ -45,6 +45,10 @@ function tableEntryForName(
   return undefined
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
 async function enforce(
   operation: CrudOperation,
   access: ResolvedTableAccess,
@@ -77,11 +81,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   for (const table of Object.values(schema)) {
     if (!isTable(table)) continue
 
-    const name = getTableName(table as Parameters<typeof getTableName>[0])
+    const name = getTableName(table)
     const tableAccess = tableEntryForName(access, name)
     if (!tableAccess?.enabled) continue
 
-    const idCol = (table as unknown as Record<string, unknown>)['id']
+    const idCol = getTableColumns(table)['id']
     if (!idCol) continue
 
     router.get(`/${name}`, async (c) => {
@@ -113,7 +117,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         })
         const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
         const result = await executeList(
-          db as LibSQLDatabase<Record<string, unknown>>,
+          db,
           table,
           tableAccess,
           params,
@@ -199,14 +203,14 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       } catch {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
-      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      if (!isRecord(body)) {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
       }
 
       const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
       if (idempotency && idempotencyKey) {
         const lookup = await lookupIdempotency(
-          db as LibSQLDatabase<Record<string, unknown>>,
+          db,
           name,
           idempotencyKey,
           rawBody,
@@ -232,7 +236,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       }
 
       const values = sanitizeWriteBody(
-        body as Record<string, unknown>,
+        body,
         tableAccess,
         'create',
         user?.id ?? null,
@@ -247,7 +251,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       if (idempotency && idempotencyKey) {
         await storeIdempotency(
-          db as LibSQLDatabase<Record<string, unknown>>,
+          db,
           name,
           idempotencyKey,
           rawBody,
@@ -306,12 +310,12 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       } catch {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
-      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      if (!isRecord(body)) {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
       }
 
       const values = sanitizeWriteBody(
-        body as Record<string, unknown>,
+        body,
         tableAccess,
         'update',
         user?.id ?? null,

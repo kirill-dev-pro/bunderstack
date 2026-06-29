@@ -1,5 +1,3 @@
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
-
 import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
 
 import { INTERNAL_TABLE_NAMES } from './internal-tables.ts'
@@ -114,16 +112,15 @@ function getSchemaTables<TSchema extends Record<string, unknown>>(
 ) {
   const tables: {
     key: string
-    table: SQLiteTable
+    table: Parameters<typeof getTableName>[0]
     name: string
     columns: string[]
   }[] = []
   for (const [key, value] of Object.entries(schema)) {
     if (!isTable(value)) continue
-    const table = value as SQLiteTable
-    const name = getTableName(table)
-    const columns = Object.keys(getTableColumns(table))
-    tables.push({ key, table, name, columns })
+    const name = getTableName(value)
+    const columns = Object.keys(getTableColumns(value))
+    tables.push({ key, table: value, name, columns })
   }
   return tables
 }
@@ -137,9 +134,9 @@ function resolveListAccess(
 > {
   const sortableColumns =
     input.sortableColumns ?? (columns.includes('id') ? ['id'] : [])
-  const defaultSort = input.defaultSort ?? {
+  const defaultSort: DefaultSort = input.defaultSort ?? {
     column: sortableColumns[0] ?? 'id',
-    order: 'desc' as const,
+    order: 'desc',
   }
 
   if (!columns.includes(defaultSort.column)) {

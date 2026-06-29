@@ -27,10 +27,10 @@ function clientKey(req: Request): string {
 
 export function createRateLimiter(
   config: boolean | RateLimitConfig | undefined,
-) {
+): (req: Request) => Promise<Response | null> {
   const resolved = resolveConfig(config)
   if (!resolved) {
-    return async (_req: Request) => null as Response | null
+    return async (_req: Request) => null
   }
 
   const windowMs = resolved.windowMs ?? 60_000

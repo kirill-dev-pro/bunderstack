@@ -187,10 +187,24 @@ export function scopeToJson(scope: ScopeMap | undefined | null): string | null {
   return JSON.stringify(ordered)
 }
 
+function isScopeMap(value: unknown): value is ScopeMap {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  for (const item of Object.values(value)) {
+    if (typeof item === 'string') continue
+    if (Array.isArray(item) && item.every((entry) => typeof entry === 'string'))
+      continue
+    return false
+  }
+  return true
+}
+
 export function parseScopeJson(json: string | null): ScopeMap | null {
   if (json == null) return null
   try {
-    return JSON.parse(json) as ScopeMap
+    const parsed = JSON.parse(json)
+    return isScopeMap(parsed) ? parsed : null
   } catch {
     // Corrupt/legacy scope_json should not crash a read; treat as no scope.
     return null
