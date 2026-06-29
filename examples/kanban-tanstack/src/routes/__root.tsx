@@ -7,6 +7,7 @@ import {
   ClientOnly,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { asTypeId } from 'bunderstack'
 import * as React from 'react'
 
 import { queryClient } from '~/api-client'
@@ -23,7 +24,7 @@ const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   const session = await getAuthSession()
   return session?.user
     ? {
-        id: session.user.id,
+        id: asTypeId('user', session.user.id),
         email: session.user.email,
         name: session.user.name,
         image: session.user.image,

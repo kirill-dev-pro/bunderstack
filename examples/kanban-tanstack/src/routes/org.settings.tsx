@@ -10,7 +10,8 @@ import { toast } from '~/utils/oat'
 
 export const Route = createFileRoute('/org/settings')({
   beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
+    if (!context.user)
+      throw redirect({ to: '/login', search: { redirect: undefined } })
   },
   component: OrgSettingsPage,
 })
@@ -181,7 +182,7 @@ function OrgSettingsPage() {
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!inviteEmail.trim()) return
-                inviteMutation.mutate()
+                inviteMutation.mutate(undefined)
               }}
             >
               <input

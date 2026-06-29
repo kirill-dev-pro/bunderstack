@@ -1,20 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import { Auth } from '~/components/Auth'
 import { authClient } from '~/utils/auth-client'
 import { toast } from '~/utils/oat'
-
-function mutationStatus(
-  isPending: boolean,
-  isError: boolean,
-  isSuccess: boolean,
-) {
-  if (isPending) return 'pending' as const
-  if (isError) return 'error' as const
-  if (isSuccess) return 'success' as const
-  return 'idle' as const
-}
 
 export const Route = createFileRoute('/signup')({
   component: SignupComp,
@@ -22,6 +12,8 @@ export const Route = createFileRoute('/signup')({
 
 function SignupComp() {
   const navigate = useNavigate()
+  const router = useRouter()
+  const [message, setMessage] = useState<string | null>(null)
 
   const signupMutation = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
@@ -30,31 +22,29 @@ function SignupComp() {
         password: data.password,
         name: data.email.split('@')[0],
       })
-      if (error)
-        return { error: true, message: error.message ?? 'Signup failed' }
-      return { error: false, message: '' }
+      if (error) throw new Error(error.message ?? 'Signup failed')
     },
-    onSuccess: (data) => {
-      if (data.error) {
-        toast.error(data.message)
-        return
-      }
+    onMutate: () => setMessage(null),
+    onSuccess: async () => {
       toast.success('Account created!')
-      navigate({ to: '/', search: { tab: 'for-you' } })
+      await router.invalidate()
+      await navigate({ to: '/', search: { tab: 'for-you' } })
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      setMessage(err.message)
+      toast.error(err.message)
+    },
   })
 
   return (
     <Auth
       actionText="Sign up"
-      status={mutationStatus(
-        signupMutation.isPending,
-        signupMutation.isError,
-        signupMutation.isSuccess,
-      )}
+      status={signupMutation.isPending ? 'pending' : 'idle'}
+      message={message}
       onSubmit={(e) => {
-        const formData = new FormData(e.target as HTMLFormElement)
+        const form = e.currentTarget
+        if (!form.reportValidity()) return
+        const formData = new FormData(form)
         signupMutation.mutate({
           email: formData.get('email') as string,
           password: formData.get('password') as string,

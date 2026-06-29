@@ -7,19 +7,22 @@ import type * as schema from '~/schema'
 import { api } from '~/api-client'
 
 type Activity = InferSelect<typeof schema.activity>
+type Board = InferSelect<typeof schema.boards>
+type Card = InferSelect<typeof schema.cards>
+type List = InferSelect<typeof schema.lists>
 
 type ActivityContext = {
   cardScope: boolean
   userNames: Record<string, string>
-  listNames?: Record<string, string>
+  listNames?: Record<List['id'], string>
 }
 
 function listLabel(
   data: Activity['data'],
-  listNames?: Record<string, string>,
+  listNames?: Record<List['id'], string>,
 ): string | null {
   if (!data || typeof data !== 'object' || !('listId' in data)) return null
-  const listId = (data as { listId?: string }).listId
+  const listId = (data as { listId?: List['id'] }).listId
   if (!listId) return null
   return listNames?.[listId] ?? null
 }
@@ -46,7 +49,7 @@ export function formatActivity(item: Activity, ctx: ActivityContext): string {
   if (item.type === 'assigned') {
     const assigneeId =
       item.data && typeof item.data === 'object' && 'assigneeId' in item.data
-        ? (item.data as { assigneeId?: string | null }).assigneeId
+        ? (item.data as { assigneeId?: Card['assigneeId'] }).assigneeId
         : null
     if (!assigneeId) return `${actor} unassigned this card`
     const name = ctx.userNames[assigneeId] ?? 'someone'
@@ -79,10 +82,10 @@ export function relativeTime(date: Date | string | null | undefined) {
 }
 
 type ActivityListProps = {
-  boardId?: string
-  cardId?: string
+  boardId?: Board['id']
+  cardId?: Card['id']
   userNames: Record<string, string>
-  listNames?: Record<string, string>
+  listNames?: Record<List['id'], string>
   limit?: number
   emptyLabel?: string
   enabled?: boolean

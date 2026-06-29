@@ -20,7 +20,7 @@ const COLUMN_COLORS = ['#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']
 type ListColumnProps = {
   list: List
   cards: Card[]
-  boardId: string
+  boardId: Card['boardId']
   colorIndex: number
   commentCounts: Record<string, number>
   attachmentCounts: Record<string, number>

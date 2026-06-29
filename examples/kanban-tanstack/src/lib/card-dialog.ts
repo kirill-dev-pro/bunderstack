@@ -1,13 +1,19 @@
 import { useSyncExternalStore } from 'react'
 
-let openCardId: string | null = null
+import type { InferSelect } from 'bunderstack-query'
+
+import type { cards } from '~/schema'
+
+type CardId = InferSelect<typeof cards>['id']
+
+let openCardId: CardId | null = null
 const listeners = new Set<() => void>()
 
 function emit() {
   for (const listener of listeners) listener()
 }
 
-export function openCard(id: string) {
+export function openCard(id: CardId) {
   openCardId = id
   emit()
 }

@@ -2,6 +2,7 @@ import type { InferSelect } from 'bunderstack-query'
 
 import { useQuery } from '@tanstack/react-query'
 import { marked } from 'marked'
+import { asTypeId } from 'bunderstack'
 import { useEffect, useRef, useState } from 'react'
 
 import type * as schema from '~/schema'
@@ -18,6 +19,7 @@ import { authClient } from '~/utils/auth-client'
 
 type Attachment = InferSelect<typeof schema.attachments>
 type Reaction = InferSelect<typeof schema.reactions>
+type Card = InferSelect<typeof schema.cards>
 
 export function CardDialog({
   userId,
@@ -26,7 +28,7 @@ export function CardDialog({
   allAttachments,
   allReactions,
 }: {
-  userId: string
+  userId: NonNullable<Card['assigneeId']>
   userNames: Record<string, string>
   listNames: Record<string, string>
   allAttachments: Attachment[]
@@ -395,7 +397,10 @@ export function CardDialog({
                   <select
                     value={card.assigneeId ?? ''}
                     onChange={(e) => {
-                      const assigneeId = e.target.value || null
+                      const raw = e.target.value
+                      const assigneeId = raw
+                        ? asTypeId('user', raw)
+                        : null
                       updateCard.mutate(
                         { id: card.id, data: { assigneeId } },
                         {

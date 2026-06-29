@@ -126,8 +126,9 @@ async function signUp(
     return null
   }
 
-  const body = (await res.json()) as { user?: { id: string } }
-  return body.user?.id ? asTypeId('user', body.user.id) : null
+  const body = (await res.json()) as { user?: { id: TypeId<'user'> } }
+  console.log('created user:', body)
+  return body.user?.id ?? null
 }
 
 console.log('Seeding TanStack Start example…')

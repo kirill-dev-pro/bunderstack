@@ -1,13 +1,17 @@
 export function Auth({
   actionText,
   onSubmit,
+  onSecondaryClick,
+  secondaryLabel,
   status,
-  afterSubmit,
+  message,
 }: {
   actionText: string
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
+  onSecondaryClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
+  secondaryLabel?: string
   status: 'pending' | 'idle' | 'success' | 'error'
-  afterSubmit?: React.ReactNode
+  message?: string | null
 }) {
   return (
     <div className="auth-page">
@@ -42,10 +46,24 @@ export function Auth({
               autoComplete="current-password"
             />
           </label>
+          {message ? (
+            <output data-variant="danger" role="alert">
+              {message}
+            </output>
+          ) : null}
           <button type="submit" disabled={status === 'pending'}>
             {status === 'pending' ? 'Please wait…' : actionText}
           </button>
-          {afterSubmit ?? null}
+          {onSecondaryClick && secondaryLabel ? (
+            <button
+              type="button"
+              className="outline"
+              disabled={status === 'pending'}
+              onClick={onSecondaryClick}
+            >
+              {secondaryLabel}
+            </button>
+          ) : null}
         </form>
       </article>
     </div>

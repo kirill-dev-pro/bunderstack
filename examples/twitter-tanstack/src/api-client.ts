@@ -1,6 +1,7 @@
+import type { TypeId } from 'bunderstack/typeid'
+
 import { QueryClient } from '@tanstack/react-query'
 import { createIsomorphicFn } from '@tanstack/react-start'
-import type { TypeId } from 'bunderstack'
 import { createBunderstackQueryClient } from 'bunderstack-query'
 
 import type * as schema from './schema'

@@ -14,7 +14,11 @@ function LogoutPage() {
   useEffect(() => {
     void authClient.signOut().then(() => {
       closeRealtime()
-      void navigate({ to: '/login', replace: true })
+      void navigate({
+        to: '/login',
+        search: { redirect: undefined },
+        replace: true,
+      })
     })
   }, [navigate])
 

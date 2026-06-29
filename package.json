@@ -19,6 +19,11 @@
     "format": "oxfmt",
     "fix": "bun run lint && bun run format"
   },
+  "overrides": {
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/query-core": "^5.101.1",
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "oxfmt": "^0.56.0",

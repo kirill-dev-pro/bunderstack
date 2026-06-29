@@ -1,21 +1,29 @@
 import { useEffect, useRef } from 'react'
 
+import type { InferSelect } from 'bunderstack-query'
+
+import type * as schema from '~/schema'
+
 import { ActivityList } from '~/components/ActivityList'
 import { UserAvatar } from '~/components/UserAvatar'
 
+type Board = InferSelect<typeof schema.boards>
+type List = InferSelect<typeof schema.lists>
+type User = InferSelect<typeof schema.user>
+
 type Member = {
-  userId: string
+  userId: User['id']
   user?: { name?: string }
 }
 
 type BoardSettingsDialogProps = {
   open: boolean
   onClose: () => void
-  boardId: string
+  boardId: Board['id']
   boardTitle: string
   userNames: Record<string, string>
   members: Member[]
-  listNames: Record<string, string>
+  listNames: Record<List['id'], string>
 }
 
 export function BoardSettingsDialog({

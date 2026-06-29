@@ -5,7 +5,7 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
-import { asTypeId } from 'bunderstack'
+import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 

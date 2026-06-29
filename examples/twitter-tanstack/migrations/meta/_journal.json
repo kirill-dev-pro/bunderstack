@@ -15,6 +15,13 @@
       "when": 1782754457795,
       "tag": "0001_sparkling_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782762161692,
+      "tag": "0002_noisy_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

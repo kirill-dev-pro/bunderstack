@@ -16,6 +16,7 @@ import {
   notFound,
   redirect,
 } from '@tanstack/react-router'
+import { asTypeId } from 'bunderstack'
 import { BunderstackApiError } from 'bunderstack-query'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -36,23 +37,32 @@ import { authClient } from '~/utils/auth-client'
 type Card = InferSelect<typeof schema.cards>
 type List = InferSelect<typeof schema.lists>
 type Attachment = InferSelect<typeof schema.attachments>
-type Reaction = InferSelect<typeof schema.reactions>
+
+function parseBoardIdParam(raw: string) {
+  try {
+    return asTypeId('board', raw)
+  } catch {
+    throw notFound()
+  }
+}
 
 export const Route = createFileRoute('/boards/$boardId')({
   beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
+    if (!context.user)
+      throw redirect({ to: '/login', search: { redirect: undefined } })
   },
   loader: async ({ params }) => {
+    const boardId = parseBoardIdParam(params.boardId)
     try {
       const board = await queryClient.ensureQueryData(
-        api.boards.getQuery(params.boardId),
+        api.boards.getQuery(boardId),
       )
       await Promise.all([
         queryClient.ensureQueryData(
-          api.lists.listQuery({ boardId: params.boardId, ...listParams }),
+          api.lists.listQuery({ boardId, ...listParams }),
         ),
         queryClient.ensureQueryData(
-          api.cards.listQuery({ boardId: params.boardId, limit: 500 }),
+          api.cards.listQuery({ boardId, limit: 500 }),
         ),
         queryClient.ensureQueryData(api.user.listQuery(listParams)),
       ])
@@ -68,7 +78,8 @@ export const Route = createFileRoute('/boards/$boardId')({
 
 function BoardPage() {
   const { user } = Route.useRouteContext()
-  const { boardId } = Route.useParams()
+  const { boardId: boardIdParam } = Route.useParams()
+  const boardId = parseBoardIdParam(boardIdParam)
   const board = Route.useLoaderData()
   const [activeCard, setActiveCard] = useState<Card | null>(null)
 
@@ -133,7 +144,8 @@ function BoardPage() {
   const attachmentCounts = useMemo(() => {
     const map: Record<string, number> = {}
     for (const a of attachmentsData?.items ?? []) {
-      if (a.targetType !== 'card' || !cardIds.has(a.targetId)) continue
+      if (a.targetType !== 'card' || !cardIds.has(a.targetId as Card['id']))
+        continue
       map[a.targetId] = (map[a.targetId] ?? 0) + 1
     }
     return map
@@ -142,7 +154,8 @@ function BoardPage() {
   const cardCovers = useMemo(() => {
     const byCard = new Map<string, Attachment[]>()
     for (const a of attachmentsData?.items ?? []) {
-      if (a.targetType !== 'card' || !cardIds.has(a.targetId)) continue
+      if (a.targetType !== 'card' || !cardIds.has(a.targetId as Card['id']))
+        continue
       const arr = byCard.get(a.targetId) ?? []
       arr.push(a)
       byCard.set(a.targetId, arr)
@@ -158,7 +171,7 @@ function BoardPage() {
   const allAttachments = attachmentsData?.items ?? []
 
   const cardsByList = useMemo(() => {
-    const map = new Map<string, Card[]>()
+    const map = new Map<List['id'], Card[]>()
     for (const card of cardsData?.items ?? []) {
       const arr = map.get(card.listId) ?? []
       arr.push(card)
@@ -192,8 +205,9 @@ function BoardPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
-  function resolveListId(overId: string): string | null {
-    if (lists.some((l) => l.id === overId)) return overId
+  function resolveListId(overId: string): List['id'] | null {
+    const list = lists.find((l) => l.id === overId)
+    if (list) return list.id
     for (const [listId, cards] of cardsByList) {
       if (cards.some((c) => c.id === overId)) return listId
     }
@@ -205,7 +219,7 @@ function BoardPage() {
     const { active, over } = event
     if (!over) return
 
-    const cardId = String(active.id)
+    const cardId = String(active.id) as Card['id']
     const targetListId = resolveListId(String(over.id))
     if (!targetListId) return
 

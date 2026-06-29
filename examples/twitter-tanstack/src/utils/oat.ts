@@ -25,6 +25,10 @@ declare global {
   }
 }
 
+if (typeof window !== 'undefined') {
+  void import('@knadh/oat/oat.min.js')
+}
+
 function otToast() {
   if (typeof window === 'undefined') return undefined
   return window.ot?.toast

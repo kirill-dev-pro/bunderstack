@@ -109,7 +109,9 @@ export const lists = sqliteTable('lists', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('list')),
   organizationId: text('organization_id').notNull(),
-  boardId: text('board_id').notNull(),
+  boardId: typeid('board')
+    .notNull()
+    .references(() => boards.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   position: real('position').notNull().default(1000),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
@@ -121,11 +123,15 @@ export const cards = sqliteTable('cards', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('card')),
   organizationId: text('organization_id').notNull(),
-  boardId: text('board_id').notNull(),
-  listId: text('list_id').notNull(),
+  boardId: typeid('board')
+    .notNull()
+    .references(() => boards.id, { onDelete: 'cascade' }),
+  listId: typeid('list')
+    .notNull()
+    .references(() => lists.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   description: text('description'),
-  assigneeId: text('assignee_id'),
+  assigneeId: typeid('user').references(() => user.id),
   position: real('position').notNull().default(1000),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
     () => new Date(),
@@ -136,8 +142,10 @@ export const comments = sqliteTable('comments', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('cmt')),
   organizationId: text('organization_id').notNull(),
-  cardId: text('card_id').notNull(),
-  authorId: text('author_id'),
+  cardId: typeid('card')
+    .notNull()
+    .references(() => cards.id, { onDelete: 'cascade' }),
+  authorId: typeid('user').references(() => user.id),
   body: text('body').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
     () => new Date(),
@@ -148,9 +156,11 @@ export const activity = sqliteTable('activity', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('act')),
   organizationId: text('organization_id').notNull(),
-  boardId: text('board_id').notNull(),
-  cardId: text('card_id'),
-  actorId: text('actor_id'),
+  boardId: typeid('board')
+    .notNull()
+    .references(() => boards.id, { onDelete: 'cascade' }),
+  cardId: typeid('card').references(() => cards.id, { onDelete: 'cascade' }),
+  actorId: typeid('user').references(() => user.id),
   type: text('type').notNull(),
   data: text('data', { mode: 'json' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
@@ -164,7 +174,7 @@ export const attachments = sqliteTable('attachments', {
   organizationId: text('organization_id').notNull(),
   targetType: text('target_type').notNull(),
   targetId: text('target_id').notNull(),
-  uploaderId: text('uploader_id').references(() => user.id),
+  uploaderId: typeid('user').references(() => user.id),
   fileUrl: text('file_url').notNull(),
   fileName: text('file_name'),
   mimeType: text('mime_type'),
@@ -179,7 +189,7 @@ export const reactions = sqliteTable('reactions', {
   organizationId: text('organization_id').notNull(),
   targetType: text('target_type').notNull(),
   targetId: text('target_id').notNull(),
-  userId: text('user_id')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id),
   emoji: text('emoji').notNull(),

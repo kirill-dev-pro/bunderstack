@@ -117,7 +117,7 @@ function InviteAcceptPage() {
         <div className="invite-actions">
           <button
             type="button"
-            onClick={() => acceptMutation.mutate()}
+            onClick={() => acceptMutation.mutate(undefined)}
             disabled={acceptMutation.isPending || declined}
           >
             Accept invitation
@@ -125,7 +125,7 @@ function InviteAcceptPage() {
           <button
             type="button"
             className="outline"
-            onClick={() => rejectMutation.mutate()}
+            onClick={() => rejectMutation.mutate(undefined)}
             disabled={rejectMutation.isPending || declined}
           >
             Decline

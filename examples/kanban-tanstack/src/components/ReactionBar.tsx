@@ -19,7 +19,7 @@ export type ReactionTarget = {
 type ReactionBarProps = {
   target: ReactionTarget
   reactions: Reaction[]
-  currentUserId: string
+  currentUserId: Reaction['userId']
   compact?: boolean
   onReact?: (emoji: string) => void
 }
@@ -27,7 +27,7 @@ type ReactionBarProps = {
 export function groupReactions(
   reactions: Reaction[],
   target: ReactionTarget,
-  currentUserId: string,
+  currentUserId?: Reaction['userId'] | null,
 ) {
   const filtered = reactions.filter(
     (r) => r.targetType === target.targetType && r.targetId === target.targetId,
@@ -40,7 +40,7 @@ export function groupReactions(
     const existing = groups.get(r.emoji)
     if (existing) {
       existing.count++
-      if (r.userId === currentUserId) {
+      if (currentUserId && r.userId === currentUserId) {
         existing.mine = true
         existing.myReactionId = r.id
       }
@@ -48,8 +48,9 @@ export function groupReactions(
       groups.set(r.emoji, {
         emoji: r.emoji,
         count: 1,
-        mine: r.userId === currentUserId,
-        myReactionId: r.userId === currentUserId ? r.id : undefined,
+        mine: currentUserId ? r.userId === currentUserId : false,
+        myReactionId:
+          currentUserId && r.userId === currentUserId ? r.id : undefined,
       })
     }
   }
@@ -128,7 +129,7 @@ export function reactionSummary(
   target: ReactionTarget,
   maxEmojis = 2,
 ) {
-  const groups = groupReactions(reactions, target, '')
+  const groups = groupReactions(reactions, target)
   const top = groups.slice(0, maxEmojis)
   const total = groups.reduce((sum, g) => sum + g.count, 0)
   return { top, total }

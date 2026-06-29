@@ -11,7 +11,8 @@ import { authClient } from '~/utils/auth-client'
 
 export const Route = createFileRoute('/')({
   beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
+    if (!context.user)
+      throw redirect({ to: '/login', search: { redirect: undefined } })
   },
   loader: async () => {
     await queryClient.ensureQueryData(
