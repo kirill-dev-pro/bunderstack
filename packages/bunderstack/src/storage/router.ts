@@ -10,12 +10,12 @@ import type {
   AccessContext,
   AuthSessionResolver,
   OperationRule,
-} from '../access.ts'
-import type { BucketStorageRegistry } from './registry.ts'
+} from '../access'
+import type { BucketStorageRegistry } from './registry'
 
-import { checkAccess, resolveSession } from '../access.ts'
-import { ErrorCode, apiError } from '../errors.ts'
-import { deleteFileWithDerivatives } from './delete.ts'
+import { checkAccess, resolveSession } from '../access'
+import { ErrorCode, apiError } from '../errors'
+import { deleteFileWithDerivatives } from './delete'
 import {
   deleteFileMetaRow,
   fileMatchesScope,
@@ -26,12 +26,12 @@ import {
   scopeToJson,
   sumReadySize,
   type FileMetaRow,
-} from './file-meta.ts'
+} from './file-meta'
 import {
   parseTransformSpec,
   transformHash,
   transformImage,
-} from './thumbnails.ts'
+} from './thumbnails'
 
 export interface BucketStorageRouterOptions {
   registry: BucketStorageRegistry

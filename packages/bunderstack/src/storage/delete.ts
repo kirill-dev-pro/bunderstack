@@ -1,9 +1,9 @@
 // src/storage/delete.ts
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
-import type { StorageAdapter } from './index.ts'
+import type { StorageAdapter } from './index'
 
-import { deleteFileMetaRow } from './file-meta.ts'
+import { deleteFileMetaRow } from './file-meta'
 
 /**
  * Delete a logical file: its transform-cache derivatives (under

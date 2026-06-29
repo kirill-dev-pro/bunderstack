@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 
-import { toAuthSessionResolver } from './auth.ts'
+import { toAuthSessionResolver } from './auth'
 
 // A fake shaped like a better-auth instance's getSession result. Cast because
 // the real parameter type is the full Auth instance.

@@ -2,24 +2,24 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
 
-import type { StorageAdapter } from './storage/index.ts'
+import type { StorageAdapter } from './storage/index'
 
-import { validateAndResolveAccess } from './access.ts'
-import { createAuth, toAuthSessionResolver } from './auth.ts'
-import { resolveConfig, type BunderstackConfig } from './config.ts'
-import { resolveRealtimeRedisUrl } from './config.ts'
-import { buildCrudRouter } from './crud.ts'
-import { createDb } from './db.ts'
-import { buildHandler } from './handler.ts'
-import { withInternalTables } from './internal-tables.ts'
-import { provisionSchema, type ProvisionMode } from './provision.ts'
-import { createRedisRealtimeBroker } from './realtime/redis.ts'
-import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index.ts'
-import { deleteFileWithDerivatives } from './storage/delete.ts'
-import { deleteFileMetaRow } from './storage/file-meta.ts'
-import { createBucketStorages } from './storage/registry.ts'
-import { buildBucketStorageRouter } from './storage/router.ts'
-import { sweepOrphans } from './storage/sweep.ts'
+import { validateAndResolveAccess } from './access'
+import { createAuth, toAuthSessionResolver } from './auth'
+import { resolveConfig, type BunderstackConfig } from './config'
+import { resolveRealtimeRedisUrl } from './config'
+import { buildCrudRouter } from './crud'
+import { createDb } from './db'
+import { buildHandler } from './handler'
+import { withInternalTables } from './internal-tables'
+import { provisionSchema, type ProvisionMode } from './provision'
+import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
+import { createRedisRealtimeBroker } from './realtime/redis'
+import { deleteFileWithDerivatives } from './storage/delete'
+import { deleteFileMetaRow } from './storage/file-meta'
+import { createBucketStorages } from './storage/registry'
+import { buildBucketStorageRouter } from './storage/router'
+import { sweepOrphans } from './storage/sweep'
 
 type AuthInstance = ReturnType<typeof createAuth>
 
@@ -196,41 +196,41 @@ export async function createBunderstackAsync<
   return app
 }
 
-export { resolveConfig } from './config.ts'
+export { resolveConfig } from './config'
 export type {
   BetterAuthConfig,
   BunderstackConfig,
   ResolvedConfig,
-} from './config.ts'
-export { provisionSchema, shouldProvision } from './provision.ts'
-export type { ProvisionMode } from './provision.ts'
+} from './config'
+export { provisionSchema, shouldProvision } from './provision'
+export type { ProvisionMode } from './provision'
 export {
   defineAccess,
   validateAndResolveAccess,
   checkAccess,
   AUTH_TABLE_NAMES,
-} from './access.ts'
+} from './access'
 export type {
   TableAccessInput,
   OperationRule,
   AccessContext,
   AccessUser,
-} from './access.ts'
+} from './access'
 export {
   typeid,
   generate as generateTypeId,
   parse as parseTypeId,
   asTypeId,
-} from './typeid.ts'
-export type { TypeId } from './typeid.ts'
-export type { StorageAdapter } from './storage/index.ts'
+} from './typeid'
+export type { TypeId } from './typeid'
+export type { StorageAdapter } from './storage/index'
 export type {
   StorageConfigInput,
   BucketConfigInput,
   ResolvedBucket,
-} from './storage/buckets.ts'
+} from './storage/buckets'
 // StorageFacade is declared+exported inline above.
-export type { TransformSpec } from './storage/thumbnails.ts'
+export type { TransformSpec } from './storage/thumbnails'
 
 // Re-export drizzle builders so consumers share bunderstack's drizzle-orm instance
 // and avoid type incompatibilities from duplicate installs.

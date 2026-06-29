@@ -4,8 +4,8 @@ import { describe, it, expect, beforeAll } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { validateAndResolveAccess } from './access.ts'
-import { buildCrudRouter } from './crud.ts'
+import { validateAndResolveAccess } from './access'
+import { buildCrudRouter } from './crud'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),

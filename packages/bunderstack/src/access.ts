@@ -1,6 +1,6 @@
 import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
 
-import { INTERNAL_TABLE_NAMES } from './internal-tables.ts'
+import { INTERNAL_TABLE_NAMES } from './internal-tables'
 
 export const AUTH_TABLE_NAMES = new Set([
   'user',

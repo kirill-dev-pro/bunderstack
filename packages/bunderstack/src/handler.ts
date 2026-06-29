@@ -1,7 +1,7 @@
 // src/handler.ts
 import { Hono } from 'hono'
 
-import { createRateLimiter, type RateLimitConfig } from './rate-limit.ts'
+import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
   crudRouter: Hono

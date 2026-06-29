@@ -3,11 +3,11 @@ import type {
   ResolvedBackend,
   ResolvedBucket,
   ResolvedStorageBuckets,
-} from './buckets.ts'
-import type { StorageAdapter } from './index.ts'
+} from './buckets'
+import type { StorageAdapter } from './index'
 
-import { LocalStorageAdapter } from './local.ts'
-import { S3StorageAdapter } from './s3.ts'
+import { LocalStorageAdapter } from './local'
+import { S3StorageAdapter } from './s3'
 
 export interface BucketStorage {
   bucket: ResolvedBucket

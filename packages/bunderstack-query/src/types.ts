@@ -4,9 +4,9 @@ import type { TableAccessInput } from 'bunderstack/access'
 import type {
   BucketClient,
   BucketMutationOptions,
-} from './bucket-client.ts'
-import type { TableMutationOptions } from './mutation-options.ts'
-import type { TableClient } from './table-client.ts'
+} from './bucket-client'
+import type { TableMutationOptions } from './mutation-options'
+import type { TableClient } from './table-client'
 
 export type Paginated<T> = {
   items: T[]

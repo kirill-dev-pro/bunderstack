@@ -2,15 +2,15 @@
 import { betterAuth } from 'better-auth'
 import { z } from 'zod'
 
-import type { TableAccessInput } from './access.ts'
-import type { IdempotencyConfig } from './idempotency.ts'
-import type { RateLimitConfig } from './rate-limit.ts'
+import type { TableAccessInput } from './access'
+import type { IdempotencyConfig } from './idempotency'
+import type { RateLimitConfig } from './rate-limit'
 
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,
   type StorageConfigInput,
-} from './storage/buckets.ts'
+} from './storage/buckets'
 
 export type BetterAuthConfig = Omit<
   NonNullable<Parameters<typeof betterAuth>[0]>,

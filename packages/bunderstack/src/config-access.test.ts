@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'bun:test'
 
-import type { AccessContext } from './access.ts'
+import type { AccessContext } from './access'
 
-import { resolveConfig } from './config.ts'
+import { resolveConfig } from './config'
 
 describe('resolveConfig with function access rules', () => {
   it('does not throw when access uses functions and scope', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { buildScopeWhere } from './scope.ts'
+import { buildScopeWhere } from './scope'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),

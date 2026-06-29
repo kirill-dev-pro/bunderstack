@@ -1,4 +1,4 @@
-import type { RealtimeAction, RealtimeBroker } from './index.ts'
+import type { RealtimeAction, RealtimeBroker } from './index'
 
 // packages/bunderstack/src/realtime-redis.ts
 //
@@ -15,7 +15,7 @@ import {
   type AccessUser,
   type ResolvedAccess,
   type ResolvedTableAccess,
-} from '../access.ts'
+} from '../access'
 
 export type RedisLike = {
   incr(key: string): Promise<number>

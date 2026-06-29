@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/query-core'
 
-import { createTableClient } from './table-client.ts'
+import { createTableClient } from './table-client'
 
 // ---------------------------------------------------------------------------
 // Transport choice: custom fetch + ReadableStream SSE reader (NOT EventSource).

@@ -1,6 +1,6 @@
 import { test, expect, describe } from 'bun:test'
 
-import { parseSize, resolveBuckets } from './buckets.ts'
+import { parseSize, resolveBuckets } from './buckets'
 
 // ---------------------------------------------------------------------------
 // parseSize

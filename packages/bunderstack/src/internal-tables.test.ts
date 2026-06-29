@@ -2,16 +2,16 @@ import { test, expect, beforeAll } from 'bun:test'
 import { getTableName, isTable } from 'drizzle-orm'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
-import { validateAndResolveAccess } from './access.ts'
-import { createDb } from './db.ts'
+import { validateAndResolveAccess } from './access'
+import { createDb } from './db'
 import {
   bunderstackFiles,
   bunderstackIdempotency,
   INTERNAL_TABLES,
   INTERNAL_TABLE_NAMES,
   withInternalTables,
-} from './internal-tables.ts'
-import { provisionSchema } from './provision.ts'
+} from './internal-tables'
+import { provisionSchema } from './provision'
 
 // --- table name resolution ---
 

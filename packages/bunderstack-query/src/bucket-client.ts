@@ -1,6 +1,6 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
 
-import { BunderstackApiError } from './errors.ts'
+import { BunderstackApiError } from './errors'
 
 export type UploadedFile = {
   fileId: string

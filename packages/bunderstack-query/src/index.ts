@@ -202,7 +202,7 @@ export function createBunderstackQueryClient<
   }
 }
 
-export { BunderstackApiError } from './errors.ts'
+export { BunderstackApiError } from './errors'
 export type {
   BunderstackQueryClient,
   CreateClientOptions,
@@ -216,11 +216,11 @@ export type {
   TableQueryOptions,
   TableQueryOptionsForKey,
   UseMutationOptions,
-} from './types.ts'
+} from './types'
 export {
   createBucketClient,
   attachBucketMutationOptions,
-} from './bucket-client.ts'
+} from './bucket-client'
 export type {
   BucketClient,
   BucketClientConfig,
@@ -229,8 +229,8 @@ export type {
   UploadedFile,
   UploadMode,
   UploadOptions,
-} from './bucket-client.ts'
-export { createTableClient } from './table-client.ts'
-export type { TableClient, TableClientConfig } from './table-client.ts'
-export { createRealtimeClient } from './realtime-client.ts'
-export type { RealtimeClientConfig } from './realtime-client.ts'
+} from './bucket-client'
+export { createTableClient } from './table-client'
+export type { TableClient, TableClientConfig } from './table-client'
+export { createRealtimeClient } from './realtime-client'
+export type { RealtimeClientConfig } from './realtime-client'

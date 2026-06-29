@@ -1,5 +1,5 @@
 // src/storage/buckets.ts
-import type { OperationRule, ScopeResolver } from '../access.ts'
+import type { OperationRule, ScopeResolver } from '../access'
 
 // ---------------------------------------------------------------------------
 // Input types (developer-facing config)

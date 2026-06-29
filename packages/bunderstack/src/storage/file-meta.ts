@@ -31,10 +31,10 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 import { eq, and, lt, sql } from 'drizzle-orm'
 
-import type { ScopeMap } from '../access.ts'
+import type { ScopeMap } from '../access'
 
-import { rowMatchesScope } from '../access.ts'
-import { bunderstackFiles } from '../internal-tables.ts'
+import { rowMatchesScope } from '../access'
+import { bunderstackFiles } from '../internal-tables'
 
 export type FileMetaRow = typeof bunderstackFiles.$inferSelect
 

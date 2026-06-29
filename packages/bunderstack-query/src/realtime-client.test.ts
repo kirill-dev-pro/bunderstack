@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/query-core'
 import { describe, it, expect } from 'bun:test'
 
-import { createRealtimeClient } from './realtime-client.ts'
+import { createRealtimeClient } from './realtime-client'
 
 // A controllable SSE response: push frames, then optionally end the stream.
 function makeStreamResponse() {

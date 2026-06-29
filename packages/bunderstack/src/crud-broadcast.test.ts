@@ -4,9 +4,9 @@ import { describe, it, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { validateAndResolveAccess } from './access.ts'
-import { buildCrudRouter } from './crud.ts'
-import { createRealtimeBroker } from './realtime/index.ts'
+import { validateAndResolveAccess } from './access'
+import { buildCrudRouter } from './crud'
+import { createRealtimeBroker } from './realtime/index'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),

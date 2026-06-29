@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 
-import { rowMatchesScope, stampScope } from './access.ts'
+import { rowMatchesScope, stampScope } from './access'
 
 describe('rowMatchesScope', () => {
   it('matches single-value scope', () => {
@@ -52,7 +52,7 @@ describe('stampScope', () => {
   })
 })
 
-import { resolveSession } from './access.ts'
+import { resolveSession } from './access'
 
 describe('resolveSession', () => {
   it('returns null user and org when no auth', async () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { sanitizeWriteBody, validateAndResolveAccess } from './access.ts'
+import { sanitizeWriteBody, validateAndResolveAccess } from './access'
 
 const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),

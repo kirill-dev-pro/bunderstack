@@ -1,6 +1,6 @@
 import { and, eq, getTableColumns, inArray, type SQL } from 'drizzle-orm'
 
-import type { ScopeMap } from './access.ts'
+import type { ScopeMap } from './access'
 
 export function buildScopeWhere(
   table: Parameters<typeof getTableColumns>[0],

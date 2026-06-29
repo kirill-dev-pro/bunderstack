@@ -14,9 +14,9 @@ import {
   type SQL,
 } from 'drizzle-orm'
 
-import type { ResolvedTableAccess, SortOrder } from './access.ts'
+import type { ResolvedTableAccess, SortOrder } from './access'
 
-import { ErrorCode, ListQueryError } from './errors.ts'
+import { ErrorCode, ListQueryError } from './errors'
 
 export const RESERVED_LIST_PARAMS = new Set([
   'limit',

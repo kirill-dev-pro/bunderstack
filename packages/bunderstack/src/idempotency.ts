@@ -3,7 +3,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import { and, eq, lt } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 
-import { bunderstackIdempotency } from './internal-tables.ts'
+import { bunderstackIdempotency } from './internal-tables'
 
 export type IdempotencyConfig = {
   ttlMs?: number

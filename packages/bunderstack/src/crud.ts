@@ -3,7 +3,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import { eq, getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import { Hono } from 'hono'
 
-import type { RealtimeBroker } from './realtime/index.ts'
+import type { RealtimeBroker } from './realtime/index'
 
 import {
   checkAccess,
@@ -17,16 +17,16 @@ import {
   type ResolvedAccess,
   type ResolvedTableAccess,
   type ScopeMap,
-} from './access.ts'
-import { ErrorCode, apiError, ListQueryError } from './errors.ts'
+} from './access'
+import { ErrorCode, apiError, ListQueryError } from './errors'
 import {
   lookupIdempotency,
   resolveIdempotencyConfig,
   storeIdempotency,
   type IdempotencyConfig,
-} from './idempotency.ts'
-import { executeList, parseListParams } from './list-query.ts'
-import { buildScopeWhere } from './scope.ts'
+} from './idempotency'
+import { executeList, parseListParams } from './list-query'
+import { buildScopeWhere } from './scope'
 
 export type CrudRouterOptions = {
   auth?: AuthSessionResolver

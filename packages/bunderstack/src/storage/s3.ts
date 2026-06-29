@@ -3,7 +3,7 @@ import type {
   PresignGetOptions,
   PresignPutOptions,
   StorageAdapter,
-} from './index.ts'
+} from './index'
 
 interface S3Config {
   bucket: string

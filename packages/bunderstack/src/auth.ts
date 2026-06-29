@@ -4,8 +4,8 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
-import type { BetterAuthConfig } from './config.ts'
-import type { AuthSessionResolver } from './access.ts'
+import type { BetterAuthConfig } from './config'
+import type { AuthSessionResolver } from './access'
 
 export function createAuth(
   db: LibSQLDatabase<Record<string, unknown>>,

@@ -5,7 +5,7 @@ import { integer, sqliteTable, text } from 'bunderstack'
 import {
   BunderstackApiError,
   createBunderstackQueryClient,
-} from '../src/index.ts'
+} from '../src/index'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),

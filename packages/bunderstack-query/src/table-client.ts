@@ -1,6 +1,6 @@
-import type { ListParams, Paginated } from './types.ts'
+import type { ListParams, Paginated } from './types'
 
-import { BunderstackApiError } from './errors.ts'
+import { BunderstackApiError } from './errors'
 
 const RESERVED_LIST_PARAMS = new Set([
   'limit',
