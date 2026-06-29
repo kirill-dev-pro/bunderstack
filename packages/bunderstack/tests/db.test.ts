@@ -1,7 +1,16 @@
 import { test, expect } from 'bun:test'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { posts } from '../../../examples/standalone/schema'
 import { createDb } from '../src/db'
+
+// Local fixture built with THIS package's drizzle-orm instance, so the table's
+// branded types match the db client createDb produces. (Importing the table
+// from examples/ pulls in a second drizzle-orm copy and breaks type identity.)
+const posts = sqliteTable('posts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  body: text('body'),
+})
 
 test('createDb returns a working Drizzle instance against in-memory SQLite', async () => {
   const db = createDb({ posts }, { url: ':memory:' })
@@ -11,9 +20,7 @@ test('createDb returns a working Drizzle instance against in-memory SQLite', asy
     `CREATE TABLE IF NOT EXISTS posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
-      body TEXT,
-      author_id TEXT,
-      created_at INTEGER
+      body TEXT
     )`,
   )
 
