@@ -44,19 +44,19 @@ bucket overrides only what it needs.
 createBunderstack({
   schema,
   storage: {
-    s3: true,                 // shared backend (or `local: true` for dev)
+    s3: true, // shared backend (or `local: true` for dev)
     defaultBucket: 'default',
 
     buckets: {
       avatars: {
-        visibility: 'public',                 // proxied w/ immutable cache by default
+        visibility: 'public', // proxied w/ immutable cache by default
         access: { create: 'authenticated', delete: 'owner' },
         upload: { maxSize: '5mb', accept: ['image/*'] },
-        transforms: true,                     // image resize/format allowed
+        transforms: true, // image resize/format allowed
       },
 
       documents: {
-        visibility: 'private',                // presigned GET, access-checked
+        visibility: 'private', // presigned GET, access-checked
         access: {
           create: 'authenticated',
           get: (ctx) => ctx.user?.role === 'admin' || ctx.isOwner,
@@ -79,13 +79,13 @@ createBunderstack({
 
 - **No buckets declared** → one implicit bucket named `default`
   (`visibility: 'private'`, default access). Getting started stays a one-liner.
-- Each bucket's `access` reuses the real `OperationRule` (strings *or*
+- Each bucket's `access` reuses the real `OperationRule` (strings _or_
   functions); `scope` reuses the org model.
 - `upload`, `transforms`, `quota` are per-bucket and optional.
 - A bucket only needs its own `s3`/`local` block for the physical-bucket escape
   hatch; otherwise it's a logical prefix on the shared backend.
 
-## 2. What a bucket *is*, physically (model C — hybrid)
+## 2. What a bucket _is_, physically (model C — hybrid)
 
 A bucket is a **prefix on the shared backend by default**, and becomes a
 **physical bucket** when given its own `{ s3: {...} }` block.
@@ -169,14 +169,15 @@ auto-register them into the resolved schema before provisioning.
 ```ts
 export const INTERNAL_TABLES = { bunderstackFiles, bunderstackIdempotency }
 export const INTERNAL_TABLE_NAMES = new Set([
-  'bunderstack_file_meta', '_bunderstack_idempotency',
+  'bunderstack_file_meta',
+  '_bunderstack_idempotency',
 ])
 ```
 
 Benefits beyond consistency:
 
 1. **Removes per-request DDL.** Today `idempotency.ts` runs
-   `CREATE TABLE IF NOT EXISTS` on *every* idempotent request, and
+   `CREATE TABLE IF NOT EXISTS` on _every_ idempotent request, and
    `file-metadata.ts` on every owner read/write. Provisioned tables remove that.
 2. **Type-safe internal queries** — sweep, quota sums, scope checks become
    Drizzle queries instead of raw `$client.execute`.
@@ -200,7 +201,10 @@ interface StorageAdapter {
   delete(key): Promise<void>
   exists(key): Promise<boolean>
   // New — optional. Present on S3, absent on local.
-  presignPut?(key, opts): Promise<{ url: string; fields?: Record<string, string> }>
+  presignPut?(
+    key,
+    opts,
+  ): Promise<{ url: string; fields?: Record<string, string> }>
   presignGet?(key, opts): Promise<string>
   head?(key): Promise<{ size: number; contentType: string } | null>
 }
@@ -275,10 +279,11 @@ cases the single-table model does not:
   `CopyObject`).
 
 Shape: `bunderstackBlob { key, bucket, size, contentType, refcount, createdAt }`
-+ `bunderstackFile { id, blobKey, ownerId, scopeJson, status, filename,
+
+- `bunderstackFile { id, blobKey, ownerId, scopeJson, status, filename,
 createdAt, confirmedAt, deletedAt }`. Deletion decrements `refcount`; bytes
-removed only at 0; orphan sweep also reaps `refcount=0` blobs (self-heals crash
-mid-decrement).
+  removed only at 0; orphan sweep also reaps `refcount=0` blobs (self-heals crash
+  mid-decrement).
 
 Deferred because refcount correctness is a real cost vs. current need. **Two
 forward-compat invariants keep this addable without breaking the public API:**

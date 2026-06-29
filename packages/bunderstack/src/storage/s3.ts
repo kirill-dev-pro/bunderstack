@@ -1,5 +1,9 @@
 // src/storage/s3.ts
-import type { PresignGetOptions, PresignPutOptions, StorageAdapter } from './index.ts'
+import type {
+  PresignGetOptions,
+  PresignPutOptions,
+  StorageAdapter,
+} from './index.ts'
 
 interface S3Config {
   bucket: string
@@ -66,7 +70,9 @@ export class S3StorageAdapter implements StorageAdapter {
     })
   }
 
-  async stat(key: string): Promise<{ size: number; contentType: string } | null> {
+  async stat(
+    key: string,
+  ): Promise<{ size: number; contentType: string } | null> {
     try {
       const s = await this.client.stat(key)
       return { size: s.size, contentType: s.type }

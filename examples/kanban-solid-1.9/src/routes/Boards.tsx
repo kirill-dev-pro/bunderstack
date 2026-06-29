@@ -1,9 +1,10 @@
-import { createSignal, For, onMount } from 'solid-js'
 import { A } from '@solidjs/router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/solid-query'
+import { createSignal, For, onMount } from 'solid-js'
+
+import { authClient } from '../lib/auth-client.ts'
 import { tableClients } from '../lib/query.ts'
 import { getRealtime } from '../lib/realtime.ts'
-import { authClient } from '../lib/auth-client.ts'
 import { closeRealtime } from '../lib/realtime.ts'
 
 const boardsClient = tableClients.boards
@@ -15,7 +16,8 @@ export function Boards() {
   onMount(async () => {
     const orgs = await authClient.organization.list()
     const first = orgs.data?.[0]
-    if (first) await authClient.organization.setActive({ organizationId: first.id })
+    if (first)
+      await authClient.organization.setActive({ organizationId: first.id })
     await getRealtime().subscribe(['boards'])
     qc.invalidateQueries({ queryKey: boardsClient.keys.lists() })
   })

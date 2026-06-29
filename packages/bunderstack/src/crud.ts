@@ -1,11 +1,9 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
-import {
-  eq,
-  isTable,
-  getTableName,
-} from 'drizzle-orm'
+import { eq, isTable, getTableName } from 'drizzle-orm'
 import { Hono } from 'hono'
+
+import type { RealtimeBroker } from './realtime.ts'
 
 import {
   checkAccess,
@@ -20,8 +18,6 @@ import {
   type ResolvedTableAccess,
   type ScopeMap,
 } from './access.ts'
-import type { RealtimeBroker } from './realtime.ts'
-import { buildScopeWhere } from './scope.ts'
 import { ErrorCode, apiError, ListQueryError } from './errors.ts'
 import {
   lookupIdempotency,
@@ -30,6 +26,7 @@ import {
   type IdempotencyConfig,
 } from './idempotency.ts'
 import { executeList, parseListParams } from './list-query.ts'
+import { buildScopeWhere } from './scope.ts'
 
 export type CrudRouterOptions = {
   auth?: AuthSessionResolver
@@ -69,7 +66,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
   const scopeFor = (
     tableAccess: ResolvedTableAccess,
-    ctx: { user: AccessUser | null; session: { activeOrganizationId: string | null } | null; request: Request },
+    ctx: {
+      user: AccessUser | null
+      session: { activeOrganizationId: string | null } | null
+      request: Request
+    },
   ): ScopeMap | undefined =>
     tableAccess.scope ? tableAccess.scope({ ...ctx }) : undefined
 
@@ -84,7 +85,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     if (!idCol) continue
 
     router.get(`/${name}`, async (c) => {
-      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(
+        auth,
+        c.req.raw.headers,
+      )
       const session = { activeOrganizationId }
       const denied = await enforce('list', tableAccess, {
         user,
@@ -102,7 +106,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       try {
         const params = parseListParams(new URL(c.req.url), tableAccess)
-        const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
+        const scope = scopeFor(tableAccess, {
+          user,
+          session,
+          request: c.req.raw,
+        })
         const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
         const result = await executeList(
           db as LibSQLDatabase<Record<string, unknown>>,
@@ -115,20 +123,17 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         return c.json(result)
       } catch (err) {
         if (err instanceof ListQueryError) {
-          return apiError(
-            c,
-            err.code,
-            err.message,
-            400,
-            err.details,
-          )
+          return apiError(c, err.code, err.message, 400, err.details)
         }
         throw err
       }
     })
 
     router.get(`/${name}/:id`, async (c) => {
-      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(
+        auth,
+        c.req.raw.headers,
+      )
       const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
@@ -157,7 +162,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       }
 
       const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
-      if (scope && !rowMatchesScope(rows[0] as Record<string, unknown>, scope)) {
+      if (
+        scope &&
+        !rowMatchesScope(rows[0] as Record<string, unknown>, scope)
+      ) {
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
@@ -165,7 +173,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.post(`/${name}`, async (c) => {
-      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(
+        auth,
+        c.req.raw.headers,
+      )
       const session = { activeOrganizationId }
       const denied = await enforce('create', tableAccess, {
         user,
@@ -250,7 +261,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.patch(`/${name}/:id`, async (c) => {
-      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(
+        auth,
+        c.req.raw.headers,
+      )
       const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
@@ -264,7 +278,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       }
 
       const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
-      if (scope && !rowMatchesScope(existing[0] as Record<string, unknown>, scope)) {
+      if (
+        scope &&
+        !rowMatchesScope(existing[0] as Record<string, unknown>, scope)
+      ) {
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
@@ -314,7 +331,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
     })
 
     router.delete(`/${name}/:id`, async (c) => {
-      const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+      const { user, activeOrganizationId } = await resolveSession(
+        auth,
+        c.req.raw.headers,
+      )
       const session = { activeOrganizationId }
       const rawId = c.req.param('id')
       const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
@@ -328,7 +348,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       }
 
       const scope = scopeFor(tableAccess, { user, session, request: c.req.raw })
-      if (scope && !rowMatchesScope(existing[0] as Record<string, unknown>, scope)) {
+      if (
+        scope &&
+        !rowMatchesScope(existing[0] as Record<string, unknown>, scope)
+      ) {
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
@@ -349,7 +372,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).delete(table).where(eq(idCol as any, id))
-      void broker?.publish(name, 'delete', existing[0] as Record<string, unknown>)
+      void broker?.publish(
+        name,
+        'delete',
+        existing[0] as Record<string, unknown>,
+      )
       return new Response(null, { status: 204 })
     })
   }

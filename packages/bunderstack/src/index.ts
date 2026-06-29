@@ -2,23 +2,24 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
 
+import type { StorageAdapter } from './storage/index.ts'
+
 import { validateAndResolveAccess } from './access.ts'
 import { createAuth } from './auth.ts'
 import { resolveConfig, type BunderstackConfig } from './config.ts'
+import { resolveRealtimeRedisUrl } from './config.ts'
 import { buildCrudRouter } from './crud.ts'
 import { createDb } from './db.ts'
-import { withInternalTables } from './internal-tables.ts'
 import { buildHandler } from './handler.ts'
-import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'
-import { createRedisRealtimeBroker } from './realtime-redis.ts'
-import { resolveRealtimeRedisUrl } from './config.ts'
+import { withInternalTables } from './internal-tables.ts'
 import { provisionSchema, type ProvisionMode } from './provision.ts'
-import type { StorageAdapter } from './storage/index.ts'
+import { createRedisRealtimeBroker } from './realtime-redis.ts'
+import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'
+import { deleteFileWithDerivatives } from './storage/delete.ts'
+import { deleteFileMetaRow } from './storage/file-meta.ts'
 import { createBucketStorages } from './storage/registry.ts'
 import { buildBucketStorageRouter } from './storage/router.ts'
-import { deleteFileWithDerivatives } from './storage/delete.ts'
 import { sweepOrphans } from './storage/sweep.ts'
-import { deleteFileMetaRow } from './storage/file-meta.ts'
 
 type AuthInstance = ReturnType<typeof createAuth>
 
@@ -75,7 +76,9 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   )
   const realtimeBufferSize =
     typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
-  const redisUrl = config.realtime ? resolveRealtimeRedisUrl(config.realtime) : undefined
+  const redisUrl = config.realtime
+    ? resolveRealtimeRedisUrl(config.realtime)
+    : undefined
   const broker = config.realtime
     ? redisUrl
       ? createRedisRealtimeBroker({
@@ -87,17 +90,24 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
             const subClient = new Bun.RedisClient(redisUrl)
             return {
               incr: (key: string) => cmdClient.incr(key),
-              publish: (channel: string, message: string) => cmdClient.publish(channel, message),
+              publish: (channel: string, message: string) =>
+                cmdClient.publish(channel, message),
               subscribe: (channel: string, listener: (msg: string) => void) =>
                 subClient.subscribe(channel, listener),
-              lpush: (key: string, value: string) => cmdClient.lpush(key, value),
-              ltrim: (key: string, start: number, stop: number) => cmdClient.ltrim(key, start, stop),
-              lrange: (key: string, start: number, stop: number) => cmdClient.lrange(key, start, stop),
+              lpush: (key: string, value: string) =>
+                cmdClient.lpush(key, value),
+              ltrim: (key: string, start: number, stop: number) =>
+                cmdClient.ltrim(key, start, stop),
+              lrange: (key: string, start: number, stop: number) =>
+                cmdClient.lrange(key, start, stop),
             }
           })(),
           bufferSize: realtimeBufferSize,
         })
-      : createRealtimeBroker({ access: resolvedAccess, bufferSize: realtimeBufferSize })
+      : createRealtimeBroker({
+          access: resolvedAccess,
+          bufferSize: realtimeBufferSize,
+        })
     : undefined
   const crudRouter = buildCrudRouter(
     options.schema,
@@ -113,7 +123,9 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     ? buildRealtimeRouter(broker, {
         auth,
         keepaliveMs:
-          typeof config.realtime === 'object' ? config.realtime.keepaliveMs : undefined,
+          typeof config.realtime === 'object'
+            ? config.realtime.keepaliveMs
+            : undefined,
       })
     : undefined
   const registry = createBucketStorages(config.storage)
@@ -190,9 +202,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
 /** Create Bunderstack and auto-provision the database schema (dev by default). */
 export async function createBunderstackAsync<
   TSchema extends Record<string, unknown>,
->(
-  options: BunderstackConfig<TSchema>,
-): Promise<BunderstackApp<TSchema>> {
+>(options: BunderstackConfig<TSchema>): Promise<BunderstackApp<TSchema>> {
   const app = createBunderstack(options)
   await app.provision()
   return app

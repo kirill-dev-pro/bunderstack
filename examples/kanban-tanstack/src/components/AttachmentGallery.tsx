@@ -31,7 +31,9 @@ export function AttachmentGallery({
   if (attachments.length === 0) return null
 
   return (
-    <div className={`attachment-gallery${compact ? ' attachment-gallery--compact' : ''}`}>
+    <div
+      className={`attachment-gallery${compact ? ' attachment-gallery--compact' : ''}`}
+    >
       {attachments.map((att) => {
         const fileId = fileIdFromUrl(att.fileUrl)
         const isImage = isImageMime(att.mimeType)

@@ -145,13 +145,13 @@ Solid uses this directly with `@tanstack/solid-query`; the existing core
 
 ### Data model (app tables, all `typeid` + denormalized `organizationId`)
 
-| table      | id prefix | key columns                                                            |
-| ---------- | --------- | ---------------------------------------------------------------------- |
-| `boards`   | `board`   | organizationId, title, createdAt                                       |
-| `lists`    | `list`    | organizationId, boardId, title, position (float), createdAt            |
+| table      | id prefix | key columns                                                                                         |
+| ---------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `boards`   | `board`   | organizationId, title, createdAt                                                                    |
+| `lists`    | `list`    | organizationId, boardId, title, position (float), createdAt                                         |
 | `cards`    | `card`    | organizationId, listId, title, description (markdown text), assigneeId, position (float), createdAt |
-| `comments` | `cmt`     | organizationId, cardId, authorId, body, createdAt                      |
-| `activity` | `act`     | organizationId, boardId, cardId?, actorId, type, data (json), createdAt |
+| `comments` | `cmt`     | organizationId, cardId, authorId, body, createdAt                                                   |
+| `activity` | `act`     | organizationId, boardId, cardId?, actorId, type, data (json), createdAt                             |
 
 Plus BetterAuth tables: `user`, `session` (+`activeOrganizationId`), `account`,
 `verification`, `organization`, `member`, `invitation` (org-plugin tables marked
@@ -193,13 +193,13 @@ mean "authenticated **and** in this org"). `filterable/sortableColumns` set for
 
 ### Routes (SPA)
 
-| route             | purpose                                              |
-| ----------------- | ---------------------------------------------------- |
-| `/login`, `/signup` | BetterAuth                                          |
-| `/`               | org switcher + board list (create board)             |
-| `/boards/:id`     | the board — lists, cards, drag-drop, live updates    |
-| card detail (dialog/panel) | description (markdown), assignee, comments, activity |
-| org members / invite (dialog) | BetterAuth org plugin (list members, invite) |
+| route                         | purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `/login`, `/signup`           | BetterAuth                                           |
+| `/`                           | org switcher + board list (create board)             |
+| `/boards/:id`                 | the board — lists, cards, drag-drop, live updates    |
+| card detail (dialog/panel)    | description (markdown), assignee, comments, activity |
+| org members / invite (dialog) | BetterAuth org plugin (list members, invite)         |
 
 ---
 

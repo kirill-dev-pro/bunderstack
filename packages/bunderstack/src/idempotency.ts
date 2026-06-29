@@ -1,6 +1,6 @@
-import { and, eq, lt } from 'drizzle-orm'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
+import { and, eq, lt } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 
 import { bunderstackIdempotency } from './internal-tables.ts'
@@ -79,7 +79,14 @@ export async function storeIdempotency(
 
   await db
     .insert(bunderstackIdempotency)
-    .values({ key, tableName, bodyHash, status, response: responseText, expiresAt })
+    .values({
+      key,
+      tableName,
+      bodyHash,
+      status,
+      response: responseText,
+      expiresAt,
+    })
     .onConflictDoUpdate({
       target: [bunderstackIdempotency.key, bunderstackIdempotency.tableName],
       set: { bodyHash, status, response: responseText, expiresAt },

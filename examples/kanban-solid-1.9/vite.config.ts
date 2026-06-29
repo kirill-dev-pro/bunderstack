@@ -1,6 +1,7 @@
-import { defineConfig } from 'vite'
 import { nitro } from 'nitro/vite'
+import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
+
 import { bunderstackApi } from './vite-plugin-bunderstack-api.ts'
 
 export default defineConfig({

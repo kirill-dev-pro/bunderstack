@@ -27,12 +27,14 @@
  * See docs/plans/2026-06-28-multi-bucket-storage-design.md §6 for full rationale.
  */
 
-import { eq, and, lt, sql } from 'drizzle-orm'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
-import { bunderstackFiles } from '../internal-tables.ts'
+import { eq, and, lt, sql } from 'drizzle-orm'
+
 import type { ScopeMap } from '../access.ts'
+
 import { rowMatchesScope } from '../access.ts'
+import { bunderstackFiles } from '../internal-tables.ts'
 
 export type FileMetaRow = typeof bunderstackFiles.$inferSelect
 
@@ -122,9 +124,7 @@ export async function deleteFileMetaRow(
   db: LibSQLDatabase<Record<string, unknown>>,
   fileId: string,
 ): Promise<void> {
-  await db
-    .delete(bunderstackFiles)
-    .where(eq(bunderstackFiles.fileId, fileId))
+  await db.delete(bunderstackFiles).where(eq(bunderstackFiles.fileId, fileId))
 }
 
 // ─── Sweep ────────────────────────────────────────────────────────────────────

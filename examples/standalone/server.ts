@@ -38,6 +38,8 @@ console.log('  GET  /api/health')
 console.log('  GET  /api/posts')
 console.log('  POST /api/posts')
 console.log('  POST /api/files/uploads         (multipart, field: file)')
-console.log('  GET  /api/files/uploads/:id     (?w=&h=&format=webp for thumbnails)')
+console.log(
+  '  GET  /api/files/uploads/:id     (?w=&h=&format=webp for thumbnails)',
+)
 console.log('  POST /api/auth/sign-up/email')
 console.log('  POST /api/auth/sign-in/email')

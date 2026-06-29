@@ -84,7 +84,10 @@ export function buildRealtimeRouter(
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
         handle = broker.register(send)
         send(JSON.stringify({ clientId: handle.id }))
-        keepalive = setInterval(() => controller.enqueue(encoder.encode(': ping\n\n')), keepaliveMs)
+        keepalive = setInterval(
+          () => controller.enqueue(encoder.encode(': ping\n\n')),
+          keepaliveMs,
+        )
       },
       cancel() {
         clearInterval(keepalive)
@@ -102,9 +105,11 @@ export function buildRealtimeRouter(
   })
 
   router.post('/realtime', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as
-      | { clientId?: string; subscriptions?: string[]; since?: number | null }
-      | null
+    const body = (await c.req.json().catch(() => null)) as {
+      clientId?: string
+      subscriptions?: string[]
+      since?: number | null
+    } | null
     if (!body?.clientId || !Array.isArray(body.subscriptions)) {
       return c.json({ error: 'clientId and subscriptions required' }, 400)
     }
@@ -153,7 +158,8 @@ export function createRealtimeBroker(opts: {
       session: { activeOrganizationId: s.activeOrganizationId },
     }
     if (typeof entry.get === 'function') return false // function get-rules unsupported on realtime v1
-    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) return false
+    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
+      return false
     if (!scopeOk(entry, ctx, record)) return false
     return true
   }
@@ -162,7 +168,11 @@ export function createRealtimeBroker(opts: {
     register(send) {
       const id = crypto.randomUUID()
       subscribers.set(id, {
-        id, send, user: null, activeOrganizationId: null, subscriptions: new Set(),
+        id,
+        send,
+        user: null,
+        activeOrganizationId: null,
+        subscriptions: new Set(),
       })
       return { id }
     },
@@ -184,7 +194,14 @@ export function createRealtimeBroker(opts: {
       for (const e of buffer) {
         if (e.eventId <= since) continue
         if (!deliverable(s, e.table, e.record, e.record['id'])) continue
-        s.send(JSON.stringify({ eventId: e.eventId, action: e.action, table: e.table, record: e.record }))
+        s.send(
+          JSON.stringify({
+            eventId: e.eventId,
+            action: e.action,
+            table: e.table,
+            record: e.record,
+          }),
+        )
       }
       return { gap }
     },

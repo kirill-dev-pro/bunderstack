@@ -5,8 +5,7 @@ import mdx from 'fumadocs-mdx/vite'
 import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
 
-const base =
-  process.env.GITHUB_PAGES === 'true' ? '/bunderstack/' : '/'
+const base = process.env.GITHUB_PAGES === 'true' ? '/bunderstack/' : '/'
 
 export default defineConfig({
   base,

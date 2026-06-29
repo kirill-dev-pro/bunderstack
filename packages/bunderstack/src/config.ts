@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { TableAccessInput } from './access.ts'
 import type { IdempotencyConfig } from './idempotency.ts'
 import type { RateLimitConfig } from './rate-limit.ts'
+
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,
@@ -47,7 +48,10 @@ export const BunderstackOptionsSchema = z.object({
         keepaliveMs: z.number().optional(),
         bufferSize: z.number().optional(),
         redis: z
-          .union([z.string(), z.object({ url: z.string(), token: z.string().optional() })])
+          .union([
+            z.string(),
+            z.object({ url: z.string(), token: z.string().optional() }),
+          ])
           .optional(),
       }),
     ])

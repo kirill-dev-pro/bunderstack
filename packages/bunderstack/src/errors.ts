@@ -26,7 +26,11 @@ export function apiError(
   status: ContentfulStatusCode,
   details?: unknown,
 ) {
-  const body: ApiErrorBody = { error: message, code, ...(details ? { details } : {}) }
+  const body: ApiErrorBody = {
+    error: message,
+    code,
+    ...(details ? { details } : {}),
+  }
   return c.json(body, status)
 }
 

@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm'
 
 import type { ResolvedTableAccess, SortOrder } from './access.ts'
+
 import { ErrorCode, ListQueryError } from './errors.ts'
 
 export const RESERVED_LIST_PARAMS = new Set([
@@ -96,7 +97,9 @@ export function parseListParams(
   const limit = parseLimit(params.get('limit') ?? undefined)
   const cursor = params.get('cursor')?.trim() || undefined
   const hasOffset = params.has('offset') && params.get('offset') !== ''
-  const offset = hasOffset ? parseOffset(params.get('offset') ?? undefined) : undefined
+  const offset = hasOffset
+    ? parseOffset(params.get('offset') ?? undefined)
+    : undefined
 
   if (cursor && hasOffset) {
     throw new ListQueryError('cursor and offset cannot be used together')
@@ -137,7 +140,7 @@ export function parseListParams(
 
   return {
     limit,
-    offset: cursor ? undefined : offset ?? 0,
+    offset: cursor ? undefined : (offset ?? 0),
     sort,
     order,
     q,
@@ -171,7 +174,11 @@ function coerceFilterValue(
   if (!col) return raw
 
   const dataType = col.dataType
-  if (dataType === 'number' || dataType === 'integer' || dataType === 'bigint') {
+  if (
+    dataType === 'number' ||
+    dataType === 'integer' ||
+    dataType === 'bigint'
+  ) {
     const n = Number(raw)
     if (Number.isNaN(n)) {
       throw new ListQueryError(`filter "${columnName}" must be a number`)
@@ -273,9 +280,7 @@ function buildOrderBy(
   const columns = getTableColumns(table)
   const sortCol = columns[sortColName]!
   const idOrder = order === 'asc' ? asc(idCol as never) : desc(idCol as never)
-  return order === 'asc'
-    ? [asc(sortCol), idOrder]
-    : [desc(sortCol), idOrder]
+  return order === 'asc' ? [asc(sortCol), idOrder] : [desc(sortCol), idOrder]
 }
 
 export async function executeList<T extends Record<string, unknown>>(
@@ -286,7 +291,11 @@ export async function executeList<T extends Record<string, unknown>>(
   idCol: unknown,
   scopeWhere?: SQL,
 ): Promise<ListResult<T>> {
-  const searchWhere = buildSearchWhere(table, access.searchableColumns, params.q)
+  const searchWhere = buildSearchWhere(
+    table,
+    access.searchableColumns,
+    params.q,
+  )
   const filterWhere = buildFilterWhere(table, params.filters)
   let where = and(
     ...(searchWhere ? [searchWhere] : []),
@@ -324,7 +333,9 @@ export async function executeList<T extends Record<string, unknown>>(
   let total: number | undefined
   if (params.count) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let countQuery = (db as any).select({ count: sql<number>`count(*)` }).from(table)
+    let countQuery = (db as any)
+      .select({ count: sql<number>`count(*)` })
+      .from(table)
     if (where) countQuery = countQuery.where(where)
     const [row] = await countQuery
     total = Number(row?.count ?? 0)

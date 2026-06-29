@@ -51,21 +51,21 @@ bun run --cwd examples/kanban-solid-1.9 seed
 
 Password for all: `password123`
 
-| Email               | Role in Acme org |
-| ------------------- | ---------------- |
-| alice@example.com   | owner            |
-| bob@example.com     | member           |
-| carol@example.com   | member           |
+| Email             | Role in Acme org |
+| ----------------- | ---------------- |
+| alice@example.com | owner            |
+| bob@example.com   | member           |
+| carol@example.com | member           |
 
 Seed creates org **Acme** with a **Roadmap** board (Backlog / In Progress / Done columns).
 
 ## Routes
 
-| Route            | Purpose                          |
-| ---------------- | -------------------------------- |
-| `/login`         | Sign in / sign up                |
-| `/`              | Board list (active org)          |
-| `/boards/:id`    | Kanban columns + cards + DnD     |
+| Route         | Purpose                      |
+| ------------- | ---------------------------- |
+| `/login`      | Sign in / sign up            |
+| `/`           | Board list (active org)      |
+| `/boards/:id` | Kanban columns + cards + DnD |
 
 ## Realtime model
 

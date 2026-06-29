@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'bun:test'
+
 import type { AccessContext } from './access.ts'
+
 import { resolveConfig } from './config.ts'
 
 describe('resolveConfig with function access rules', () => {

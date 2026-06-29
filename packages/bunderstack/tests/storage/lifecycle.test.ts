@@ -2,25 +2,25 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 import { test, expect, beforeEach, afterEach } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { eq } from 'drizzle-orm'
+import type { ResolvedBucket } from '../../src/storage/buckets.ts'
+import type { BucketStorageRegistry } from '../../src/storage/registry.ts'
 
 import { createDb } from '../../src/db.ts'
 import { bunderstackFiles, INTERNAL_TABLES } from '../../src/internal-tables.ts'
 import { provisionSchema } from '../../src/provision.ts'
+import { deleteFileWithDerivatives } from '../../src/storage/delete.ts'
 import {
   getFileMeta,
   insertPendingFile,
   insertReadyFile,
 } from '../../src/storage/file-meta.ts'
 import { LocalStorageAdapter } from '../../src/storage/local.ts'
-import { deleteFileWithDerivatives } from '../../src/storage/delete.ts'
 import { sweepOrphans } from '../../src/storage/sweep.ts'
-import type { BucketStorageRegistry } from '../../src/storage/registry.ts'
-import type { ResolvedBucket } from '../../src/storage/buckets.ts'
 
 let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
 let dbAny: LibSQLDatabase<Record<string, unknown>>
@@ -76,7 +76,9 @@ test('deleteFileWithDerivatives removes original + derivatives + meta row', asyn
 })
 
 test('sweepOrphans reaps stale pending only; ready untouched; returns count', async () => {
-  const registry: BucketStorageRegistry = new Map([['files', bucketEntry('files')]])
+  const registry: BucketStorageRegistry = new Map([
+    ['files', bucketEntry('files')],
+  ])
 
   // Stale pending (object + row).
   const staleId = 'files/stale.bin'

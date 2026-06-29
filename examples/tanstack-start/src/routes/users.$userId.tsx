@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, createFileRoute, notFound, useRouter } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  notFound,
+  useRouter,
+} from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
@@ -30,7 +35,15 @@ export const Route = createFileRoute('/users/$userId')({
         queryClient.ensureQueryData(api.likes.listQuery(listParams)),
         queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
       ])
-      return { profile, posts, follows, users, likes, retweets, userPostsParams }
+      return {
+        profile,
+        posts,
+        follows,
+        users,
+        likes,
+        retweets,
+        userPostsParams,
+      }
     } catch (err) {
       if (err instanceof BunderstackApiError && err.status === 404)
         throw notFound()
@@ -81,7 +94,9 @@ function UserProfilePage() {
     return (
       <AppShell user={currentUser}>
         <p>User not found.</p>
-        <Link to="/" search={{tab: 'for-you'}}>Back</Link>
+        <Link to="/" search={{ tab: 'for-you' }}>
+          Back
+        </Link>
       </AppShell>
     )
   }

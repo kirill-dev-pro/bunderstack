@@ -2,8 +2,11 @@
 import { test, expect } from 'bun:test'
 
 import { resolveBuckets } from '../../src/storage/buckets.ts'
-import { createAdapter, createBucketStorages } from '../../src/storage/registry.ts'
 import { LocalStorageAdapter } from '../../src/storage/local.ts'
+import {
+  createAdapter,
+  createBucketStorages,
+} from '../../src/storage/registry.ts'
 import { S3StorageAdapter } from '../../src/storage/s3.ts'
 
 const fakeEnv = {

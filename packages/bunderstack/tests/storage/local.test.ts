@@ -59,8 +59,16 @@ test('list returns derivative keys under a prefix; missing prefix → []', async
   const fileId = 'files/abc.png'
   const bytes = new TextEncoder().encode('x')
   await adapter.upload(fileId, bytes.buffer, 'image/png')
-  await adapter.upload(`${fileId}__transforms/h1.webp`, bytes.buffer, 'image/webp')
-  await adapter.upload(`${fileId}__transforms/h2.webp`, bytes.buffer, 'image/webp')
+  await adapter.upload(
+    `${fileId}__transforms/h1.webp`,
+    bytes.buffer,
+    'image/webp',
+  )
+  await adapter.upload(
+    `${fileId}__transforms/h2.webp`,
+    bytes.buffer,
+    'image/webp',
+  )
 
   const keys = await adapter.list!(`${fileId}__transforms/`)
   expect(keys.sort()).toEqual([
@@ -73,15 +81,21 @@ test('list returns derivative keys under a prefix; missing prefix → []', async
 
 test('LocalStorageAdapter does not expose presignPut', () => {
   const adapter = new LocalStorageAdapter(basePath)
-  expect((adapter as unknown as Record<string, unknown>)['presignPut']).toBeUndefined()
+  expect(
+    (adapter as unknown as Record<string, unknown>)['presignPut'],
+  ).toBeUndefined()
 })
 
 test('LocalStorageAdapter does not expose presignGet', () => {
   const adapter = new LocalStorageAdapter(basePath)
-  expect((adapter as unknown as Record<string, unknown>)['presignGet']).toBeUndefined()
+  expect(
+    (adapter as unknown as Record<string, unknown>)['presignGet'],
+  ).toBeUndefined()
 })
 
 test('LocalStorageAdapter does not expose publicUrlFor', () => {
   const adapter = new LocalStorageAdapter(basePath)
-  expect((adapter as unknown as Record<string, unknown>)['publicUrlFor']).toBeUndefined()
+  expect(
+    (adapter as unknown as Record<string, unknown>)['publicUrlFor'],
+  ).toBeUndefined()
 })

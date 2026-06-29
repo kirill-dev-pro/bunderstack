@@ -1,11 +1,16 @@
-import { onMount, For, createMemo } from 'solid-js'
 import { useParams } from '@solidjs/router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { DragDropProvider, DragDropSensors, closestCenter } from '@thisbeyond/solid-dnd'
+import {
+  DragDropProvider,
+  DragDropSensors,
+  closestCenter,
+} from '@thisbeyond/solid-dnd'
+import { onMount, For, createMemo } from 'solid-js'
+
+import { CardDialog } from '../components/CardDialog.tsx'
+import { ListColumn } from '../components/ListColumn.tsx'
 import { tableClients } from '../lib/query.ts'
 import { getRealtime } from '../lib/realtime.ts'
-import { ListColumn } from '../components/ListColumn.tsx'
-import { CardDialog } from '../components/CardDialog.tsx'
 
 const { lists: listsC, cards: cardsC, activity: activityC } = tableClients
 
@@ -40,7 +45,9 @@ export function Board() {
     if (!draggable || !droppable) return
     const cardId = String(draggable.id)
     const targetListId = String(droppable.id)
-    const siblings = (cardsByList().get(targetListId) ?? []).filter((c) => c.id !== cardId)
+    const siblings = (cardsByList().get(targetListId) ?? []).filter(
+      (c) => c.id !== cardId,
+    )
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
     await cardsC.update(cardId, { listId: targetListId, position: newPos })
     await activityC.create({

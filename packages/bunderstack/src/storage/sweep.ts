@@ -1,8 +1,9 @@
 // src/storage/sweep.ts
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
-import { deleteFileMetaRow, listStalePendingFiles } from './file-meta.ts'
 import type { BucketStorageRegistry } from './registry.ts'
+
+import { deleteFileMetaRow, listStalePendingFiles } from './file-meta.ts'
 
 /**
  * Reap stale `pending` file-meta rows (two-phase uploads that never confirmed)

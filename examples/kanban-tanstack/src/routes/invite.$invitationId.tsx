@@ -23,13 +23,18 @@ function InviteAcceptPage() {
   const { user } = Route.useRouteContext()
   const [declined, setDeclined] = useState(false)
 
-  const { data: invitation, isLoading, error } = useQuery({
+  const {
+    data: invitation,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['invitation', invitationId],
     queryFn: async () => {
       const res = await authClient.organization.getInvitation({
         query: { id: invitationId },
       })
-      if (res.error) throw new Error(res.error.message ?? 'Invitation not found')
+      if (res.error)
+        throw new Error(res.error.message ?? 'Invitation not found')
       return res.data
     },
   })
@@ -58,7 +63,8 @@ function InviteAcceptPage() {
       const { error } = await authClient.organization.rejectInvitation({
         invitationId,
       })
-      if (error) throw new Error(error.message ?? 'Could not decline invitation')
+      if (error)
+        throw new Error(error.message ?? 'Could not decline invitation')
     },
     onSuccess: async () => {
       setDeclined(true)
@@ -98,13 +104,14 @@ function InviteAcceptPage() {
       <article className="card invite-card">
         <h1>Workspace invitation</h1>
         <p>
-          You&apos;ve been invited to join <strong>{invitation.organizationName ?? 'a workspace'}</strong> as{' '}
+          You&apos;ve been invited to join{' '}
+          <strong>{invitation.organizationName ?? 'a workspace'}</strong> as{' '}
           <strong>{invitation.role ?? 'member'}</strong>.
         </p>
         {emailMismatch ? (
           <p className="invite-warning">
-            This invitation was sent to <strong>{invitation.email}</strong>. You are
-            signed in as <strong>{user?.email}</strong>.
+            This invitation was sent to <strong>{invitation.email}</strong>. You
+            are signed in as <strong>{user?.email}</strong>.
           </p>
         ) : null}
         <div className="invite-actions">

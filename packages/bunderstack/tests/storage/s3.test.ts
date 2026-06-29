@@ -30,7 +30,10 @@ test('S3StorageAdapter exposes presignPut, presignGet, stat, publicUrlFor', () =
 
 test('presignPut returns a non-empty string containing the key (offline, no network)', async () => {
   const adapter = fakeAdapter()
-  const url = await adapter.presignPut!('uploads/avatar.jpg', { expiresIn: 3600, contentType: 'image/jpeg' })
+  const url = await adapter.presignPut!('uploads/avatar.jpg', {
+    expiresIn: 3600,
+    contentType: 'image/jpeg',
+  })
   expect(typeof url).toBe('string')
   expect(url.length).toBeGreaterThan(0)
   expect(url).toContain('avatar.jpg')
@@ -38,7 +41,9 @@ test('presignPut returns a non-empty string containing the key (offline, no netw
 
 test('presignGet returns a non-empty string containing the key (offline, no network)', async () => {
   const adapter = fakeAdapter()
-  const url = await adapter.presignGet!('uploads/avatar.jpg', { expiresIn: 3600 })
+  const url = await adapter.presignGet!('uploads/avatar.jpg', {
+    expiresIn: 3600,
+  })
   expect(typeof url).toBe('string')
   expect(url.length).toBeGreaterThan(0)
   expect(url).toContain('avatar.jpg')
@@ -53,7 +58,10 @@ test('presignPut and presignGet return different URLs (method differs)', async (
 
 test('presignPut URL contains a signature query param (X-Amz-Signature)', async () => {
   const adapter = fakeAdapter()
-  const url = await adapter.presignPut!('uploads/doc.pdf', { expiresIn: 600, contentType: 'application/pdf' })
+  const url = await adapter.presignPut!('uploads/doc.pdf', {
+    expiresIn: 600,
+    contentType: 'application/pdf',
+  })
   expect(url).toMatch(/X-Amz-Signature|X-Amz-Expires/i)
 })
 
@@ -71,7 +79,9 @@ test('publicUrlFor with publicUrl trims trailing slash and builds URL', () => {
     secretAccessKey: 'fake-secret',
     publicUrl: 'https://cdn.x/',
   })
-  expect(adapter.publicUrlFor!('avatars/a.jpg')).toBe('https://cdn.x/avatars/a.jpg')
+  expect(adapter.publicUrlFor!('avatars/a.jpg')).toBe(
+    'https://cdn.x/avatars/a.jpg',
+  )
 })
 
 test('publicUrlFor without publicUrl returns undefined', () => {
@@ -87,5 +97,7 @@ test('publicUrlFor without trailing slash works correctly', () => {
     secretAccessKey: 'fake-secret',
     publicUrl: 'https://cdn.x',
   })
-  expect(adapter.publicUrlFor!('avatars/a.jpg')).toBe('https://cdn.x/avatars/a.jpg')
+  expect(adapter.publicUrlFor!('avatars/a.jpg')).toBe(
+    'https://cdn.x/avatars/a.jpg',
+  )
 })

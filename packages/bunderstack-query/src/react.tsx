@@ -5,7 +5,7 @@ export {
   createBunderstackQueryClient,
   createBunderstackQueryClient as createBunderstackReactQueryClient,
   BunderstackApiError,
-} from './index.ts'
+} from './index'
 export type {
   BunderstackQueryClient,
   BunderstackQueryClient as BunderstackReactQueryClient,
@@ -13,4 +13,4 @@ export type {
   ListParams,
   InferSelect,
   InferInsert,
-} from './types.ts'
+} from './types'

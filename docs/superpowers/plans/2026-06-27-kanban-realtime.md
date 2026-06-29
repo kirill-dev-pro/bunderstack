@@ -23,6 +23,7 @@
 ## File Structure
 
 **Core: `packages/bunderstack/src/`**
+
 - `access.ts` (modify) — add `ScopeMap`, `ScopeResolver`, `scope` on access config, `session` on `AccessContext`, `rowMatchesScope`, `resolveSession`, `stampScope`.
 - `scope.ts` (create) — `buildScopeWhere(table, scopeMap)` Drizzle helper (kept out of `access.ts` to avoid a drizzle import there).
 - `list-query.ts` (modify) — `executeList` accepts an optional `scopeWhere` SQL and ANDs it in.
@@ -33,10 +34,12 @@
 - `handler.ts` (modify) — mount the realtime router.
 
 **Core client: `packages/bunderstack-query/src/`**
+
 - `realtime-client.ts` (create) — `createRealtimeClient({ baseUrl, queryClient, tables, fetch?, EventSourceImpl? })`.
 - `index.ts` (modify) — export it.
 
 **Example: `examples/kanban/`**
+
 - `package.json`, `tsconfig.json`, `vite.config.ts`, `drizzle.config.ts`, `index.html`, `.env.example`
 - `src/schema.ts`, `src/access.ts`, `src/server.ts`, `scripts/seed.ts`
 - `src/lib/` — `auth-client.ts`, `query.ts`, `oat.ts`
@@ -50,10 +53,12 @@
 ### Task A1: Scope types, session context, and `rowMatchesScope`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/access.ts`
 - Test: `packages/bunderstack/src/scope.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type ScopeMap = Record<string, string | string[]>`
   - `type ScopeResolver = (ctx: AccessContext) => ScopeMap`
@@ -72,26 +77,51 @@ import { rowMatchesScope, stampScope } from './access.ts'
 
 describe('rowMatchesScope', () => {
   it('matches single-value scope', () => {
-    expect(rowMatchesScope({ organizationId: 'org_1' }, { organizationId: 'org_1' })).toBe(true)
-    expect(rowMatchesScope({ organizationId: 'org_2' }, { organizationId: 'org_1' })).toBe(false)
+    expect(
+      rowMatchesScope({ organizationId: 'org_1' }, { organizationId: 'org_1' }),
+    ).toBe(true)
+    expect(
+      rowMatchesScope({ organizationId: 'org_2' }, { organizationId: 'org_1' }),
+    ).toBe(false)
   })
   it('matches array (membership) scope', () => {
-    expect(rowMatchesScope({ organizationId: 'org_2' }, { organizationId: ['org_1', 'org_2'] })).toBe(true)
-    expect(rowMatchesScope({ organizationId: 'org_9' }, { organizationId: ['org_1', 'org_2'] })).toBe(false)
+    expect(
+      rowMatchesScope(
+        { organizationId: 'org_2' },
+        { organizationId: ['org_1', 'org_2'] },
+      ),
+    ).toBe(true)
+    expect(
+      rowMatchesScope(
+        { organizationId: 'org_9' },
+        { organizationId: ['org_1', 'org_2'] },
+      ),
+    ).toBe(false)
   })
   it('fails when the scoped column is missing/null', () => {
     expect(rowMatchesScope({}, { organizationId: 'org_1' })).toBe(false)
   })
   it('requires all keys to match', () => {
-    expect(rowMatchesScope({ organizationId: 'org_1', userId: 'u_2' }, { organizationId: 'org_1', userId: 'u_1' })).toBe(false)
+    expect(
+      rowMatchesScope(
+        { organizationId: 'org_1', userId: 'u_2' },
+        { organizationId: 'org_1', userId: 'u_1' },
+      ),
+    ).toBe(false)
   })
 })
 
 describe('stampScope', () => {
   it('overwrites single-value scope columns, ignores arrays', () => {
-    expect(stampScope({ title: 'x', organizationId: 'spoofed' }, { organizationId: 'org_1' }))
-      .toEqual({ title: 'x', organizationId: 'org_1' })
-    expect(stampScope({ title: 'x' }, { organizationId: ['org_1', 'org_2'] })).toEqual({ title: 'x' })
+    expect(
+      stampScope(
+        { title: 'x', organizationId: 'spoofed' },
+        { organizationId: 'org_1' },
+      ),
+    ).toEqual({ title: 'x', organizationId: 'org_1' })
+    expect(
+      stampScope({ title: 'x' }, { organizationId: ['org_1', 'org_2'] }),
+    ).toEqual({ title: 'x' })
   })
 })
 ```
@@ -171,7 +201,10 @@ import { resolveSession } from './access.ts'
 
 describe('resolveSession', () => {
   it('returns null user and org when no auth', async () => {
-    expect(await resolveSession(undefined, new Headers())).toEqual({ user: null, activeOrganizationId: null })
+    expect(await resolveSession(undefined, new Headers())).toEqual({
+      user: null,
+      activeOrganizationId: null,
+    })
   })
   it('extracts activeOrganizationId from the session', async () => {
     const auth = {
@@ -241,11 +274,13 @@ git commit -m "feat(core): access scope types, rowMatchesScope, stampScope, reso
 ### Task A2: `buildScopeWhere` + list scoping
 
 **Files:**
+
 - Create: `packages/bunderstack/src/scope.ts`
 - Modify: `packages/bunderstack/src/list-query.ts`
 - Test: `packages/bunderstack/src/scope-where.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ScopeMap` (Task A1).
 - Produces: `buildScopeWhere(table, scope: ScopeMap): SQL | undefined`; `executeList(..., scopeWhere?: SQL)`.
 
@@ -267,7 +302,9 @@ describe('buildScopeWhere', () => {
     expect(buildScopeWhere(boards, { organizationId: 'org_1' })).toBeDefined()
   })
   it('returns a condition for array value', () => {
-    expect(buildScopeWhere(boards, { organizationId: ['org_1', 'org_2'] })).toBeDefined()
+    expect(
+      buildScopeWhere(boards, { organizationId: ['org_1', 'org_2'] }),
+    ).toBeDefined()
   })
   it('returns undefined for empty scope', () => {
     expect(buildScopeWhere(boards, {})).toBeUndefined()
@@ -324,11 +361,11 @@ export async function executeList<T extends Record<string, unknown>>(
 Then where `let where = and(...)` is built, AND in `scopeWhere`:
 
 ```ts
-  let where = and(
-    ...(searchWhere ? [searchWhere] : []),
-    ...(filterWhere ? [filterWhere] : []),
-    ...(scopeWhere ? [scopeWhere] : []),
-  )
+let where = and(
+  ...(searchWhere ? [searchWhere] : []),
+  ...(filterWhere ? [filterWhere] : []),
+  ...(scopeWhere ? [scopeWhere] : []),
+)
 ```
 
 - [ ] **Step 5: Run tests**
@@ -353,10 +390,12 @@ git commit -m "feat(core): buildScopeWhere and optional scope filter in executeL
 ### Task A3: Loosen access zod schema + add `realtime` option
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts`
 - Test: `packages/bunderstack/src/config-access.test.ts`
 
 **Interfaces:**
+
 - Produces: config parsing accepts function rules + `scope` function; `BunderstackConfig.realtime?: boolean | { keepaliveMs?: number }`.
 
 - [ ] **Step 1: Write the failing test**
@@ -374,7 +413,9 @@ describe('resolveConfig with function access rules', () => {
         access: {
           boards: {
             list: () => true,
-            scope: (ctx) => ({ organizationId: ctx.session?.activeOrganizationId ?? '' }),
+            scope: (ctx) => ({
+              organizationId: ctx.session?.activeOrganizationId ?? '',
+            }),
           },
         },
         realtime: true,
@@ -430,10 +471,12 @@ git commit -m "feat(core): allow function access rules + scope; add realtime con
 ### Task A4: Enforce scope in crud (list/get/create/update/delete)
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/crud.ts`
 - Test: `packages/bunderstack/src/crud-scope.test.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveSession`, `rowMatchesScope`, `stampScope` (A1), `buildScopeWhere` (A2).
 - Produces: scoped behavior on all five operations. `CrudRouterOptions.broker?` is added here as an unused field (used in Phase B) to avoid touching this signature twice — set to `import('./realtime.ts').RealtimeBroker | undefined`.
 
@@ -470,17 +513,29 @@ function authFor(orgId: string | null) {
 
 async function makeRouter(orgId: string | null) {
   const client = createClient({ url: ':memory:' })
-  await client.execute('CREATE TABLE boards (id text primary key, organization_id text not null, title text not null)')
-  await client.execute("INSERT INTO boards VALUES ('b1','org_1','One'),('b2','org_2','Two')")
+  await client.execute(
+    'CREATE TABLE boards (id text primary key, organization_id text not null, title text not null)',
+  )
+  await client.execute(
+    "INSERT INTO boards VALUES ('b1','org_1','One'),('b2','org_2','Two')",
+  )
   const db = drizzle(client, { schema })
   const access = validateAndResolveAccess(schema, {
     boards: {
-      list: 'authenticated', get: 'authenticated', create: 'authenticated',
-      update: 'authenticated', delete: 'authenticated',
-      scope: (ctx) => ({ organizationId: ctx.session?.activeOrganizationId ?? '' }),
+      list: 'authenticated',
+      get: 'authenticated',
+      create: 'authenticated',
+      update: 'authenticated',
+      delete: 'authenticated',
+      scope: (ctx) => ({
+        organizationId: ctx.session?.activeOrganizationId ?? '',
+      }),
     },
   })
-  return buildCrudRouter(schema, db as never, { auth: authFor(orgId) as never, access })
+  return buildCrudRouter(schema, db as never, {
+    auth: authFor(orgId) as never,
+    access,
+  })
 }
 
 describe('crud scope', () => {
@@ -497,21 +552,29 @@ describe('crud scope', () => {
   })
   it('create stamps the active org, ignoring a spoofed organizationId', async () => {
     const router = await makeRouter('org_1')
-    const res = await router.fetch(new Request('http://x/boards', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: 'b3', title: 'New', organizationId: 'org_2' }),
-    }))
+    const res = await router.fetch(
+      new Request('http://x/boards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 'b3',
+          title: 'New',
+          organizationId: 'org_2',
+        }),
+      }),
+    )
     const body = await res.json()
     expect(body.organizationId).toBe('org_1')
   })
   it('update of an out-of-scope row is 404', async () => {
     const router = await makeRouter('org_1')
-    const res = await router.fetch(new Request('http://x/boards/b2', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Hacked' }),
-    }))
+    const res = await router.fetch(
+      new Request('http://x/boards/b2', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Hacked' }),
+      }),
+    )
     expect(res.status).toBe(404)
   })
 })
@@ -545,7 +608,11 @@ c. Add a helper near the top of `buildCrudRouter` body (before the `for` loop) �
 ```ts
 const scopeFor = (
   tableAccess: ResolvedTableAccess,
-  ctx: { user: AccessUser | null; session: { activeOrganizationId: string | null } | null; request: Request },
+  ctx: {
+    user: AccessUser | null
+    session: { activeOrganizationId: string | null } | null
+    request: Request
+  },
 ): ScopeMap | undefined =>
   tableAccess.scope ? tableAccess.scope({ ...ctx }) : undefined
 ```
@@ -555,7 +622,10 @@ const scopeFor = (
 d. **list handler:** replace `const user = await resolveAccessUser(auth, c.req.raw.headers)` with:
 
 ```ts
-const { user, activeOrganizationId } = await resolveSession(auth, c.req.raw.headers)
+const { user, activeOrganizationId } = await resolveSession(
+  auth,
+  c.req.raw.headers,
+)
 const session = { activeOrganizationId }
 ```
 
@@ -621,10 +691,12 @@ git commit -m "feat(core): enforce access scope on list/get/create/update/delete
 ### Task B1: In-memory realtime broker
 
 **Files:**
+
 - Create: `packages/bunderstack/src/realtime.ts`
 - Test: `packages/bunderstack/src/realtime.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ResolvedAccess`, `tableEntryForName` semantics, `checkAccess`, `rowMatchesScope`, `AccessUser` (A1).
 - Produces:
   - `type RealtimeAction = 'create' | 'update' | 'delete'`
@@ -652,13 +724,22 @@ const boards = sqliteTable('boards', {
 const schema = { boards }
 const access = validateAndResolveAccess(schema, {
   boards: {
-    list: 'authenticated', get: 'authenticated', create: 'authenticated',
-    update: 'authenticated', delete: 'authenticated',
-    scope: (ctx) => ({ organizationId: ctx.session?.activeOrganizationId ?? '' }),
+    list: 'authenticated',
+    get: 'authenticated',
+    create: 'authenticated',
+    update: 'authenticated',
+    delete: 'authenticated',
+    scope: (ctx) => ({
+      organizationId: ctx.session?.activeOrganizationId ?? '',
+    }),
   },
 })
 
-function sub(broker: ReturnType<typeof createRealtimeBroker>, org: string, topics: string[]) {
+function sub(
+  broker: ReturnType<typeof createRealtimeBroker>,
+  org: string,
+  topics: string[],
+) {
   const received: unknown[] = []
   const s = broker.register((data) => received.push(JSON.parse(data)))
   broker.setContext(s.id, {
@@ -673,32 +754,58 @@ describe('realtime broker', () => {
   it('delivers an event to a subscriber in the same org subscribed to the table', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards'])
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
-    expect(a.received).toEqual([{ action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } }])
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
+    expect(a.received).toEqual([
+      {
+        action: 'create',
+        table: 'boards',
+        record: { id: 'b1', organizationId: 'org_1', title: 'X' },
+      },
+    ])
   })
   it('does NOT deliver cross-org events (scope)', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards'])
-    broker.publish('boards', 'create', { id: 'b2', organizationId: 'org_2', title: 'Y' })
+    broker.publish('boards', 'create', {
+      id: 'b2',
+      organizationId: 'org_2',
+      title: 'Y',
+    })
     expect(a.received).toEqual([])
   })
   it('does NOT deliver to a subscriber not subscribed to the topic', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['lists'])
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
     expect(a.received).toEqual([])
   })
   it('delivers on a record-id topic', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards/b1'])
-    broker.publish('boards', 'update', { id: 'b1', organizationId: 'org_1', title: 'Z' })
+    broker.publish('boards', 'update', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'Z',
+    })
     expect(a.received.length).toBe(1)
   })
   it('stops delivering after unregister', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards'])
     broker.unregister(a.id)
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
     expect(a.received).toEqual([])
   })
 })
@@ -837,17 +944,20 @@ Note: `checkAccess` returns a `Promise` only for function rules; for the common 
 If `checkAccess` is always async in the current code, replace the per-subscriber block with:
 
 ```ts
-      void (async () => {
-        const r = await checkAccess(entry.get, ctx, entry.ownerColumn)
-        if (r.allowed && scopeOk(entry, ctx, record)) s.send(payload)
-      })()
+void (async () => {
+  const r = await checkAccess(entry.get, ctx, entry.ownerColumn)
+  if (r.allowed && scopeOk(entry, ctx, record)) s.send(payload)
+})()
 ```
 
 and keep the test deterministic by `await`ing a microtask — but to keep tests synchronous, prefer making `checkAccess` for enum rules return synchronously. **Decision for this task:** add a synchronous sibling `checkAccessSync(rule, ctx, ownerColumn)` in `access.ts` that throws if `rule` is a function, and use it in the broker (realtime only supports enum/scope rules, which is all the example needs). Add this to `access.ts`:
 
 ```ts
 export function checkAccessSync(
-  rule: Exclude<OperationRule, (ctx: AccessContext) => boolean | Promise<boolean>>,
+  rule: Exclude<
+    OperationRule,
+    (ctx: AccessContext) => boolean | Promise<boolean>
+  >,
   ctx: AccessContext,
   ownerColumn?: string,
 ): { allowed: boolean } {
@@ -867,10 +977,10 @@ export function checkAccessSync(
 Then in the broker, gate with:
 
 ```ts
-        if (typeof entry.get === 'function') continue // function get-rules unsupported on realtime v1
-        if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) continue
-        if (!scopeOk(entry, ctx, record)) continue
-        s.send(payload)
+if (typeof entry.get === 'function') continue // function get-rules unsupported on realtime v1
+if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) continue
+if (!scopeOk(entry, ctx, record)) continue
+s.send(payload)
 ```
 
 Use this synchronous form as the final implementation (delete the Promise-handling sketch above).
@@ -892,12 +1002,14 @@ git commit -m "feat(core): in-memory realtime broker with get-rule + scope autho
 ### Task B2: SSE router (`GET`/`POST /api/realtime`) + wiring
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime.ts` (add `buildRealtimeRouter`)
 - Modify: `packages/bunderstack/src/handler.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/realtime-sse.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RealtimeBroker` (B1), `resolveSession` (A1), `AuthSessionResolver`.
 - Produces: `buildRealtimeRouter(broker, { auth, keepaliveMs }): Hono`; `HandlerParts.realtimeRouter?: Hono`; broker constructed in `index.ts` when `realtime` is set and passed to crud + handler.
 
@@ -915,10 +1027,24 @@ const boards = sqliteTable('boards', {
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
 })
-const access = validateAndResolveAccess({ boards }, {
-  boards: { list: 'authenticated', get: 'authenticated', scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }) },
-})
-const auth = { api: { getSession: async () => ({ user: { id: 'u_1', email: 'a@b.c' }, session: { activeOrganizationId: 'org_1' } }) } }
+const access = validateAndResolveAccess(
+  { boards },
+  {
+    boards: {
+      list: 'authenticated',
+      get: 'authenticated',
+      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+    },
+  },
+)
+const auth = {
+  api: {
+    getSession: async () => ({
+      user: { id: 'u_1', email: 'a@b.c' },
+      session: { activeOrganizationId: 'org_1' },
+    }),
+  },
+}
 
 describe('realtime SSE router', () => {
   it('GET /realtime streams a connect event with a clientId', async () => {
@@ -941,14 +1067,20 @@ describe('realtime SSE router', () => {
     const first = new TextDecoder().decode((await reader.read()).value)
     const clientId = JSON.parse(first.replace(/^data: /, '').trim()).clientId
 
-    const sub = await router.fetch(new Request('http://x/realtime', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, subscriptions: ['boards'] }),
-    }))
+    const sub = await router.fetch(
+      new Request('http://x/realtime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, subscriptions: ['boards'] }),
+      }),
+    )
     expect(sub.status).toBe(204)
 
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
     const next = new TextDecoder().decode((await reader.read()).value)
     expect(next).toContain('"action":"create"')
     await reader.cancel()
@@ -984,7 +1116,10 @@ export function buildRealtimeRouter(
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
         handle = broker.register(send)
         send(JSON.stringify({ clientId: handle.id }))
-        keepalive = setInterval(() => controller.enqueue(encoder.encode(': ping\n\n')), keepaliveMs)
+        keepalive = setInterval(
+          () => controller.enqueue(encoder.encode(': ping\n\n')),
+          keepaliveMs,
+        )
       },
       cancel() {
         clearInterval(keepalive)
@@ -1002,9 +1137,10 @@ export function buildRealtimeRouter(
   })
 
   router.post('/realtime', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as
-      | { clientId?: string; subscriptions?: string[] }
-      | null
+    const body = (await c.req.json().catch(() => null)) as {
+      clientId?: string
+      subscriptions?: string[]
+    } | null
     if (!body?.clientId || !Array.isArray(body.subscriptions)) {
       return c.json({ error: 'clientId and subscriptions required' }, 400)
     }
@@ -1029,9 +1165,9 @@ export function buildRealtimeRouter(
 Add `realtimeRouter?: Hono` to `HandlerParts`, and after the storage mount:
 
 ```ts
-  if (parts.realtimeRouter) {
-    app.route('/api', parts.realtimeRouter)
-  }
+if (parts.realtimeRouter) {
+  app.route('/api', parts.realtimeRouter)
+}
 ```
 
 - [ ] **Step 5: Wire in `index.ts`**
@@ -1039,9 +1175,9 @@ Add `realtimeRouter?: Hono` to `HandlerParts`, and after the storage mount:
 After `resolvedAccess` is computed and before `buildCrudRouter`, construct the broker:
 
 ```ts
-  const broker = config.realtime
-    ? createRealtimeBroker({ access: resolvedAccess })
-    : undefined
+const broker = config.realtime
+  ? createRealtimeBroker({ access: resolvedAccess })
+  : undefined
 ```
 
 (Add `import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'` and read `realtime` from `options` — pass `config.realtime`. In `resolveConfig`, also surface `realtime`: add `realtime: parsed.realtime` to the returned `ResolvedConfig`, and add `realtime?: boolean | { keepaliveMs?: number }` to the `ResolvedConfig` type in `config.ts`.)
@@ -1049,16 +1185,21 @@ After `resolvedAccess` is computed and before `buildCrudRouter`, construct the b
 Pass `broker` to crud and build the realtime router:
 
 ```ts
-  const crudRouter = buildCrudRouter(options.schema, db, {
-    auth, access: resolvedAccess, idempotency: options.idempotency, broker,
-  })
-  const realtimeRouter = broker
-    ? buildRealtimeRouter(broker, {
-        auth,
-        keepaliveMs:
-          typeof config.realtime === 'object' ? config.realtime.keepaliveMs : undefined,
-      })
-    : undefined
+const crudRouter = buildCrudRouter(options.schema, db, {
+  auth,
+  access: resolvedAccess,
+  idempotency: options.idempotency,
+  broker,
+})
+const realtimeRouter = broker
+  ? buildRealtimeRouter(broker, {
+      auth,
+      keepaliveMs:
+        typeof config.realtime === 'object'
+          ? config.realtime.keepaliveMs
+          : undefined,
+    })
+  : undefined
 ```
 
 Add `realtimeRouter` to the `buildHandler({ ... })` call.
@@ -1085,10 +1226,12 @@ git commit -m "feat(core): SSE realtime router and createBunderstack wiring"
 ### Task B3: Broadcast-on-write from crud
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/crud.ts`
 - Test: `packages/bunderstack/src/crud-broadcast.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CrudRouterOptions.broker` (A4), `RealtimeBroker.publish` (B1).
 
 - [ ] **Step 1: Write the failing test**
@@ -1109,27 +1252,56 @@ const boards = sqliteTable('boards', {
   title: text('title').notNull(),
 })
 const schema = { boards }
-const auth = { api: { getSession: async () => ({ user: { id: 'u_1', email: 'a@b.c' }, session: { activeOrganizationId: 'org_1' } }) } }
+const auth = {
+  api: {
+    getSession: async () => ({
+      user: { id: 'u_1', email: 'a@b.c' },
+      session: { activeOrganizationId: 'org_1' },
+    }),
+  },
+}
 
 it('publishes a create event after insert', async () => {
   const client = createClient({ url: ':memory:' })
-  await client.execute('CREATE TABLE boards (id text primary key, organization_id text not null, title text not null)')
+  await client.execute(
+    'CREATE TABLE boards (id text primary key, organization_id text not null, title text not null)',
+  )
   const db = drizzle(client, { schema })
   const access = validateAndResolveAccess(schema, {
-    boards: { create: 'authenticated', list: 'authenticated', get: 'authenticated', scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }) },
+    boards: {
+      create: 'authenticated',
+      list: 'authenticated',
+      get: 'authenticated',
+      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+    },
   })
   const broker = createRealtimeBroker({ access })
   const received: unknown[] = []
   const s = broker.register((d) => received.push(JSON.parse(d)))
-  broker.setContext(s.id, { user: { id: 'u_1', email: 'a@b.c' }, activeOrganizationId: 'org_1', subscriptions: new Set(['boards']) })
+  broker.setContext(s.id, {
+    user: { id: 'u_1', email: 'a@b.c' },
+    activeOrganizationId: 'org_1',
+    subscriptions: new Set(['boards']),
+  })
 
-  const router = buildCrudRouter(schema, db as never, { auth: auth as never, access, broker })
-  await router.fetch(new Request('http://x/boards', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: 'b1', title: 'X' }),
-  }))
+  const router = buildCrudRouter(schema, db as never, {
+    auth: auth as never,
+    access,
+    broker,
+  })
+  await router.fetch(
+    new Request('http://x/boards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'b1', title: 'X' }),
+    }),
+  )
 
-  expect(received).toContainEqual({ action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } })
+  expect(received).toContainEqual({
+    action: 'create',
+    table: 'boards',
+    record: { id: 'b1', organizationId: 'org_1', title: 'X' },
+  })
 })
 ```
 
@@ -1170,11 +1342,13 @@ git commit -m "feat(core): broadcast create/update/delete events from crud"
 ### Task C1: `createRealtimeClient`
 
 **Files:**
+
 - Create: `packages/bunderstack-query/src/realtime-client.ts`
 - Modify: `packages/bunderstack-query/src/index.ts`
 - Test: `packages/bunderstack-query/src/realtime-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createTableClient(...).keys` (existing) for query-key factories; `@tanstack/query-core` `QueryClient`.
 - Produces:
   - `createRealtimeClient(opts: { baseUrl: string; queryClient: QueryClient; tables: string[]; fetch?: typeof fetch; EventSourceImpl?: typeof EventSource }): { close(): void; subscribe(topics: string[]): Promise<void> }`
@@ -1193,25 +1367,41 @@ class FakeES {
   onmessage: ((e: { data: string }) => void) | null = null
   onerror: (() => void) | null = null
   url: string
-  constructor(url: string) { this.url = url; FakeES.last = this }
-  emit(data: unknown) { this.onmessage?.({ data: JSON.stringify(data) }) }
+  constructor(url: string) {
+    this.url = url
+    FakeES.last = this
+  }
+  emit(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) })
+  }
   close() {}
 }
 
 describe('createRealtimeClient', () => {
   it('on a create event, sets the detail cache and invalidates the list', async () => {
     const qc = new QueryClient()
-    const fetchMock = (async () => new Response(null, { status: 204 })) as unknown as typeof fetch
+    const fetchMock = (async () =>
+      new Response(null, { status: 204 })) as unknown as typeof fetch
     const rt = createRealtimeClient({
-      baseUrl: 'http://x/api', queryClient: qc, tables: ['cards'],
-      fetch: fetchMock, EventSourceImpl: FakeES as unknown as typeof EventSource,
+      baseUrl: 'http://x/api',
+      queryClient: qc,
+      tables: ['cards'],
+      fetch: fetchMock,
+      EventSourceImpl: FakeES as unknown as typeof EventSource,
     })
     // connect event
     FakeES.last.emit({ clientId: 'c1' })
     await rt.subscribe(['cards'])
-    FakeES.last.emit({ action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } })
+    FakeES.last.emit({
+      action: 'create',
+      table: 'cards',
+      record: { id: 'card_1', title: 'A' },
+    })
 
-    expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toEqual({ id: 'card_1', title: 'A' })
+    expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toEqual({
+      id: 'card_1',
+      title: 'A',
+    })
     rt.close()
   })
 })
@@ -1337,10 +1527,12 @@ git commit -m "feat(query): framework-agnostic realtime client wiring SSE into t
 ### Task D1: Scaffold — schema, access, server, config, seed
 
 **Files (create):**
+
 - `examples/kanban/package.json`, `tsconfig.json`, `vite.config.ts`, `drizzle.config.ts`, `index.html`, `.env.example`
 - `examples/kanban/src/schema.ts`, `src/access.ts`, `src/server.ts`, `scripts/seed.ts`
 
 **Interfaces:**
+
 - Produces: a working API on port 3004 with auto-CRUD + realtime for `boards/lists/cards/comments/activity`, scoped by org; BetterAuth with the `organization` plugin.
 
 - [ ] **Step 1: `package.json`**
@@ -1388,7 +1580,9 @@ export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  emailVerified: integer('email_verified', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -1401,19 +1595,27 @@ export const session = sqliteTable('session', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   activeOrganizationId: text('active_organization_id'),
 })
 export const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
-  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
-  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  accessTokenExpiresAt: integer('access_token_expires_at', {
+    mode: 'timestamp',
+  }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', {
+    mode: 'timestamp',
+  }),
   scope: text('scope'),
   password: text('password'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
@@ -1439,19 +1641,27 @@ export const organization = sqliteTable('organization', {
 })
 export const member = sqliteTable('member', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   role: text('role').notNull().default('member'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 export const invitation = sqliteTable('invitation', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id')
+    .notNull()
+    .references(() => organization.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   role: text('role'),
   status: text('status').notNull().default('pending'),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  inviterId: text('inviter_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  inviterId: text('inviter_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 // --- App tables (typeid + denormalized organizationId) ---
@@ -1459,7 +1669,9 @@ export const boards = sqliteTable('boards', {
   id: typeid('board').primaryKey(),
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const lists = sqliteTable('lists', {
   id: typeid('list').primaryKey(),
@@ -1467,7 +1679,9 @@ export const lists = sqliteTable('lists', {
   boardId: text('board_id').notNull(),
   title: text('title').notNull(),
   position: real('position').notNull().default(1000),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const cards = sqliteTable('cards', {
   id: typeid('card').primaryKey(),
@@ -1477,7 +1691,9 @@ export const cards = sqliteTable('cards', {
   description: text('description'),
   assigneeId: text('assignee_id'),
   position: real('position').notNull().default(1000),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const comments = sqliteTable('comments', {
   id: typeid('cmt').primaryKey(),
@@ -1485,7 +1701,9 @@ export const comments = sqliteTable('comments', {
   cardId: text('card_id').notNull(),
   authorId: text('author_id'),
   body: text('body').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 export const activity = sqliteTable('activity', {
   id: typeid('act').primaryKey(),
@@ -1495,7 +1713,9 @@ export const activity = sqliteTable('activity', {
   actorId: text('actor_id'),
   type: text('type').notNull(),
   data: text('data', { mode: 'json' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(
+    () => new Date(),
+  ),
 })
 ```
 
@@ -1511,20 +1731,57 @@ const orgScope = (ctx: AccessContext) => ({
 })
 
 const orgTable = {
-  list: 'authenticated', get: 'authenticated', create: 'authenticated',
-  update: 'authenticated', delete: 'authenticated', scope: orgScope,
+  list: 'authenticated',
+  get: 'authenticated',
+  create: 'authenticated',
+  update: 'authenticated',
+  delete: 'authenticated',
+  scope: orgScope,
 } as const
 
 export const access = defineAccess(schema, {
-  boards: { ...orgTable, sortableColumns: ['createdAt', 'id'], defaultSort: { column: 'createdAt', order: 'desc' } },
-  lists: { ...orgTable, filterableColumns: ['boardId'], sortableColumns: ['position', 'id'], defaultSort: { column: 'position', order: 'asc' } },
-  cards: { ...orgTable, filterableColumns: ['listId', 'boardId'], sortableColumns: ['position', 'id'], defaultSort: { column: 'position', order: 'asc' } },
-  comments: { ...orgTable, ownerColumn: 'authorId', filterableColumns: ['cardId'], sortableColumns: ['createdAt', 'id'], defaultSort: { column: 'createdAt', order: 'asc' } },
-  activity: { ...orgTable, create: 'authenticated', update: 'deny', delete: 'deny', ownerColumn: 'actorId', filterableColumns: ['boardId', 'cardId'], sortableColumns: ['createdAt', 'id'], defaultSort: { column: 'createdAt', order: 'desc' } },
+  boards: {
+    ...orgTable,
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  },
+  lists: {
+    ...orgTable,
+    filterableColumns: ['boardId'],
+    sortableColumns: ['position', 'id'],
+    defaultSort: { column: 'position', order: 'asc' },
+  },
+  cards: {
+    ...orgTable,
+    filterableColumns: ['listId', 'boardId'],
+    sortableColumns: ['position', 'id'],
+    defaultSort: { column: 'position', order: 'asc' },
+  },
+  comments: {
+    ...orgTable,
+    ownerColumn: 'authorId',
+    filterableColumns: ['cardId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'asc' },
+  },
+  activity: {
+    ...orgTable,
+    create: 'authenticated',
+    update: 'deny',
+    delete: 'deny',
+    ownerColumn: 'actorId',
+    filterableColumns: ['boardId', 'cardId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  },
   // org-plugin + auth tables: managed by BetterAuth, not auto-CRUD
   user: { exposeAuthTable: true, list: 'authenticated', get: 'authenticated' },
-  session: { crud: false }, account: { crud: false }, verification: { crud: false },
-  organization: { crud: false }, member: { crud: false }, invitation: { crud: false },
+  session: { crud: false },
+  account: { crud: false },
+  verification: { crud: false },
+  organization: { crud: false },
+  member: { crud: false },
+  invitation: { crud: false },
 })
 ```
 
@@ -1587,8 +1844,8 @@ export default defineConfig({
     "strict": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+  },
 }
 ```
 
@@ -1610,7 +1867,10 @@ export default defineConfig({
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bunderstack Kanban</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@knadh/oat/oat.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@knadh/oat/oat.min.css"
+    />
   </head>
   <body>
     <div id="root"></div>
@@ -1640,7 +1900,9 @@ const users = [
 
 const created: { id: string }[] = []
 for (const u of users) {
-  const res = await auth.api.signUpEmail({ body: { ...u, password: 'password123' } })
+  const res = await auth.api.signUpEmail({
+    body: { ...u, password: 'password123' },
+  })
   created.push({ id: res.user.id })
 }
 
@@ -1653,20 +1915,42 @@ const org = await auth.api.createOrganization({
 // internal adapter directly instead: insert organization + member rows via `db`.
 
 const orgId = crypto.randomUUID()
-await db.insert(schema.organization).values({ id: orgId, name: 'Acme', slug: 'acme', createdAt: new Date() })
+await db
+  .insert(schema.organization)
+  .values({ id: orgId, name: 'Acme', slug: 'acme', createdAt: new Date() })
 for (const u of created) {
   await db.insert(schema.member).values({
-    id: crypto.randomUUID(), organizationId: orgId, userId: u.id,
-    role: u === created[0] ? 'owner' : 'member', createdAt: new Date(),
+    id: crypto.randomUUID(),
+    organizationId: orgId,
+    userId: u.id,
+    role: u === created[0] ? 'owner' : 'member',
+    createdAt: new Date(),
   })
 }
 
-const boardId = (await db.insert(schema.boards).values({ organizationId: orgId, title: 'Roadmap' }).returning())[0].id
+const boardId = (
+  await db
+    .insert(schema.boards)
+    .values({ organizationId: orgId, title: 'Roadmap' })
+    .returning()
+)[0].id
 const listDefs = ['Backlog', 'In Progress', 'Done']
 let pos = 1000
 for (const title of listDefs) {
-  const listId = (await db.insert(schema.lists).values({ organizationId: orgId, boardId, title, position: pos }).returning())[0].id
-  await db.insert(schema.cards).values({ organizationId: orgId, listId, title: `Sample card in ${title}`, position: 1000 })
+  const listId = (
+    await db
+      .insert(schema.lists)
+      .values({ organizationId: orgId, boardId, title, position: pos })
+      .returning()
+  )[0].id
+  await db
+    .insert(schema.cards)
+    .values({
+      organizationId: orgId,
+      listId,
+      title: `Sample card in ${title}`,
+      position: 1000,
+    })
   pos += 1000
 }
 console.log('Seeded org', orgId, 'board', boardId)
@@ -1684,6 +1968,7 @@ bun run dev:api   # starts on :3004
 bun run seed
 curl -s http://localhost:3004/api/health   # -> {"status":"ok"}
 ```
+
 Expected: health OK; seed prints an org + board id. (Unauthenticated `GET /api/boards` returns 401 — scope requires a session; that's correct.)
 
 - [ ] **Step 8: Commit**
@@ -1698,10 +1983,12 @@ git commit -m "feat(example): kanban scaffold — schema, org-scoped access, rea
 ### Task D2: Auth + query + realtime client wiring (web)
 
 **Files (create):**
+
 - `examples/kanban/src/lib/auth-client.ts`, `src/lib/query.ts`, `src/lib/oat.ts`
 - `examples/kanban/src/index.tsx`, `src/app.tsx`, `src/routes/Login.tsx`
 
 **Interfaces:**
+
 - Produces: `authClient` (with org plugin), a configured solid `QueryClient` + `api` table clients + a connected `realtime` client, an app shell with routing + auth guard.
 
 - [ ] **Step 1: `lib/auth-client.ts`**
@@ -1736,7 +2023,9 @@ export const tableClients = Object.fromEntries(
 ) as Record<TableName, ReturnType<typeof createTableClient>>
 
 export const realtime = createRealtimeClient({
-  baseUrl, queryClient, tables: [...tables],
+  baseUrl,
+  queryClient,
+  tables: [...tables],
 })
 ```
 
@@ -1747,9 +2036,15 @@ export const realtime = createRealtimeClient({
 export function loadOat() {
   void import('@knadh/oat/oat.min.js')
 }
-export function toast(message: string, variant: 'success' | 'danger' | '' = '') {
-  ;(window as unknown as { ot?: { toast: (m: string, t?: string, o?: object) => void } })
-    .ot?.toast(message, undefined, { variant })
+export function toast(
+  message: string,
+  variant: 'success' | 'danger' | '' = '',
+) {
+  ;(
+    window as unknown as {
+      ot?: { toast: (m: string, t?: string, o?: object) => void }
+    }
+  ).ot?.toast(message, undefined, { variant })
 }
 ```
 
@@ -1771,9 +2066,14 @@ export function Login() {
 
   async function submit(e: Event) {
     e.preventDefault()
-    const fn = mode() === 'in'
-      ? authClient.signIn.email({ email: email(), password: password() })
-      : authClient.signUp.email({ email: email(), password: password(), name: name() })
+    const fn =
+      mode() === 'in'
+        ? authClient.signIn.email({ email: email(), password: password() })
+        : authClient.signUp.email({
+            email: email(),
+            password: password(),
+            name: name(),
+          })
     const { error } = await fn
     if (error) toast(error.message ?? 'Auth failed', 'danger')
     else window.location.href = '/'
@@ -1784,13 +2084,29 @@ export function Login() {
       <h1>Kanban</h1>
       <form onSubmit={submit}>
         {mode() === 'up' && (
-          <input placeholder="Name" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
+          <input
+            placeholder="Name"
+            value={name()}
+            onInput={(e) => setName(e.currentTarget.value)}
+          />
         )}
-        <input placeholder="Email" value={email()} onInput={(e) => setEmail(e.currentTarget.value)} />
-        <input type="password" placeholder="Password" value={password()} onInput={(e) => setPassword(e.currentTarget.value)} />
+        <input
+          placeholder="Email"
+          value={email()}
+          onInput={(e) => setEmail(e.currentTarget.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password()}
+          onInput={(e) => setPassword(e.currentTarget.value)}
+        />
         <button type="submit">{mode() === 'in' ? 'Sign in' : 'Sign up'}</button>
       </form>
-      <button class="ot-btn-link" onClick={() => setMode(mode() === 'in' ? 'up' : 'in')}>
+      <button
+        class="ot-btn-link"
+        onClick={() => setMode(mode() === 'in' ? 'up' : 'in')}
+      >
         {mode() === 'in' ? 'Need an account?' : 'Have an account?'}
       </button>
     </main>
@@ -1827,8 +2143,22 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Route path="/login" component={Login} />
-        <Route path="/" component={() => <Protected><Boards /></Protected>} />
-        <Route path="/boards/:id" component={() => <Protected><Board /></Protected>} />
+        <Route
+          path="/"
+          component={() => (
+            <Protected>
+              <Boards />
+            </Protected>
+          )}
+        />
+        <Route
+          path="/boards/:id"
+          component={() => (
+            <Protected>
+              <Board />
+            </Protected>
+          )}
+        />
       </Router>
     </QueryClientProvider>
   )
@@ -1854,6 +2184,7 @@ render(() => <App />, document.getElementById('root')!)
 # terminal 2: cd examples/kanban && bun run dev:web
 # browse http://localhost:5174/login, sign in as alice@example.com / password123
 ```
+
 Expected: redirect to `/` (Boards route — will render once D3 lands; for now an empty/placeholder is fine if Boards is stubbed). Network tab shows `/api/auth/*` 200s.
 
 - [ ] **Step 7: Commit**
@@ -1870,6 +2201,7 @@ git commit -m "feat(example): web auth, solid-query + realtime client, app shell
 **Files (create):** `examples/kanban/src/routes/Boards.tsx`
 
 **Interfaces:**
+
 - Consumes: `tableClients.boards`, `authClient` org APIs, `realtime`.
 - Produces: list of boards in the active org with create; sets active org on mount.
 
@@ -1893,7 +2225,8 @@ export function Boards() {
     // Pick the user's first org as active, then subscribe to board changes.
     const orgs = await authClient.organization.list()
     const first = orgs.data?.[0]
-    if (first) await authClient.organization.setActive({ organizationId: first.id })
+    if (first)
+      await authClient.organization.setActive({ organizationId: first.id })
     await realtime.subscribe(['boards'])
     qc.invalidateQueries({ queryKey: boardsClient.keys.lists() })
   })
@@ -1905,22 +2238,47 @@ export function Boards() {
 
   const create = useMutation(() => ({
     mutationFn: () => boardsClient.create({ title: title() }),
-    onSuccess: () => { setTitle(''); qc.invalidateQueries({ queryKey: boardsClient.keys.lists() }) },
+    onSuccess: () => {
+      setTitle('')
+      qc.invalidateQueries({ queryKey: boardsClient.keys.lists() })
+    },
   }))
 
   return (
     <main class="ot-container" style="max-width: 40rem; margin: 2rem auto">
       <header style="display:flex; justify-content:space-between; align-items:center">
         <h1>Boards</h1>
-        <button onClick={() => authClient.signOut().then(() => (window.location.href = '/login'))}>Sign out</button>
+        <button
+          onClick={() =>
+            authClient.signOut().then(() => (window.location.href = '/login'))
+          }
+        >
+          Sign out
+        </button>
       </header>
-      <form onSubmit={(e) => { e.preventDefault(); create.mutate() }} style="display:flex; gap:.5rem">
-        <input placeholder="New board title" value={title()} onInput={(e) => setTitle(e.currentTarget.value)} />
-        <button type="submit" disabled={!title()}>Create</button>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          create.mutate()
+        }}
+        style="display:flex; gap:.5rem"
+      >
+        <input
+          placeholder="New board title"
+          value={title()}
+          onInput={(e) => setTitle(e.currentTarget.value)}
+        />
+        <button type="submit" disabled={!title()}>
+          Create
+        </button>
       </form>
       <ul>
         <For each={boards.data?.items ?? []}>
-          {(b) => <li><A href={`/boards/${b.id}`}>{b.title}</A></li>}
+          {(b) => (
+            <li>
+              <A href={`/boards/${b.id}`}>{b.title}</A>
+            </li>
+          )}
         </For>
       </ul>
     </main>
@@ -1948,6 +2306,7 @@ git commit -m "feat(example): boards list, create, active-org selection, realtim
 **Files (create):** `examples/kanban/src/routes/Board.tsx`, `src/components/ListColumn.tsx`, `src/components/CardItem.tsx`
 
 **Interfaces:**
+
 - Consumes: `tableClients.{lists,cards,activity}`, `realtime`, `@thisbeyond/solid-dnd`.
 - Produces: a board page that subscribes to `lists`, `cards`, `comments`, `activity`; renders columns + cards; drag a card across/within lists → PATCH `listId` + `position` (midpoint) + write an `activity` row.
 
@@ -1958,7 +2317,11 @@ git commit -m "feat(example): boards list, create, active-org selection, realtim
 import { onMount, For, createMemo } from 'solid-js'
 import { useParams } from '@solidjs/router'
 import { useQuery, useQueryClient } from '@tanstack/solid-query'
-import { DragDropProvider, DragDropSensors, closestCenter } from '@thisbeyond/solid-dnd'
+import {
+  DragDropProvider,
+  DragDropSensors,
+  closestCenter,
+} from '@thisbeyond/solid-dnd'
 import { tableClients, realtime } from '../lib/query'
 import { ListColumn } from '../components/ListColumn'
 
@@ -1986,7 +2349,8 @@ export function Board() {
     const map = new Map<string, any[]>()
     for (const c of cards.data?.items ?? []) {
       const arr = map.get(c.listId) ?? []
-      arr.push(c); map.set(c.listId, arr)
+      arr.push(c)
+      map.set(c.listId, arr)
     }
     for (const arr of map.values()) arr.sort((a, b) => a.position - b.position)
     return map
@@ -1996,10 +2360,17 @@ export function Board() {
     if (!draggable || !droppable) return
     const cardId = String(draggable.id)
     const targetListId = String(droppable.id)
-    const siblings = (cardsByList().get(targetListId) ?? []).filter((c) => c.id !== cardId)
+    const siblings = (cardsByList().get(targetListId) ?? []).filter(
+      (c) => c.id !== cardId,
+    )
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000 // append to end (simple, minimal)
     await cardsC.update(cardId, { listId: targetListId, position: newPos })
-    await activityC.create({ boardId: boardId(), cardId, type: 'moved', data: { listId: targetListId } })
+    await activityC.create({
+      boardId: boardId(),
+      cardId,
+      type: 'moved',
+      data: { listId: targetListId },
+    })
     qc.invalidateQueries({ queryKey: cardsC.keys.list({ boardId: boardId() }) })
   }
 
@@ -2036,7 +2407,11 @@ import { useQueryClient } from '@tanstack/solid-query'
 import { tableClients } from '../lib/query'
 import { CardItem } from './CardItem'
 
-export function ListColumn(props: { list: any; cards: any[]; boardId: string }) {
+export function ListColumn(props: {
+  list: any
+  cards: any[]
+  boardId: string
+}) {
   const droppable = createDroppable(props.list.id)
   const qc = useQueryClient()
   const [title, setTitle] = createSignal('')
@@ -2045,19 +2420,34 @@ export function ListColumn(props: { list: any; cards: any[]; boardId: string }) 
   async function addCard(e: Event) {
     e.preventDefault()
     const pos = (props.cards.at(-1)?.position ?? 0) + 1000
-    await cardsC.create({ listId: props.list.id, boardId: props.boardId, title: title(), position: pos })
+    await cardsC.create({
+      listId: props.list.id,
+      boardId: props.boardId,
+      title: title(),
+      position: pos,
+    })
     setTitle('')
-    qc.invalidateQueries({ queryKey: cardsC.keys.list({ boardId: props.boardId }) })
+    qc.invalidateQueries({
+      queryKey: cardsC.keys.list({ boardId: props.boardId }),
+    })
   }
 
   return (
-    <div use:droppable class="ot-card" style="min-width:16rem; padding:.75rem; background:#f4f4f5">
+    <div
+      use:droppable
+      class="ot-card"
+      style="min-width:16rem; padding:.75rem; background:#f4f4f5"
+    >
       <strong>{props.list.title}</strong>
       <div style="display:flex; flex-direction:column; gap:.5rem; margin:.5rem 0">
         <For each={props.cards}>{(card) => <CardItem card={card} />}</For>
       </div>
       <form onSubmit={addCard}>
-        <input placeholder="+ Add card" value={title()} onInput={(e) => setTitle(e.currentTarget.value)} />
+        <input
+          placeholder="+ Add card"
+          value={title()}
+          onInput={(e) => setTitle(e.currentTarget.value)}
+        />
       </form>
     </div>
   )
@@ -2074,8 +2464,12 @@ import { openCard } from './CardDialog'
 export function CardItem(props: { card: any }) {
   const draggable = createDraggable(props.card.id)
   return (
-    <div use:draggable class="ot-card" style="padding:.5rem; cursor:grab; background:white"
-      onClick={() => openCard(props.card.id)}>
+    <div
+      use:draggable
+      class="ot-card"
+      style="padding:.5rem; cursor:grab; background:white"
+      onClick={() => openCard(props.card.id)}
+    >
       {props.card.title}
     </div>
   )
@@ -2102,6 +2496,7 @@ git commit -m "feat(example): board view with lists, cards, drag-and-drop, realt
 **Files (create):** `examples/kanban/src/components/CardDialog.tsx`
 
 **Interfaces:**
+
 - Consumes: `tableClients.{cards,comments,activity,...}`, `authClient` (members for assignee), `marked`.
 - Produces: a modal showing one card: editable markdown description (textarea + rendered preview), assignee picker over org members, comment thread, activity feed. `openCard(id)` opens it.
 
@@ -2116,14 +2511,18 @@ import { tableClients } from '../lib/query'
 import { authClient } from '../lib/auth-client'
 
 const [cardId, setCardId] = createSignal<string | null>(null)
-export function openCard(id: string) { setCardId(id) }
+export function openCard(id: string) {
+  setCardId(id)
+}
 
 const { cards: cardsC, comments: commentsC, activity: activityC } = tableClients
 
 export function CardDialog() {
   const qc = useQueryClient()
   const [card] = createResource(cardId, (id) => cardsC.get(id))
-  const [members] = createResource(async () => (await authClient.organization.listMembers?.())?.data ?? [])
+  const [members] = createResource(
+    async () => (await authClient.organization.listMembers?.())?.data ?? [],
+  )
   const [commentBody, setCommentBody] = createSignal('')
   const [desc, setDesc] = createSignal('')
 
@@ -2141,8 +2540,13 @@ export function CardDialog() {
   async function addComment(e: Event) {
     e.preventDefault()
     await commentsC.create({ cardId: cardId()!, body: commentBody() })
-    await activityC.create({ boardId: card()?.boardId, cardId: cardId()!, type: 'commented' })
-    setCommentBody(''); refetch()
+    await activityC.create({
+      boardId: card()?.boardId,
+      cardId: cardId()!,
+      type: 'commented',
+    })
+    setCommentBody('')
+    refetch()
   }
 
   return (
@@ -2155,20 +2559,39 @@ export function CardDialog() {
           </header>
 
           <label>Assignee</label>
-          <select value={card()!.assigneeId ?? ''} onChange={(e) => assign(e.currentTarget.value)}>
+          <select
+            value={card()!.assigneeId ?? ''}
+            onChange={(e) => assign(e.currentTarget.value)}
+          >
             <option value="">Unassigned</option>
-            <For each={members() ?? []}>{(m: any) => <option value={m.userId}>{m.user?.name ?? m.userId}</option>}</For>
+            <For each={members() ?? []}>
+              {(m: any) => (
+                <option value={m.userId}>{m.user?.name ?? m.userId}</option>
+              )}
+            </For>
           </select>
 
           <label>Description (markdown)</label>
-          <textarea rows="5" onInput={(e) => setDesc(e.currentTarget.value)}>{card()!.description ?? ''}</textarea>
+          <textarea rows="5" onInput={(e) => setDesc(e.currentTarget.value)}>
+            {card()!.description ?? ''}
+          </textarea>
           <button onClick={saveDesc}>Save</button>
           <div innerHTML={marked.parse(card()!.description ?? '') as string} />
 
           <h3>Comments</h3>
-          <For each={commentList()?.items ?? []}>{(c: any) => <p><strong>{c.authorId}</strong>: {c.body}</p>}</For>
+          <For each={commentList()?.items ?? []}>
+            {(c: any) => (
+              <p>
+                <strong>{c.authorId}</strong>: {c.body}
+              </p>
+            )}
+          </For>
           <form onSubmit={addComment}>
-            <input placeholder="Add a comment" value={commentBody()} onInput={(e) => setCommentBody(e.currentTarget.value)} />
+            <input
+              placeholder="Add a comment"
+              value={commentBody()}
+              onInput={(e) => setCommentBody(e.currentTarget.value)}
+            />
           </form>
         </Show>
       </dialog>
@@ -2197,6 +2620,7 @@ git commit -m "feat(example): card dialog — markdown description, assignee, co
 ### Task D6: Docs
 
 **Files:**
+
 - Create: `examples/kanban/README.md`
 - Modify: `examples/README.md`
 
@@ -2220,15 +2644,17 @@ git commit -m "docs(example): kanban README and examples index entry"
 ## Self-Review
 
 **Spec coverage:**
+
 - Part 1 (access scope) → Tasks A1–A4. ✓ (equality map, in-memory + SQL, session.activeOrganizationId, create-stamping).
 - Part 2 (realtime SSE, broker, broadcast-on-write, per-event get-rule + scope auth, clientId/POST handshake, in-memory, no replay) → Tasks B1–B3. ✓
 - Part 3 (bunderstack-query realtime client) → Task C1. ✓
 - Part 4 (kanban: data model w/ typeid + denormalized orgId, org-scope access, drag-drop fractional-ish ordering, markdown desc, comments, activity, Vite+proxy topology, seed, routes) → Tasks D1–D6. ✓
 - BetterAuth org plugin for orgs/members/invitations → D1 (server plugin), D2 (client plugin), D3/D5 (org APIs). ✓ (Invitation **UI** intentionally deferred — README notes it; org plugin endpoints exist.)
 
-**Placeholder scan:** No "TBD"/"add error handling" left. Two spots flagged as *verify-against-docs* (Solid 2 beta exports; exact `@thisbeyond/solid-dnd` event prop + `authClient.organization` member method) are explicit verification steps with concrete fallback code, not placeholders. The seed's `createOrganization` illustration is explicitly replaced by the direct-insert path.
+**Placeholder scan:** No "TBD"/"add error handling" left. Two spots flagged as _verify-against-docs_ (Solid 2 beta exports; exact `@thisbeyond/solid-dnd` event prop + `authClient.organization` member method) are explicit verification steps with concrete fallback code, not placeholders. The seed's `createOrganization` illustration is explicitly replaced by the direct-insert path.
 
 **Type consistency:**
+
 - Event payload `{ action, table, record }` consistent across B1 (broker), B2 (SSE test), B3 (broadcast), C1 (client). ✓
 - `resolveSession` return `{ user, activeOrganizationId }` consistent A1 → A4 → B2. ✓
 - `AccessContext.session.activeOrganizationId` consistent A1 → access.ts scope resolvers → broker. ✓

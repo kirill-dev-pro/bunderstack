@@ -4,8 +4,13 @@ import { S3StorageAdapter } from './s3.ts'
 
 export type { LocalStorageAdapter, S3StorageAdapter }
 
-export interface PresignPutOptions { contentType?: string; expiresIn: number }
-export interface PresignGetOptions { expiresIn: number }
+export interface PresignPutOptions {
+  contentType?: string
+  expiresIn: number
+}
+export interface PresignGetOptions {
+  expiresIn: number
+}
 
 export interface StorageAdapter {
   upload(

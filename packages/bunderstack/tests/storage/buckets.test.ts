@@ -136,15 +136,26 @@ describe('resolveBuckets — shared s3 backend via env', () => {
   })
 
   test('s3 object with endpoint overrides env endpoint', () => {
-    const result = resolveBuckets({ s3: { endpoint: 'https://custom.io' } }, fakeEnv)
+    const result = resolveBuckets(
+      { s3: { endpoint: 'https://custom.io' } },
+      fakeEnv,
+    )
     const bucket = result.buckets.get('default')!
-    expect((bucket.backend as { endpoint?: string }).endpoint).toBe('https://custom.io')
+    expect((bucket.backend as { endpoint?: string }).endpoint).toBe(
+      'https://custom.io',
+    )
   })
 
   test('missing env vars → empty strings for credentials', () => {
     const result = resolveBuckets({ s3: true }, {})
     const bucket = result.buckets.get('default')!
-    const b = bucket.backend as { type: 's3'; bucket: string; region: string; accessKeyId: string; secretAccessKey: string }
+    const b = bucket.backend as {
+      type: 's3'
+      bucket: string
+      region: string
+      accessKeyId: string
+      secretAccessKey: string
+    }
     expect(b.bucket).toBe('')
     expect(b.region).toBe('us-east-1')
     expect(b.accessKeyId).toBe('')
@@ -299,7 +310,10 @@ describe('resolveBuckets — physical-bucket escape hatch', () => {
       },
       {},
     )
-    expect(result.buckets.get('media')!.backend).toEqual({ type: 'local', path: '/var/media' })
+    expect(result.buckets.get('media')!.backend).toEqual({
+      type: 'local',
+      path: '/var/media',
+    })
   })
 })
 

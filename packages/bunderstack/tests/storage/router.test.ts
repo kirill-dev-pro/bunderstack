@@ -8,17 +8,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
-import { createDb } from '../../src/db'
-import { INTERNAL_TABLES } from '../../src/internal-tables'
-import { LocalStorageAdapter } from '../../src/storage/local'
-import { buildBucketStorageRouter } from '../../src/storage/router'
+import type { AuthSessionResolver, ScopeMap } from '../../src/access'
+import type { ResolvedBucket } from '../../src/storage/buckets'
+import type { StorageAdapter } from '../../src/storage/index'
 import type {
   BucketStorage,
   BucketStorageRegistry,
 } from '../../src/storage/registry'
-import type { ResolvedBucket } from '../../src/storage/buckets'
-import type { StorageAdapter } from '../../src/storage/index'
-import type { AuthSessionResolver, ScopeMap } from '../../src/access'
+
+import { createDb } from '../../src/db'
+import { INTERNAL_TABLES } from '../../src/internal-tables'
+import { LocalStorageAdapter } from '../../src/storage/local'
+import { buildBucketStorageRouter } from '../../src/storage/router'
 
 // ─── PNG fixture (mirrors thumbnails.test.ts) ───────────────────────────────
 
@@ -207,7 +208,9 @@ beforeEach(async () => {
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 test('unknown bucket → 404', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const res = await app.request('/api/files/nope/x', {
     headers: { 'x-test-user': 'u1' },
@@ -216,10 +219,15 @@ test('unknown bucket → 404', async () => {
 })
 
 test('proxy upload happy path → 201, row ready, size stored', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File(['hello world'], 'a.txt', { type: 'text/plain' }))
+  form.append(
+    'file',
+    new File(['hello world'], 'a.txt', { type: 'text/plain' }),
+  )
   const res = await app.request('/api/files/files', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
@@ -236,7 +244,9 @@ test('proxy upload happy path → 201, row ready, size stored', async () => {
 })
 
 test('proxy upload missing file → 400', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
   form.append('notfile', 'x')
@@ -254,7 +264,10 @@ test('proxy upload oversize → 422', async () => {
   ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File(['way too long'], 'a.txt', { type: 'text/plain' }))
+  form.append(
+    'file',
+    new File(['way too long'], 'a.txt', { type: 'text/plain' }),
+  )
   const res = await app.request('/api/files/files', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
@@ -279,7 +292,10 @@ test('proxy upload disallowed mime → 422; image/* wildcard accepted', async ()
   expect(r1.status).toBe(422)
 
   const good = new FormData()
-  good.append('file', new File([makeTestImage()], 'a.png', { type: 'image/png' }))
+  good.append(
+    'file',
+    new File([makeTestImage()], 'a.png', { type: 'image/png' }),
+  )
   const r2 = await app.request('/api/files/files', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
@@ -289,17 +305,27 @@ test('proxy upload disallowed mime → 422; image/* wildcard accepted', async ()
 })
 
 test('create denied for anon when create:authenticated → 401', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
   form.append('file', new File(['x'], 'a.txt', { type: 'text/plain' }))
-  const res = await app.request('/api/files/files', { method: 'POST', body: form })
+  const res = await app.request('/api/files/files', {
+    method: 'POST',
+    body: form,
+  })
   expect(res.status).toBe(401)
 })
 
 test('get on owner-private file by non-owner → 403; owner allowed', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['files', localBucket('files', local, { access: { create: 'authenticated', get: 'owner', delete: 'owner' } })],
+    [
+      'files',
+      localBucket('files', local, {
+        access: { create: 'authenticated', get: 'owner', delete: 'owner' },
+      }),
+    ],
   ])
   await makeApp(reg)
   const form = new FormData()
@@ -311,7 +337,9 @@ test('get on owner-private file by non-owner → 403; owner allowed', async () =
   })
   const { url } = (await up.json()) as { url: string }
 
-  const other = await app.request(url, { headers: { 'x-test-user': 'intruder' } })
+  const other = await app.request(url, {
+    headers: { 'x-test-user': 'intruder' },
+  })
   expect(other.status).toBe(403)
 
   const owner = await app.request(url, { headers: { 'x-test-user': 'owner1' } })
@@ -319,11 +347,16 @@ test('get on owner-private file by non-owner → 403; owner allowed', async () =
 })
 
 test('scope: file in org A not visible to org B (404); same org visible', async () => {
-  const scope = (ctx: { session?: { activeOrganizationId: string | null } | null }): ScopeMap => ({
+  const scope = (ctx: {
+    session?: { activeOrganizationId: string | null } | null
+  }): ScopeMap => ({
     orgId: ctx.session?.activeOrganizationId ?? 'none',
   })
   const reg: BucketStorageRegistry = new Map([
-    ['files', localBucket('files', local, { scope: scope as ResolvedBucket['scope'] })],
+    [
+      'files',
+      localBucket('files', local, { scope: scope as ResolvedBucket['scope'] }),
+    ],
   ])
   await makeApp(reg)
   const form = new FormData()
@@ -372,7 +405,9 @@ test('quota perUser blocks proxy upload (413); under limit allowed', async () =>
 })
 
 test('presign (fake-S3): mode presign + pending row; confirm flips to ready', async () => {
-  const reg: BucketStorageRegistry = new Map([['photos', s3Bucket('photos', fake)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['photos', s3Bucket('photos', fake)],
+  ])
   await makeApp(reg)
 
   const pres = await app.request('/api/files/photos/presign', {
@@ -465,7 +500,9 @@ test('confirm reconciles quota against real size → 413 + row/object gone', asy
 })
 
 test('presign on local bucket → mode proxy, no row created', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const res = await app.request('/api/files/files/presign', {
     method: 'POST',
@@ -480,7 +517,13 @@ test('presign on local bucket → mode proxy, no row created', async () => {
 
 test('GET private fake-S3 ready → 302 to presignGet URL', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['photos', s3Bucket('photos', fake, { visibility: 'private', access: { create: 'authenticated', get: 'public', delete: 'owner' } })],
+    [
+      'photos',
+      s3Bucket('photos', fake, {
+        visibility: 'private',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+      }),
+    ],
   ])
   await makeApp(reg)
 
@@ -491,7 +534,10 @@ test('GET private fake-S3 ready → 302 to presignGet URL', async () => {
   })
   const pj = (await pres.json()) as { fileId: string; confirmUrl: string }
   await fake._putDirect(pj.fileId, new Uint8Array([1, 2, 3]), 'image/png')
-  await app.request(pj.confirmUrl, { method: 'POST', headers: { 'x-test-user': 'u1' } })
+  await app.request(pj.confirmUrl, {
+    method: 'POST',
+    headers: { 'x-test-user': 'u1' },
+  })
 
   const id = pj.fileId.slice('photos/'.length)
   const get = await app.request(`/api/files/photos/${id}`, {
@@ -504,7 +550,13 @@ test('GET private fake-S3 ready → 302 to presignGet URL', async () => {
 
 test('GET public fake-S3 ready → 302 to publicUrlFor URL', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['photos', s3Bucket('photos', fake, { visibility: 'public', access: { create: 'authenticated', get: 'public', delete: 'owner' } })],
+    [
+      'photos',
+      s3Bucket('photos', fake, {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+      }),
+    ],
   ])
   await makeApp(reg)
 
@@ -515,7 +567,10 @@ test('GET public fake-S3 ready → 302 to publicUrlFor URL', async () => {
   })
   const pj = (await pres.json()) as { fileId: string; confirmUrl: string }
   await fake._putDirect(pj.fileId, new Uint8Array([1, 2, 3]), 'image/png')
-  await app.request(pj.confirmUrl, { method: 'POST', headers: { 'x-test-user': 'u1' } })
+  await app.request(pj.confirmUrl, {
+    method: 'POST',
+    headers: { 'x-test-user': 'u1' },
+  })
 
   const id = pj.fileId.slice('photos/'.length)
   const get = await app.request(`/api/files/photos/${id}`, {
@@ -527,7 +582,9 @@ test('GET public fake-S3 ready → 302 to publicUrlFor URL', async () => {
 })
 
 test('GET local with filename → Content-Disposition header present', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
   form.append('file', new File(['hi'], 'my report.txt', { type: 'text/plain' }))
@@ -546,34 +603,56 @@ test('GET local with filename → Content-Disposition header present', async () 
 
 test('transforms: ?w=32 on transforms:true bucket returns bytes + caches', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['images', localBucket('images', local, { transforms: true, upload: { accept: ['image/*'] } })],
+    [
+      'images',
+      localBucket('images', local, {
+        transforms: true,
+        upload: { accept: ['image/*'] },
+      }),
+    ],
   ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }))
+  form.append(
+    'file',
+    new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }),
+  )
   const up = await app.request('/api/files/images', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
     body: form,
   })
   const { url } = (await up.json()) as { url: string }
-  const get = await app.request(`${url}?w=32`, { headers: { 'x-test-user': 'u1' } })
+  const get = await app.request(`${url}?w=32`, {
+    headers: { 'x-test-user': 'u1' },
+  })
   expect(get.status).toBe(200)
   const buf = Buffer.from(await get.arrayBuffer())
   const meta = await new Bun.Image(buf).metadata()
   expect(meta.width).toBe(32)
   // second hit served from cache
-  const again = await app.request(`${url}?w=32`, { headers: { 'x-test-user': 'u1' } })
+  const again = await app.request(`${url}?w=32`, {
+    headers: { 'x-test-user': 'u1' },
+  })
   expect(again.status).toBe(200)
 })
 
 test('transform cache-hit serves Cache-Control header', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['images', localBucket('images', local, { transforms: true, upload: { accept: ['image/*'] } })],
+    [
+      'images',
+      localBucket('images', local, {
+        transforms: true,
+        upload: { accept: ['image/*'] },
+      }),
+    ],
   ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }))
+  form.append(
+    'file',
+    new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }),
+  )
   const up = await app.request('/api/files/images', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
@@ -583,18 +662,29 @@ test('transform cache-hit serves Cache-Control header', async () => {
   // First (fresh) serve populates the cache.
   await app.request(`${url}?w=32`, { headers: { 'x-test-user': 'u1' } })
   // Second serve is the cache hit — it must carry Cache-Control.
-  const again = await app.request(`${url}?w=32`, { headers: { 'x-test-user': 'u1' } })
+  const again = await app.request(`${url}?w=32`, {
+    headers: { 'x-test-user': 'u1' },
+  })
   expect(again.status).toBe(200)
   expect(again.headers.get('cache-control')).toBe('public, max-age=31536000')
 })
 
 test('DELETE reaps transform-cache derivatives', async () => {
   const reg: BucketStorageRegistry = new Map([
-    ['images', localBucket('images', local, { transforms: true, upload: { accept: ['image/*'] } })],
+    [
+      'images',
+      localBucket('images', local, {
+        transforms: true,
+        upload: { accept: ['image/*'] },
+      }),
+    ],
   ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }))
+  form.append(
+    'file',
+    new File([makeTestImage(64, 64)], 'a.png', { type: 'image/png' }),
+  )
   const up = await app.request('/api/files/images', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
@@ -617,22 +707,31 @@ test('DELETE reaps transform-cache derivatives', async () => {
 })
 
 test('transforms spec on transforms:false bucket → 400', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
-  form.append('file', new File([makeTestImage()], 'a.png', { type: 'image/png' }))
+  form.append(
+    'file',
+    new File([makeTestImage()], 'a.png', { type: 'image/png' }),
+  )
   const up = await app.request('/api/files/files', {
     method: 'POST',
     headers: { 'x-test-user': 'u1' },
     body: form,
   })
   const { url } = (await up.json()) as { url: string }
-  const get = await app.request(`${url}?w=32`, { headers: { 'x-test-user': 'u1' } })
+  const get = await app.request(`${url}?w=32`, {
+    headers: { 'x-test-user': 'u1' },
+  })
   expect(get.status).toBe(400)
 })
 
 test('DELETE: owner deletes (204, gone); non-owner 403; missing 404', async () => {
-  const reg: BucketStorageRegistry = new Map([['files', localBucket('files', local)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['files', localBucket('files', local)],
+  ])
   await makeApp(reg)
   const form = new FormData()
   form.append('file', new File(['x'], 'a.txt', { type: 'text/plain' }))
@@ -664,7 +763,9 @@ test('DELETE: owner deletes (204, gone); non-owner 403; missing 404', async () =
 })
 
 test('confirm: never-uploaded → 404', async () => {
-  const reg: BucketStorageRegistry = new Map([['photos', s3Bucket('photos', fake)]])
+  const reg: BucketStorageRegistry = new Map([
+    ['photos', s3Bucket('photos', fake)],
+  ])
   await makeApp(reg)
   const pres = await app.request('/api/files/photos/presign', {
     method: 'POST',

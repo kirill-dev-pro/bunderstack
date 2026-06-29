@@ -23,11 +23,13 @@
 ### Task 1: Memory broker — event IDs + ring buffer
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 - Test: `packages/bunderstack/src/realtime.test.ts` (extend)
 
 **Interfaces:**
+
 - Consumes: existing `createRealtimeBroker({ access })`, `RealtimeBroker`, `validateAndResolveAccess`.
 - Produces:
   - `createRealtimeBroker(opts: { access: ResolvedAccess; bufferSize?: number })` now stamps events and buffers them.
@@ -45,20 +47,50 @@ describe('realtime broker — event ids + buffer', () => {
   it('stamps a monotonic eventId on each published payload', () => {
     const broker = createRealtimeBroker({ access })
     const a = sub(broker, 'org_1', ['boards'])
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
-    broker.publish('boards', 'update', { id: 'b1', organizationId: 'org_1', title: 'Y' })
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
+    broker.publish('boards', 'update', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'Y',
+    })
     expect(a.received).toEqual([
-      { eventId: 1, action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } },
-      { eventId: 2, action: 'update', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'Y' } },
+      {
+        eventId: 1,
+        action: 'create',
+        table: 'boards',
+        record: { id: 'b1', organizationId: 'org_1', title: 'X' },
+      },
+      {
+        eventId: 2,
+        action: 'update',
+        table: 'boards',
+        record: { id: 'b1', organizationId: 'org_1', title: 'Y' },
+      },
     ])
   })
 
   it('keeps only the last bufferSize events in the replay buffer', () => {
     const broker = createRealtimeBroker({ access, bufferSize: 2 })
     // No subscribers yet — events go to the buffer only.
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: '1' })
-    broker.publish('boards', 'create', { id: 'b2', organizationId: 'org_1', title: '2' })
-    broker.publish('boards', 'create', { id: 'b3', organizationId: 'org_1', title: '3' })
+    broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: '1',
+    })
+    broker.publish('boards', 'create', {
+      id: 'b2',
+      organizationId: 'org_1',
+      title: '2',
+    })
+    broker.publish('boards', 'create', {
+      id: 'b3',
+      organizationId: 'org_1',
+      title: '3',
+    })
     // Reconnect from before everything: since=0 -> replay should only have the last 2 (ids 2,3) and report gap.
     const a = sub(broker, 'org_1', ['boards'])
     const res = broker.setContext(a.id, {
@@ -112,7 +144,8 @@ export function createRealtimeBroker(opts: {
       session: { activeOrganizationId: s.activeOrganizationId },
     }
     if (typeof entry.get === 'function') return false // function get-rules unsupported on realtime v1
-    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) return false
+    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
+      return false
     if (!scopeOk(entry, ctx, record)) return false
     return true
   }
@@ -121,7 +154,11 @@ export function createRealtimeBroker(opts: {
     register(send) {
       const id = crypto.randomUUID()
       subscribers.set(id, {
-        id, send, user: null, activeOrganizationId: null, subscriptions: new Set(),
+        id,
+        send,
+        user: null,
+        activeOrganizationId: null,
+        subscriptions: new Set(),
       })
       return { id }
     },
@@ -143,7 +180,14 @@ export function createRealtimeBroker(opts: {
       for (const e of buffer) {
         if (e.eventId <= since) continue
         if (!deliverable(s, e.table, e.record, e.record['id'])) continue
-        s.send(JSON.stringify({ eventId: e.eventId, action: e.action, table: e.table, record: e.record }))
+        s.send(
+          JSON.stringify({
+            eventId: e.eventId,
+            action: e.action,
+            table: e.table,
+            record: e.record,
+          }),
+        )
       }
       return { gap }
     },
@@ -226,13 +270,15 @@ And update both the `BunderstackConfig.realtime` and `ResolvedConfig.realtime` T
 In `packages/bunderstack/src/index.ts`, where the broker is created (`createRealtimeBroker({ access: resolvedAccess })`), pass the buffer size:
 
 ```ts
-  const broker = config.realtime
-    ? createRealtimeBroker({
-        access: resolvedAccess,
-        bufferSize:
-          typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined,
-      })
-    : undefined
+const broker = config.realtime
+  ? createRealtimeBroker({
+      access: resolvedAccess,
+      bufferSize:
+        typeof config.realtime === 'object'
+          ? config.realtime.bufferSize
+          : undefined,
+    })
+  : undefined
 ```
 
 - [ ] **Step 7: Run the full bunderstack suite, commit**
@@ -250,10 +296,12 @@ git commit -m "feat(realtime): monotonic event ids + bounded replay buffer in br
 ### Task 2: Server — replay protocol over the SSE router (`since` + `gap`)
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime.ts` (the `buildRealtimeRouter` POST handler)
 - Test: `packages/bunderstack/src/realtime-sse.test.ts` (modify + extend)
 
 **Interfaces:**
+
 - Consumes: `broker.setContext(..., { since })` returning `{ gap }` (Task 1).
 - Produces:
   - `POST /realtime` accepts body `{ clientId: string; subscriptions: string[]; since?: number | null }`.
@@ -265,48 +313,81 @@ git commit -m "feat(realtime): monotonic event ids + bounded replay buffer in br
 In `packages/bunderstack/src/realtime-sse.test.ts`, change the existing assertion `expect(sub.status).toBe(204)` to:
 
 ```ts
-    expect(sub.status).toBe(200)
-    expect(await sub.json()).toEqual({ gap: false })
+expect(sub.status).toBe(200)
+expect(await sub.json()).toEqual({ gap: false })
 ```
 
 Then add a new test:
 
 ```ts
-  it('replays missed events on reconnect when since is provided', async () => {
-    const broker = createRealtimeBroker({ access })
-    const router = buildRealtimeRouter(broker, { auth: auth as never })
+it('replays missed events on reconnect when since is provided', async () => {
+  const broker = createRealtimeBroker({ access })
+  const router = buildRealtimeRouter(broker, { auth: auth as never })
 
-    // First connection subscribes and receives event #1.
-    const res1 = await router.fetch(new Request('http://x/realtime'))
-    const r1 = res1.body!.getReader()
-    const first = new TextDecoder().decode((await r1.read()).value)
-    const clientId1 = JSON.parse(first.replace(/^data: /, '').trim()).clientId
-    await router.fetch(new Request('http://x/realtime', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+  // First connection subscribes and receives event #1.
+  const res1 = await router.fetch(new Request('http://x/realtime'))
+  const r1 = res1.body!.getReader()
+  const first = new TextDecoder().decode((await r1.read()).value)
+  const clientId1 = JSON.parse(first.replace(/^data: /, '').trim()).clientId
+  await router.fetch(
+    new Request('http://x/realtime', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId: clientId1, subscriptions: ['boards'] }),
-    }))
-    broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
-    const ev1 = JSON.parse(new TextDecoder().decode((await r1.read()).value).replace(/^data: /, '').trim())
-    expect(ev1.eventId).toBe(1)
-    await r1.cancel() // simulate disconnect
-
-    // While disconnected, another event is published.
-    broker.publish('boards', 'update', { id: 'b1', organizationId: 'org_1', title: 'Y' })
-
-    // Reconnect: new clientId, POST with since=1 -> event #2 is replayed on the new stream.
-    const res2 = await router.fetch(new Request('http://x/realtime'))
-    const r2 = res2.body!.getReader()
-    const connect2 = new TextDecoder().decode((await r2.read()).value)
-    const clientId2 = JSON.parse(connect2.replace(/^data: /, '').trim()).clientId
-    const sub2 = await router.fetch(new Request('http://x/realtime', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: clientId2, subscriptions: ['boards'], since: 1 }),
-    }))
-    expect(await sub2.json()).toEqual({ gap: false })
-    const replayed = JSON.parse(new TextDecoder().decode((await r2.read()).value).replace(/^data: /, '').trim())
-    expect(replayed).toEqual({ eventId: 2, action: 'update', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'Y' } })
-    await r2.cancel()
+    }),
+  )
+  broker.publish('boards', 'create', {
+    id: 'b1',
+    organizationId: 'org_1',
+    title: 'X',
   })
+  const ev1 = JSON.parse(
+    new TextDecoder()
+      .decode((await r1.read()).value)
+      .replace(/^data: /, '')
+      .trim(),
+  )
+  expect(ev1.eventId).toBe(1)
+  await r1.cancel() // simulate disconnect
+
+  // While disconnected, another event is published.
+  broker.publish('boards', 'update', {
+    id: 'b1',
+    organizationId: 'org_1',
+    title: 'Y',
+  })
+
+  // Reconnect: new clientId, POST with since=1 -> event #2 is replayed on the new stream.
+  const res2 = await router.fetch(new Request('http://x/realtime'))
+  const r2 = res2.body!.getReader()
+  const connect2 = new TextDecoder().decode((await r2.read()).value)
+  const clientId2 = JSON.parse(connect2.replace(/^data: /, '').trim()).clientId
+  const sub2 = await router.fetch(
+    new Request('http://x/realtime', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: clientId2,
+        subscriptions: ['boards'],
+        since: 1,
+      }),
+    }),
+  )
+  expect(await sub2.json()).toEqual({ gap: false })
+  const replayed = JSON.parse(
+    new TextDecoder()
+      .decode((await r2.read()).value)
+      .replace(/^data: /, '')
+      .trim(),
+  )
+  expect(replayed).toEqual({
+    eventId: 2,
+    action: 'update',
+    table: 'boards',
+    record: { id: 'b1', organizationId: 'org_1', title: 'Y' },
+  })
+  await r2.cancel()
+})
 ```
 
 - [ ] **Step 2: Run the SSE tests, verify they fail**
@@ -319,25 +400,27 @@ Expected: FAIL — POST still returns 204 with no body; no `since` handling.
 Replace the POST handler body in `packages/bunderstack/src/realtime.ts`:
 
 ```ts
-  router.post('/realtime', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as
-      | { clientId?: string; subscriptions?: string[]; since?: number | null }
-      | null
-    if (!body?.clientId || !Array.isArray(body.subscriptions)) {
-      return c.json({ error: 'clientId and subscriptions required' }, 400)
-    }
-    const { user, activeOrganizationId } = await resolveSession(
-      opts.auth,
-      c.req.raw.headers,
-    )
-    const { gap } = broker.setContext(body.clientId, {
-      user,
-      activeOrganizationId,
-      subscriptions: new Set(body.subscriptions),
-      since: body.since ?? null,
-    })
-    return c.json({ gap }, 200)
+router.post('/realtime', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    clientId?: string
+    subscriptions?: string[]
+    since?: number | null
+  } | null
+  if (!body?.clientId || !Array.isArray(body.subscriptions)) {
+    return c.json({ error: 'clientId and subscriptions required' }, 400)
+  }
+  const { user, activeOrganizationId } = await resolveSession(
+    opts.auth,
+    c.req.raw.headers,
+  )
+  const { gap } = broker.setContext(body.clientId, {
+    user,
+    activeOrganizationId,
+    subscriptions: new Set(body.subscriptions),
+    since: body.since ?? null,
   })
+  return c.json({ gap }, 200)
+})
 ```
 
 - [ ] **Step 4: Run the SSE tests, verify they pass**
@@ -360,12 +443,14 @@ git commit -m "feat(realtime): since-based replay + gap signal over SSE router"
 ### Task 3: Redis broker + broker selection
 
 **Files:**
+
 - Create: `packages/bunderstack/src/realtime-redis.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/realtime-redis.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RealtimeBroker`, `ResolvedAccess`, the `deliverable`/filter behavior (same semantics as Task 1).
 - Produces:
   - `createRedisRealtimeBroker(opts: { access: ResolvedAccess; redis: RedisLike; bufferSize?: number; channel?: string }): RealtimeBroker & { ready: Promise<void> }`
@@ -374,7 +459,10 @@ git commit -m "feat(realtime): since-based replay + gap signal over SSE router"
     export type RedisLike = {
       incr(key: string): Promise<number>
       publish(channel: string, message: string): Promise<unknown>
-      subscribe(channel: string, listener: (message: string) => void): Promise<unknown>
+      subscribe(
+        channel: string,
+        listener: (message: string) => void,
+      ): Promise<unknown>
       // capped event log
       lpush(key: string, value: string): Promise<unknown>
       ltrim(key: string, start: number, stop: number): Promise<unknown>
@@ -401,10 +489,19 @@ const boards = sqliteTable('boards', {
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
 })
-const access = validateAndResolveAccess({ boards }, {
-  boards: { list: 'authenticated', get: 'authenticated', create: 'authenticated', update: 'authenticated', delete: 'authenticated',
-    scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }) },
-})
+const access = validateAndResolveAccess(
+  { boards },
+  {
+    boards: {
+      list: 'authenticated',
+      get: 'authenticated',
+      create: 'authenticated',
+      update: 'authenticated',
+      delete: 'authenticated',
+      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+    },
+  },
+)
 
 // In-memory fake that models the subset of redis we use, with synchronous-ish delivery.
 function makeFakeRedis() {
@@ -412,20 +509,50 @@ function makeFakeRedis() {
   const counters = new Map<string, number>()
   const channels = new Map<string, ((m: string) => void)[]>()
   const r: RedisLike = {
-    async incr(k) { const n = (counters.get(k) ?? 0) + 1; counters.set(k, n); return n },
-    async publish(ch, msg) { for (const l of channels.get(ch) ?? []) l(msg); return 1 },
-    async subscribe(ch, listener) { const arr = channels.get(ch) ?? []; arr.push(listener); channels.set(ch, arr) },
-    async lpush(k, v) { const a = lists.get(k) ?? []; a.unshift(v); lists.set(k, a); return a.length },
-    async ltrim(k, start, stop) { const a = lists.get(k) ?? []; lists.set(k, a.slice(start, stop + 1)) },
-    async lrange(k, start, stop) { const a = lists.get(k) ?? []; return a.slice(start, stop === -1 ? undefined : stop + 1) },
+    async incr(k) {
+      const n = (counters.get(k) ?? 0) + 1
+      counters.set(k, n)
+      return n
+    },
+    async publish(ch, msg) {
+      for (const l of channels.get(ch) ?? []) l(msg)
+      return 1
+    },
+    async subscribe(ch, listener) {
+      const arr = channels.get(ch) ?? []
+      arr.push(listener)
+      channels.set(ch, arr)
+    },
+    async lpush(k, v) {
+      const a = lists.get(k) ?? []
+      a.unshift(v)
+      lists.set(k, a)
+      return a.length
+    },
+    async ltrim(k, start, stop) {
+      const a = lists.get(k) ?? []
+      lists.set(k, a.slice(start, stop + 1))
+    },
+    async lrange(k, start, stop) {
+      const a = lists.get(k) ?? []
+      return a.slice(start, stop === -1 ? undefined : stop + 1)
+    },
   }
   return r
 }
 
-function sub(broker: ReturnType<typeof createRedisRealtimeBroker>, org: string, topics: string[]) {
+function sub(
+  broker: ReturnType<typeof createRedisRealtimeBroker>,
+  org: string,
+  topics: string[],
+) {
   const received: any[] = []
   const s = broker.register((data) => received.push(JSON.parse(data)))
-  broker.setContext(s.id, { user: { id: 'u_1', email: 'a@b.c' }, activeOrganizationId: org, subscriptions: new Set(topics) })
+  broker.setContext(s.id, {
+    user: { id: 'u_1', email: 'a@b.c' },
+    activeOrganizationId: org,
+    subscriptions: new Set(topics),
+  })
   return { id: s.id, received }
 }
 
@@ -434,15 +561,30 @@ describe('redis realtime broker', () => {
     const broker = createRedisRealtimeBroker({ access, redis: makeFakeRedis() })
     await broker.ready
     const a = sub(broker, 'org_1', ['boards'])
-    await broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: 'X' })
-    expect(a.received).toEqual([{ eventId: 1, action: 'create', table: 'boards', record: { id: 'b1', organizationId: 'org_1', title: 'X' } }])
+    await broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'X',
+    })
+    expect(a.received).toEqual([
+      {
+        eventId: 1,
+        action: 'create',
+        table: 'boards',
+        record: { id: 'b1', organizationId: 'org_1', title: 'X' },
+      },
+    ])
   })
 
   it('does NOT fan out cross-org events', async () => {
     const broker = createRedisRealtimeBroker({ access, redis: makeFakeRedis() })
     await broker.ready
     const a = sub(broker, 'org_1', ['boards'])
-    await broker.publish('boards', 'create', { id: 'b2', organizationId: 'org_2', title: 'Y' })
+    await broker.publish('boards', 'create', {
+      id: 'b2',
+      organizationId: 'org_2',
+      title: 'Y',
+    })
     expect(a.received).toEqual([])
   })
 
@@ -450,10 +592,23 @@ describe('redis realtime broker', () => {
     const redis = makeFakeRedis()
     const broker = createRedisRealtimeBroker({ access, redis, bufferSize: 10 })
     await broker.ready
-    await broker.publish('boards', 'create', { id: 'b1', organizationId: 'org_1', title: '1' })
-    await broker.publish('boards', 'update', { id: 'b1', organizationId: 'org_1', title: '2' })
+    await broker.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: '1',
+    })
+    await broker.publish('boards', 'update', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: '2',
+    })
     const a = sub(broker, 'org_1', ['boards'])
-    const res = await broker.setContext(a.id, { user: { id: 'u_1', email: 'a@b.c' }, activeOrganizationId: 'org_1', subscriptions: new Set(['boards']), since: 1 })
+    const res = await broker.setContext(a.id, {
+      user: { id: 'u_1', email: 'a@b.c' },
+      activeOrganizationId: 'org_1',
+      subscriptions: new Set(['boards']),
+      since: 1,
+    })
     expect(res.gap).toBe(false)
     expect(a.received.map((e) => e.eventId)).toEqual([2])
   })
@@ -493,7 +648,10 @@ import type { RealtimeAction, RealtimeBroker } from './realtime.ts'
 export type RedisLike = {
   incr(key: string): Promise<number>
   publish(channel: string, message: string): Promise<unknown>
-  subscribe(channel: string, listener: (message: string) => void): Promise<unknown>
+  subscribe(
+    channel: string,
+    listener: (message: string) => void,
+  ): Promise<unknown>
   lpush(key: string, value: string): Promise<unknown>
   ltrim(key: string, start: number, stop: number): Promise<unknown>
   lrange(key: string, start: number, stop: number): Promise<string[]>
@@ -514,8 +672,12 @@ type WireEvent = {
   record: Record<string, unknown>
 }
 
-function tableEntry(access: ResolvedAccess, name: string): ResolvedTableAccess | undefined {
-  for (const entry of access.values()) if (entry.tableName === name) return entry
+function tableEntry(
+  access: ResolvedAccess,
+  name: string,
+): ResolvedTableAccess | undefined {
+  for (const entry of access.values())
+    if (entry.tableName === name) return entry
   return undefined
 }
 
@@ -531,12 +693,17 @@ export function createRedisRealtimeBroker(opts: {
   const logKey = `${channel}:log`
   const counterKey = `${channel}:seq`
 
-  function deliverable(s: Subscriber, table: string, record: Record<string, unknown>): boolean {
+  function deliverable(
+    s: Subscriber,
+    table: string,
+    record: Record<string, unknown>,
+  ): boolean {
     const entry = tableEntry(opts.access, table)
     if (!entry) return false
     const id = record['id']
     const topicMatch =
-      s.subscriptions.has(table) || (id != null && s.subscriptions.has(`${table}/${String(id)}`))
+      s.subscriptions.has(table) ||
+      (id != null && s.subscriptions.has(`${table}/${String(id)}`))
     if (!topicMatch) return false
     const ctx = {
       user: s.user,
@@ -545,7 +712,8 @@ export function createRedisRealtimeBroker(opts: {
       session: { activeOrganizationId: s.activeOrganizationId },
     }
     if (typeof entry.get === 'function') return false
-    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) return false
+    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
+      return false
     if (entry.scope && !rowMatchesScope(record, entry.scope(ctx))) return false
     return true
   }
@@ -558,19 +726,27 @@ export function createRedisRealtimeBroker(opts: {
   }
 
   // Subscribe once; all local delivery happens here.
-  const ready = opts.redis.subscribe(channel, (message) => {
-    try {
-      fanOut(JSON.parse(message) as WireEvent)
-    } catch {
-      /* ignore malformed */
-    }
-  }).then(() => undefined)
+  const ready = opts.redis
+    .subscribe(channel, (message) => {
+      try {
+        fanOut(JSON.parse(message) as WireEvent)
+      } catch {
+        /* ignore malformed */
+      }
+    })
+    .then(() => undefined)
 
   return {
     ready,
     register(send) {
       const id = crypto.randomUUID()
-      subscribers.set(id, { id, send, user: null, activeOrganizationId: null, subscriptions: new Set() })
+      subscribers.set(id, {
+        id,
+        send,
+        user: null,
+        activeOrganizationId: null,
+        subscriptions: new Set(),
+      })
       return { id }
     },
     async setContext(id, ctx) {
@@ -590,7 +766,9 @@ export function createRedisRealtimeBroker(opts: {
         .filter((e) => e.eventId > since)
         .sort((a, b) => a.eventId - b.eventId)
 
-      const oldestInLog = raw.length ? (JSON.parse(raw[raw.length - 1]!) as WireEvent).eventId : since + 1
+      const oldestInLog = raw.length
+        ? (JSON.parse(raw[raw.length - 1]!) as WireEvent).eventId
+        : since + 1
       const gap = oldestInLog > since + 1
       for (const e of events) {
         if (deliverable(s, e.table, e.record)) s.send(JSON.stringify(e))
@@ -682,18 +860,23 @@ import { resolveRealtimeRedisUrl } from './config.ts'
 Replace the broker creation block:
 
 ```ts
-  const realtimeBufferSize =
-    typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
-  const redisUrl = config.realtime ? resolveRealtimeRedisUrl(config.realtime) : undefined
-  const broker = config.realtime
-    ? redisUrl
-      ? createRedisRealtimeBroker({
-          access: resolvedAccess,
-          redis: new Bun.RedisClient(redisUrl) as never,
-          bufferSize: realtimeBufferSize,
-        })
-      : createRealtimeBroker({ access: resolvedAccess, bufferSize: realtimeBufferSize })
-    : undefined
+const realtimeBufferSize =
+  typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
+const redisUrl = config.realtime
+  ? resolveRealtimeRedisUrl(config.realtime)
+  : undefined
+const broker = config.realtime
+  ? redisUrl
+    ? createRedisRealtimeBroker({
+        access: resolvedAccess,
+        redis: new Bun.RedisClient(redisUrl) as never,
+        bufferSize: realtimeBufferSize,
+      })
+    : createRealtimeBroker({
+        access: resolvedAccess,
+        bufferSize: realtimeBufferSize,
+      })
+  : undefined
 ```
 
 > Verify `new Bun.RedisClient(url)` exposes `incr/publish/subscribe/lpush/ltrim/lrange` against the installed `bun-types`. If a method name differs, write a tiny adapter object literal mapping `RedisLike` onto the real client instead of the `as never` cast, and drop the cast. Keep the import-free `Bun` global (no import needed in Bun).
@@ -713,10 +896,12 @@ git commit -m "feat(realtime): optional redis broker with cross-instance fan-out
 ### Task 4: Client — custom fetch/ReadableStream SSE reader
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/src/realtime-client.ts` (rewrite transport)
 - Test: `packages/bunderstack-query/src/realtime-client.test.ts` (rewrite for fetch transport)
 
 **Interfaces:**
+
 - Consumes: server wire events `{ eventId, action, table, record }`, connect `{ clientId }`, POST `{ clientId, subscriptions, since }` -> `{ gap }`.
 - Produces:
   - `createRealtimeClient(config: RealtimeClientConfig)` where `RealtimeClientConfig` drops `EventSourceImpl` and adds:
@@ -746,10 +931,17 @@ import { createRealtimeClient } from './realtime-client.ts'
 function makeStreamResponse() {
   let controller: ReadableStreamDefaultController<Uint8Array>
   const enc = new TextEncoder()
-  const stream = new ReadableStream<Uint8Array>({ start(c) { controller = c } })
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c
+    },
+  })
   return {
-    response: new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } }),
-    push: (obj: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`)),
+    response: new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream' },
+    }),
+    push: (obj: unknown) =>
+      controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`)),
     ping: () => controller.enqueue(enc.encode(`: ping\n\n`)),
     end: () => controller.close(),
   }
@@ -761,52 +953,99 @@ it('applies a create event: sets detail cache and invalidates the list', async (
   const posted: any[] = []
   const fetchMock = (async (url: string | URL, init?: RequestInit) => {
     const u = String(url)
-    if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ gap: false }), { status: 200 }) }
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify({ gap: false }), { status: 200 })
+    }
     return stream.response // GET /realtime
   }) as unknown as typeof fetch
 
-  const rt = createRealtimeClient({ baseUrl: 'http://x/api', queryClient: qc, tables: ['cards'], fetch: fetchMock })
+  const rt = createRealtimeClient({
+    baseUrl: 'http://x/api',
+    queryClient: qc,
+    tables: ['cards'],
+    fetch: fetchMock,
+  })
   stream.push({ clientId: 'c1' })
   await rt.subscribe(['cards'])
-  stream.push({ eventId: 1, action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } })
-  await Promise.resolve(); await new Promise((r) => setTimeout(r, 5))
+  stream.push({
+    eventId: 1,
+    action: 'create',
+    table: 'cards',
+    record: { id: 'card_1', title: 'A' },
+  })
+  await Promise.resolve()
+  await new Promise((r) => setTimeout(r, 5))
 
-  expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toEqual({ id: 'card_1', title: 'A' })
-  expect(posted[0]).toEqual({ clientId: 'c1', subscriptions: ['cards'], since: null })
+  expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toEqual({
+    id: 'card_1',
+    title: 'A',
+  })
+  expect(posted[0]).toEqual({
+    clientId: 'c1',
+    subscriptions: ['cards'],
+    since: null,
+  })
   rt.close()
 })
 
 it('re-subscribes with since=lastEventId and invalidates all on gap after reconnect', async () => {
   const qc = new QueryClient()
   let invalidated: any[] = []
-  qc.invalidateQueries = (async (filters: any) => { invalidated.push(filters?.queryKey) }) as any
+  qc.invalidateQueries = (async (filters: any) => {
+    invalidated.push(filters?.queryKey)
+  }) as any
 
   let stream = makeStreamResponse()
   const posted: any[] = []
   const fetchMock = (async (_url: string | URL, init?: RequestInit) => {
-    if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ gap: posted.length > 1 }), { status: 200 }) }
+    if (init?.method === 'POST') {
+      posted.push(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify({ gap: posted.length > 1 }), {
+        status: 200,
+      })
+    }
     return stream.response
   }) as unknown as typeof fetch
 
-  const rt = createRealtimeClient({ baseUrl: 'http://x/api', queryClient: qc, tables: ['cards'], fetch: fetchMock })
+  const rt = createRealtimeClient({
+    baseUrl: 'http://x/api',
+    queryClient: qc,
+    tables: ['cards'],
+    fetch: fetchMock,
+  })
   stream.push({ clientId: 'c1' })
   await rt.subscribe(['cards'])
-  stream.push({ eventId: 7, action: 'update', table: 'cards', record: { id: 'card_1', title: 'B' } })
+  stream.push({
+    eventId: 7,
+    action: 'update',
+    table: 'cards',
+    record: { id: 'card_1', title: 'B' },
+  })
   await new Promise((r) => setTimeout(r, 5))
 
   // Simulate disconnect: end the stream, swap in a fresh one for the reconnect GET.
   invalidated = []
   const next = makeStreamResponse()
-  const prev = stream; stream = next
+  const prev = stream
+  stream = next
   prev.end()
   await new Promise((r) => setTimeout(r, 20)) // allow reconnect + new GET
   next.push({ clientId: 'c2' })
   await new Promise((r) => setTimeout(r, 10))
 
   const lastPost = posted[posted.length - 1]
-  expect(lastPost).toEqual({ clientId: 'c2', subscriptions: ['cards'], since: 7 })
+  expect(lastPost).toEqual({
+    clientId: 'c2',
+    subscriptions: ['cards'],
+    since: 7,
+  })
   // gap:true on reconnect -> list invalidation happened
-  expect(invalidated.some((k) => Array.isArray(k) && k[0] === 'cards' && k[1] === 'list')).toBe(true)
+  expect(
+    invalidated.some(
+      (k) => Array.isArray(k) && k[0] === 'cards' && k[1] === 'list',
+    ),
+  ).toBe(true)
   rt.close()
 })
 ```
@@ -871,7 +1110,10 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   const root = baseUrl.replace(/\/$/, '')
 
   const keysByTable = new Map(
-    tables.map((t) => [t, createTableClient({ tableName: t, baseUrl: root, fetch: fetchFn }).keys]),
+    tables.map((t) => [
+      t,
+      createTableClient({ tableName: t, baseUrl: root, fetch: fetchFn }).keys,
+    ]),
   )
 
   let clientId: string | null = null
@@ -882,14 +1124,17 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   let backoff = 1000
   let watchdog: ReturnType<typeof setTimeout> | null = null
 
-  function setStatus(s: RealtimeStatus) { config.onStatus?.(s) }
+  function setStatus(s: RealtimeStatus) {
+    config.onStatus?.(s)
+  }
 
   function apply(evt: RealtimeEvent) {
     const keys = keysByTable.get(evt.table)
     if (!keys) return
     if (typeof evt.eventId === 'number') lastEventId = evt.eventId
     const id = evt.record['id'] as string | number
-    if (evt.action === 'delete') queryClient.removeQueries({ queryKey: keys.detail(id) })
+    if (evt.action === 'delete')
+      queryClient.removeQueries({ queryKey: keys.detail(id) })
     else queryClient.setQueryData(keys.detail(id), evt.record)
     queryClient.invalidateQueries({ queryKey: keys.lists() })
   }
@@ -907,7 +1152,11 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, subscriptions: topics, since: lastEventId }),
+      body: JSON.stringify({
+        clientId,
+        subscriptions: topics,
+        since: lastEventId,
+      }),
     })
     const body = (await res.json().catch(() => ({}))) as { gap?: boolean }
     if (body.gap) invalidateAllSubscribed()
@@ -916,7 +1165,12 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   function armWatchdog() {
     if (watchdog) clearTimeout(watchdog)
     // No bytes (event or `: ping`) within 1.5x keepalive => assume dead, reconnect.
-    watchdog = setTimeout(() => { abort?.abort() }, Math.round(keepaliveMs * 1.5))
+    watchdog = setTimeout(
+      () => {
+        abort?.abort()
+      },
+      Math.round(keepaliveMs * 1.5),
+    )
   }
 
   function handleFrame(frame: string) {
@@ -926,8 +1180,17 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
     if (!dataLines.length) return
     const json = dataLines.map((l) => l.slice(5).trim()).join('\n')
     let data: unknown
-    try { data = JSON.parse(json) } catch { return }
-    if (data && typeof data === 'object' && 'clientId' in data && (data as any).clientId) {
+    try {
+      data = JSON.parse(json)
+    } catch {
+      return
+    }
+    if (
+      data &&
+      typeof data === 'object' &&
+      'clientId' in data &&
+      (data as any).clientId
+    ) {
       clientId = (data as any).clientId
       if (lastTopics.length) void postSubscribe(lastTopics)
       return
@@ -966,7 +1229,10 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
       } catch {
         /* fallthrough to reconnect */
       }
-      if (watchdog) { clearTimeout(watchdog); watchdog = null }
+      if (watchdog) {
+        clearTimeout(watchdog)
+        watchdog = null
+      }
       if (closed) break
       // Reconnect with jittered backoff (cap 30s). lastEventId drives replay.
       const wait = Math.min(backoff, 30000) * (0.5 + Math.random())
@@ -979,12 +1245,16 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   // Refocus => force an immediate reconnect + catch-up (no waiting on backoff).
   const onVisible = () => {
     if (closed) return
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'visible'
+    ) {
       backoff = 1000
       abort?.abort()
     }
   }
-  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible)
+  if (typeof document !== 'undefined')
+    document.addEventListener('visibilitychange', onVisible)
 
   void connectLoop()
 
@@ -996,7 +1266,8 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
     close() {
       closed = true
       if (watchdog) clearTimeout(watchdog)
-      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
+      if (typeof document !== 'undefined')
+        document.removeEventListener('visibilitychange', onVisible)
       abort?.abort()
       setStatus('closed')
     },
@@ -1026,10 +1297,12 @@ git commit -m "feat(query): durable realtime client — fetch reader, reconnect,
 ### Task 5: Verify the existing React Kanban example still wires up
 
 **Files:**
+
 - Read/verify: `examples/kanban-tanstack/src/lib/realtime.ts`, `examples/kanban-tanstack/src/api-client.ts`
 - No code change expected (client API is back-compat); this task is the integration gate.
 
 **Interfaces:**
+
 - Consumes: `createRealtimeClient` (Task 4) — the example calls it with `{ baseUrl, queryClient, tables }`, all still valid.
 
 - [ ] **Step 1: Typecheck the whole workspace**
@@ -1063,6 +1336,7 @@ git commit -m "chore(realtime): verify example wiring + workspace typecheck for 
 ## Self-Review
 
 **Spec coverage:**
+
 - Broker as interface + memory/redis impls → Tasks 1, 3. ✅
 - Event IDs + ring buffer → Task 1. ✅
 - Replay protocol (`since` + `gap` in POST response, replay on stream) → Task 2. ✅

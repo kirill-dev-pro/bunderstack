@@ -1,6 +1,6 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
 
-import type { TableClient } from './table-client.ts'
+import type { TableClient } from './table-client'
 
 export type TableMutationOptions<TRow, TCreate, TUpdate> = {
   createMutation: (

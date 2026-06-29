@@ -37,7 +37,10 @@ import * as schema from './schema'
 let _app: Awaited<ReturnType<typeof createBunderstackAsync<typeof schema>>>
 
 export async function getApp() {
-  return (_app ??= await createBunderstackAsync({ schema, auth: { emailAndPassword: { enabled: true } } }))
+  return (_app ??= await createBunderstackAsync({
+    schema,
+    auth: { emailAndPassword: { enabled: true } },
+  }))
 }
 ```
 
@@ -70,5 +73,9 @@ import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 import { access } from './access'
 
-export const app = await createBunderstackAsync({ schema, access, auth: { emailAndPassword: { enabled: true } } })
+export const app = await createBunderstackAsync({
+  schema,
+  access,
+  auth: { emailAndPassword: { enabled: true } },
+})
 ```

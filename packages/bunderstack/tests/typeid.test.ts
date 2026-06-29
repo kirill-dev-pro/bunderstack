@@ -1,5 +1,7 @@
 import { test, expect } from 'bun:test'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+import { createDb } from '../src/db'
 import {
   encode,
   decode,
@@ -9,15 +11,18 @@ import {
   asTypeId,
   typeid,
 } from '../src/typeid'
-import { createDb } from '../src/db'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // Official TypeID spec test vector (encode/decode the raw 16-byte UUID).
 const VECTOR_UUID = '01890a5d-ac96-774b-bcce-b302099a8057'
 const VECTOR_SUFFIX = '01h455vb4pex5vsknk084sn02q'
 
 function uuidToBytes(uuid: string): Uint8Array {
-  return Uint8Array.from(uuid.replace(/-/g, '').match(/../g)!.map((h) => parseInt(h, 16)))
+  return Uint8Array.from(
+    uuid
+      .replace(/-/g, '')
+      .match(/../g)!
+      .map((h) => parseInt(h, 16)),
+  )
 }
 
 test('encode produces the spec suffix for a known UUID', () => {

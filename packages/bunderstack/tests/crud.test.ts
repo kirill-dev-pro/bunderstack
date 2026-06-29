@@ -197,7 +197,10 @@ test('GET /api/posts defaults to stable sort order', async () => {
 test('GET /api/posts?authorId= filters by column', async () => {
   await app.request('/api/posts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-test-user': 'filter-user' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-test-user': 'filter-user',
+    },
     body: JSON.stringify({ title: 'Filter me' }),
   })
 

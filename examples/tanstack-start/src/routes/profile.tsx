@@ -6,7 +6,7 @@ import { api } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { ImageUpload, thumbnailUrl } from '~/components/ImageUpload'
 import { useToastMutation } from '~/hooks/useToastMutation'
-import { toast } from '~/utils/oat';
+import { toast } from '~/utils/oat'
 
 export const Route = createFileRoute('/profile')({
   beforeLoad: ({ context }) => {

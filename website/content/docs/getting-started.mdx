@@ -24,7 +24,9 @@ export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull().default(false),
+  emailVerified: integer('emailVerified', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   image: text('image'),
   createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
@@ -36,8 +38,12 @@ export const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
-  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 ```
 
@@ -101,7 +107,11 @@ export const access = defineAccess(schema, {
 
 ```ts
 // bunderstack.ts
-export const app = await createBunderstackAsync({ schema, access, auth: { emailAndPassword: { enabled: true } } })
+export const app = await createBunderstackAsync({
+  schema,
+  access,
+  auth: { emailAndPassword: { enabled: true } },
+})
 ```
 
 ## Next steps

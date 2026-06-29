@@ -11,10 +11,10 @@ import type {
   InferInsert,
   InferSelect,
   TableQueryOptions,
-} from './types.ts'
+} from './types'
 
-import { attachMutationOptions } from './mutation-options.ts'
-import { createTableClient } from './table-client.ts'
+import { attachMutationOptions } from './mutation-options'
+import { createTableClient } from './table-client'
 
 type BaseOptions = {
   baseUrl?: string

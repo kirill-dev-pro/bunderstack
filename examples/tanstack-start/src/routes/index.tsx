@@ -23,7 +23,9 @@ export const Route = createFileRoute('/')({
   }),
   loader: async () => {
     await Promise.all([
-      queryClient.prefetchInfiniteQuery(api.posts.listInfiniteQuery(feedParams)),
+      queryClient.prefetchInfiniteQuery(
+        api.posts.listInfiniteQuery(feedParams),
+      ),
       queryClient.ensureQueryData(api.user.listQuery(listParams)),
       queryClient.ensureQueryData(api.follows.listQuery(listParams)),
       queryClient.ensureQueryData(api.likes.listQuery(listParams)),

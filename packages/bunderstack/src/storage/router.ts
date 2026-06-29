@@ -1,14 +1,22 @@
+import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 // src/storage/router.ts
 import type { Context } from 'hono'
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import { extname } from 'node:path'
 
-import type { AccessContext, AuthSessionResolver, OperationRule, ScopeMap } from '../access.ts'
+import type {
+  AccessContext,
+  AuthSessionResolver,
+  OperationRule,
+  ScopeMap,
+} from '../access.ts'
+import type { BucketStorageRegistry } from './registry.ts'
+
 import { checkAccess, resolveSession } from '../access.ts'
 import { ErrorCode, apiError } from '../errors.ts'
+import { deleteFileWithDerivatives } from './delete.ts'
 import {
   deleteFileMetaRow,
   fileMatchesScope,
@@ -20,8 +28,6 @@ import {
   sumReadySize,
   type FileMetaRow,
 } from './file-meta.ts'
-import { deleteFileWithDerivatives } from './delete.ts'
-import type { BucketStorageRegistry } from './registry.ts'
 import {
   parseTransformSpec,
   transformHash,
@@ -134,7 +140,8 @@ export function buildBucketStorageRouter(
     let body: Record<string, unknown> = {}
     try {
       const parsed = await c.req.json()
-      if (parsed && typeof parsed === 'object') body = parsed as Record<string, unknown>
+      if (parsed && typeof parsed === 'object')
+        body = parsed as Record<string, unknown>
     } catch {
       body = {}
     }
@@ -151,7 +158,8 @@ export function buildBucketStorageRouter(
       )
     }
 
-    const filename = typeof body.filename === 'string' ? body.filename : undefined
+    const filename =
+      typeof body.filename === 'string' ? body.filename : undefined
     const contentType =
       typeof body.contentType === 'string' ? body.contentType : undefined
 
@@ -219,7 +227,12 @@ export function buildBucketStorageRouter(
     const parsed = await c.req.parseBody()
     const file = parsed['file']
     if (!(file instanceof File)) {
-      return apiError(c, ErrorCode.VALIDATION_ERROR, 'No file field in request', 400)
+      return apiError(
+        c,
+        ErrorCode.VALIDATION_ERROR,
+        'No file field in request',
+        400,
+      )
     }
 
     if (bucket.upload?.accept && !matchMime(file.type, bucket.upload.accept)) {
@@ -316,7 +329,10 @@ export function buildBucketStorageRouter(
       await deleteFileMetaRow(db, fileId)
       return apiError(c, ErrorCode.VALIDATION_ERROR, 'File too large', 413)
     }
-    if (bucket.upload?.accept && !matchMime(info.contentType, bucket.upload.accept)) {
+    if (
+      bucket.upload?.accept &&
+      !matchMime(info.contentType, bucket.upload.accept)
+    ) {
       await adapter.delete(fileId)
       await deleteFileMetaRow(db, fileId)
       return apiError(
@@ -394,9 +410,7 @@ export function buildBucketStorageRouter(
       }
       // Proxy-transform path regardless of visibility (we must read + write
       // bytes through the app). Mirrors the legacy on-the-fly transform logic.
-      const ext = spec.format
-        ? `.${spec.format}`
-        : extname(fileId) || '.jpg'
+      const ext = spec.format ? `.${spec.format}` : extname(fileId) || '.jpg'
       const cacheKey = `${fileId}__transforms/${transformHash(spec)}${ext}`
 
       if (await adapter.exists(cacheKey)) {
@@ -437,7 +451,9 @@ export function buildBucketStorageRouter(
       if (url) return c.redirect(url, 302)
     }
     if (bucket.visibility === 'private' && adapter.presignGet) {
-      const url = await adapter.presignGet(fileId, { expiresIn: presignExpiresSec })
+      const url = await adapter.presignGet(fileId, {
+        expiresIn: presignExpiresSec,
+      })
       return c.redirect(url, 302)
     }
 

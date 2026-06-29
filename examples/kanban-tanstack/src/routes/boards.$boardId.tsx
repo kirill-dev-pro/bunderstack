@@ -10,7 +10,12 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, notFound, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  notFound,
+  redirect,
+} from '@tanstack/react-router'
 import { BunderstackApiError } from 'bunderstack-query'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -340,8 +345,7 @@ function BoardPage() {
                     coverUrl={cardCovers[activeCard.id]}
                     reactions={allReactions.filter(
                       (r) =>
-                        r.targetType === 'card' &&
-                        r.targetId === activeCard.id,
+                        r.targetType === 'card' && r.targetId === activeCard.id,
                     )}
                     assigneeName={
                       activeCard.assigneeId

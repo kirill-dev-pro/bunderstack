@@ -6,12 +6,23 @@ import type { OperationRule, ScopeResolver } from '../access.ts'
 // ---------------------------------------------------------------------------
 
 export type BucketBackendInput =
-  | { s3: { bucket: string; region?: string; endpoint?: string; publicUrl?: string } }
+  | {
+      s3: {
+        bucket: string
+        region?: string
+        endpoint?: string
+        publicUrl?: string
+      }
+    }
   | { local: string }
 
 export type BucketConfigInput = {
   visibility?: 'public' | 'private'
-  access?: { create?: OperationRule; get?: OperationRule; delete?: OperationRule }
+  access?: {
+    create?: OperationRule
+    get?: OperationRule
+    delete?: OperationRule
+  }
   upload?: { maxSize?: string | number; accept?: string[] }
   transforms?: boolean
   scope?: ScopeResolver
@@ -83,14 +94,16 @@ export function parseSize(value: string | number): number {
   if (!match) throw new Error(`[bunderstack] invalid size "${value}"`)
 
   const numStr = match[1]
-  if (numStr === undefined) throw new Error(`[bunderstack] invalid size "${value}"`)
+  if (numStr === undefined)
+    throw new Error(`[bunderstack] invalid size "${value}"`)
   const num = parseFloat(numStr)
   const unit = (match[2] ?? '').toLowerCase()
 
   if (unit === '') return Math.floor(num)
 
   const multiplier = SIZE_UNITS[unit]
-  if (multiplier === undefined) throw new Error(`[bunderstack] invalid size "${value}"`)
+  if (multiplier === undefined)
+    throw new Error(`[bunderstack] invalid size "${value}"`)
 
   return Math.floor(num * multiplier)
 }
@@ -108,7 +121,7 @@ function resolveSharedBackend(
   if ('local' in input && input.local !== undefined) {
     return {
       type: 'local',
-      path: input.local === true ? './uploads' : input.local as string,
+      path: input.local === true ? './uploads' : (input.local as string),
     }
   }
 
@@ -172,9 +185,9 @@ function resolveSingleBucket(
   const defaultGet: OperationRule = visibility === 'public' ? 'public' : 'owner'
 
   const access = {
-    create: input.access?.create ?? 'authenticated' as OperationRule,
+    create: input.access?.create ?? ('authenticated' as OperationRule),
     get: input.access?.get ?? defaultGet,
-    delete: input.access?.delete ?? 'owner' as OperationRule,
+    delete: input.access?.delete ?? ('owner' as OperationRule),
   }
 
   let upload: ResolvedBucket['upload'] | undefined = undefined
@@ -245,7 +258,10 @@ export function resolveBuckets(
   }
 
   for (const [name, bucketInput] of Object.entries(bucketsInput)) {
-    buckets.set(name, resolveSingleBucket(name, bucketInput, sharedBackend, env))
+    buckets.set(
+      name,
+      resolveSingleBucket(name, bucketInput, sharedBackend, env),
+    )
   }
 
   return { defaultBucket: defaultBucketName, buckets }

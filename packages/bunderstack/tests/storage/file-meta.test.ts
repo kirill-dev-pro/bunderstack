@@ -1,7 +1,7 @@
 import { test, expect, beforeAll } from 'bun:test'
 
-import { bunderstackFiles, INTERNAL_TABLES } from '../../src/internal-tables.ts'
 import { createDb } from '../../src/db.ts'
+import { bunderstackFiles, INTERNAL_TABLES } from '../../src/internal-tables.ts'
 import { provisionSchema } from '../../src/provision.ts'
 import {
   insertPendingFile,
@@ -85,7 +85,10 @@ test('markFileReady: flips pending row to ready and sets size/contentType/confir
   expect(row!.status).toBe('pending')
   expect(row!.confirmedAt).toBeNull()
 
-  await markFileReady(db, 'file-flip-1', { size: 1234, contentType: 'text/plain' })
+  await markFileReady(db, 'file-flip-1', {
+    size: 1234,
+    contentType: 'text/plain',
+  })
 
   row = await getFileMeta(db, 'file-flip-1')
   expect(row!.status).toBe('ready')
@@ -216,12 +219,18 @@ test('sumReadySize: sums only ready files for the given owner+bucket', async () 
     createdAt: now,
   })
 
-  const sumA = await sumReadySize(db, { bucket: 'quota-bucket', ownerId: 'quota-owner-a' })
+  const sumA = await sumReadySize(db, {
+    bucket: 'quota-bucket',
+    ownerId: 'quota-owner-a',
+  })
   expect(sumA).toBe(300)
   expect(typeof sumA).toBe('number')
 
   // wrong bucket
-  const sumWrongBucket = await sumReadySize(db, { bucket: 'other-bucket', ownerId: 'quota-owner-a' })
+  const sumWrongBucket = await sumReadySize(db, {
+    bucket: 'other-bucket',
+    ownerId: 'quota-owner-a',
+  })
   expect(sumWrongBucket).toBe(0)
 })
 
@@ -265,7 +274,10 @@ test('sumReadySize: sums by scopeJson, respects bucket filter', async () => {
     confirmedAt: now,
   })
 
-  const total = await sumReadySize(db, { bucket: 'scope-bucket', scopeJson: scope! })
+  const total = await sumReadySize(db, {
+    bucket: 'scope-bucket',
+    scopeJson: scope!,
+  })
   expect(total).toBe(1000)
   expect(typeof total).toBe('number')
 })
@@ -273,7 +285,10 @@ test('sumReadySize: sums by scopeJson, respects bucket filter', async () => {
 // ─── sumReadySize: COALESCE → 0 when no rows ──────────────────────────────
 
 test('sumReadySize: returns 0 (not null/undefined) when no matching rows', async () => {
-  const result = await sumReadySize(db, { bucket: 'empty-bucket', ownerId: 'ghost-user' })
+  const result = await sumReadySize(db, {
+    bucket: 'empty-bucket',
+    ownerId: 'ghost-user',
+  })
   expect(result).toBe(0)
   expect(typeof result).toBe('number')
 })
@@ -307,7 +322,11 @@ test('sumReadySize: AND-combines ownerId and scopeJson filters', async () => {
     confirmedAt: now,
   })
 
-  const total = await sumReadySize(db, { bucket: 'combo-bucket', ownerId: 'combo-owner', scopeJson: scope! })
+  const total = await sumReadySize(db, {
+    bucket: 'combo-bucket',
+    ownerId: 'combo-owner',
+    scopeJson: scope!,
+  })
   expect(total).toBe(111)
 })
 

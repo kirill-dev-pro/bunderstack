@@ -394,7 +394,10 @@ export function stampScope(
 }
 
 export function checkAccessSync(
-  rule: Exclude<OperationRule, (ctx: AccessContext) => boolean | Promise<boolean>>,
+  rule: Exclude<
+    OperationRule,
+    (ctx: AccessContext) => boolean | Promise<boolean>
+  >,
   ctx: AccessContext,
   ownerColumn?: string,
 ): { allowed: boolean } {
@@ -453,7 +456,8 @@ export function sanitizeWriteBody(
     // On create, allow client-supplied `id` even if it appears in readonlyColumns,
     // but still respect an explicit writableColumns allowlist if provided.
     if (mode === 'create' && key === 'id') {
-      if (access.writableColumns && !access.writableColumns.includes(key)) continue
+      if (access.writableColumns && !access.writableColumns.includes(key))
+        continue
       out[key] = value
       continue
     }

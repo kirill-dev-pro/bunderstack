@@ -1,3 +1,5 @@
+import type { RealtimeAction, RealtimeBroker } from './realtime.ts'
+
 // packages/bunderstack/src/realtime-redis.ts
 //
 // Redis-backed realtime broker: cross-instance fan-out + persistent replay log.
@@ -14,12 +16,14 @@ import {
   type ResolvedAccess,
   type ResolvedTableAccess,
 } from './access.ts'
-import type { RealtimeAction, RealtimeBroker } from './realtime.ts'
 
 export type RedisLike = {
   incr(key: string): Promise<number>
   publish(channel: string, message: string): Promise<unknown>
-  subscribe(channel: string, listener: (message: string) => void): Promise<unknown>
+  subscribe(
+    channel: string,
+    listener: (message: string) => void,
+  ): Promise<unknown>
   lpush(key: string, value: string): Promise<unknown>
   ltrim(key: string, start: number, stop: number): Promise<unknown>
   lrange(key: string, start: number, stop: number): Promise<string[]>
@@ -40,8 +44,12 @@ type WireEvent = {
   record: Record<string, unknown>
 }
 
-function tableEntry(access: ResolvedAccess, name: string): ResolvedTableAccess | undefined {
-  for (const entry of access.values()) if (entry.tableName === name) return entry
+function tableEntry(
+  access: ResolvedAccess,
+  name: string,
+): ResolvedTableAccess | undefined {
+  for (const entry of access.values())
+    if (entry.tableName === name) return entry
   return undefined
 }
 
@@ -57,12 +65,17 @@ export function createRedisRealtimeBroker(opts: {
   const logKey = `${channel}:log`
   const counterKey = `${channel}:seq`
 
-  function deliverable(s: Subscriber, table: string, record: Record<string, unknown>): boolean {
+  function deliverable(
+    s: Subscriber,
+    table: string,
+    record: Record<string, unknown>,
+  ): boolean {
     const entry = tableEntry(opts.access, table)
     if (!entry) return false
     const id = record['id']
     const topicMatch =
-      s.subscriptions.has(table) || (id != null && s.subscriptions.has(`${table}/${String(id)}`))
+      s.subscriptions.has(table) ||
+      (id != null && s.subscriptions.has(`${table}/${String(id)}`))
     if (!topicMatch) return false
     const ctx = {
       user: s.user,
@@ -71,7 +84,8 @@ export function createRedisRealtimeBroker(opts: {
       session: { activeOrganizationId: s.activeOrganizationId },
     }
     if (typeof entry.get === 'function') return false
-    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed) return false
+    if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
+      return false
     if (entry.scope && !rowMatchesScope(record, entry.scope(ctx))) return false
     return true
   }
@@ -84,19 +98,27 @@ export function createRedisRealtimeBroker(opts: {
   }
 
   // Subscribe once; all local delivery happens here.
-  const ready = opts.redis.subscribe(channel, (message) => {
-    try {
-      fanOut(JSON.parse(message) as WireEvent)
-    } catch {
-      /* ignore malformed */
-    }
-  }).then(() => undefined)
+  const ready = opts.redis
+    .subscribe(channel, (message) => {
+      try {
+        fanOut(JSON.parse(message) as WireEvent)
+      } catch {
+        /* ignore malformed */
+      }
+    })
+    .then(() => undefined)
 
   return {
     ready,
     register(send) {
       const id = crypto.randomUUID()
-      subscribers.set(id, { id, send, user: null, activeOrganizationId: null, subscriptions: new Set() })
+      subscribers.set(id, {
+        id,
+        send,
+        user: null,
+        activeOrganizationId: null,
+        subscriptions: new Set(),
+      })
       return { id }
     },
     async setContext(id, ctx) {
@@ -123,7 +145,9 @@ export function createRedisRealtimeBroker(opts: {
         .filter((e) => e.eventId > since)
         .sort((a, b) => a.eventId - b.eventId)
 
-      const oldestInLog = raw.length ? (JSON.parse(raw[raw.length - 1]!) as WireEvent).eventId : since + 1
+      const oldestInLog = raw.length
+        ? (JSON.parse(raw[raw.length - 1]!) as WireEvent).eventId
+        : since + 1
       const gap = oldestInLog > since + 1
       for (const e of events) {
         if (deliverable(s, e.table, e.record)) s.send(JSON.stringify(e))
