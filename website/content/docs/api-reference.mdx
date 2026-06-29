@@ -32,8 +32,9 @@ type BunderstackApp<TSchema> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: Auth
-  storage: StorageAdapter
+  storage: StorageFacade
   router: Hono
+  provision: (options?: { force?: boolean }) => Promise<void>
 }
 ```
 

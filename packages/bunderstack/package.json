@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./access": "./src/access.ts"
+    "./access": "./src/access.ts",
+    "./schema": "./src/schema-export.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -18,12 +19,17 @@
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "better-auth": "^1.0.0",
-    "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
     "zod": "^3.24.0"
   },
   "peerDependencies": {
+    "drizzle-kit": "^0.30.0",
     "typescript": "^5"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-kit": {
+      "optional": true
+    }
   }
 }

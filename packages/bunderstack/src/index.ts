@@ -12,7 +12,7 @@ import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
-import { provisionSchema, type ProvisionMode } from './provision'
+import { provisionSchema } from './provision'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
 import { deleteFileWithDerivatives } from './storage/delete'
@@ -52,7 +52,7 @@ export type BunderstackApp<TSchema extends Record<string, unknown>> = {
   auth: AuthInstance
   storage: StorageFacade
   router: HonoType
-  /** Push Drizzle schema to the database. Auto-runs in dev when `provision: 'auto'` (default). */
+  /** Push the merged schema (user + internal tables) to the database. */
   provision: (options?: { force?: boolean }) => Promise<void>
 }
 
@@ -60,7 +60,6 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   options: BunderstackConfig<TSchema>,
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options)
-  const provisionMode: ProvisionMode = options.provision ?? 'auto'
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -178,21 +177,11 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     router,
     provision: (opts) =>
       provisionSchema(db, mergedSchema, {
-        mode: provisionMode,
         force: opts?.force,
         databaseUrl: config.database.url,
       }),
   }
 
-  return app
-}
-
-/** Create Bunderstack and auto-provision the database schema (dev by default). */
-export async function createBunderstackAsync<
-  TSchema extends Record<string, unknown>,
->(options: BunderstackConfig<TSchema>): Promise<BunderstackApp<TSchema>> {
-  const app = createBunderstack(options)
-  await app.provision()
   return app
 }
 
@@ -202,8 +191,7 @@ export type {
   BunderstackConfig,
   ResolvedConfig,
 } from './config'
-export { provisionSchema, shouldProvision } from './provision'
-export type { ProvisionMode } from './provision'
+export { provisionSchema } from './provision'
 export {
   defineAccess,
   validateAndResolveAccess,

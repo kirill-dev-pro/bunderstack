@@ -2,7 +2,7 @@
 import { test, expect, afterAll } from 'bun:test'
 import { rm } from 'node:fs/promises'
 
-import { createBunderstackAsync } from '../index'
+import { createBunderstack } from '../index'
 
 const TMP_DIR = './.tmp-uploads-test'
 
@@ -11,7 +11,7 @@ afterAll(async () => {
 })
 
 async function buildApp() {
-  return createBunderstackAsync({
+  const app = createBunderstack({
     schema: {},
     database: { url: ':memory:' },
     storage: {
@@ -24,8 +24,9 @@ async function buildApp() {
         },
       },
     },
-    provision: true,
   })
+  await app.provision({ force: true })
+  return app
 }
 
 function uploadForm(name: string, body: string): FormData {

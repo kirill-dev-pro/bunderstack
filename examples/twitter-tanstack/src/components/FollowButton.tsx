@@ -1,13 +1,18 @@
 import * as React from 'react'
+import type { InferSelect } from 'bunderstack-query'
 
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
+import type { follows, user } from '~/schema'
+
+type Follow = InferSelect<typeof follows>
+type User = InferSelect<typeof user>
 
 type FollowButtonProps = {
-  currentUserId: string | null
-  targetUserId: string
-  follows: Array<{ id: number; followerId: string; followingId: string }>
+  currentUserId: User['id'] | null
+  targetUserId: User['id']
+  follows: Follow[]
 }
 
 export function FollowButton({

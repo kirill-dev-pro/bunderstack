@@ -1,9 +1,9 @@
 // examples/standalone/server.ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 
 import * as schema from './schema'
 
-const app = await createBunderstackAsync({
+const app = createBunderstack({
   schema,
   database: { url: 'file:./data.db' },
   auth: { emailAndPassword: { enabled: true } },
@@ -24,6 +24,10 @@ const app = await createBunderstackAsync({
     },
   },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 
 export const { db, auth, storage, router } = app
 

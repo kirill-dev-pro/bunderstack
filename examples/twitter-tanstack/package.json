@@ -12,6 +12,8 @@
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "seed": "bun scripts/seed.ts"
   },
   "dependencies": {

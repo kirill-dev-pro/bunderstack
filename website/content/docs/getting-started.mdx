@@ -8,16 +8,19 @@ description: Install Bunderstack and have a working backend in under 5 minutes
 ## Install
 
 ```bash
-bun add bunderstack
+bun add bunderstack drizzle-orm @libsql/client
+bun add -d drizzle-kit
 ```
 
 ## Write your schema
 
-Import Drizzle builders from `bunderstack` to share its Drizzle instance and avoid version conflicts.
+Import Drizzle builders from `bunderstack` to share its Drizzle instance and avoid version conflicts. Re-export Bunderstack's internal tables so migrations include file storage metadata:
 
 ```ts
 // schema.ts
 import { sqliteTable, integer, text } from 'bunderstack'
+
+export * from 'bunderstack/schema'
 
 // BetterAuth required tables — copy full definitions from examples/standalone/schema.ts
 export const user = sqliteTable('user', {
@@ -51,16 +54,30 @@ export const posts = sqliteTable('posts', {
 
 ```ts
 // bunderstack.ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = await createBunderstackAsync({
+export const app = createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 ```
 
-`createBunderstackAsync` provisions your schema to the database automatically in development.
+`app.provision()` pushes your schema to the database (drizzle-kit push). Call it explicitly in development; omit it in production and use migrations instead.
+
+## Database lifecycle
+
+| Phase | Command | When |
+| ----- | ------- | ---- |
+| Dev push | `await app.provision()` | Local development |
+| Generate | `bunx drizzle-kit generate` | After schema changes |
+| Migrate | `bunx drizzle-kit migrate` | Production deploy |
+
+Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`.
 
 ## Serve it
 
@@ -107,11 +124,15 @@ export const access = defineAccess(schema, {
 
 ```ts
 // bunderstack.ts
-export const app = await createBunderstackAsync({
+export const app = createBunderstack({
   schema,
   access,
   auth: { emailAndPassword: { enabled: true } },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 ```
 
 ## Next steps

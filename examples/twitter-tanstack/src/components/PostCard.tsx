@@ -12,7 +12,13 @@ import { PostTime } from '~/components/PostTime'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { closeDialog, showDialog, toast } from '~/utils/oat'
-import { countReplies, handleFromEmail, type Post } from '~/utils/posts'
+import {
+  countReplies,
+  handleFromEmail,
+  Like,
+  Retweet,
+  type Post,
+} from '~/utils/posts'
 
 type Author = InferSelect<typeof user>
 
@@ -20,10 +26,10 @@ type PostCardProps = {
   post: Post
   author?: Author
   allPosts: Post[]
-  likes: Array<{ id: number; userId: string; postId: number }>
-  retweets: Array<{ id: number; userId: string; postId: number }>
-  authorMap: Map<string, Author>
-  currentUserId: string | null
+  likes: Like[]
+  retweets: Retweet[]
+  authorMap: Map<Author['id'], Author>
+  currentUserId: Author['id'] | null
   /** feed = link to thread; detail = no self-link; reply = compact thread row */
   variant?: 'feed' | 'detail' | 'reply'
 }

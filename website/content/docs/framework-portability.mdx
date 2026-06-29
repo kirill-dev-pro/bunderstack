@@ -31,16 +31,22 @@ export const DELETE = GET
 
 ```ts
 // bunderstack.ts — lazy singleton for Next.js
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack, type BunderstackApp } from 'bunderstack'
 import * as schema from './schema'
 
-let _app: Awaited<ReturnType<typeof createBunderstackAsync<typeof schema>>>
+let _app: BunderstackApp<typeof schema> | null = null
 
 export async function getApp() {
-  return (_app ??= await createBunderstackAsync({
-    schema,
-    auth: { emailAndPassword: { enabled: true } },
-  }))
+  if (!_app) {
+    _app = createBunderstack({
+      schema,
+      auth: { emailAndPassword: { enabled: true } },
+    })
+    if (process.env.NODE_ENV !== 'production') {
+      await _app.provision()
+    }
+  }
+  return _app
 }
 ```
 
@@ -69,13 +75,17 @@ TanStack Start supports top-level `await`, so `bunderstack.ts` can export `app` 
 
 ```ts
 // src/bunderstack.ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 import { access } from './access'
 
-export const app = await createBunderstackAsync({
+export const app = createBunderstack({
   schema,
   access,
   auth: { emailAndPassword: { enabled: true } },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 ```

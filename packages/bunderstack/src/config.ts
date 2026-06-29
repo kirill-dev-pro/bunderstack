@@ -19,8 +19,6 @@ export type BetterAuthConfig = Omit<
 
 export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.string(), z.unknown()),
-  /** Auto-push schema in non-production. Set `true` to always provision, `false` to never. */
-  provision: z.union([z.boolean(), z.literal('auto')]).optional(),
   access: z.record(z.string(), z.any()).optional(),
   database: z
     .object({ url: z.string().optional(), authToken: z.string().optional() })

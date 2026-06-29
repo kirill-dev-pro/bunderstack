@@ -11,23 +11,32 @@ bun install
 
 ## Quick start
 
-Each example **auto-provisions its SQLite schema in development** when the dev server starts (`provision: 'auto'` is the default). No manual `drizzle-kit push` needed for local dev.
+Each example calls `app.provision()` in development to push the schema (including Bunderstack internal tables). In production, apply committed migrations instead.
 
-For production, run `db:push` explicitly before starting:
+**Development** — start the dev server; provisioning runs when `NODE_ENV !== 'production'`:
+
+```ts
+export const app = createBunderstack({ schema, ... })
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
+```
+
+**Production** — generate and commit migrations, then apply before starting:
 
 ```bash
-bun run db:push   # pushes all example databases
+bun run db:generate   # drizzle-kit generate → migrations/
+bun run db:migrate    # drizzle-kit migrate
 ```
 
 Or per example:
 
 ```bash
-bun run --cwd examples/standalone db:push
-bun run --cwd examples/twitter-tanstack db:push
-bun run --cwd examples/nextjs db:push
-bun run --cwd examples/kanban-solid-1.9 db:push
-bun run --cwd examples/kanban-tanstack db:push
+bun run --cwd examples/twitter-tanstack db:generate
+bun run --cwd examples/twitter-tanstack db:migrate
 ```
+
+Add `export * from 'bunderstack/schema'` to your `schema.ts` so migrations include internal tables (`bunderstack_file_meta`, `_bunderstack_idempotency`).
 
 ## Run examples
 
@@ -153,4 +162,4 @@ useMutation(api.posts.createMutation())
 | -------------- | ---------------- | ---------------------------------------------- |
 | `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                  |
 | `AUTH_SECRET`  | dev default      | BetterAuth secret                              |
-| `NODE_ENV`     | —                | `production` disables auto schema provisioning |
+| `NODE_ENV`     | —                | Set `production` in deploy; omit `app.provision()` and run `db:migrate` instead |

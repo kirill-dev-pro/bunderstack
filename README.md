@@ -3,16 +3,20 @@
 A batteries-included backend framework for Bun. Point it at a Drizzle schema and get CRUD APIs, auth, and file storage — all from a single `Request → Response` handler you can drop into any runtime.
 
 ```ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-const app = await createBunderstackAsync({
+const app = createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
   },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 
 Bun.serve({ fetch: app.handler })
 ```
@@ -55,6 +59,8 @@ Auth tables are required by BetterAuth. Add your own tables alongside them.
 // schema.ts
 import { sqliteTable, integer, text } from 'bunderstack'
 
+export * from 'bunderstack/schema'
+
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -91,7 +97,7 @@ export const posts = sqliteTable('posts', {
 Every CRUD operation is gated. Rules apply per-table, per-operation.
 
 ```ts
-const app = await createBunderstackAsync({
+const app = createBunderstack({
   schema,
   access: {
     posts: {
@@ -225,14 +231,28 @@ Database URL defaults to `file:./data.db`. Set `DATABASE_URL` in env or pass `da
 database: { url: process.env.DATABASE_URL, authToken: process.env.DATABASE_AUTH_TOKEN }
 ```
 
-### Schema provisioning
+### Schema provisioning & migrations
 
-In development, Bunderstack auto-pushes your Drizzle schema to the database on startup (`provision: 'auto'`, the default). In production, disable it:
+Bunderstack follows Drizzle's lifecycle: **push** (dev), **generate** (author migrations), **migrate** (production).
+
+1. Add internal tables to your schema: `export * from 'bunderstack/schema'`
+2. **Development** — push on startup:
 
 ```ts
-provision: false
-// then run: bunx drizzle-kit migrate
+const app = createBunderstack({ schema, ... })
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()  // drizzle-kit push via drizzle-kit/api
+}
 ```
+
+3. **Production** — versioned migrations:
+
+```bash
+bunx drizzle-kit generate   # writes migrations/
+bunx drizzle-kit migrate    # apply before starting the server
+```
+
+`app.provision()` always pushes when called (no NODE_ENV gating). Use `app.provision({ force: true })` if the push would cause data loss.
 
 ---
 
@@ -241,13 +261,17 @@ provision: false
 ### Standalone (Bun)
 
 ```ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-const app = await createBunderstackAsync({
+const app = createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 
 Bun.serve({ port: 3001, fetch: app.handler })
 ```
@@ -336,8 +360,6 @@ export const api = createBunderstackQueryClient().withSchema({
 ```ts
 createBunderstack({
   schema,                    // Drizzle schema object (required)
-
-  provision: 'auto',         // 'auto' | true | false. Auto = push in non-production.
 
   database: {
     url: 'file:./data.db',   // libSQL URL. Defaults to DATABASE_URL env var.

@@ -5,6 +5,7 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
+import { asTypeId } from 'bunderstack'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
@@ -14,10 +15,19 @@ import { FollowButton } from '~/components/FollowButton'
 import { PostCard } from '~/components/PostCard'
 import { UserAvatar } from '~/components/UserAvatar'
 
+function parseUserIdParam(raw: string) {
+  try {
+    return asTypeId('user', raw)
+  } catch {
+    throw notFound()
+  }
+}
+
 export const Route = createFileRoute('/users/$userId')({
   loader: async ({ params }) => {
+    const userId = parseUserIdParam(params.userId)
     const userPostsParams = {
-      userId: params.userId,
+      userId,
       sort: 'createdAt',
       order: 'desc',
       limit: 100,
@@ -26,7 +36,7 @@ export const Route = createFileRoute('/users/$userId')({
 
     try {
       const profile = await queryClient.ensureQueryData(
-        api.user.getQuery(params.userId),
+        api.user.getQuery(userId),
       )
       const [posts, follows, users, likes, retweets] = await Promise.all([
         queryClient.ensureQueryData(api.posts.listQuery(userPostsParams)),
@@ -54,7 +64,8 @@ export const Route = createFileRoute('/users/$userId')({
 })
 
 function UserProfilePage() {
-  const { userId } = Route.useParams()
+  const { userId: userIdParam } = Route.useParams()
+  const userId = parseUserIdParam(userIdParam)
   const { user: currentUser } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()

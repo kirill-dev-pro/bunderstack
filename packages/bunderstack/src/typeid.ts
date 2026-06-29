@@ -100,16 +100,17 @@ export function asTypeId<P extends string>(prefix: P, raw: string): TypeId<P> {
 }
 
 /**
- * Drizzle column builder for a TypeID primary key. Stores a plain `text` column
- * (so drizzle-kit migrations and `$inferSelect` work unchanged) that auto-generates
- * a branded `prefix_…` id on insert.
+ * Drizzle column builder for a branded TypeID text value. Stores a plain `text`
+ * column so drizzle-kit migrations and `$inferSelect` work unchanged.
  *
- *   id: typeid('post').primaryKey()
+ * Use Drizzle's `$defaultFn` when a column should generate IDs on insert:
+ *
+ *   id: typeid('post').primaryKey().$defaultFn(() => generate('post'))
  */
 export function typeid<P extends string>(prefix: P) {
   if (!isValidPrefix(prefix))
     throw new Error(`Invalid typeid prefix: "${prefix}"`)
   return customType<{ data: TypeId<P>; driverData: string }>({
     dataType: () => 'text',
-  })().$defaultFn(() => generate(prefix))
+  })()
 }

@@ -3,16 +3,20 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 const INSTALL_CODE = `bun add bunderstack`
 
 const QUICKSTART_CODE = `// bunderstack.ts
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = await createBunderstackAsync({
+export const app = createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
   },
 })
+
+if (process.env.NODE_ENV !== 'production') {
+  await app.provision()
+}
 // GET    /api/posts          → list (public)
 // POST   /api/posts          → create (authenticated, owner set from session)
 // PATCH  /api/posts/:id      → update (owner only)

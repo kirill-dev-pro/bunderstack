@@ -12,7 +12,6 @@ test('provision pushes schema to in-memory sqlite', async () => {
   const app = createBunderstack({
     schema: { widgets },
     database: { url: ':memory:' },
-    provision: true,
   })
 
   await app.provision({ force: true })

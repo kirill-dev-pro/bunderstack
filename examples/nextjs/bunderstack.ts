@@ -18,7 +18,9 @@ export function getApp() {
           buckets: { default: {} },
         },
       })
-      await app.provision()
+      if (process.env.NODE_ENV !== 'production') {
+        await app.provision()
+      }
       return app
     })()
   }

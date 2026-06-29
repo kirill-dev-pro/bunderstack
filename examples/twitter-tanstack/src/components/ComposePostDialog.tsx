@@ -11,11 +11,12 @@ import {
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { closeDialog, showDialog, toast } from '~/utils/oat'
+import type { Post } from '~/utils/posts'
 
 type ComposePostDialogProps = {
   dialogRef: React.RefObject<HTMLDialogElement | null>
   user: { id: string; name: string; image?: string | null }
-  replyToId?: number
+  replyToId?: Post['id']
   onPosted?: () => void
 }
 

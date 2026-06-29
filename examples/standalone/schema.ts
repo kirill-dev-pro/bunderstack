@@ -1,6 +1,8 @@
 // examples/standalone/schema.ts
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
+export * from 'bunderstack/schema'
+
 // BetterAuth required tables
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),

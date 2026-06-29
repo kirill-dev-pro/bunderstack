@@ -96,14 +96,36 @@ test('asTypeId throws when the raw string has the wrong prefix', () => {
   expect(() => asTypeId('post', `user_${VECTOR_SUFFIX}`)).toThrow()
 })
 
-test('typeid() builds a text column that auto-generates a prefixed id on insert', async () => {
+test('typeid() builds a branded text column without an implicit insert default', async () => {
   const widgets = sqliteTable('widgets', {
     id: typeid('widget').primaryKey(),
     name: text('name').notNull(),
   })
   const db = createDb({ widgets }, { url: ':memory:' })
   await db.$client.execute(
-    `CREATE TABLE widgets (id TEXT PRIMARY KEY, name TEXT NOT NULL)`,
+    `CREATE TABLE widgets (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)`,
+  )
+
+  const insertWithoutId = db
+    .insert(widgets)
+    // @ts-expect-error typeid() has no default, so inserts must provide id unless $defaultFn is used.
+    .values({ name: 'gear' })
+
+  await expect(Promise.resolve(insertWithoutId.returning())).rejects.toThrow(
+    /Failed query|NOT NULL|constraint/i,
+  )
+})
+
+test('typeid() can explicitly generate a prefixed id with $defaultFn', async () => {
+  const widgets = sqliteTable('widgets', {
+    id: typeid('widget')
+      .primaryKey()
+      .$defaultFn(() => generate('widget')),
+    name: text('name').notNull(),
+  })
+  const db = createDb({ widgets }, { url: ':memory:' })
+  await db.$client.execute(
+    `CREATE TABLE widgets (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)`,
   )
 
   const inserted = await db.insert(widgets).values({ name: 'gear' }).returning()

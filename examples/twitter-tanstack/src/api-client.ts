@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createIsomorphicFn } from '@tanstack/react-start'
+import type { TypeId } from 'bunderstack'
 import { createBunderstackQueryClient } from 'bunderstack-query'
 
 import type * as schema from './schema'
@@ -37,7 +38,7 @@ export const feedParams = {
   limit: 20,
 } as const
 
-export function replyParams(postId: number) {
+export function replyParams(postId: TypeId<'post'>) {
   return {
     replyToId: postId,
     sort: 'createdAt',

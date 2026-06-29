@@ -57,7 +57,17 @@ test('withInternalTables preserves user tables', () => {
   expect(isTable(merged.bunderstackIdempotency)).toBe(true)
 })
 
-test('withInternalTables throws on reserved name bunderstack_file_meta', () => {
+test('withInternalTables dedupes re-exported internal tables', () => {
+  const merged = withInternalTables({
+    bunderstackFiles,
+    bunderstackIdempotency,
+  })
+  expect(isTable(merged.bunderstackFiles)).toBe(true)
+  expect(isTable(merged.bunderstackIdempotency)).toBe(true)
+  expect(merged.bunderstackFiles).toBe(bunderstackFiles)
+})
+
+test('withInternalTables throws on foreign reserved name bunderstack_file_meta', () => {
   const clash = sqliteTable('bunderstack_file_meta', {
     id: text('id').primaryKey(),
   })
@@ -66,7 +76,7 @@ test('withInternalTables throws on reserved name bunderstack_file_meta', () => {
   )
 })
 
-test('withInternalTables throws on reserved name _bunderstack_idempotency', () => {
+test('withInternalTables throws on foreign reserved name _bunderstack_idempotency', () => {
   const clash = sqliteTable('_bunderstack_idempotency', {
     key: text('key').notNull(),
     table_name: text('table_name').notNull(),

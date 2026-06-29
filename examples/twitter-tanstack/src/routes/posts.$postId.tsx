@@ -5,6 +5,7 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
+import { asTypeId } from 'bunderstack'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
@@ -14,10 +15,17 @@ import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
 import { ReplyComposer } from '~/components/ReplyComposer'
 
+function parsePostIdParam(raw: string) {
+  try {
+    return asTypeId('post', raw)
+  } catch {
+    throw notFound()
+  }
+}
+
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params }) => {
-    const postId = Number(params.postId)
-    if (!Number.isFinite(postId)) throw notFound()
+    const postId = parsePostIdParam(params.postId)
 
     const repliesQuery = replyParams(postId)
 
@@ -43,7 +51,7 @@ export const Route = createFileRoute('/posts/$postId')({
 
 function PostThreadPage() {
   const { postId: postIdParam } = Route.useParams()
-  const postId = Number(postIdParam)
+  const postId = parsePostIdParam(postIdParam)
   const { user } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()

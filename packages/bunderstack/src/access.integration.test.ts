@@ -47,7 +47,6 @@ beforeAll(async () => {
   app = createBunderstack({
     schema,
     database: { url: ':memory:' },
-    provision: false,
     auth: {},
   })
   await app.provision({ force: true })

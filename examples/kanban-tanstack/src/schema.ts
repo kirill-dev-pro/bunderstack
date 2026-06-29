@@ -1,5 +1,7 @@
-import { typeid } from 'bunderstack'
+import { generateTypeId, typeid } from 'bunderstack'
 import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+
+export * from 'bunderstack/schema'
 
 // --- BetterAuth core ---
 export const user = sqliteTable('user', {
@@ -92,7 +94,9 @@ export const invitation = sqliteTable('invitation', {
 
 // --- App tables (typeid + denormalized organizationId) ---
 export const boards = sqliteTable('boards', {
-  id: typeid('board').primaryKey(),
+  id: typeid('board')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('board')),
   organizationId: text('organization_id').notNull(),
   title: text('title').notNull(),
   background: text('background').default('blue'),
@@ -101,7 +105,9 @@ export const boards = sqliteTable('boards', {
   ),
 })
 export const lists = sqliteTable('lists', {
-  id: typeid('list').primaryKey(),
+  id: typeid('list')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('list')),
   organizationId: text('organization_id').notNull(),
   boardId: text('board_id').notNull(),
   title: text('title').notNull(),
@@ -111,7 +117,9 @@ export const lists = sqliteTable('lists', {
   ),
 })
 export const cards = sqliteTable('cards', {
-  id: typeid('card').primaryKey(),
+  id: typeid('card')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('card')),
   organizationId: text('organization_id').notNull(),
   boardId: text('board_id').notNull(),
   listId: text('list_id').notNull(),
@@ -124,7 +132,9 @@ export const cards = sqliteTable('cards', {
   ),
 })
 export const comments = sqliteTable('comments', {
-  id: typeid('cmt').primaryKey(),
+  id: typeid('cmt')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('cmt')),
   organizationId: text('organization_id').notNull(),
   cardId: text('card_id').notNull(),
   authorId: text('author_id'),
@@ -134,7 +144,9 @@ export const comments = sqliteTable('comments', {
   ),
 })
 export const activity = sqliteTable('activity', {
-  id: typeid('act').primaryKey(),
+  id: typeid('act')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('act')),
   organizationId: text('organization_id').notNull(),
   boardId: text('board_id').notNull(),
   cardId: text('card_id'),
@@ -146,7 +158,9 @@ export const activity = sqliteTable('activity', {
   ),
 })
 export const attachments = sqliteTable('attachments', {
-  id: typeid('att').primaryKey(),
+  id: typeid('att')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('att')),
   organizationId: text('organization_id').notNull(),
   targetType: text('target_type').notNull(),
   targetId: text('target_id').notNull(),
@@ -159,7 +173,9 @@ export const attachments = sqliteTable('attachments', {
   ),
 })
 export const reactions = sqliteTable('reactions', {
-  id: typeid('rxn').primaryKey(),
+  id: typeid('rxn')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('rxn')),
   organizationId: text('organization_id').notNull(),
   targetType: text('target_type').notNull(),
   targetId: text('target_id').notNull(),

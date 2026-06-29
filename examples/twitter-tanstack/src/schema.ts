@@ -1,8 +1,19 @@
-import { sqliteTable, integer, text, foreignKey } from 'bunderstack'
+import {
+  sqliteTable,
+  integer,
+  text,
+  foreignKey,
+  typeid,
+  generateTypeId,
+} from 'bunderstack'
+
+export * from 'bunderstack/schema'
 
 // BetterAuth required tables
 export const user = sqliteTable('user', {
-  id: text('id').primaryKey(),
+  id: typeid('user')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('user')),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: integer('emailVerified', { mode: 'boolean' })
@@ -15,23 +26,27 @@ export const user = sqliteTable('user', {
 })
 
 export const session = sqliteTable('session', {
-  id: text('id').primaryKey(),
+  id: typeid('session')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('session')),
   expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
   token: text('token').notNull().unique(),
   createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
-  userId: text('userId')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 })
 
 export const account = sqliteTable('account', {
-  id: text('id').primaryKey(),
+  id: typeid('account')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('account')),
   accountId: text('accountId').notNull(),
   providerId: text('providerId').notNull(),
-  userId: text('userId')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('accessToken'),
@@ -48,7 +63,9 @@ export const account = sqliteTable('account', {
 })
 
 export const verification = sqliteTable('verification', {
-  id: text('id').primaryKey(),
+  id: typeid('verification')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('verification')),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
   expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
@@ -59,14 +76,16 @@ export const verification = sqliteTable('verification', {
 export const posts = sqliteTable(
   'posts',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: typeid('post')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('post')),
     title: text('title').notNull(),
     body: text('body').notNull().default(''),
     imageUrl: text('imageUrl'),
-    userId: text('userId')
+    userId: typeid('user')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    replyToId: integer('replyToId'),
+    replyToId: typeid('post'),
     createdAt: integer('createdAt', { mode: 'timestamp' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -80,11 +99,13 @@ export const posts = sqliteTable(
 )
 
 export const follows = sqliteTable('follows', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  followerId: text('followerId')
+  id: typeid('follow')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('follow')),
+  followerId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  followingId: text('followingId')
+  followingId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })
@@ -93,11 +114,13 @@ export const follows = sqliteTable('follows', {
 })
 
 export const likes = sqliteTable('likes', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  userId: text('userId')
+  id: typeid('like')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('like')),
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  postId: integer('postId')
+  postId: typeid('post')
     .notNull()
     .references(() => posts.id, { onDelete: 'cascade' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })
@@ -106,11 +129,13 @@ export const likes = sqliteTable('likes', {
 })
 
 export const retweets = sqliteTable('retweets', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  userId: text('userId')
+  id: typeid('retweet')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('retweet')),
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
-  postId: integer('postId')
+  postId: typeid('post')
     .notNull()
     .references(() => posts.id, { onDelete: 'cascade' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })

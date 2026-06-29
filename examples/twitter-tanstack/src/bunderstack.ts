@@ -1,9 +1,9 @@
-import { createBunderstackAsync } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = await createBunderstackAsync({
+export const app = createBunderstack({
   schema,
   access,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
@@ -37,3 +37,7 @@ export const app = await createBunderstackAsync({
     },
   },
 })
+
+// if (process.env.NODE_ENV !== 'production') {
+//   await app.provision()
+// }

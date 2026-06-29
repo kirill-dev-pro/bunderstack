@@ -4,15 +4,14 @@ import * as React from 'react'
 import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
-
-type Reaction = { id: number; userId: string; postId: number }
+import type { Like, Post, Retweet } from '~/utils/posts'
 
 type PostActionsProps = {
-  postId: number
+  postId: Post['id']
   replyCount: number
-  currentUserId: string | null
-  likes: Reaction[]
-  retweets: Reaction[]
+  currentUserId: Like['userId'] | null
+  likes: Like[]
+  retweets: Retweet[]
 }
 
 export function PostActions({

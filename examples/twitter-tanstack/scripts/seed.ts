@@ -2,7 +2,7 @@
  * Seed demo users, educational posts, follows, likes, and threaded replies.
  * Run: bun run seed
  */
-import { eq } from 'bunderstack'
+import { asTypeId, eq, type TypeId } from 'bunderstack'
 
 import { app } from '~/bunderstack'
 
@@ -94,8 +94,8 @@ const EDUCATIONAL_POSTS: Array<{
   },
   {
     author: 'carol@example.com',
-    title: 'Auto-provision in dev',
-    body: 'drizzle-kit push runs on boot in development so the example works after git clone. Production: run db:push explicitly.',
+    title: 'Explicit provision in dev',
+    body: 'Call await app.provision() in development to push schema. Production: drizzle-kit generate → commit migrations → drizzle-kit migrate.',
   },
   {
     author: 'alice@example.com',
@@ -104,9 +104,12 @@ const EDUCATIONAL_POSTS: Array<{
   },
 ]
 
-const userIds = new Map<string, string>()
+const userIds = new Map<string, TypeId<'user'>>()
 
-async function signUp(name: string, email: string): Promise<string | null> {
+async function signUp(
+  name: string,
+  email: string,
+): Promise<TypeId<'user'> | null> {
   const existing = await app.db.select().from(user).where(eq(user.email, email))
   if (existing[0]) return existing[0].id
 
@@ -124,7 +127,7 @@ async function signUp(name: string, email: string): Promise<string | null> {
   }
 
   const body = (await res.json()) as { user?: { id: string } }
-  return body.user?.id ?? null
+  return body.user?.id ? asTypeId('user', body.user.id) : null
 }
 
 console.log('Seeding TanStack Start example…')
@@ -150,7 +153,7 @@ await app.db.delete(retweets)
 await app.db.delete(follows)
 await app.db.delete(posts)
 
-const postIds: number[] = []
+const postIds: TypeId<'post'>[] = []
 for (const item of EDUCATIONAL_POSTS) {
   const userId = userIds.get(item.author)
   if (!userId) continue

@@ -69,15 +69,8 @@ export default defineConfig({
   },
   ssr: {
     external: [
-      // 'bunderstack',
-      // 'drizzle-orm',
-      // 'better-auth',
-      // '@better-auth/core',
-      // '@libsql/client',
-      // 'hono',
-      // 'defu',
-      // 'drizzle-kit',
-      // 'drizzle-kit/api',
+      'drizzle-kit',
+      'drizzle-kit/api',
     ],
   },
   plugins: [
