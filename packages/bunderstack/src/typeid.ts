@@ -43,7 +43,8 @@ export function decode(suffix: string): Uint8Array {
   bytes[0] = (map[suffix[0]!]! << 5) | map[suffix[1]!]!
   let buf = 0n
   for (let i = 2; i < 26; i++) buf = (buf << 5n) | BigInt(map[suffix[i]!]!)
-  for (let i = 0; i < 15; i++) bytes[15 - i] = Number((buf >> BigInt(i * 8)) & 0xffn)
+  for (let i = 0; i < 15; i++)
+    bytes[15 - i] = Number((buf >> BigInt(i * 8)) & 0xffn)
   return bytes
 }
 
@@ -59,8 +60,9 @@ function bytesToUuid(bytes: Uint8Array): string {
 
 /** Generate a new, branded TypeID for the given prefix. */
 export function generate<P extends string>(prefix: P): TypeId<P> {
-  if (!isValidPrefix(prefix)) throw new Error(`Invalid typeid prefix: "${prefix}"`)
-  const bytes = Bun.randomUUIDv7('buffer') as Uint8Array
+  if (!isValidPrefix(prefix))
+    throw new Error(`Invalid typeid prefix: "${prefix}"`)
+  const bytes = Bun.randomUUIDv7('buffer')
   return `${prefix}_${encode(bytes)}` as TypeId<P>
 }
 
@@ -76,10 +78,14 @@ export function parse<P extends string>(
   if (sep <= 0) throw new Error(`Malformed typeid: "${id}"`)
   const prefix = id.slice(0, sep)
   const suffix = id.slice(sep + 1)
-  if (!isValidPrefix(prefix)) throw new Error(`Malformed typeid prefix: "${id}"`)
-  if (!SUFFIX_RE.test(suffix)) throw new Error(`Malformed typeid suffix: "${id}"`)
+  if (!isValidPrefix(prefix))
+    throw new Error(`Malformed typeid prefix: "${id}"`)
+  if (!SUFFIX_RE.test(suffix))
+    throw new Error(`Malformed typeid suffix: "${id}"`)
   if (expectedPrefix !== undefined && prefix !== expectedPrefix) {
-    throw new Error(`Expected typeid prefix "${expectedPrefix}" but got "${prefix}"`)
+    throw new Error(
+      `Expected typeid prefix "${expectedPrefix}" but got "${prefix}"`,
+    )
   }
   return { prefix, suffix, uuid: bytesToUuid(decode(suffix)) }
 }
@@ -101,7 +107,8 @@ export function asTypeId<P extends string>(prefix: P, raw: string): TypeId<P> {
  *   id: typeid('post').primaryKey()
  */
 export function typeid<P extends string>(prefix: P) {
-  if (!isValidPrefix(prefix)) throw new Error(`Invalid typeid prefix: "${prefix}"`)
+  if (!isValidPrefix(prefix))
+    throw new Error(`Invalid typeid prefix: "${prefix}"`)
   return customType<{ data: TypeId<P>; driverData: string }>({
     dataType: () => 'text',
   })().$defaultFn(() => generate(prefix))

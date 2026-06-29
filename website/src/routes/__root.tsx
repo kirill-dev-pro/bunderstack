@@ -4,6 +4,7 @@ import {
   Outlet,
   Scripts,
 } from '@tanstack/react-router'
+
 import { Provider } from '@/components/provider'
 import appCss from '@/styles/app.css?url'
 

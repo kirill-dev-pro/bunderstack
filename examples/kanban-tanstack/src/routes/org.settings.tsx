@@ -19,7 +19,7 @@ type Member = {
   id: string
   userId: string
   role: string
-  user?: { name?: string; email?: string }
+  user?: { name?: string; email?: string; image?: string | null }
 }
 
 type Invitation = {
@@ -133,7 +133,11 @@ function OrgSettingsPage() {
           <ul className="org-members-list">
             {members.map((m) => (
               <li key={m.id} className="org-member-row">
-                <UserAvatar name={m.user?.name ?? '?'} size={36} />
+                <UserAvatar
+                  name={m.user?.name ?? '?'}
+                  image={m.user?.image}
+                  size={36}
+                />
                 <div className="org-member-info">
                   <strong>{m.user?.name ?? m.userId}</strong>
                   <span>{m.user?.email}</span>

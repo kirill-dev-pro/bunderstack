@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'bun:test'
+
+import type { AccessContext } from './access.ts'
+
 import { resolveConfig } from './config.ts'
 
 describe('resolveConfig with function access rules', () => {
@@ -9,7 +12,9 @@ describe('resolveConfig with function access rules', () => {
         access: {
           boards: {
             list: () => true,
-            scope: (ctx) => ({ organizationId: ctx.session?.activeOrganizationId ?? '' }),
+            scope: (ctx: AccessContext) => ({
+              organizationId: ctx.session?.activeOrganizationId ?? '',
+            }),
           },
         },
         realtime: true,

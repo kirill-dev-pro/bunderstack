@@ -37,7 +37,8 @@ export function buildHandler(parts: HandlerParts): {
     app.route('/api', parts.realtimeRouter)
   }
 
-  const inner = (req: Request): Promise<Response> => Promise.resolve(app.fetch(req))
+  const inner = (req: Request): Promise<Response> =>
+    Promise.resolve(app.fetch(req))
   const handler = async (req: Request): Promise<Response> => {
     const limited = await checkRateLimit(req)
     if (limited) return limited

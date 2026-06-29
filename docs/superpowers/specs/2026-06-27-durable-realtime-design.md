@@ -8,7 +8,7 @@
 Make bunderstack's realtime SSE connection **reliable**. Today, browser tabs
 intermittently stop receiving card/state updates and only "catch up" when the
 user interacts with the tab (TanStack Query's `refetchOnWindowFocus` papering
-over the gap). The root cause is that SSE events are silently *dropped* — there
+over the gap). The root cause is that SSE events are silently _dropped_ — there
 is no event replay across reconnects, the native `EventSource` reconnect stalls
 on backgrounded/throttled tabs, and on reconnect the server issues a new
 `clientId` with an empty subscription window during which events are lost.
@@ -29,7 +29,7 @@ full-parity Solid 2.0 Kanban example — get their own spec → plan → build c
    no `Last-Event-ID` / `since` handling.
 2. **Opaque native `EventSource` reconnect.** Its auto-reconnect is throttled and
    un-observable; backgrounded tabs are exactly where it stalls.
-3. **Re-subscribe gap.** On reconnect the server issues a *new* `clientId`; until
+3. **Re-subscribe gap.** On reconnect the server issues a _new_ `clientId`; until
    the client re-POSTs its subscriptions, the new server-side subscriber has an
    empty subscription set and receives nothing.
 4. **No catch-up on reconnect.** The client only `invalidateQueries` per-event,
@@ -110,7 +110,7 @@ It owns:
 
 - **Reconnection** — explicit exponential backoff + jitter, capped (e.g. 1s →
   30s).
-- **Heartbeat watchdog** — no bytes (event *or* `: ping`) within ~1.5×
+- **Heartbeat watchdog** — no bytes (event _or_ `: ping`) within ~1.5×
   `keepaliveMs` → abort and reconnect immediately. Kills the "backgrounded tab
   silently stalls" failure mode.
 - **`visibilitychange` hook** — tab refocus → if stale/closed, force an instant

@@ -1,7 +1,8 @@
 import type { InferSelect } from 'bunderstack-query'
+
+import { useQuery } from '@tanstack/react-query'
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import type * as schema from '~/schema'
 
@@ -170,7 +171,9 @@ export function CardDialog({
           <>
             <header className="card-dialog-header">
               <div className="card-dialog-header-main">
-                <span className="card-dialog-list-label">in list {listName}</span>
+                <span className="card-dialog-list-label">
+                  in list {listName}
+                </span>
                 <input
                   className="card-dialog-title-input"
                   value={title || card.title}
@@ -180,7 +183,10 @@ export function CardDialog({
                     if (next && next !== card.title) {
                       updateCard.mutate(
                         { id: card.id, data: { title: next } },
-                        { onSuccess: () => logCardActivity('updated', { field: 'title' }) },
+                        {
+                          onSuccess: () =>
+                            logCardActivity('updated', { field: 'title' }),
+                        },
                       )
                     }
                   }}
@@ -189,9 +195,7 @@ export function CardDialog({
                   target={{ targetType: 'card', targetId: card.id }}
                   reactions={allReactions}
                   currentUserId={userId}
-                  onReact={(emoji) =>
-                    logCardActivity('reacted', { emoji })
-                  }
+                  onReact={(emoji) => logCardActivity('reacted', { emoji })}
                 />
               </div>
               <button
@@ -225,7 +229,9 @@ export function CardDialog({
                         { id: card.id, data: { description } },
                         {
                           onSuccess: () =>
-                            logCardActivity('updated', { field: 'description' }),
+                            logCardActivity('updated', {
+                              field: 'description',
+                            }),
                         },
                       )
                     }}
@@ -308,7 +314,10 @@ export function CardDialog({
                     className="comment-form"
                     onSubmit={async (e) => {
                       e.preventDefault()
-                      if (!commentBody.trim() && pendingCommentFiles.length === 0)
+                      if (
+                        !commentBody.trim() &&
+                        pendingCommentFiles.length === 0
+                      )
                         return
                       const body = commentBody.trim() || '(attachment)'
                       const created = await addComment.mutateAsync({

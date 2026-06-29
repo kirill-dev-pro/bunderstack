@@ -394,7 +394,8 @@ function HomePage() {
           >
             bunderstack-query
           </code>{' '}
-          generates typed TanStack Query hooks for every route. Import your schema as a type — nothing gets bundled on the client.
+          generates typed TanStack Query hooks for every route. Import your
+          schema as a type — nothing gets bundled on the client.
         </p>
         <pre
           style={{
@@ -412,7 +413,11 @@ function HomePage() {
         </pre>
         <Link
           to="/docs/query-client"
-          style={{ color: '#6366f1', fontSize: '0.875rem', textDecoration: 'none' }}
+          style={{
+            color: '#6366f1',
+            fontSize: '0.875rem',
+            textDecoration: 'none',
+          }}
         >
           Query client docs →
         </Link>

@@ -30,14 +30,14 @@ That's it. You now have:
 
 ## Stack
 
-| Concern | Library |
-|---|---|
-| Database | Drizzle ORM + libSQL / Turso |
-| Auth | BetterAuth |
-| HTTP routing | Hono |
-| Storage | Local disk or S3-compatible |
-| Image transforms | sharp |
-| Runtime | Bun |
+| Concern          | Library                      |
+| ---------------- | ---------------------------- |
+| Database         | Drizzle ORM + libSQL / Turso |
+| Auth             | BetterAuth                   |
+| HTTP routing     | Hono                         |
+| Storage          | Local disk or S3-compatible  |
+| Image transforms | sharp                        |
+| Runtime          | Bun                          |
 
 ---
 
@@ -59,7 +59,9 @@ export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull().default(false),
+  emailVerified: integer('emailVerified', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   image: text('image'),
   createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
@@ -71,8 +73,12 @@ export const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
   body: text('body').notNull().default(''),
-  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  userId: text('userId')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 ```
 
@@ -89,15 +95,15 @@ const app = await createBunderstackAsync({
   schema,
   access: {
     posts: {
-      ownerColumn: 'userId',   // column that stores the creator's user ID
-      list:   'public',        // anyone can list
-      get:    'public',        // anyone can read one
+      ownerColumn: 'userId', // column that stores the creator's user ID
+      list: 'public', // anyone can list
+      get: 'public', // anyone can read one
       create: 'authenticated', // must be logged in
-      update: 'owner',         // must own the row
+      update: 'owner', // must own the row
       delete: 'owner',
     },
     comments: {
-      list:   'public',
+      list: 'public',
       create: 'authenticated',
       update: (ctx) => ctx.user?.id === ctx.row?.userId, // custom rule
       delete: 'owner',
@@ -147,13 +153,21 @@ Upload, retrieve, and delete files. Supports local disk and S3-compatible storag
 
 ```ts
 // Local disk
-storage: { local: './uploads' }
+storage: {
+  local: './uploads'
+}
 
 // S3 (reads S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY from env)
-storage: { s3: true }
+storage: {
+  s3: true
+}
 
 // S3 with custom endpoint (e.g. Cloudflare R2, MinIO)
-storage: { s3: { endpoint: 'https://your-account.r2.cloudflarestorage.com' } }
+storage: {
+  s3: {
+    endpoint: 'https://your-account.r2.cloudflarestorage.com'
+  }
+}
 ```
 
 ```ts
@@ -172,6 +186,7 @@ storageOptions: {
 ```
 
 **Routes:**
+
 - `POST /api/files` — multipart upload, field name `file`. Returns `{ fileId, url }`.
 - `GET /api/files/:id` — serve the file
 - `DELETE /api/files/:id` — delete
@@ -194,9 +209,14 @@ Bunderstack exposes the raw Drizzle instance — no query builder abstraction on
 ```ts
 const { db } = app
 
-const posts = await db.select().from(schema.posts).orderBy(desc(schema.posts.createdAt))
+const posts = await db
+  .select()
+  .from(schema.posts)
+  .orderBy(desc(schema.posts.createdAt))
 
-await db.insert(schema.posts).values({ title: 'Hello', body: '...', userId: '...' })
+await db
+  .insert(schema.posts)
+  .values({ title: 'Hello', body: '...', userId: '...' })
 ```
 
 Database URL defaults to `file:./data.db`. Set `DATABASE_URL` in env or pass `database: { url: '...' }` to use Turso or any libSQL-compatible remote.
@@ -224,7 +244,10 @@ provision: false
 import { createBunderstackAsync } from 'bunderstack'
 import * as schema from './schema'
 
-const app = await createBunderstackAsync({ schema, auth: { emailAndPassword: { enabled: true } } })
+const app = await createBunderstackAsync({
+  schema,
+  auth: { emailAndPassword: { enabled: true } },
+})
 
 Bun.serve({ port: 3001, fetch: app.handler })
 ```
@@ -251,10 +274,10 @@ import { createAPIFileRoute } from '@tanstack/react-start/api'
 import { getApp } from '~/bunderstack'
 
 export const APIRoute = createAPIFileRoute('/api/$')({
-  GET: ({ request }) => getApp().then(app => app.handler(request)),
-  POST: ({ request }) => getApp().then(app => app.handler(request)),
-  PATCH: ({ request }) => getApp().then(app => app.handler(request)),
-  DELETE: ({ request }) => getApp().then(app => app.handler(request)),
+  GET: ({ request }) => getApp().then((app) => app.handler(request)),
+  POST: ({ request }) => getApp().then((app) => app.handler(request)),
+  PATCH: ({ request }) => getApp().then((app) => app.handler(request)),
+  DELETE: ({ request }) => getApp().then((app) => app.handler(request)),
 })
 ```
 
@@ -300,8 +323,10 @@ const remove = useMutation(api.posts.deleteMutation())
 ```ts
 import * as schema from './schema'
 
-export const api = createBunderstackQueryClient()
-  .withSchema({ schema, queryClient })
+export const api = createBunderstackQueryClient().withSchema({
+  schema,
+  queryClient,
+})
 ```
 
 ---

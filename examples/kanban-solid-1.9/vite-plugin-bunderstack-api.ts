@@ -1,7 +1,8 @@
-import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin, ViteDevServer } from 'vite'
+
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 type BunResponse = Response & {
   _toNodeResponse?: (res: ServerResponse) => Promise<void>
@@ -35,7 +36,9 @@ async function sendResponse(res: ServerResponse, response: BunResponse) {
 }
 
 async function loadHandler(server: ViteDevServer) {
-  const entry = pathToFileURL(resolve(server.config.root, 'src/bunderstack.ts')).href
+  const entry = pathToFileURL(
+    resolve(server.config.root, 'src/bunderstack.ts'),
+  ).href
   const mod = await import(entry)
   return mod.app.handler as (req: Request) => Promise<BunResponse>
 }

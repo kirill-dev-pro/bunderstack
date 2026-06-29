@@ -9,24 +9,24 @@ Bunderstack generates secured REST routes from your Drizzle schema.
 
 ## Routes
 
-| Method   | Path              | Description                          |
-| -------- | ----------------- | ------------------------------------ |
-| `GET`    | `/api/:table`     | List — see [List query](#list-query) below |
+| Method | Path          | Description                                |
+| ------ | ------------- | ------------------------------------------ |
+| `GET`  | `/api/:table` | List — see [List query](#list-query) below |
 
 ## List query
 
 Reserved query params: `limit`, `offset`, `sort`, `order`, `q`, `cursor`, `count`.
 
-| Param | Example | Description |
-| ----- | ------- | ----------- |
-| `limit` | `?limit=20` | Page size (1–100, default 20) |
-| `offset` | `?offset=0` | Skip rows (offset mode) |
-| `sort` | `?sort=createdAt` | Sort column (must be in `sortableColumns`) |
-| `order` | `?order=desc` | `asc` or `desc` |
-| `q` | `?q=hello` | Text search on `searchableColumns` |
-| `count` | `?count=true` | Include `total` in response |
-| `cursor` | `?cursor=...` | Keyset pagination (cannot combine with `offset`) |
-| Filters | `?replyToId=5` | Equality filter on `filterableColumns` |
+| Param    | Example           | Description                                      |
+| -------- | ----------------- | ------------------------------------------------ |
+| `limit`  | `?limit=20`       | Page size (1–100, default 20)                    |
+| `offset` | `?offset=0`       | Skip rows (offset mode)                          |
+| `sort`   | `?sort=createdAt` | Sort column (must be in `sortableColumns`)       |
+| `order`  | `?order=desc`     | `asc` or `desc`                                  |
+| `q`      | `?q=hello`        | Text search on `searchableColumns`               |
+| `count`  | `?count=true`     | Include `total` in response                      |
+| `cursor` | `?cursor=...`     | Keyset pagination (cannot combine with `offset`) |
+| Filters  | `?replyToId=5`    | Equality filter on `filterableColumns`           |
 
 List response:
 
@@ -54,10 +54,11 @@ List response:
 GET /api/posts?limit=20&sort=createdAt&order=desc
 GET /api/posts?limit=20&sort=createdAt&order=desc&cursor=<nextCursor>
 ```
-| `GET`    | `/api/:table/:id` | Get by id                            |
-| `POST`   | `/api/:table`     | Create (body: JSON)                  |
-| `PATCH`  | `/api/:table/:id` | Update (body: JSON)                  |
-| `DELETE` | `/api/:table/:id` | Delete — 204 No Content              |
+
+| `GET` | `/api/:table/:id` | Get by id |
+| `POST` | `/api/:table` | Create (body: JSON) |
+| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
+| `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
 
 ## Which tables get routes
 
@@ -141,14 +142,14 @@ Filter values are coerced to the column type. Pass `null` with `?replyToId=null`
 
 Errors return `{ error, code?, details? }`:
 
-| Code | Status | When |
-| ---- | ------ | ---- |
-| `VALIDATION_ERROR` | 400 | Bad query params or JSON body |
-| `INVALID_CURSOR` | 400 | Malformed or mismatched cursor |
-| `FORBIDDEN` | 401/403 | Access denied |
-| `NOT_FOUND` | 404 | Missing record |
-| `RATE_LIMITED` | 429 | Rate limit exceeded |
-| `IDEMPOTENCY_CONFLICT` | 409 | Idempotency key reused with different body |
+| Code                   | Status  | When                                       |
+| ---------------------- | ------- | ------------------------------------------ |
+| `VALIDATION_ERROR`     | 400     | Bad query params or JSON body              |
+| `INVALID_CURSOR`       | 400     | Malformed or mismatched cursor             |
+| `FORBIDDEN`            | 401/403 | Access denied                              |
+| `NOT_FOUND`            | 404     | Missing record                             |
+| `RATE_LIMITED`         | 429     | Rate limit exceeded                        |
+| `IDEMPOTENCY_CONFLICT` | 409     | Idempotency key reused with different body |
 
 ## Rate limiting (opt-in)
 
@@ -208,5 +209,8 @@ Skip Bunderstack entirely for a table and use `app.db` directly:
 
 ```ts
 const { db } = app
-const posts = await db.select().from(schema.posts).where(eq(schema.posts.userId, userId))
+const posts = await db
+  .select()
+  .from(schema.posts)
+  .where(eq(schema.posts.userId, userId))
 ```

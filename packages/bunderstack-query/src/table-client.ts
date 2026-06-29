@@ -16,7 +16,7 @@ const RESERVED_LIST_PARAMS = new Set([
 export type TableClientConfig = {
   tableName: string
   baseUrl: string
-  fetch: typeof fetch
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
 async function parseError(res: Response): Promise<BunderstackApiError> {
@@ -88,8 +88,12 @@ export function createTableClient<
   }
 
   const listInfiniteQuery = (params: ListParams = {}) => {
-    const { offset: _offset, cursor: _cursor, cursorMode: _cursorMode, ...base } =
-      params
+    const {
+      offset: _offset,
+      cursor: _cursor,
+      cursorMode: _cursorMode,
+      ...base
+    } = params
     return {
       queryKey: [...keys.list(params), 'infinite'] as const,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>

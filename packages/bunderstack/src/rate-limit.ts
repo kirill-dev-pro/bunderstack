@@ -11,7 +11,9 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>()
 
-function resolveConfig(config: boolean | RateLimitConfig | undefined): RateLimitConfig | null {
+function resolveConfig(
+  config: boolean | RateLimitConfig | undefined,
+): RateLimitConfig | null {
   if (!config) return null
   if (config === true) return {}
   return config
@@ -23,10 +25,12 @@ function clientKey(req: Request): string {
   return req.headers.get('x-real-ip') ?? 'local'
 }
 
-export function createRateLimiter(config: boolean | RateLimitConfig | undefined) {
+export function createRateLimiter(
+  config: boolean | RateLimitConfig | undefined,
+): (req: Request) => Promise<Response | null> {
   const resolved = resolveConfig(config)
   if (!resolved) {
-    return async (_req: Request) => null as Response | null
+    return async (_req: Request) => null
   }
 
   const windowMs = resolved.windowMs ?? 60_000

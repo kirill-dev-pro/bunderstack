@@ -6,20 +6,16 @@ import type { TableAccessInput } from './access.ts'
 import type { IdempotencyConfig } from './idempotency.ts'
 import type { RateLimitConfig } from './rate-limit.ts'
 
+import {
+  resolveBuckets,
+  type ResolvedStorageBuckets,
+  type StorageConfigInput,
+} from './storage/buckets.ts'
+
 export type BetterAuthConfig = Omit<
   NonNullable<Parameters<typeof betterAuth>[0]>,
   'database'
 >
-
-const StorageConfigSchema = z.union([
-  z.object({ local: z.union([z.string(), z.literal(true)]) }),
-  z.object({
-    s3: z.union([
-      z.literal(true),
-      z.object({ endpoint: z.string().optional() }),
-    ]),
-  }),
-])
 
 export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.string(), z.unknown()),
@@ -30,7 +26,9 @@ export const BunderstackOptionsSchema = z.object({
     .object({ url: z.string().optional(), authToken: z.string().optional() })
     .optional(),
   auth: z.record(z.unknown()).optional(),
-  storage: StorageConfigSchema.optional(),
+  // Loose: bucket access/scope hold functions that can't survive strict zod
+  // (mirrors how `access` is loose). Resolution happens in resolveBuckets.
+  storage: z.unknown().optional(),
   rateLimit: z
     .union([
       z.boolean(),
@@ -50,7 +48,10 @@ export const BunderstackOptionsSchema = z.object({
         keepaliveMs: z.number().optional(),
         bufferSize: z.number().optional(),
         redis: z
-          .union([z.string(), z.object({ url: z.string(), token: z.string().optional() })])
+          .union([
+            z.string(),
+            z.object({ url: z.string(), token: z.string().optional() }),
+          ])
           .optional(),
       }),
     ])
@@ -59,11 +60,12 @@ export const BunderstackOptionsSchema = z.object({
 
 export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
   z.input<typeof BunderstackOptionsSchema>,
-  'schema' | 'access' | 'auth'
+  'schema' | 'access' | 'auth' | 'storage'
 > & {
   schema: TSchema
   access?: Record<string, TableAccessInput>
   auth?: BetterAuthConfig
+  storage?: StorageConfigInput
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:
@@ -75,21 +77,10 @@ export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
       }
 }
 
-export type ResolvedStorage =
-  | { type: 'local'; path: string }
-  | {
-      type: 's3'
-      bucket: string
-      region: string
-      endpoint?: string
-      accessKeyId: string
-      secretAccessKey: string
-    }
-
 export type ResolvedConfig = {
   database: { url: string; authToken?: string }
   auth: BetterAuthConfig
-  storage: ResolvedStorage
+  storage: ResolvedStorageBuckets
   realtime?:
     | boolean
     | {
@@ -110,7 +101,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       authToken: parsed.database?.authToken ?? process.env.DATABASE_AUTH_TOKEN,
     },
     auth: (() => {
-      const authInput = (parsed.auth ?? {}) as BetterAuthConfig
+      const authInput = options.auth ?? {}
       return {
         ...authInput,
         secret:
@@ -119,7 +110,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
           'dev-secret-change-in-prod',
       }
     })(),
-    storage: resolveStorage(parsed.storage),
+    storage: resolveBuckets(options.storage),
     realtime: parsed.realtime,
   }
 }
@@ -134,24 +125,4 @@ export function resolveRealtimeRedisUrl(
         : realtime.redis.url
       : undefined
   return fromConfig ?? process.env.REDIS_URL ?? undefined
-}
-
-function resolveStorage(
-  storage: z.infer<typeof StorageConfigSchema> | undefined,
-): ResolvedStorage {
-  if (!storage) return { type: 'local', path: './uploads' }
-  if ('local' in storage)
-    return {
-      type: 'local',
-      path: storage.local === true ? './uploads' : storage.local,
-    }
-  const s3Cfg = typeof storage.s3 === 'object' ? storage.s3 : {}
-  return {
-    type: 's3',
-    bucket: process.env.S3_BUCKET ?? '',
-    region: process.env.S3_REGION ?? 'us-east-1',
-    endpoint: s3Cfg.endpoint ?? process.env.S3_ENDPOINT,
-    accessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
-  }
 }

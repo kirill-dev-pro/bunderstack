@@ -4,6 +4,12 @@ import { createBunderstackAsync } from 'bunderstack'
 import { access } from './access'
 import * as schema from './schema'
 
+const orgScope = (ctx: {
+  session?: { activeOrganizationId: string | null } | null
+}) => ({
+  organizationId: ctx.session?.activeOrganizationId ?? '__none__',
+})
+
 export const app = await createBunderstackAsync({
   schema,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
@@ -15,19 +21,40 @@ export const app = await createBunderstackAsync({
   },
   access,
   realtime: true,
-  storage: { local: './uploads' },
-  storageOptions: {
-    access: { create: 'authenticated', get: 'public', delete: 'owner' },
-    uploadRules: {
-      allowedMimeTypes: [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/gif',
-        'application/pdf',
-        'text/plain',
-      ],
-      maxSizeBytes: 10 * 1024 * 1024,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'attachments',
+    buckets: {
+      avatars: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: {
+          maxSize: '2mb',
+          accept: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        },
+        transforms: true,
+      },
+      attachments: {
+        visibility: 'private',
+        access: {
+          create: 'authenticated',
+          get: 'authenticated',
+          delete: 'owner',
+        },
+        scope: orgScope,
+        upload: {
+          maxSize: '10mb',
+          accept: [
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+            'application/pdf',
+            'text/plain',
+          ],
+        },
+        transforms: true,
+      },
     },
   },
 })

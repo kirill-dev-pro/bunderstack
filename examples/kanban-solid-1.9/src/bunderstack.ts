@@ -1,7 +1,8 @@
-import { createBunderstackAsync } from 'bunderstack'
 import { organization } from 'better-auth/plugins'
-import * as schema from './schema.ts'
+import { createBunderstackAsync } from 'bunderstack'
+
 import { access } from './access.ts'
+import * as schema from './schema.ts'
 
 export const app = await createBunderstackAsync({
   schema,

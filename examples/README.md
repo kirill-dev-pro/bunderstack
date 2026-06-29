@@ -23,7 +23,7 @@ Or per example:
 
 ```bash
 bun run --cwd examples/standalone db:push
-bun run --cwd examples/tanstack-start db:push
+bun run --cwd examples/twitter-tanstack db:push
 bun run --cwd examples/nextjs db:push
 bun run --cwd examples/kanban-solid-1.9 db:push
 bun run --cwd examples/kanban-tanstack db:push
@@ -36,7 +36,7 @@ Use separate terminals — each binds a different port.
 | Example                 | Command                                   | URL                   |
 | ----------------------- | ----------------------------------------- | --------------------- |
 | Standalone (Bun.serve)  | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
-| TanStack Start          | `bun run dev:tanstack`                    | http://localhost:3000 |
+| Twitter (TanStack Start) | `bun run dev:twitter-tanstack`           | http://localhost:3000 |
 | Next.js                 | `bun run dev:nextjs`                      | http://localhost:3002 |
 | Kanban (Solid + Vite)   | `bun run dev:kanban`                      | http://localhost:5174 |
 | Kanban (TanStack Start) | `bun run dev:kanban-tanstack`             | http://localhost:5175 |
@@ -51,17 +51,17 @@ API routes:
 
 - `GET /api/health`
 - `GET|POST /api/posts`
-- `POST /api/files` — multipart upload (`file` field)
-- `GET /api/files/:id?w=200&h=200&format=webp` — thumbnails
+- `POST /api/files/uploads` — multipart upload (`file` field)
+- `GET /api/files/uploads/:id?w=200&h=200&format=webp` — thumbnails
 - `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`
 
-### TanStack Start
+### Twitter (TanStack Start)
 
 Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via **bunderstack-query**.
 
 ```bash
-bun run dev:tanstack
-bun run --cwd examples/tanstack-start seed   # once
+bun run dev:twitter-tanstack
+bun run --cwd examples/twitter-tanstack seed   # once
 ```
 
 Demo accounts (password `password123`): `alice@example.com`, `bob@example.com`, `carol@example.com`
@@ -135,8 +135,9 @@ import { createBunderstackQueryClient } from 'bunderstack-query'
 import type * as schema from './schema'
 
 export const queryClient = new QueryClient()
-export const api = createBunderstackQueryClient<typeof schema>({
+export const api = createBunderstackQueryClient<typeof schema>().with({
   tables: ['posts'] as const,
+  buckets: ['avatars'] as const,
   queryClient,
 })
 

@@ -2,199 +2,90 @@
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
 
-import { Hono } from 'hono'
-import { randomUUID } from 'node:crypto'
-import { extname } from 'node:path'
+import type { StorageAdapter } from './storage/index.ts'
 
-import { validateAndResolveAccess, resolveAccessUser } from './access.ts'
-import { createAuth } from './auth.ts'
+import { validateAndResolveAccess } from './access.ts'
+import { createAuth, toAuthSessionResolver } from './auth.ts'
 import { resolveConfig, type BunderstackConfig } from './config.ts'
+import { resolveRealtimeRedisUrl } from './config.ts'
 import { buildCrudRouter } from './crud.ts'
 import { createDb } from './db.ts'
-import { ErrorCode, apiError } from './errors.ts'
-import {
-  checkFileAccess,
-  DEFAULT_STORAGE_ACCESS,
-  deleteFileMeta,
-  getFileOwner,
-  setFileOwner,
-  type StorageAccessConfig,
-} from './file-metadata.ts'
 import { buildHandler } from './handler.ts'
-import { createRealtimeBroker, buildRealtimeRouter } from './realtime.ts'
-import { createRedisRealtimeBroker } from './realtime-redis.ts'
-import { resolveRealtimeRedisUrl } from './config.ts'
+import { withInternalTables } from './internal-tables.ts'
 import { provisionSchema, type ProvisionMode } from './provision.ts'
-import { createStorage, type StorageAdapter } from './storage/index.ts'
-import {
-  transformImage,
-  parseTransformSpec,
-  transformHash,
-} from './storage/thumbnails.ts'
-import { validateUpload, type UploadRules } from './storage/validation.ts'
+import { createRedisRealtimeBroker } from './realtime/redis.ts'
+import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index.ts'
+import { deleteFileWithDerivatives } from './storage/delete.ts'
+import { deleteFileMetaRow } from './storage/file-meta.ts'
+import { createBucketStorages } from './storage/registry.ts'
+import { buildBucketStorageRouter } from './storage/router.ts'
+import { sweepOrphans } from './storage/sweep.ts'
 
 type AuthInstance = ReturnType<typeof createAuth>
+
+/** Default age before an unconfirmed `pending` file is treated as an orphan. */
+const DEFAULT_PENDING_TTL_MS = 30 * 60_000
+/** How often the auto-started orphan sweep runs. */
+const SWEEP_INTERVAL_MS = 10 * 60_000
+
+/**
+ * Public storage facade exposed as `app.storage`. Object-level operations live
+ * on the per-bucket adapters; this surface offers the app-wide deletes that
+ * must also clean the file-meta row.
+ */
+export interface StorageFacade {
+  /** Delete an object, its transform derivatives, and its file-meta row. `fileId` is `<bucket>/<id>`. */
+  delete(fileId: string): Promise<void>
+  /** Get the raw adapter for a bucket, or `undefined` if it isn't declared. */
+  bucket(name: string): StorageAdapter | undefined
+  /**
+   * Reap stale `pending` uploads older than `olderThanMs` (default 30m). Runs
+   * automatically on an interval; exposed for manual/test invocation. Returns
+   * the count reaped.
+   */
+  sweep(olderThanMs?: number): Promise<number>
+}
 
 export type BunderstackApp<TSchema extends Record<string, unknown>> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: AuthInstance
-  storage: StorageAdapter
+  storage: StorageFacade
   router: HonoType
   /** Push Drizzle schema to the database. Auto-runs in dev when `provision: 'auto'` (default). */
   provision: (options?: { force?: boolean }) => Promise<void>
 }
 
-export interface BunderstackStorageConfig {
-  uploadRules?: UploadRules
-  access?: StorageAccessConfig
-}
-
-function buildStorageRouter(
-  storage: StorageAdapter,
-  db: LibSQLDatabase<Record<string, unknown>>,
-  auth: AuthInstance | undefined,
-  opts: BunderstackStorageConfig = {},
-): Hono {
-  const router = new Hono()
-  const access = { ...DEFAULT_STORAGE_ACCESS, ...opts.access }
-
-  router.post('/', async (c) => {
-    const user = await resolveAccessUser(auth, c.req.raw.headers)
-    const denied = await checkFileAccess(access.create, null, user?.id ?? null)
-    if (!denied.allowed) {
-      return apiError(
-        c,
-        ErrorCode.FORBIDDEN,
-        'Forbidden',
-        denied.status === 401 ? 401 : 403,
-      )
-    }
-
-    const body = await c.req.parseBody()
-    const file = body['file']
-    if (!(file instanceof File)) {
-      return apiError(
-        c,
-        ErrorCode.VALIDATION_ERROR,
-        'No file field in request',
-        400,
-      )
-    }
-
-    if (opts.uploadRules) {
-      try {
-        validateUpload(file, opts.uploadRules)
-      } catch (err) {
-        return apiError(
-          c,
-          ErrorCode.VALIDATION_ERROR,
-          (err as Error).message,
-          422,
-        )
-      }
-    }
-
-    const ext = extname(file.name) || ''
-    const fileId = `${randomUUID()}${ext}`
-    await storage.upload(fileId, await file.arrayBuffer(), file.type)
-    await setFileOwner(db, fileId, user?.id ?? null)
-    return c.json({ fileId, url: `/api/files/${fileId}` }, 201)
-  })
-
-  router.get('/:fileId', async (c) => {
-    const fileId = c.req.param('fileId')
-    const user = await resolveAccessUser(auth, c.req.raw.headers)
-    const ownerId = await getFileOwner(db, fileId)
-    const denied = await checkFileAccess(access.get, ownerId, user?.id ?? null)
-    if (!denied.allowed) {
-      return apiError(
-        c,
-        ErrorCode.FORBIDDEN,
-        'Forbidden',
-        denied.status === 401 ? 401 : 403,
-      )
-    }
-
-    const query = c.req.query() as Record<string, string>
-    const spec = parseTransformSpec(query)
-
-    if (spec) {
-      const ext = spec.format ? `.${spec.format}` : extname(fileId) || '.jpg'
-      const cacheKey = `${fileId}__${transformHash(spec)}${ext}`
-      const cachedExists = await storage.exists(cacheKey)
-      if (cachedExists) return storage.get(cacheKey)
-
-      const original = await storage.get(fileId)
-      if (original.status === 404) return original
-
-      const inputBuffer = Buffer.from(await original.clone().arrayBuffer())
-      const transformed = await transformImage(inputBuffer, spec)
-      const contentType = spec.format
-        ? `image/${spec.format}`
-        : (original.headers.get('Content-Type') ?? 'image/jpeg')
-      const transformedAb = transformed.buffer.slice(
-        transformed.byteOffset,
-        transformed.byteOffset + transformed.byteLength,
-      ) as ArrayBuffer
-      await storage.upload(cacheKey, transformedAb, contentType)
-      return new Response(transformedAb, {
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=31536000',
-        },
-      })
-    }
-
-    return storage.get(fileId)
-  })
-
-  router.delete('/:fileId', async (c) => {
-    const fileId = c.req.param('fileId')
-    const user = await resolveAccessUser(auth, c.req.raw.headers)
-    const ownerId = await getFileOwner(db, fileId)
-    const denied = await checkFileAccess(
-      access.delete,
-      ownerId,
-      user?.id ?? null,
-    )
-    if (!denied.allowed) {
-      return apiError(
-        c,
-        ErrorCode.FORBIDDEN,
-        'Forbidden',
-        denied.status === 401 ? 401 : 403,
-      )
-    }
-
-    await storage.delete(fileId)
-    await deleteFileMeta(db, fileId)
-    return new Response(null, { status: 204 })
-  })
-
-  return router
-}
-
 export function createBunderstack<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema> & {
-    storageOptions?: BunderstackStorageConfig
-  },
+  options: BunderstackConfig<TSchema>,
 ): BunderstackApp<TSchema> {
   const config = resolveConfig(options)
   const provisionMode: ProvisionMode = options.provision ?? 'auto'
-  const db = createDb(options.schema, config.database)
-  const auth = createAuth(
-    db as LibSQLDatabase<Record<string, unknown>>,
-    config.auth,
-  )
-  const storage = createStorage(config.storage)
+  // Merge bunderstack's internal tables (file-meta, idempotency) into the
+  // schema used for the db client + provisioning. CRUD/access stay on the USER
+  // schema so internal tables never get a CRUD route.
+  const mergedSchema = withInternalTables(options.schema)
+  const db = createDb(mergedSchema, config.database)
+  // `db` is typed with the merged schema (user tables + internal tables) so the
+  // storage/idempotency code can query the internal tables. The public surface
+  // and CRUD only expose the USER schema. TS can widen `LibSQLDatabase<merged>`
+  // to `LibSQLDatabase<Record<string, unknown>>` on its own (storage/auth pass
+  // `db` directly), but it can't *narrow* a generic schema view, so this single
+  // intentional cast produces the user-facing db type. See `app.db` / crud below.
+  const userDb = db as unknown as LibSQLDatabase<TSchema>
+  const auth = createAuth(db, config.auth)
+  // Internal routers consume the narrow AuthSessionResolver contract, not the
+  // raw better-auth instance. app.auth still exposes `auth` unchanged.
+  const authResolver = toAuthSessionResolver(auth)
   const resolvedAccess = validateAndResolveAccess(
     options.schema,
     options.access,
   )
   const realtimeBufferSize =
     typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
-  const redisUrl = config.realtime ? resolveRealtimeRedisUrl(config.realtime) : undefined
+  const redisUrl = config.realtime
+    ? resolveRealtimeRedisUrl(config.realtime)
+    : undefined
   const broker = config.realtime
     ? redisUrl
       ? createRedisRealtimeBroker({
@@ -206,37 +97,70 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
             const subClient = new Bun.RedisClient(redisUrl)
             return {
               incr: (key: string) => cmdClient.incr(key),
-              publish: (channel: string, message: string) => cmdClient.publish(channel, message),
+              publish: (channel: string, message: string) =>
+                cmdClient.publish(channel, message),
               subscribe: (channel: string, listener: (msg: string) => void) =>
                 subClient.subscribe(channel, listener),
-              lpush: (key: string, value: string) => cmdClient.lpush(key, value),
-              ltrim: (key: string, start: number, stop: number) => cmdClient.ltrim(key, start, stop),
-              lrange: (key: string, start: number, stop: number) => cmdClient.lrange(key, start, stop),
+              lpush: (key: string, value: string) =>
+                cmdClient.lpush(key, value),
+              ltrim: (key: string, start: number, stop: number) =>
+                cmdClient.ltrim(key, start, stop),
+              lrange: (key: string, start: number, stop: number) =>
+                cmdClient.lrange(key, start, stop),
             }
           })(),
           bufferSize: realtimeBufferSize,
         })
-      : createRealtimeBroker({ access: resolvedAccess, bufferSize: realtimeBufferSize })
+      : createRealtimeBroker({
+          access: resolvedAccess,
+          bufferSize: realtimeBufferSize,
+        })
     : undefined
-  const crudRouter = buildCrudRouter(options.schema, db, {
-    auth,
+  const crudRouter = buildCrudRouter(options.schema, userDb, {
+    auth: authResolver,
     access: resolvedAccess,
     idempotency: options.idempotency,
     broker,
   })
   const realtimeRouter = broker
     ? buildRealtimeRouter(broker, {
-        auth,
+        auth: authResolver,
         keepaliveMs:
-          typeof config.realtime === 'object' ? config.realtime.keepaliveMs : undefined,
+          typeof config.realtime === 'object'
+            ? config.realtime.keepaliveMs
+            : undefined,
       })
     : undefined
-  const storageRouter = buildStorageRouter(
-    storage,
-    db as LibSQLDatabase<Record<string, unknown>>,
-    auth,
-    options.storageOptions,
-  )
+  const registry = createBucketStorages(config.storage)
+  const storageRouter = buildBucketStorageRouter({
+    registry,
+    db,
+    auth: authResolver,
+  })
+  const storage: StorageFacade = {
+    async delete(fileId) {
+      const bucketName = fileId.split('/')[0] ?? ''
+      const entry = registry.get(bucketName)
+      if (entry) {
+        await deleteFileWithDerivatives(entry.adapter, db, fileId)
+      } else {
+        // Unknown bucket: no adapter to clean, but still drop the meta row.
+        await deleteFileMetaRow(db, fileId)
+      }
+    },
+    bucket(name) {
+      return registry.get(name)?.adapter
+    },
+    sweep(olderThanMs = DEFAULT_PENDING_TTL_MS) {
+      return sweepOrphans(registry, db, olderThanMs)
+    },
+  }
+  // Auto-reap orphaned `pending` uploads. `unref()` keeps this from holding the
+  // process (and test runners) open.
+  const sweepTimer = setInterval(() => {
+    void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
+  }, SWEEP_INTERVAL_MS)
+  sweepTimer.unref?.()
   const { handler, router } = buildHandler({
     crudRouter,
     authHandler: (req) => auth.handler(req),
@@ -247,12 +171,13 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
 
   const app: BunderstackApp<TSchema> = {
     handler,
-    db,
+    // Internal tables live on the runtime db but stay out of the public type.
+    db: userDb,
     auth,
     storage,
     router,
     provision: (opts) =>
-      provisionSchema(db, options.schema, {
+      provisionSchema(db, mergedSchema, {
         mode: provisionMode,
         force: opts?.force,
         databaseUrl: config.database.url,
@@ -265,11 +190,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
 /** Create Bunderstack and auto-provision the database schema (dev by default). */
 export async function createBunderstackAsync<
   TSchema extends Record<string, unknown>,
->(
-  options: BunderstackConfig<TSchema> & {
-    storageOptions?: BunderstackStorageConfig
-  },
-): Promise<BunderstackApp<TSchema>> {
+>(options: BunderstackConfig<TSchema>): Promise<BunderstackApp<TSchema>> {
   const app = createBunderstack(options)
   await app.provision()
   return app
@@ -302,9 +223,13 @@ export {
   asTypeId,
 } from './typeid.ts'
 export type { TypeId } from './typeid.ts'
-export type { StorageAccessConfig } from './file-metadata.ts'
 export type { StorageAdapter } from './storage/index.ts'
-export type { UploadRules } from './storage/validation.ts'
+export type {
+  StorageConfigInput,
+  BucketConfigInput,
+  ResolvedBucket,
+} from './storage/buckets.ts'
+// StorageFacade is declared+exported inline above.
 export type { TransformSpec } from './storage/thumbnails.ts'
 
 // Re-export drizzle builders so consumers share bunderstack's drizzle-orm instance

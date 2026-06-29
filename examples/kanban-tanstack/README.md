@@ -7,7 +7,7 @@ A Trello-like kanban board on **TanStack Start + React**, showcasing Bunderstack
 - `typeid()` primary keys and denormalized `organizationId` on app rows
 - BetterAuth `organization` plugin (multi-tenant boards, invites with copyable links)
 - Auto-CRUD at `/api/:table` with scope enforced on every operation
-- File uploads at `POST /api/files` with image thumbnails on cards and comments
+- File uploads at `POST /api/files/attachments` with image thumbnails on cards and comments
 - Emoji reactions on cards and comments
 - Realtime via `GET/POST /api/realtime` — broadcast-on-write with cache sync
 - TanStack Start full-stack pattern: `src/routes/api/$.tsx` → `app.handler`

@@ -1,6 +1,6 @@
-import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
-
 import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
+
+import { INTERNAL_TABLE_NAMES } from './internal-tables.ts'
 
 export const AUTH_TABLE_NAMES = new Set([
   'user',
@@ -112,16 +112,15 @@ function getSchemaTables<TSchema extends Record<string, unknown>>(
 ) {
   const tables: {
     key: string
-    table: SQLiteTable
+    table: Parameters<typeof getTableName>[0]
     name: string
     columns: string[]
   }[] = []
   for (const [key, value] of Object.entries(schema)) {
     if (!isTable(value)) continue
-    const table = value as SQLiteTable
-    const name = getTableName(table)
-    const columns = Object.keys(getTableColumns(table))
-    tables.push({ key, table, name, columns })
+    const name = getTableName(value)
+    const columns = Object.keys(getTableColumns(value))
+    tables.push({ key, table: value, name, columns })
   }
   return tables
 }
@@ -135,9 +134,9 @@ function resolveListAccess(
 > {
   const sortableColumns =
     input.sortableColumns ?? (columns.includes('id') ? ['id'] : [])
-  const defaultSort = input.defaultSort ?? {
+  const defaultSort: DefaultSort = input.defaultSort ?? {
     column: sortableColumns[0] ?? 'id',
-    order: 'desc' as const,
+    order: 'desc',
   }
 
   if (!columns.includes(defaultSort.column)) {
@@ -248,6 +247,7 @@ export function validateAndResolveAccess<
   for (const { key, name, columns } of tables) {
     const input = accessInput?.[key]
     if (input?.crud === false) continue
+    if (INTERNAL_TABLE_NAMES.has(name)) continue
 
     if (AUTH_TABLE_NAMES.has(name)) {
       if (!input?.exposeAuthTable || !EXPOSEABLE_AUTH_TABLES.has(name)) continue
@@ -391,7 +391,10 @@ export function stampScope(
 }
 
 export function checkAccessSync(
-  rule: Exclude<OperationRule, (ctx: AccessContext) => boolean | Promise<boolean>>,
+  rule: Exclude<
+    OperationRule,
+    (ctx: AccessContext) => boolean | Promise<boolean>
+  >,
   ctx: AccessContext,
   ownerColumn?: string,
 ): { allowed: boolean } {
@@ -450,7 +453,8 @@ export function sanitizeWriteBody(
     // On create, allow client-supplied `id` even if it appears in readonlyColumns,
     // but still respect an explicit writableColumns allowlist if provided.
     if (mode === 'create' && key === 'id') {
-      if (access.writableColumns && !access.writableColumns.includes(key)) continue
+      if (access.writableColumns && !access.writableColumns.includes(key))
+        continue
       out[key] = value
       continue
     }

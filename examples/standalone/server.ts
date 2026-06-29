@@ -10,11 +10,17 @@ const app = await createBunderstackAsync({
   access: {
     posts: { ownerColumn: 'authorId' },
   },
-  storage: { local: './uploads' },
-  storageOptions: {
-    uploadRules: {
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      maxSizeBytes: 10 * 1024 * 1024,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'uploads',
+    buckets: {
+      uploads: {
+        upload: {
+          maxSize: '10mb',
+          accept: ['image/jpeg', 'image/png', 'image/webp'],
+        },
+        transforms: true,
+      },
     },
   },
 })
@@ -31,7 +37,9 @@ console.log('Routes:')
 console.log('  GET  /api/health')
 console.log('  GET  /api/posts')
 console.log('  POST /api/posts')
-console.log('  POST /api/files         (multipart, field: file)')
-console.log('  GET  /api/files/:id     (?w=&h=&format=webp for thumbnails)')
+console.log('  POST /api/files/uploads         (multipart, field: file)')
+console.log(
+  '  GET  /api/files/uploads/:id     (?w=&h=&format=webp for thumbnails)',
+)
 console.log('  POST /api/auth/sign-up/email')
 console.log('  POST /api/auth/sign-in/email')
