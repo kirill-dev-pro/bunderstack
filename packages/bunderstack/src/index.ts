@@ -66,10 +66,14 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
   const db = createDb(mergedSchema, config.database)
-  const auth = createAuth(
-    db as LibSQLDatabase<Record<string, unknown>>,
-    config.auth,
-  )
+  // `db` is typed with the merged schema (user tables + internal tables) so the
+  // storage/idempotency code can query the internal tables. The public surface
+  // and CRUD only expose the USER schema. TS can widen `LibSQLDatabase<merged>`
+  // to `LibSQLDatabase<Record<string, unknown>>` on its own (storage/auth pass
+  // `db` directly), but it can't *narrow* a generic schema view, so this single
+  // intentional cast produces the user-facing db type. See `app.db` / crud below.
+  const userDb = db as unknown as LibSQLDatabase<TSchema>
+  const auth = createAuth(db, config.auth)
   // Internal routers consume the narrow AuthSessionResolver contract, not the
   // raw better-auth instance. app.auth still exposes `auth` unchanged.
   const authResolver = toAuthSessionResolver(auth)
@@ -112,16 +116,12 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
           bufferSize: realtimeBufferSize,
         })
     : undefined
-  const crudRouter = buildCrudRouter(
-    options.schema,
-    db as unknown as LibSQLDatabase<TSchema>,
-    {
-      auth: authResolver,
-      access: resolvedAccess,
-      idempotency: options.idempotency,
-      broker,
-    },
-  )
+  const crudRouter = buildCrudRouter(options.schema, userDb, {
+    auth: authResolver,
+    access: resolvedAccess,
+    idempotency: options.idempotency,
+    broker,
+  })
   const realtimeRouter = broker
     ? buildRealtimeRouter(broker, {
         auth: authResolver,
@@ -134,7 +134,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   const registry = createBucketStorages(config.storage)
   const storageRouter = buildBucketStorageRouter({
     registry,
-    db: db as LibSQLDatabase<Record<string, unknown>>,
+    db,
     auth: authResolver,
   })
   const storage: StorageFacade = {
@@ -142,38 +142,23 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
       const bucketName = fileId.split('/')[0] ?? ''
       const entry = registry.get(bucketName)
       if (entry) {
-        await deleteFileWithDerivatives(
-          entry.adapter,
-          db as LibSQLDatabase<Record<string, unknown>>,
-          fileId,
-        )
+        await deleteFileWithDerivatives(entry.adapter, db, fileId)
       } else {
         // Unknown bucket: no adapter to clean, but still drop the meta row.
-        await deleteFileMetaRow(
-          db as LibSQLDatabase<Record<string, unknown>>,
-          fileId,
-        )
+        await deleteFileMetaRow(db, fileId)
       }
     },
     bucket(name) {
       return registry.get(name)?.adapter
     },
     sweep(olderThanMs = DEFAULT_PENDING_TTL_MS) {
-      return sweepOrphans(
-        registry,
-        db as LibSQLDatabase<Record<string, unknown>>,
-        olderThanMs,
-      )
+      return sweepOrphans(registry, db, olderThanMs)
     },
   }
   // Auto-reap orphaned `pending` uploads. `unref()` keeps this from holding the
   // process (and test runners) open.
   const sweepTimer = setInterval(() => {
-    void sweepOrphans(
-      registry,
-      db as LibSQLDatabase<Record<string, unknown>>,
-      DEFAULT_PENDING_TTL_MS,
-    ).catch(() => {})
+    void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
   }, SWEEP_INTERVAL_MS)
   sweepTimer.unref?.()
   const { handler, router } = buildHandler({
@@ -187,7 +172,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   const app: BunderstackApp<TSchema> = {
     handler,
     // Internal tables live on the runtime db but stay out of the public type.
-    db: db as unknown as LibSQLDatabase<TSchema>,
+    db: userDb,
     auth,
     storage,
     router,

@@ -93,7 +93,7 @@ function buildCtx(
   return {
     user,
     request: c.req.raw,
-    row: extra.row as Record<string, unknown> | undefined,
+    row: extra.row,
     body: extra.body,
     session: { activeOrganizationId },
   }
