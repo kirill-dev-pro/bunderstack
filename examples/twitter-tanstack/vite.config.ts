@@ -27,7 +27,7 @@ function bunderstackApiDevMiddleware(): Plugin {
 
         try {
           const { app } = await import('./src/bunderstack')
-          const origin = `http://${req.headers.host ?? 'localhost:5175'}`
+          const origin = `http://${req.headers.host ?? 'localhost:3000'}`
           const method = req.method ?? 'GET'
           const init: RequestInit & { duplex?: 'half' } = {
             method,
@@ -60,12 +60,25 @@ function bunderstackApiDevMiddleware(): Plugin {
 }
 
 export default defineConfig({
-  server: {
-    port: 5175,
-    fs: { allow: ['../..'] },
-  },
+  // server: {
+  //   port: 3000,
+  //   fs: { allow: ['../..'] },
+  // },
   resolve: {
     tsconfigPaths: true,
+  },
+  ssr: {
+    external: [
+      // 'bunderstack',
+      // 'drizzle-orm',
+      // 'better-auth',
+      // '@better-auth/core',
+      // '@libsql/client',
+      // 'hono',
+      // 'defu',
+      // 'drizzle-kit',
+      // 'drizzle-kit/api',
+    ],
   },
   plugins: [
     bunderstackApiDevMiddleware(),

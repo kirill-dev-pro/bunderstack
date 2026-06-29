@@ -15,7 +15,7 @@ export function ImageLightbox({
 }: ImageLightboxProps) {
   const dialogRef = React.useRef<HTMLDialogElement>(null)
   const fileId = fileIdFromUrl(imageUrl)
-  const fullSrc = fileId ? `/api/files/${fileId}` : imageUrl
+  const fullSrc = fileId ? thumbnailUrl(fileId) : imageUrl
   const thumbSrc = fileId
     ? thumbnailUrl(fileId, { w: 480, h: 480, format: 'webp' })
     : imageUrl

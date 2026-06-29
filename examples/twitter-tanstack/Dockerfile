@@ -12,8 +12,8 @@ COPY examples/ ./examples/
 
 RUN bun install --frozen-lockfile
 
-# Build the TanStack Start app
-WORKDIR /repo/examples/tanstack-start
+# Build the Twitter TanStack app
+WORKDIR /repo/examples/twitter-tanstack
 RUN bun run build
 
 ########################################
@@ -25,7 +25,7 @@ WORKDIR /app
 
 
 # Bundled Nitro server output
-COPY --from=builder /repo/examples/tanstack-start/.output ./.output
+COPY --from=builder /repo/examples/twitter-tanstack/.output ./.output
 
 # Workspace packages (bunderstack is SSR-external so Nitro may not bundle it)
 COPY --from=builder /repo/packages ./packages
@@ -34,16 +34,16 @@ COPY --from=builder /repo/packages ./packages
 COPY --from=builder /repo/node_modules ./node_modules
 
 # Example workspace layout so bun run db:push resolves drizzle-kit + bunderstack
-COPY --from=builder /repo/examples/tanstack-start/package.json ./examples/tanstack-start/package.json
-COPY --from=builder /repo/examples/tanstack-start/node_modules ./examples/tanstack-start/node_modules
-COPY --from=builder /repo/examples/tanstack-start/drizzle.config.ts ./examples/tanstack-start/drizzle.config.ts
-COPY --from=builder /repo/examples/tanstack-start/scripts/ ./examples/tanstack-start/scripts/
-COPY --from=builder /repo/examples/tanstack-start/src/ ./examples/tanstack-start/src/
-COPY --from=builder /repo/examples/tanstack-start/tsconfig.json ./examples/tanstack-start/tsconfig.json
+COPY --from=builder /repo/examples/twitter-tanstack/package.json ./examples/twitter-tanstack/package.json
+COPY --from=builder /repo/examples/twitter-tanstack/node_modules ./examples/twitter-tanstack/node_modules
+COPY --from=builder /repo/examples/twitter-tanstack/drizzle.config.ts ./examples/twitter-tanstack/drizzle.config.ts
+COPY --from=builder /repo/examples/twitter-tanstack/scripts/ ./examples/twitter-tanstack/scripts/
+COPY --from=builder /repo/examples/twitter-tanstack/src/ ./examples/twitter-tanstack/src/
+COPY --from=builder /repo/examples/twitter-tanstack/tsconfig.json ./examples/twitter-tanstack/tsconfig.json
 
 EXPOSE 3000
 
 ENV NODE_ENV=production
 
 # Push schema then start the server
-CMD ["sh", "-c", "cd examples/tanstack-start && bun run db:push && cd /app && bun .output/server/index.mjs"]
+CMD ["sh", "-c", "cd examples/twitter-tanstack && bun run db:push && cd /app && bun .output/server/index.mjs"]

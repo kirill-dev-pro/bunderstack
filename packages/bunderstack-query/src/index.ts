@@ -8,11 +8,16 @@ import {
 import type {
   BunderstackQueryClient,
   CrudTableKey,
+  FilesQueryClient,
   InferInsert,
   InferSelect,
   TableQueryOptions,
 } from './types'
 
+import {
+  attachBucketMutationOptions,
+  createBucketClient,
+} from './bucket-client'
 import { attachMutationOptions } from './mutation-options'
 import { createTableClient } from './table-client'
 
@@ -29,7 +34,10 @@ function buildTableQueryOptions<
   _tableKey: K,
   tableName: string,
   table: TSchema[K] | undefined,
-  config: BaseOptions & { baseUrl: string; fetch: typeof fetch },
+  config: BaseOptions & {
+    baseUrl: string
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  },
 ): TableQueryOptions<
   InferSelect<NonNullable<typeof table>>,
   InferInsert<NonNullable<typeof table>>,
@@ -121,6 +129,76 @@ export function createBunderstackQueryClient<
       }
       return client
     },
+
+    withFiles<const TBuckets extends readonly string[]>(
+      options: BaseOptions & { buckets: TBuckets },
+    ): FilesQueryClient<TBuckets[number]> {
+      const baseUrl = options.baseUrl ?? '/api'
+      const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
+      const client: FilesQueryClient<TBuckets[number]> = {
+        files: {} as FilesQueryClient<TBuckets[number]>['files'],
+      }
+
+      for (const bucket of options.buckets) {
+        const bucketClient = createBucketClient({
+          bucket,
+          baseUrl,
+          fetch: fetchFn,
+        })
+        client.files[bucket as TBuckets[number]] = {
+          ...bucketClient,
+          ...attachBucketMutationOptions(bucketClient, options.queryClient),
+        }
+      }
+      return client
+    },
+
+    with<
+      const TTables extends readonly (keyof TSchema & string)[],
+      const TBuckets extends readonly string[],
+    >(
+      options: BaseOptions & { tables: TTables; buckets: TBuckets },
+    ): BunderstackQueryClient<TSchema, TTables[number]> &
+      FilesQueryClient<TBuckets[number]> {
+      const baseUrl = options.baseUrl ?? '/api'
+      const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
+      const tablesClient = {} as BunderstackQueryClient<
+        TSchema,
+        TTables[number]
+      >
+
+      for (const tableKey of options.tables) {
+        const tableClient = createTableClient({
+          tableName: tableKey,
+          baseUrl,
+          fetch: fetchFn,
+        })
+        ;(tablesClient as Record<string, unknown>)[tableKey] = {
+          ...tableClient,
+          ...attachMutationOptions(tableClient, options.queryClient),
+        }
+      }
+
+      const filesClient: FilesQueryClient<TBuckets[number]> = {
+        files: {} as FilesQueryClient<TBuckets[number]>['files'],
+      }
+      for (const bucket of options.buckets) {
+        const bucketClient = createBucketClient({
+          bucket,
+          baseUrl,
+          fetch: fetchFn,
+        })
+        filesClient.files[bucket as TBuckets[number]] = {
+          ...bucketClient,
+          ...attachBucketMutationOptions(bucketClient, options.queryClient),
+        }
+      }
+
+      return {
+        ...tablesClient,
+        ...filesClient,
+      }
+    },
   }
 }
 
@@ -130,6 +208,7 @@ export type {
   CreateClientOptions,
   CrudTableKey,
   ExposedTableKeys,
+  FilesQueryClient,
   InferInsert,
   InferSelect,
   ListParams,
@@ -138,6 +217,19 @@ export type {
   TableQueryOptionsForKey,
   UseMutationOptions,
 } from './types.ts'
+export {
+  createBucketClient,
+  attachBucketMutationOptions,
+} from './bucket-client.ts'
+export type {
+  BucketClient,
+  BucketClientConfig,
+  BucketMutationOptions,
+  FileTransformOptions,
+  UploadedFile,
+  UploadMode,
+  UploadOptions,
+} from './bucket-client.ts'
 export { createTableClient } from './table-client.ts'
 export type { TableClient, TableClientConfig } from './table-client.ts'
 export { createRealtimeClient } from './realtime-client.ts'

@@ -1,10 +1,10 @@
-name: bunderstack-tanstack
+name: bunderstack-twitter-tanstack
 
 services:
   app:
     build:
       context: ../..
-      dockerfile: examples/tanstack-start/Dockerfile
+      dockerfile: examples/twitter-tanstack/Dockerfile
     environment:
       DATABASE_URL: 'file:/data/db/data.db'
       AUTH_SECRET: '${AUTH_SECRET:?AUTH_SECRET env var is required}'

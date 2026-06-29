@@ -15,7 +15,7 @@ export function AttachmentLightbox({
 }: AttachmentLightboxProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const fileId = fileIdFromUrl(fileUrl)
-  const fullSrc = fileId ? `/api/files/${fileId}` : fileUrl
+  const fullSrc = fileId ? thumbnailUrl(fileId) : fileUrl
   const thumbSrc = fileId
     ? thumbnailUrl(fileId, { w: 480, h: 320, format: 'webp' })
     : fileUrl

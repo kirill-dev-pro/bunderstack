@@ -3,7 +3,7 @@
 Date: 2026-06-28
 Status: Approved design, pre-implementation
 Scope: `packages/bunderstack` core storage layer. Example apps
-(`kanban-tanstack`, `standalone`, `nextjs`, `tanstack-start`) use the old
+(`kanban-tanstack`, `standalone`, `nextjs`, `twitter-tanstack`) use the old
 `storageOptions` + flat `/api/files/:id` API and will break; their migration is
 **deferred to a follow-up branch** (root `bun test` only covers the package).
 `storage: { local: './uploads' }` still parses (→ implicit `default` bucket).

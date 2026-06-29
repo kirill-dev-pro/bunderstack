@@ -4,7 +4,11 @@ import * as React from 'react'
 
 import { api } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
-import { ImageUpload, thumbnailUrl } from '~/components/ImageUpload'
+import {
+  AVATARS_BUCKET,
+  ImageUpload,
+  thumbnailUrl,
+} from '~/components/ImageUpload'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
 
@@ -85,6 +89,7 @@ function ProfilePage() {
           <div className="vstack">
             <ImageUpload
               label="Avatar"
+              bucket={AVATARS_BUCKET}
               onUploaded={async (file) => {
                 await avatarMutation.mutateAsync({
                   id: user.id,

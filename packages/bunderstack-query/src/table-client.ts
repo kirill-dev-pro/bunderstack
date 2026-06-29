@@ -16,7 +16,7 @@ const RESERVED_LIST_PARAMS = new Set([
 export type TableClientConfig = {
   tableName: string
   baseUrl: string
-  fetch: typeof fetch
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
 async function parseError(res: Response): Promise<BunderstackApiError> {

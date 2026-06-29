@@ -1,44 +1,32 @@
 import * as React from 'react'
 
+import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack-query'
+
+import { api } from '~/api-client'
+
+export const ATTACHMENTS_BUCKET = 'attachments'
+export const AVATARS_BUCKET = 'avatars'
 /** Must match `defaultBucket` in `src/bunderstack.ts`. */
-export const FILES_BUCKET = 'attachments'
+export const FILES_BUCKET = ATTACHMENTS_BUCKET
 
-export type UploadedFile = {
-  fileId: string
-  url: string
-  name: string
-}
+type UploadBucket = typeof ATTACHMENTS_BUCKET | typeof AVATARS_BUCKET
+export type UploadedFile = BunderstackUploadedFile
 
-export async function uploadFile(file: File): Promise<UploadedFile> {
-  const form = new FormData()
-  form.append('file', file)
-
-  const res = await fetch(`/api/files/${FILES_BUCKET}`, {
-    method: 'POST',
-    body: form,
-    credentials: 'include',
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(
-      (err as { error?: string }).error ?? `Upload failed (${res.status})`,
-    )
-  }
-
-  const { fileId, url } = (await res.json()) as { fileId: string; url: string }
-  return { fileId, url, name: file.name }
+export async function uploadFile(
+  file: File,
+  bucket: UploadBucket = ATTACHMENTS_BUCKET,
+): Promise<UploadedFile> {
+  return api.files[bucket].upload(file)
 }
 
 export function thumbnailUrl(
   fileId: string,
   opts?: { w?: number; h?: number; format?: 'webp' | 'jpeg' },
 ) {
-  const params = new URLSearchParams()
-  if (opts?.w) params.set('w', String(opts.w))
-  if (opts?.h) params.set('h', String(opts.h))
-  if (opts?.format) params.set('format', opts.format)
-  const qs = params.toString()
-  return `/api/files/${fileId}${qs ? `?${qs}` : ''}`
+  const bucket = fileId.startsWith(`${AVATARS_BUCKET}/`)
+    ? api.files.avatars
+    : api.files.attachments
+  return bucket.url(fileId, opts)
 }
 
 export function fileIdFromUrl(url: string | null | undefined): string | null {
@@ -50,6 +38,7 @@ type ImageUploadProps = {
   label: string
   hint?: string
   accept?: string
+  bucket?: UploadBucket
   onUploaded: (file: UploadedFile) => void | Promise<void>
   disabled?: boolean
 }
@@ -58,6 +47,7 @@ export function ImageUpload({
   label,
   hint,
   accept = 'image/*',
+  bucket = ATTACHMENTS_BUCKET,
   onUploaded,
   disabled,
 }: ImageUploadProps) {
@@ -85,7 +75,7 @@ export function ImageUpload({
           setStatus('uploading')
           setError(null)
           try {
-            const uploaded = await uploadFile(file)
+            const uploaded = await uploadFile(file, bucket)
             await onUploaded(uploaded)
             setStatus('idle')
           } catch (err) {

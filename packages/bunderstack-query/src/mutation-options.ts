@@ -37,9 +37,9 @@ export function attachMutationOptions<TRow, TCreate, TUpdate>(
       const { onSuccess, ...rest } = options
       return {
         mutationFn: (data: Partial<TCreate>) => table.create(data),
-        onSuccess: (data, variables, context) => {
+        onSuccess: (data, variables, context, mutation) => {
           invalidate()
-          onSuccess?.(data, variables, context)
+          onSuccess?.(data, variables, context, mutation)
         },
         ...rest,
       }
@@ -49,11 +49,11 @@ export function attachMutationOptions<TRow, TCreate, TUpdate>(
       return {
         mutationFn: ({ id, data }: { id: string | number; data: TUpdate }) =>
           table.update(id, data),
-        onSuccess: (data, variables, context) => {
+        onSuccess: (data, variables, context, mutation) => {
           invalidate()
           if (queryClient)
             void queryClient.setQueryData(table.keys.detail(variables.id), data)
-          onSuccess?.(data, variables, context)
+          onSuccess?.(data, variables, context, mutation)
         },
         ...rest,
       }
@@ -62,9 +62,9 @@ export function attachMutationOptions<TRow, TCreate, TUpdate>(
       const { onSuccess, ...rest } = options
       return {
         mutationFn: (id: string | number) => table.delete(id),
-        onSuccess: (data, variables, context) => {
+        onSuccess: (data, variables, context, mutation) => {
           invalidate()
-          onSuccess?.(data, variables, context)
+          onSuccess?.(data, variables, context, mutation)
         },
         ...rest,
       }

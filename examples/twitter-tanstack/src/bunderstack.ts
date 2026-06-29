@@ -16,6 +16,15 @@ export const app = await createBunderstackAsync({
     local: './uploads',
     defaultBucket: 'attachments',
     buckets: {
+      avatars: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: {
+          maxSize: '2mb',
+          accept: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        },
+        transforms: true,
+      },
       attachments: {
         visibility: 'public',
         access: { create: 'authenticated', get: 'public', delete: 'owner' },

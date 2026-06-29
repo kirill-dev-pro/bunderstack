@@ -46,8 +46,9 @@ export function replyParams(postId: number) {
   } as const
 }
 
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
+export const api = createBunderstackQueryClient<typeof schema>().with({
   queryClient,
   fetch: isomorphicFetch,
   tables: ['posts', 'user', 'follows', 'likes', 'retweets'] as const,
+  buckets: ['attachments', 'avatars'] as const,
 })

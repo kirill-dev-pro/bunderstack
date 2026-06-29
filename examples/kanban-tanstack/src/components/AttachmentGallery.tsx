@@ -2,7 +2,7 @@ import type { InferSelect } from 'bunderstack-query'
 
 import type * as schema from '~/schema'
 
-import { api } from '~/api-client'
+import { api, queryClient } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { fileIdFromUrl, isImageMime } from '~/lib/files'
 
@@ -24,7 +24,15 @@ export function AttachmentGallery({
   compact = false,
 }: AttachmentGalleryProps) {
   const deleteAttachment = useToastMutation({
-    ...api.attachments.deleteMutation({ onSuccess: onDelete }),
+    mutationFn: async (att: Attachment) => {
+      await api.attachments.delete(att.id)
+      const fileId = fileIdFromUrl(att.fileUrl)
+      if (fileId) await api.files.attachments.delete(fileId)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: api.attachments.keys.all })
+      onDelete?.()
+    },
     successMessage: 'Attachment removed',
   })
 
@@ -61,7 +69,7 @@ export function AttachmentGallery({
                 type="button"
                 className="attachment-delete"
                 aria-label="Remove attachment"
-                onClick={() => deleteAttachment.mutate(att.id)}
+                onClick={() => deleteAttachment.mutate(att)}
                 disabled={deleteAttachment.isPending}
               >
                 ×

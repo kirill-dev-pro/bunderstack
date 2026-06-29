@@ -27,7 +27,9 @@ export const queryClient = new QueryClient({
 
 export const listParams = { limit: 100, offset: 0 } as const
 
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
+const apiBuilder = createBunderstackQueryClient<typeof schema>()
+
+export const api = apiBuilder.with({
   queryClient,
   fetch: isomorphicFetch,
   tables: [
@@ -40,4 +42,5 @@ export const api = createBunderstackQueryClient<typeof schema>().withTables({
     'reactions',
     'user',
   ] as const,
+  buckets: ['attachments', 'avatars'] as const,
 })

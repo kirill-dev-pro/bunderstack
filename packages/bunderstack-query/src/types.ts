@@ -1,6 +1,10 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
 import type { TableAccessInput } from 'bunderstack/access'
 
+import type {
+  BucketClient,
+  BucketMutationOptions,
+} from './bucket-client.ts'
 import type { TableMutationOptions } from './mutation-options.ts'
 import type { TableClient } from './table-client.ts'
 
@@ -75,6 +79,12 @@ export type BunderstackQueryClient<
   TExposed extends keyof TSchema & string = CrudTableKey<TSchema>,
 > = {
   [K in TExposed]: TableQueryOptionsForKey<TSchema, K>
+}
+
+export type FilesQueryClient<TBuckets extends string> = {
+  files: {
+    [K in TBuckets]: BucketClient & BucketMutationOptions
+  }
 }
 
 export type ExposedTableKeys<
