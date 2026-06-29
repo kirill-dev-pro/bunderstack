@@ -6,7 +6,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access.ts'
 import { buildCrudRouter } from './crud.ts'
-import { createRealtimeBroker } from './realtime.ts'
+import { createRealtimeBroker } from './realtime/index.ts'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),

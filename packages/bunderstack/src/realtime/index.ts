@@ -9,7 +9,7 @@ import {
   type AuthSessionResolver,
   type ResolvedAccess,
   type ResolvedTableAccess,
-} from './access.ts'
+} from '../access.ts'
 
 export type RealtimeAction = 'create' | 'update' | 'delete'
 

@@ -3,7 +3,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import { eq, isTable, getTableName } from 'drizzle-orm'
 import { Hono } from 'hono'
 
-import type { RealtimeBroker } from './realtime.ts'
+import type { RealtimeBroker } from './realtime/index.ts'
 
 import {
   checkAccess,

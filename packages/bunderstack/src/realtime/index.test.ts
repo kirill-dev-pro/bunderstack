@@ -2,8 +2,8 @@
 import { describe, it, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { validateAndResolveAccess } from './access.ts'
-import { createRealtimeBroker } from './realtime.ts'
+import { validateAndResolveAccess } from '../access.ts'
+import { createRealtimeBroker } from './index.ts'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
