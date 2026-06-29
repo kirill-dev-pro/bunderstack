@@ -5,7 +5,7 @@ import type { Hono as HonoType } from 'hono'
 import type { StorageAdapter } from './storage/index.ts'
 
 import { validateAndResolveAccess } from './access.ts'
-import { createAuth } from './auth.ts'
+import { createAuth, toAuthSessionResolver } from './auth.ts'
 import { resolveConfig, type BunderstackConfig } from './config.ts'
 import { resolveRealtimeRedisUrl } from './config.ts'
 import { buildCrudRouter } from './crud.ts'
@@ -70,6 +70,9 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     db as LibSQLDatabase<Record<string, unknown>>,
     config.auth,
   )
+  // Internal routers consume the narrow AuthSessionResolver contract, not the
+  // raw better-auth instance. app.auth still exposes `auth` unchanged.
+  const authResolver = toAuthSessionResolver(auth)
   const resolvedAccess = validateAndResolveAccess(
     options.schema,
     options.access,
@@ -113,7 +116,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     options.schema,
     db as unknown as LibSQLDatabase<TSchema>,
     {
-      auth,
+      auth: authResolver,
       access: resolvedAccess,
       idempotency: options.idempotency,
       broker,
@@ -121,7 +124,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   )
   const realtimeRouter = broker
     ? buildRealtimeRouter(broker, {
-        auth,
+        auth: authResolver,
         keepaliveMs:
           typeof config.realtime === 'object'
             ? config.realtime.keepaliveMs
@@ -132,7 +135,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   const storageRouter = buildBucketStorageRouter({
     registry,
     db: db as LibSQLDatabase<Record<string, unknown>>,
-    auth,
+    auth: authResolver,
   })
   const storage: StorageFacade = {
     async delete(fileId) {
