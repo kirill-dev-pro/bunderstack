@@ -207,6 +207,13 @@ function coerceFilterValue(
     if (s === 'false' || s === '0') return false
     throw new ListQueryError(`filter "${columnName}" must be a boolean`)
   }
+  if (dataType === 'date') {
+    const d = new Date(raw as string | number)
+    if (Number.isNaN(d.getTime())) {
+      throw new ListQueryError(`filter "${columnName}" must be a valid date`)
+    }
+    return d
+  }
   return String(raw)
 }
 
