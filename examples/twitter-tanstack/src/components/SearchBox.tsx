@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api, listParams } from '~/api-client'
+import { listParams } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 
 type SearchBoxProps = {
@@ -10,6 +10,7 @@ type SearchBoxProps = {
 }
 
 export function SearchBox({ className }: SearchBoxProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const [q, setQ] = React.useState('')
   const [open, setOpen] = React.useState(false)
   const term = q.trim()

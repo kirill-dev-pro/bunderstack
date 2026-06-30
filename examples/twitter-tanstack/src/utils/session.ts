@@ -1,10 +1,25 @@
+import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { asTypeId } from 'bunderstack/typeid'
 
 import { app } from '~/bunderstack'
 
-// Returns BetterAuth session or null — call only inside createServerFn handlers.
-export async function getAuthSession() {
+export const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
   if (!request) return null
-  return app.auth.api.getSession({ headers: request.headers })
-}
+  const session = await app.auth.api.getSession({ headers: request.headers })
+
+  if (!session?.user) return null
+
+  try {
+    return {
+      id: asTypeId('user', session.user.id),
+      email: session.user.email,
+      name: session.user.name,
+      image: session.user.image,
+    }
+  } catch {
+    // Stale session from before TypeID migration — treat as logged out.
+    return null
+  }
+})

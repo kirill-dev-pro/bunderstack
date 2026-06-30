@@ -1,7 +1,7 @@
+import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 import type { InferSelect } from 'bunderstack-query'
 
-import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
 import type { follows, user } from '~/schema'
@@ -20,6 +20,7 @@ export function FollowButton({
   targetUserId,
   follows,
 }: FollowButtonProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const existing = React.useMemo(
     () =>
       currentUserId

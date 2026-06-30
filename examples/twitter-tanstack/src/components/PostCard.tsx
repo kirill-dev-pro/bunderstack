@@ -1,11 +1,10 @@
 import type { InferSelect } from 'bunderstack-query'
 
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
 import type { user } from '~/schema'
 
-import { api } from '~/api-client'
 import { PostImagePreview } from '~/components/ImageLightbox'
 import { PostActions } from '~/components/PostActions'
 import { PostTime } from '~/components/PostTime'
@@ -44,6 +43,7 @@ export function PostCard({
   currentUserId,
   variant = 'feed',
 }: PostCardProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const [editBody, setEditBody] = React.useState(post.body)
   const editDialogRef = React.useRef<HTMLDialogElement>(null)
 

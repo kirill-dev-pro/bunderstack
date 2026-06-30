@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack-query'
 
-import { api } from '~/api-client'
+import { filesApi } from '~/api-client'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
 export const AVATARS_BUCKET = 'avatars'
@@ -16,7 +16,7 @@ export async function uploadFile(
   file: File,
   bucket: UploadBucket = ATTACHMENTS_BUCKET,
 ): Promise<UploadedFile> {
-  return api.files[bucket].upload(file)
+  return filesApi.files[bucket].upload(file)
 }
 
 export function thumbnailUrl(
@@ -24,8 +24,8 @@ export function thumbnailUrl(
   opts?: { w?: number; h?: number; format?: 'webp' | 'jpeg' },
 ) {
   const bucket = fileId.startsWith(`${AVATARS_BUCKET}/`)
-    ? api.files.avatars
-    : api.files.attachments
+    ? filesApi.files.avatars
+    : filesApi.files.attachments
   return bucket.url(fileId, opts)
 }
 

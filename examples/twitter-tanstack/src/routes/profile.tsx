@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import {
   AVATARS_BUCKET,
@@ -16,11 +15,14 @@ export const Route = createFileRoute('/profile')({
   beforeLoad: ({ context }) => {
     if (!context.user) throw redirect({ to: '/login' })
   },
+  loader: async ({ context: { queryClient, api, user } }) => {
+    await queryClient.ensureQueryData(api.user.getQuery(user!.id))
+  },
   component: ProfilePage,
 })
 
 function ProfilePage() {
-  const { user } = Route.useRouteContext()
+  const { api, user } = Route.useRouteContext()
   const router = useRouter()
   const { data: profile } = useQuery(api.user.getQuery(user!.id))
   const [about, setAbout] = React.useState('')

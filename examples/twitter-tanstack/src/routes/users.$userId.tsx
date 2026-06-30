@@ -9,7 +9,7 @@ import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
-import { api, listParams, queryClient } from '~/api-client'
+import { listParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
 import { PostCard } from '~/components/PostCard'
@@ -24,7 +24,7 @@ function parseUserIdParam(raw: string) {
 }
 
 export const Route = createFileRoute('/users/$userId')({
-  loader: async ({ params }) => {
+  loader: async ({ params, context: { queryClient, api } }) => {
     const userId = parseUserIdParam(params.userId)
     const userPostsParams = {
       userId,
@@ -66,7 +66,7 @@ export const Route = createFileRoute('/users/$userId')({
 function UserProfilePage() {
   const { userId: userIdParam } = Route.useParams()
   const userId = parseUserIdParam(userIdParam)
-  const { user: currentUser } = Route.useRouteContext()
+  const { api, user: currentUser } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()
   const userPostsParams = initial.userPostsParams

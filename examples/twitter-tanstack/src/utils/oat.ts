@@ -26,6 +26,7 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
+  // @ts-ignore
   void import('@knadh/oat/oat.min.js')
 }
 

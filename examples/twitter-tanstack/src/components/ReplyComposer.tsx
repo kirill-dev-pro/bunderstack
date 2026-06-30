@@ -1,7 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
@@ -20,6 +19,7 @@ export function ReplyComposer({
   placeholder,
   onPosted,
 }: ReplyComposerProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const [body, setBody] = React.useState('')
 
   const createMutation = useToastMutation(

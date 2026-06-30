@@ -1,43 +1,26 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-/// <reference types="vite/client" />
 import {
   HeadContent,
   Outlet,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
   ClientOnly,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
-import { queryClient } from '~/api-client'
+import type { RouterContext } from '~/router'
+
 import { AppDevtools } from '~/components/AppDevtools'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import { OatInit } from '~/components/OatInit'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
+import { fetchUser } from '~/utils/session'
 
-const fetchUser = createServerFn({ method: 'GET' }).handler(async () => {
-  const { getAuthSession } = await import('~/utils/session')
-  const session = await getAuthSession()
-  if (!session?.user) return null
-
-  try {
-    return {
-      id: asTypeId('user', session.user.id),
-      email: session.user.email,
-      name: session.user.name,
-      image: session.user.image,
-    }
-  } catch {
-    // Stale session from before TypeID migration — treat as logged out.
-    return null
-  }
-})
-
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => ({ user: await fetchUser() }),
   head: () => ({
     meta: [
@@ -68,6 +51,7 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const { queryClient } = Route.useRouteContext()
   return (
     <html lang="en">
       <head>
@@ -79,12 +63,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         </ClientOnly>
         <QueryClientProvider client={queryClient}>
           {children}
+          {import.meta.env.DEV ? (
+            <ClientOnly>
+              <AppDevtools />
+            </ClientOnly>
+          ) : null}
         </QueryClientProvider>
-        {import.meta.env.DEV ? (
-          <ClientOnly>
-            <AppDevtools />
-          </ClientOnly>
-        ) : null}
         <Scripts />
       </body>
     </html>

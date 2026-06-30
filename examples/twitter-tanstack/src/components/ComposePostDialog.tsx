@@ -1,7 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api } from '~/api-client'
 import {
   uploadFile,
   fileIdFromUrl,
@@ -26,6 +25,7 @@ export function ComposePostDialog({
   replyToId,
   onPosted,
 }: ComposePostDialogProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const [body, setBody] = React.useState('')
   const [imageUrl, setImageUrl] = React.useState<string | null>(null)
   const [uploading, setUploading] = React.useState(false)

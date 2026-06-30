@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api, feedParams, listParams, queryClient } from '~/api-client'
+import { feedParams, listParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import {
   ComposePostDialog,
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/')({
         ? ('following' as const)
         : ('for-you' as const),
   }),
-  loader: async () => {
+  loader: async ({ context: { queryClient, api } }) => {
     await Promise.all([
       queryClient.prefetchInfiniteQuery(
         api.posts.listInfiniteQuery(feedParams),
@@ -36,7 +36,7 @@ export const Route = createFileRoute('/')({
 })
 
 function FeedPage() {
-  const { user } = Route.useRouteContext()
+  const { api, user } = Route.useRouteContext()
   const { tab } = Route.useSearch()
   const navigate = Route.useNavigate()
   const composeRef = React.useRef<HTMLDialogElement>(null)

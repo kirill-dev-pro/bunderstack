@@ -9,7 +9,7 @@ import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
-import { api, listParams, queryClient, replyParams } from '~/api-client'
+import { listParams, replyParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -24,7 +24,7 @@ function parsePostIdParam(raw: string) {
 }
 
 export const Route = createFileRoute('/posts/$postId')({
-  loader: async ({ params }) => {
+  loader: async ({ params, context: { queryClient, api } }) => {
     const postId = parsePostIdParam(params.postId)
 
     const repliesQuery = replyParams(postId)
@@ -52,7 +52,7 @@ export const Route = createFileRoute('/posts/$postId')({
 function PostThreadPage() {
   const { postId: postIdParam } = Route.useParams()
   const postId = parsePostIdParam(postIdParam)
-  const { user } = Route.useRouteContext()
+  const { api, user } = Route.useRouteContext()
   const initial = Route.useLoaderData()
   const router = useRouter()
   const repliesQuery = initial.repliesQuery

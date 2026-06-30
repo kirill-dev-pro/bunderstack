@@ -1,7 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { api } from '~/api-client'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
 import type { Like, Post, Retweet } from '~/utils/posts'
@@ -21,6 +20,7 @@ export function PostActions({
   likes,
   retweets,
 }: PostActionsProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const myLike = React.useMemo(
     () => likes.find((r) => r.postId === postId && r.userId === currentUserId),
     [likes, postId, currentUserId],

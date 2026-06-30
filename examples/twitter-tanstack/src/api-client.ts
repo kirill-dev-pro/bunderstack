@@ -26,9 +26,22 @@ const isomorphicFetch = createIsomorphicFn()
     return fetch(input, init)
   })
 
-export const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000 } },
-})
+export function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000 } },
+  })
+}
+
+export function createApi(queryClient: QueryClient) {
+  return createBunderstackQueryClient<typeof schema>().with({
+    queryClient,
+    fetch: isomorphicFetch,
+    tables: ['posts', 'user', 'follows', 'likes', 'retweets'] as const,
+    buckets: ['attachments', 'avatars'] as const,
+  })
+}
+
+export type AppApi = ReturnType<typeof createApi>
 
 export const listParams = { limit: 100, offset: 0 } as const
 
@@ -48,9 +61,9 @@ export function replyParams(postId: TypeId<'post'>) {
   } as const
 }
 
-export const api = createBunderstackQueryClient<typeof schema>().with({
-  queryClient,
+/** File uploads/URLs only — safe outside React hooks (no QueryClient needed). */
+export const filesApi = createBunderstackQueryClient<typeof schema>().with({
   fetch: isomorphicFetch,
-  tables: ['posts', 'user', 'follows', 'likes', 'retweets'] as const,
+  tables: [] as const,
   buckets: ['attachments', 'avatars'] as const,
 })
