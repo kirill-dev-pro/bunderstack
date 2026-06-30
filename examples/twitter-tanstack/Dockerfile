@@ -46,5 +46,5 @@ EXPOSE 3000
 
 ENV NODE_ENV=production
 
-# Apply migrations then start the server
-CMD ["sh", "-c", "cd examples/twitter-tanstack && bun run db:migrate && cd /app && bun .output/server/index.mjs"]
+# Start the server
+CMD ["bun", ".output/server/index.mjs"]
