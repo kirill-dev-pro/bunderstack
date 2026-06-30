@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { feedParams, listParams } from '~/api-client'
+import { byColumnIn, feedParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import {
   ComposePostDialog,
@@ -21,15 +21,33 @@ export const Route = createFileRoute('/')({
         ? ('following' as const)
         : ('for-you' as const),
   }),
-  loader: async ({ context: { queryClient, api } }) => {
+  loader: async ({ context: { queryClient, api, user } }) => {
+    // Fetch (not just prefetch) so the first page's data is available here
+    // to derive which authors/likes/retweets are actually needed — avoids a
+    // client-only fetch waterfall on first paint.
+    const firstPage = await queryClient.fetchInfiniteQuery(
+      api.posts.listInfiniteQuery(feedParams),
+    )
+    const posts = firstPage.pages.flatMap((page) => page.items)
+    const authorIds = posts.map((p) => p.userId)
+    const postIds = posts.map((p) => p.id)
+
     await Promise.all([
-      queryClient.prefetchInfiniteQuery(
-        api.posts.listInfiniteQuery(feedParams),
+      queryClient.ensureQueryData(api.user.listQuery(byColumnIn('id', authorIds))),
+      queryClient.ensureQueryData(api.likes.listQuery(byColumnIn('postId', postIds))),
+      queryClient.ensureQueryData(
+        api.retweets.listQuery(byColumnIn('postId', postIds)),
       ),
-      queryClient.ensureQueryData(api.user.listQuery(listParams)),
-      queryClient.ensureQueryData(api.follows.listQuery(listParams)),
-      queryClient.ensureQueryData(api.likes.listQuery(listParams)),
-      queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
+      queryClient.ensureQueryData(
+        api.user.listQuery({ limit: 20 }),
+      ),
+      ...(user
+        ? [
+            queryClient.ensureQueryData(
+              api.follows.listQuery(byColumnIn('followerId', [user.id])),
+            ),
+          ]
+        : []),
     ])
   },
   component: FeedPage,
@@ -48,33 +66,54 @@ function FeedPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery(api.posts.listInfiniteQuery(feedParams))
-  const { data: usersData } = useQuery(api.user.listQuery(listParams))
-  const { data: followsData } = useQuery(api.follows.listQuery(listParams))
-  const { data: likesData } = useQuery(api.likes.listQuery(listParams))
-  const { data: retweetsData } = useQuery(api.retweets.listQuery(listParams))
 
   const allPosts = React.useMemo(
     () => postsData?.pages.flatMap((page) => page.items) ?? [],
     [postsData?.pages],
   )
-  const users = usersData
-  const follows = followsData
+  const authorIds = React.useMemo(
+    () => allPosts.map((p) => p.userId),
+    [allPosts],
+  )
+  const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
+
+  // Scoped to exactly the posts on this page — not the whole table.
+  const { data: usersData } = useQuery({
+    ...api.user.listQuery(byColumnIn('id', authorIds)),
+    enabled: authorIds.length > 0,
+  })
+  const { data: likesData } = useQuery({
+    ...api.likes.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+  const { data: retweetsData } = useQuery({
+    ...api.retweets.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+  // The current user's own follow edges — bounded by how many people they
+  // follow, unlike fetching every row in the follows table.
+  const { data: myFollowsData } = useQuery({
+    ...api.follows.listQuery(byColumnIn('followerId', user ? [user.id] : [])),
+    enabled: !!user,
+  })
+  // A small, intentionally non-exhaustive sample to source "Who to follow"
+  // suggestions from.
+  const { data: suggestionPoolData } = useQuery(
+    api.user.listQuery({ limit: 20 }),
+  )
+
   const likes = likesData
   const retweets = retweetsData
 
   const authorMap = React.useMemo(
-    () => new Map((users?.items ?? []).map((u) => [u.id, u])),
-    [users?.items],
+    () => new Map((usersData?.items ?? []).map((u) => [u.id, u])),
+    [usersData?.items],
   )
 
-  const followingIds = React.useMemo(() => {
-    if (!user) return new Set<string>()
-    return new Set(
-      (follows?.items ?? [])
-        .filter((f) => f.followerId === user.id)
-        .map((f) => f.followingId),
-    )
-  }, [follows?.items, user])
+  const followingIds = React.useMemo(
+    () => new Set((myFollowsData?.items ?? []).map((f) => f.followingId)),
+    [myFollowsData?.items],
+  )
 
   const feed = React.useMemo(() => {
     if (tab === 'following' && user) {
@@ -86,11 +125,12 @@ function FeedPage() {
   }, [allPosts, tab, user, followingIds])
 
   const suggestions = React.useMemo(() => {
-    if (!user) return (users?.items ?? []).slice(0, 3)
-    return (users?.items ?? [])
+    const pool = suggestionPoolData?.items ?? []
+    if (!user) return pool.slice(0, 3)
+    return pool
       .filter((u) => u.id !== user.id && !followingIds.has(u.id))
       .slice(0, 3)
-  }, [user, users?.items, followingIds])
+  }, [user, suggestionPoolData?.items, followingIds])
 
   const openCompose = () => showDialog(composeRef.current)
 
@@ -122,7 +162,7 @@ function FeedPage() {
                 <FollowButton
                   currentUserId={user?.id ?? null}
                   targetUserId={person.id}
-                  follows={follows?.items ?? []}
+                  follows={myFollowsData?.items ?? []}
                 />
               </li>
             ))}

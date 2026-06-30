@@ -7,6 +7,7 @@ import {
   eq,
   getTableColumns,
   gt,
+  inArray,
   like,
   lt,
   or,
@@ -17,6 +18,9 @@ import {
 import type { ResolvedTableAccess, SortOrder } from './access'
 
 import { ErrorCode, ListQueryError } from './errors'
+
+/** Caps both `?limit=` and the number of values in a comma-separated `IN` filter. */
+const MAX_LIST_LIMIT = 200
 
 export const RESERVED_LIST_PARAMS = new Set([
   'limit',
@@ -85,9 +89,11 @@ function parseLimit(raw: string | undefined): number {
   if (raw === undefined || raw === '') return 20
   const n = Number(raw)
   if (!Number.isInteger(n) || n < 1) {
-    throw new ListQueryError('limit must be an integer between 1 and 100')
+    throw new ListQueryError(
+      `limit must be an integer between 1 and ${MAX_LIST_LIMIT}`,
+    )
   }
-  return Math.min(n, 100)
+  return Math.min(n, MAX_LIST_LIMIT)
 }
 
 function parseOffset(raw: string | undefined): number {
@@ -227,6 +233,26 @@ function buildFilterWhere(
   for (const [name, raw] of Object.entries(filters)) {
     const col = columns[name]
     if (!col) continue
+
+    if (raw === null) {
+      conditions.push(sql`${col} IS NULL`)
+      continue
+    }
+
+    // `?column=a,b,c` — TypeIDs and other filterable values never contain
+    // commas, so this is a safe, zero-syntax way to do `column IN (...)`.
+    if (typeof raw === 'string' && raw.includes(',')) {
+      const parts = raw.split(',').filter((p) => p.length > 0)
+      if (parts.length > MAX_LIST_LIMIT) {
+        throw new ListQueryError(
+          `filter "${name}" accepts at most ${MAX_LIST_LIMIT} comma-separated values`,
+        )
+      }
+      const values = parts.map((p) => coerceFilterValue(table, name, p))
+      conditions.push(inArray(col, values))
+      continue
+    }
+
     const value = coerceFilterValue(table, name, raw)
     if (value === null) {
       conditions.push(sql`${col} IS NULL`)

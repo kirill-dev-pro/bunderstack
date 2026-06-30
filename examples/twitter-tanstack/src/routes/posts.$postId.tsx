@@ -9,7 +9,7 @@ import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
-import { listParams, replyParams } from '~/api-client'
+import { byColumnIn, replyParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -30,14 +30,27 @@ export const Route = createFileRoute('/posts/$postId')({
     const repliesQuery = replyParams(postId)
 
     try {
-      await Promise.all([
+      const [post, repliesPage] = await Promise.all([
         queryClient.ensureQueryData(api.posts.getQuery(postId)),
-        queryClient.prefetchInfiniteQuery(
+        queryClient.fetchInfiniteQuery(
           api.posts.listInfiniteQuery(repliesQuery),
         ),
-        queryClient.ensureQueryData(api.user.listQuery(listParams)),
-        queryClient.ensureQueryData(api.likes.listQuery(listParams)),
-        queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
+      ])
+      const replyItems = repliesPage.pages.flatMap((page) => page.items)
+      const allPosts = [post, ...replyItems]
+      const authorIds = allPosts.map((p) => p.userId)
+      const postIds = allPosts.map((p) => p.id)
+
+      await Promise.all([
+        queryClient.ensureQueryData(
+          api.user.listQuery(byColumnIn('id', authorIds)),
+        ),
+        queryClient.ensureQueryData(
+          api.likes.listQuery(byColumnIn('postId', postIds)),
+        ),
+        queryClient.ensureQueryData(
+          api.retweets.listQuery(byColumnIn('postId', postIds)),
+        ),
       ])
       return { repliesQuery }
     } catch (err) {
@@ -64,14 +77,8 @@ function PostThreadPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery(api.posts.listInfiniteQuery(repliesQuery))
-  const { data: usersData } = useQuery(api.user.listQuery(listParams))
-  const { data: likesData } = useQuery(api.likes.listQuery(listParams))
-  const { data: retweetsData } = useQuery(api.retweets.listQuery(listParams))
 
   const post = postData
-  const users = usersData
-  const likes = likesData
-  const retweets = retweetsData
 
   const replyItems = React.useMemo(
     () => repliesData?.pages.flatMap((page) => page.items) ?? [],
@@ -83,9 +90,32 @@ function PostThreadPage() {
     return [post, ...replyItems]
   }, [post, replyItems])
 
+  const authorIds = React.useMemo(
+    () => allPosts.map((p) => p.userId),
+    [allPosts],
+  )
+  const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
+
+  // Scoped to exactly the post + loaded replies — not the whole table.
+  const { data: usersData } = useQuery({
+    ...api.user.listQuery(byColumnIn('id', authorIds)),
+    enabled: authorIds.length > 0,
+  })
+  const { data: likesData } = useQuery({
+    ...api.likes.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+  const { data: retweetsData } = useQuery({
+    ...api.retweets.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+
+  const likes = likesData
+  const retweets = retweetsData
+
   const authorMap = React.useMemo(
-    () => new Map((users?.items ?? []).map((u) => [u.id, u])),
-    [users?.items],
+    () => new Map((usersData?.items ?? []).map((u) => [u.id, u])),
+    [usersData?.items],
   )
 
   if (!post) {

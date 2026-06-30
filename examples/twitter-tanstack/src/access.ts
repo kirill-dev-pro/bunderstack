@@ -14,6 +14,7 @@ export const access = defineAccess(schema, {
     delete: 'deny',
     writableColumns: ['image', 'about'],
     searchableColumns: ['name', 'email', 'about'],
+    filterableColumns: ['id'],
   },
   posts: {
     searchableColumns: ['title', 'body'],

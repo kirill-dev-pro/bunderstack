@@ -31,7 +31,13 @@ export type ListParams = {
   count?: boolean
   /** Keyset pagination — first page omits offset. Used by listInfiniteQuery. */
   cursorMode?: boolean
-} & Record<string, string | number | boolean | null | undefined>
+} & Record<
+  string,
+  // Array values are comma-joined into `?column=a,b,c`, matched server-side
+  // as `column IN (...)` — handy for fetching exactly the rows referenced by
+  // a page of results instead of an unbounded `list`.
+  string | number | boolean | null | undefined | readonly (string | number)[]
+>
 
 export type InferSelect<T> = T extends { $inferSelect: infer R } ? R : never
 

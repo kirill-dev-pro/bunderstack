@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
     "migrate": "bun scripts/migrate.ts",
-    "seed": "bun scripts/seed.ts"
+    "seed": "bun scripts/seed.ts",
+    "stress-seed": "bun scripts/stress-seed.ts"
   },
   "dependencies": {
     "@knadh/oat": "^0.6.2",

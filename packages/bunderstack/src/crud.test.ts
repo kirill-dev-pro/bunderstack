@@ -210,6 +210,33 @@ test('GET /api/posts?authorId= filters by column', async () => {
   expect(body.items.every((p) => p.authorId === 'filter-user')).toBe(true)
 })
 
+test('GET /api/posts?authorId=a,b filters by multiple values (IN)', async () => {
+  await app.request('/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-test-user': 'in-user-1' },
+    body: JSON.stringify({ title: 'From user 1' }),
+  })
+  await app.request('/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-test-user': 'in-user-2' },
+    body: JSON.stringify({ title: 'From user 2' }),
+  })
+  await app.request('/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-test-user': 'in-user-3' },
+    body: JSON.stringify({ title: 'From user 3' }),
+  })
+
+  const res = await app.request('/api/posts?authorId=in-user-1,in-user-2')
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as { items: { authorId: string | null }[] }
+  expect(body.items.length).toBeGreaterThanOrEqual(2)
+  expect(
+    body.items.every((p) => ['in-user-1', 'in-user-2'].includes(p.authorId!)),
+  ).toBe(true)
+  expect(body.items.some((p) => p.authorId === 'in-user-3')).toBe(false)
+})
+
 test('GET /api/posts rejects unknown filter column', async () => {
   const res = await app.request('/api/posts?unknown=1')
   expect(res.status).toBe(400)

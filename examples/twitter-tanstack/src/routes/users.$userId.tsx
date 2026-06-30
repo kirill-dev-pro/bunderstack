@@ -9,7 +9,7 @@ import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-query'
 import * as React from 'react'
 
-import { listParams } from '~/api-client'
+import { byColumnIn } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
 import { PostCard } from '~/components/PostCard'
@@ -24,7 +24,7 @@ function parseUserIdParam(raw: string) {
 }
 
 export const Route = createFileRoute('/users/$userId')({
-  loader: async ({ params, context: { queryClient, api } }) => {
+  loader: async ({ params, context: { queryClient, api, user: viewer } }) => {
     const userId = parseUserIdParam(params.userId)
     const userPostsParams = {
       userId,
@@ -35,25 +35,40 @@ export const Route = createFileRoute('/users/$userId')({
     } as const
 
     try {
-      const profile = await queryClient.ensureQueryData(
-        api.user.getQuery(userId),
+      await queryClient.ensureQueryData(api.user.getQuery(userId))
+      const posts = await queryClient.ensureQueryData(
+        api.posts.listQuery(userPostsParams),
       )
-      const [posts, follows, users, likes, retweets] = await Promise.all([
-        queryClient.ensureQueryData(api.posts.listQuery(userPostsParams)),
-        queryClient.ensureQueryData(api.follows.listQuery(listParams)),
-        queryClient.ensureQueryData(api.user.listQuery(listParams)),
-        queryClient.ensureQueryData(api.likes.listQuery(listParams)),
-        queryClient.ensureQueryData(api.retweets.listQuery(listParams)),
+      const postIds = posts.items.map((p) => p.id)
+
+      await Promise.all([
+        queryClient.ensureQueryData(
+          api.likes.listQuery(byColumnIn('postId', postIds)),
+        ),
+        queryClient.ensureQueryData(
+          api.retweets.listQuery(byColumnIn('postId', postIds)),
+        ),
+        // Aggregate counts only — never fetches the actual follow rows.
+        queryClient.ensureQueryData(
+          api.follows.listQuery({ followingId: userId, count: true, limit: 1 }),
+        ),
+        queryClient.ensureQueryData(
+          api.follows.listQuery({ followerId: userId, count: true, limit: 1 }),
+        ),
+        ...(viewer
+          ? [
+              queryClient.ensureQueryData(
+                api.follows.listQuery({
+                  followerId: viewer.id,
+                  followingId: userId,
+                  limit: 1,
+                }),
+              ),
+            ]
+          : []),
       ])
-      return {
-        profile,
-        posts,
-        follows,
-        users,
-        likes,
-        retweets,
-        userPostsParams,
-      }
+
+      return { userPostsParams }
     } catch (err) {
       if (err instanceof BunderstackApiError && err.status === 404)
         throw notFound()
@@ -67,39 +82,51 @@ function UserProfilePage() {
   const { userId: userIdParam } = Route.useParams()
   const userId = parseUserIdParam(userIdParam)
   const { api, user: currentUser } = Route.useRouteContext()
-  const initial = Route.useLoaderData()
+  const { userPostsParams } = Route.useLoaderData()
   const router = useRouter()
-  const userPostsParams = initial.userPostsParams
 
-  const { data: profileData } = useQuery(api.user.getQuery(userId))
-  const { data: postsData } = useQuery(api.posts.listQuery(userPostsParams))
-  const { data: followsData } = useQuery(api.follows.listQuery(listParams))
-  const { data: usersData } = useQuery(api.user.listQuery(listParams))
-  const { data: likesData } = useQuery(api.likes.listQuery(listParams))
-  const { data: retweetsData } = useQuery(api.retweets.listQuery(listParams))
+  const { data: profile } = useQuery(api.user.getQuery(userId))
+  const { data: posts } = useQuery(api.posts.listQuery(userPostsParams))
 
-  const profile = profileData ?? initial.profile
-  const posts = postsData ?? initial.posts
-  const follows = followsData ?? initial.follows
-  const users = usersData ?? initial.users
-  const likes = likesData ?? initial.likes
-  const retweets = retweetsData ?? initial.retweets
+  const allPosts = React.useMemo(() => posts?.items ?? [], [posts?.items])
+  const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
 
-  const allPosts = posts.items ?? []
+  // Scoped to exactly this profile's posts — not the whole table. The only
+  // author these posts can have is the profile owner.
+  const { data: likes } = useQuery({
+    ...api.likes.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+  const { data: retweets } = useQuery({
+    ...api.retweets.listQuery(byColumnIn('postId', postIds)),
+    enabled: postIds.length > 0,
+  })
+  // Aggregate counts only — never fetches the actual follow rows.
+  const { data: followerCountData } = useQuery(
+    api.follows.listQuery({ followingId: userId, count: true, limit: 1 }),
+  )
+  const { data: followingCountData } = useQuery(
+    api.follows.listQuery({ followerId: userId, count: true, limit: 1 }),
+  )
+  // Just the one relationship the FollowButton below needs to know about.
+  const { data: myRelation } = useQuery({
+    ...api.follows.listQuery({
+      followerId: currentUser?.id ?? '',
+      followingId: userId,
+      limit: 1,
+    }),
+    enabled: !!currentUser,
+  })
 
   const authorMap = React.useMemo(
-    () => new Map((users.items ?? []).map((u) => [u.id, u])),
-    [users.items],
+    () => new Map(profile ? [[profile.id, profile] as const] : []),
+    [profile],
   )
 
   const userPosts = allPosts
 
-  const followerCount = (follows.items ?? []).filter(
-    (f) => f.followingId === userId,
-  ).length
-  const followingCount = (follows.items ?? []).filter(
-    (f) => f.followerId === userId,
-  ).length
+  const followerCount = followerCountData?.total ?? 0
+  const followingCount = followingCountData?.total ?? 0
 
   if (!profile) {
     return (
@@ -134,7 +161,7 @@ function UserProfilePage() {
             <FollowButton
               currentUserId={currentUser?.id ?? null}
               targetUserId={profile.id}
-              follows={follows.items ?? []}
+              follows={myRelation?.items ?? []}
             />
             {currentUser?.id === profile.id ? (
               <Link to="/profile" role="button" className="outline">
@@ -159,8 +186,8 @@ function UserProfilePage() {
                 post={post}
                 author={profile}
                 allPosts={allPosts}
-                likes={likes.items ?? []}
-                retweets={retweets.items ?? []}
+                likes={likes?.items ?? []}
+                retweets={retweets?.items ?? []}
                 authorMap={authorMap}
                 currentUserId={currentUser?.id ?? null}
               />
