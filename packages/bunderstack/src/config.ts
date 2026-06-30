@@ -23,7 +23,7 @@ export const BunderstackOptionsSchema = z.object({
   database: z
     .object({ url: z.string().optional(), authToken: z.string().optional() })
     .optional(),
-  auth: z.record(z.unknown()).optional(),
+  auth: z.record(z.string(), z.unknown()).optional(),
   // Loose: bucket access/scope hold functions that can't survive strict zod
   // (mirrors how `access` is loose). Resolution happens in resolveBuckets.
   storage: z.unknown().optional(),
