@@ -21,7 +21,11 @@ export function PostTime({ value }: { value: Date | string }) {
   }, [value])
 
   return (
-    <time dateTime={iso} className="post-time" suppressHydrationWarning>
+    <time
+      dateTime={iso}
+      className="text-muted-foreground text-sm"
+      suppressHydrationWarning
+    >
       {label}
     </time>
   )

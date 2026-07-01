@@ -1,4 +1,5 @@
 import { thumbnailUrl } from '~/components/ImageUpload'
+import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 
 type UserAvatarProps = {
   name: string
@@ -32,26 +33,18 @@ export function UserAvatar({
     }
   }
 
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name}
-        width={size}
-        height={size}
-        className={`rounded-full object-cover border border-gray-200 dark:border-gray-700 shrink-0 ${className}`}
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-
   return (
-    <div
-      className={`rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 flex items-center justify-center font-semibold shrink-0 ${className}`}
-      style={{ width: size, height: size, fontSize: size * 0.35 }}
-      aria-hidden
+    <Avatar
+      className={`border-border border ${className}`}
+      style={{ width: size, height: size }}
     >
-      {initials}
-    </div>
+      {src ? <AvatarImage src={src} alt={name} /> : null}
+      <AvatarFallback
+        className="bg-cyan-100 font-semibold text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200"
+        style={{ fontSize: size * 0.35 }}
+      >
+        {initials}
+      </AvatarFallback>
+    </Avatar>
   )
 }
