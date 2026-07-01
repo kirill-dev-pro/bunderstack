@@ -1,9 +1,10 @@
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack-sync'
+import { generateTypeId } from 'bunderstack'
 
-import { useToastMutation } from '~/hooks/useToastMutation'
-import { toast } from '~/utils/oat'
+import { toast } from '~/lib/toast'
+import { Button } from '~/components/ui/button'
 import type { follows, user } from '~/schema'
 
 type Follow = InferSelect<typeof follows>
@@ -21,6 +22,8 @@ export function FollowButton({
   follows,
 }: FollowButtonProps) {
   const { api } = useRouteContext({ from: '__root__' })
+  const [pending, setPending] = React.useState(false)
+
   const existing = React.useMemo(
     () =>
       currentUserId
@@ -32,46 +35,49 @@ export function FollowButton({
     [currentUserId, follows, targetUserId],
   )
 
-  const followMutation = useToastMutation(
-    api.follows.createMutation({
-      onSuccess: () => {
-        toast.success('Following')
-      },
-      onError: () => {
-        toast.error('Could not follow')
-      },
-    }),
-  )
-
-  const unfollowMutation = useToastMutation(
-    api.follows.deleteMutation({
-      onSuccess: () => {
-        toast.success('Unfollowed')
-      },
-      onError: () => {
-        toast.error('Could not unfollow')
-      },
-    }),
-  )
-
   if (!currentUserId || currentUserId === targetUserId) return null
 
-  const pending = followMutation.isPending || unfollowMutation.isPending
+  async function handleFollow() {
+    setPending(true)
+    try {
+      const tx = api.follows.collection.insert({
+        id: generateTypeId('follow'),
+        followerId: currentUserId!,
+        followingId: targetUserId,
+        createdAt: new Date(),
+      })
+      await tx.isPersisted.promise
+      toast.success('Following')
+    } catch {
+      toast.error('Could not follow')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function handleUnfollow() {
+    if (!existing) return
+    setPending(true)
+    try {
+      const tx = api.follows.collection.delete(existing.id)
+      await tx.isPersisted.promise
+      toast.success('Unfollowed')
+    } catch {
+      toast.error('Could not unfollow')
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
-    <button
+    <Button
       type="button"
-      className={existing ? 'outline' : undefined}
+      variant={existing ? 'outline' : 'default'}
+      size="sm"
       disabled={pending}
-      onClick={() => {
-        if (existing) {
-          unfollowMutation.mutate(existing.id)
-        } else {
-          followMutation.mutate({ followingId: targetUserId })
-        }
-      }}
+      onClick={() => void (existing ? handleUnfollow() : handleFollow())}
     >
       {pending ? '…' : existing ? 'Following' : 'Follow'}
-    </button>
+    </Button>
   )
 }
