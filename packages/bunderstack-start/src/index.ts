@@ -23,7 +23,8 @@ export type BunderstackStartOptions = {
  * inferred from the server app type.
  *
  * @example
- * // src/client.ts
+ * // src/api.ts — NOT src/client.ts, which is a reserved TanStack Start
+ * // entry-point name (it would replace the hydration entry).
  * import type { App } from './bunderstack'
  * export const { createQueryClient, createApi } = bunderstackStart<App>()
  */

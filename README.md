@@ -300,7 +300,8 @@ fetch, the API file route, session lookup, and the auth client:
 export const app = createBunderstack({ schema, access, storage, realtime: true })
 export type App = typeof app
 
-// src/client.ts — the entire client setup
+// src/api.ts — the entire client setup
+// (don't name it client.ts — that's a reserved Start entry-point name)
 import { bunderstackStart } from 'bunderstack-start'
 import type { App } from './bunderstack'
 export const { createQueryClient, createApi } = bunderstackStart<App>()

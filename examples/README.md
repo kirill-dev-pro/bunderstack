@@ -156,7 +156,7 @@ api.files.avatars.upload(file)
 TanStack Start apps can skip even that: `bunderstack-start`'s
 `bunderstackStart<App>()` wires the QueryClient, SSR-aware fetch, and a
 `bunderstack-sync` collection client in one call — see
-`examples/twitter-db-tanstack/src/client.ts` and `examples/tldraw/src/client.ts`.
+`examples/twitter-db-tanstack/src/api.ts` and `examples/tldraw/src/api.ts`.
 
 ## Environment variables
 
