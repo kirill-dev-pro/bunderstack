@@ -4,6 +4,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
 import type { IncomingMessage } from 'node:http'
+import { Readable } from 'node:stream'
 import { defineConfig, type Plugin } from 'vite'
 
 function requestHeaders(req: IncomingMessage): Headers {
@@ -51,7 +52,11 @@ function bunderstackApiDevMiddleware(): Plugin {
           })
           if (setCookie.length) res.setHeader('set-cookie', setCookie)
 
-          res.end(Buffer.from(await response.arrayBuffer()))
+          if (response.body) {
+            Readable.from(response.body).pipe(res)
+          } else {
+            res.end()
+          }
         } catch (err) {
           next(err)
         }

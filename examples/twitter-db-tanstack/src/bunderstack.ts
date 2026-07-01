@@ -41,4 +41,5 @@ export const app = createBunderstack({
       },
     },
   },
+  realtime: true,
 })
