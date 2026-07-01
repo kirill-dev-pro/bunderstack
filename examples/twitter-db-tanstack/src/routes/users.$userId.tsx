@@ -1,19 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import {
+  ClientOnly,
   Link,
   createFileRoute,
   notFound,
   useRouter,
 } from '@tanstack/react-router'
 import { asTypeId } from 'bunderstack/typeid'
-import { BunderstackApiError } from 'bunderstack-query'
+import { BunderstackApiError } from 'bunderstack-sync'
 import * as React from 'react'
+import { useLiveQuery } from '@tanstack/react-db'
+import { ArrowLeft } from 'lucide-react'
 
-import { byColumnIn } from '~/api-client'
+import { createUserPostsCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
+import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
 import { UserAvatar } from '~/components/UserAvatar'
+import { Button } from '~/components/ui/button'
+import type { RouterContext } from '~/router'
 
 function parseUserIdParam(raw: string) {
   try {
@@ -24,51 +30,10 @@ function parseUserIdParam(raw: string) {
 }
 
 export const Route = createFileRoute('/users/$userId')({
-  loader: async ({ params, context: { queryClient, api, user: viewer } }) => {
+  loader: async ({ params, context: { queryClient, api } }) => {
     const userId = parseUserIdParam(params.userId)
-    const userPostsParams = {
-      userId,
-      sort: 'createdAt',
-      order: 'desc',
-      limit: 100,
-      offset: 0,
-    } as const
-
     try {
-      await queryClient.ensureQueryData(api.user.getQuery(userId))
-      const posts = await queryClient.ensureQueryData(
-        api.posts.listQuery(userPostsParams),
-      )
-      const postIds = posts.items.map((p) => p.id)
-
-      await Promise.all([
-        queryClient.ensureQueryData(
-          api.likes.listQuery(byColumnIn('postId', postIds)),
-        ),
-        queryClient.ensureQueryData(
-          api.retweets.listQuery(byColumnIn('postId', postIds)),
-        ),
-        // Aggregate counts only — never fetches the actual follow rows.
-        queryClient.ensureQueryData(
-          api.follows.listQuery({ followingId: userId, count: true, limit: 1 }),
-        ),
-        queryClient.ensureQueryData(
-          api.follows.listQuery({ followerId: userId, count: true, limit: 1 }),
-        ),
-        ...(viewer
-          ? [
-              queryClient.ensureQueryData(
-                api.follows.listQuery({
-                  followerId: viewer.id,
-                  followingId: userId,
-                  limit: 1,
-                }),
-              ),
-            ]
-          : []),
-      ])
-
-      return { userPostsParams }
+      await queryClient.ensureQueryData(api.user.table.getQuery(userId))
     } catch (err) {
       if (err instanceof BunderstackApiError && err.status === 404)
         throw notFound()
@@ -81,120 +46,165 @@ export const Route = createFileRoute('/users/$userId')({
 function UserProfilePage() {
   const { userId: userIdParam } = Route.useParams()
   const userId = parseUserIdParam(userIdParam)
-  const { api, user: currentUser } = Route.useRouteContext()
-  const { userPostsParams } = Route.useLoaderData()
+  const { user: currentUser } = Route.useRouteContext()
   const router = useRouter()
 
-  const { data: profile } = useQuery(api.user.getQuery(userId))
-  const { data: posts } = useQuery(api.posts.listQuery(userPostsParams))
+  return (
+    <AppShell user={currentUser}>
+      <div className="border-b p-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => router.history.back()}
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+          Back
+        </Button>
+      </div>
 
-  const allPosts = React.useMemo(() => posts?.items ?? [], [posts?.items])
-  const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
+      <ClientOnly
+        fallback={
+          <div className="text-muted-foreground p-4 text-sm">Loading…</div>
+        }
+      >
+        <UserProfile userId={userId} currentUser={currentUser} />
+      </ClientOnly>
+    </AppShell>
+  )
+}
 
-  // Scoped to exactly this profile's posts — not the whole table. The only
-  // author these posts can have is the profile owner.
-  const { data: likes } = useQuery({
-    ...api.likes.listQuery(byColumnIn('postId', postIds)),
-    enabled: postIds.length > 0,
-  })
-  const { data: retweets } = useQuery({
-    ...api.retweets.listQuery(byColumnIn('postId', postIds)),
-    enabled: postIds.length > 0,
-  })
-  // Aggregate counts only — never fetches the actual follow rows.
+// useLiveQuery's useSyncExternalStore call has no getServerSnapshot arg — it
+// cannot run during SSR (@tanstack/react-db@0.1.91). Isolated in its own
+// component so the hook is never invoked server-side.
+function UserProfile({
+  userId,
+  currentUser,
+}: {
+  userId: ReturnType<typeof parseUserIdParam>
+  currentUser: RouterContext['user']
+}) {
+  const { api, queryClient } = Route.useRouteContext()
+  const [desiredCount, setDesiredCount] = React.useState(20)
+
+  const { data: profile } = useQuery(
+    api.user.table.getQuery(userId),
+    queryClient,
+  )
+
+  const userPostsCollection = React.useMemo(
+    () =>
+      createUserPostsCollection(queryClient, api.posts.table, userId, desiredCount),
+    [queryClient, api.posts.table, userId, desiredCount],
+  )
+  const { data: postItems, isLoading } = useLiveQuery(
+    (q) =>
+      q
+        .from({ post: userPostsCollection })
+        .orderBy(({ post }) => post.createdAt, 'desc'),
+    [userPostsCollection],
+  )
+  const { data: likes } = useLiveQuery((q) =>
+    q.from({ like: api.likes.collection }),
+  )
+  const { data: retweets } = useLiveQuery((q) =>
+    q.from({ retweet: api.retweets.collection }),
+  )
+  const { data: follows } = useLiveQuery((q) =>
+    q.from({ follow: api.follows.collection }),
+  )
+
+  // Aggregate counts only — never fetches the actual follow rows. TanStack
+  // DB collections don't expose a server-side count aggregate, so this goes
+  // through the raw REST list() primitive directly, same as before.
   const { data: followerCountData } = useQuery(
-    api.follows.listQuery({ followingId: userId, count: true, limit: 1 }),
+    api.follows.table.listQuery({ followingId: userId, count: true, limit: 1 }),
+    queryClient,
   )
   const { data: followingCountData } = useQuery(
-    api.follows.listQuery({ followerId: userId, count: true, limit: 1 }),
+    api.follows.table.listQuery({ followerId: userId, count: true, limit: 1 }),
+    queryClient,
   )
-  // Just the one relationship the FollowButton below needs to know about.
-  const { data: myRelation } = useQuery({
-    ...api.follows.listQuery({
-      followerId: currentUser?.id ?? '',
-      followingId: userId,
-      limit: 1,
-    }),
-    enabled: !!currentUser,
-  })
+
+  const allPosts = postItems ?? []
+  const hasMore = allPosts.length >= desiredCount
 
   const authorMap = React.useMemo(
     () => new Map(profile ? [[profile.id, profile] as const] : []),
     [profile],
   )
 
-  const userPosts = allPosts
-
   const followerCount = followerCountData?.total ?? 0
   const followingCount = followingCountData?.total ?? 0
 
   if (!profile) {
     return (
-      <AppShell user={currentUser}>
+      <div className="space-y-2 p-4">
         <p>User not found.</p>
-        <Link to="/" search={{ tab: 'for-you' }}>
+        <Link
+          to="/"
+          search={{ tab: 'for-you' }}
+          className="text-primary hover:underline"
+        >
           Back
         </Link>
-      </AppShell>
+      </div>
     )
   }
 
   return (
-    <AppShell user={currentUser}>
-      <button type="button" onClick={() => router.history.back()}>
-        Back
-      </button>
-
-      <article className="card profile-card">
+    <div>
+      <article className="flex gap-4 border-b p-4">
         <UserAvatar name={profile.name} image={profile.image} size={80} />
-        <div className="profile-meta">
-          <h1>{profile.name}</h1>
-          <p>{profile.email}</p>
-          {profile.about ? (
-            <p className="profile-about">{profile.about}</p>
-          ) : null}
-          <p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h1 className="text-xl font-bold">{profile.name}</h1>
+          <p className="text-muted-foreground">{profile.email}</p>
+          {profile.about ? <p>{profile.about}</p> : null}
+          <p className="text-sm">
             <strong>{followingCount}</strong> following ·{' '}
             <strong>{followerCount}</strong> followers
           </p>
-          <div className="profile-actions">
+          <div className="flex items-center gap-2 pt-1">
             <FollowButton
               currentUserId={currentUser?.id ?? null}
               targetUserId={profile.id}
-              follows={myRelation?.items ?? []}
+              follows={follows ?? []}
             />
             {currentUser?.id === profile.id ? (
-              <Link to="/profile" role="button" className="outline">
-                Edit avatar
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/profile">Edit avatar</Link>
+              </Button>
             ) : null}
           </div>
         </div>
       </article>
 
       <section>
-        <h2>Posts</h2>
-        {userPosts.length === 0 ? (
-          <article className="card">
-            <p>No posts yet.</p>
-          </article>
+        <h2 className="p-4 pb-2 text-lg font-semibold">Posts</h2>
+        {allPosts.length === 0 ? (
+          <p className="text-muted-foreground p-4 text-sm">No posts yet.</p>
         ) : (
-          <div className="feed-list feed-list--x">
-            {userPosts.map((post) => (
+          <div>
+            {allPosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
                 author={profile}
                 allPosts={allPosts}
-                likes={likes?.items ?? []}
-                retweets={retweets?.items ?? []}
+                likes={likes ?? []}
+                retweets={retweets ?? []}
                 authorMap={authorMap}
                 currentUserId={currentUser?.id ?? null}
               />
             ))}
+            <LoadMore
+              hasMore={hasMore}
+              loading={isLoading}
+              onLoadMore={() => setDesiredCount((n) => n + 20)}
+            />
           </div>
         )}
       </section>
-    </AppShell>
+    </div>
   )
 }

@@ -138,3 +138,17 @@ export function createRepliesCollection(
     filter: { replyToId: postId },
   })
 }
+
+/** One author's posts, newest-first — a profile page. */
+export function createUserPostsCollection(
+  queryClient: QueryClient,
+  table: PostsTable,
+  userId: Post['userId'],
+  desiredCount: number,
+) {
+  return createScopedPostsCollection(queryClient, table, desiredCount, {
+    queryKeySuffix: ['byUser', userId],
+    order: 'desc',
+    filter: { userId },
+  })
+}
