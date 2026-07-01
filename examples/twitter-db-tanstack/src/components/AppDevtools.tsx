@@ -1,7 +1,10 @@
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+// No TanStack Query devtools panel here — this app has no QueryClientProvider
+// (TanStack DB collections don't use React Query's cache/hooks), so
+// ReactQueryDevtoolsPanel would throw via useQueryClient() with nothing to
+// connect to. No equivalent TanStack DB devtools package exists yet.
 export function AppDevtools() {
   return (
     <TanStackDevtools
@@ -10,10 +13,6 @@ export function AppDevtools() {
         hideUntilHover: true,
       }}
       plugins={[
-        {
-          name: 'TanStack Query',
-          render: <ReactQueryDevtoolsPanel />,
-        },
         {
           name: 'TanStack Router',
           render: <TanStackRouterDevtoolsPanel />,
