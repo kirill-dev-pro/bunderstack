@@ -3,6 +3,8 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
 
 import type { StorageAdapter } from './storage/index'
+import type { TableAccessInput } from './access'
+import type { StorageConfigInput } from './storage/buckets'
 
 import { validateAndResolveAccess } from './access'
 import { createAuth, toAuthSessionResolver } from './auth'
@@ -46,7 +48,18 @@ export interface StorageFacade {
   sweep(olderThanMs?: number): Promise<number>
 }
 
-export type BunderstackApp<TSchema extends Record<string, unknown>> = {
+/** Bucket names declared in a storage config; `string` when unknowable. */
+export type BucketNamesOf<TStorage> = TStorage extends {
+  buckets: infer B extends Record<string, unknown>
+}
+  ? keyof B & string
+  : string
+
+export type BunderstackApp<
+  TSchema extends Record<string, unknown>,
+  TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TBuckets extends string = string,
+> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: AuthInstance
@@ -54,11 +67,25 @@ export type BunderstackApp<TSchema extends Record<string, unknown>> = {
   router: HonoType
   /** Push the merged schema (user + internal tables) to the database. */
   provision: (options?: { force?: boolean }) => Promise<void>
+  /**
+   * Type-only carrier for client inference (`createClient<typeof app>()`).
+   * Never assigned at runtime.
+   */
+  readonly $inferClient?: {
+    schema: TSchema
+    access: TAccess
+    buckets: TBuckets
+  }
 }
 
-export function createBunderstack<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema>,
-): BunderstackApp<TSchema> {
+export function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage>,
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>> {
   const config = resolveConfig(options)
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
@@ -168,7 +195,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
     rateLimit: options.rateLimit,
   })
 
-  const app: BunderstackApp<TSchema> = {
+  const app: BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>> = {
     handler,
     // Internal tables live on the runtime db but stay out of the public type.
     db: userDb,
@@ -185,6 +212,7 @@ export function createBunderstack<TSchema extends Record<string, unknown>>(
   return app
 }
 
+export { MAX_LIST_LIMIT } from './list-query'
 export { resolveConfig } from './config'
 export type {
   BetterAuthConfig,

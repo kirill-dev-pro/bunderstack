@@ -20,7 +20,7 @@ import type { ResolvedTableAccess, SortOrder } from './access'
 import { ErrorCode, ListQueryError } from './errors'
 
 /** Caps both `?limit=` and the number of values in a comma-separated `IN` filter. */
-const MAX_LIST_LIMIT = 200
+export const MAX_LIST_LIMIT = 200
 
 export const RESERVED_LIST_PARAMS = new Set([
   'limit',

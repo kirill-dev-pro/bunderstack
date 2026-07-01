@@ -56,14 +56,22 @@ export const BunderstackOptionsSchema = z.object({
     .optional(),
 })
 
-export type BunderstackConfig<TSchema extends Record<string, unknown>> = Omit<
+export type BunderstackConfig<
+  TSchema extends Record<string, unknown>,
+  TAccess extends Record<string, TableAccessInput> | undefined =
+    | Record<string, TableAccessInput>
+    | undefined,
+  TStorage extends StorageConfigInput | undefined =
+    | StorageConfigInput
+    | undefined,
+> = Omit<
   z.input<typeof BunderstackOptionsSchema>,
   'schema' | 'access' | 'auth' | 'storage'
 > & {
   schema: TSchema
-  access?: Record<string, TableAccessInput>
+  access?: TAccess
   auth?: BetterAuthConfig
-  storage?: StorageConfigInput
+  storage?: TStorage
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:

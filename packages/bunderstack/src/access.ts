@@ -355,10 +355,10 @@ export function validateAndResolveAccess<
   return resolved
 }
 
-export function defineAccess<TSchema extends Record<string, unknown>>(
-  schema: TSchema,
-  rules: Record<string, TableAccessInput>,
-): Record<string, TableAccessInput> {
+export function defineAccess<
+  TSchema extends Record<string, unknown>,
+  const TRules extends Record<string, TableAccessInput>,
+>(schema: TSchema, rules: TRules): TRules {
   validateAndResolveAccess(schema, rules)
   return rules
 }
