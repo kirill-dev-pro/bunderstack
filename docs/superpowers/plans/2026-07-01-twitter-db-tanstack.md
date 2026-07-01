@@ -791,7 +791,7 @@ one record patched per event, no list invalidation or refetch storm."
 - Test: `packages/bunderstack-sync/src/index.test.ts`
 
 **Interfaces:**
-- Consumes: `createTableCollection` (Task 2.2), `createSyncRealtimeClient` (Task 2.3), `createBucketClient` and `attachBucketMutationOptions` from `bunderstack-query` (for the `.files` surface — same as `bunderstack-query`'s own `withFiles`/`with` implementation; read `packages/bunderstack-query/src/index.ts`'s `withFiles` method, lines ~133-154, before writing this — copy its bucket-loop logic verbatim, do not reinvent it).
+- Consumes: `createTableCollection` (Task 2.2), `createSyncRealtimeClient` (Task 2.3), `createBunderstackQueryClient` from `bunderstack-query` (for the `.files` surface — delegate to its existing `withFiles({ baseUrl, fetch, buckets, queryClient })` method, which already returns the exact `FilesQueryClient<TBuckets[number]>` shape needed; do not reimplement its bucket-building loop).
 - Produces:
 ```ts
 export function createBunderstackSyncClient<TSchema extends Record<string, unknown> = Record<string, unknown>>(): {
@@ -817,11 +817,11 @@ export function createBunderstackSyncClient<TSchema extends Record<string, unkno
 ```
   This is the only entry point Phase 3+ uses — no other `bunderstack-sync` export is consumed directly by the example except (optionally) the individual `createTableCollection`/`createSyncRealtimeClient` functions for advanced/custom use (re-exported for that "Level 2" escape hatch, matching `bunderstack-query`'s philosophy).
 
-- [ ] **Step 1: Read `bunderstack-query`'s `with`/`withFiles` implementation to copy the bucket-loop logic exactly**
+- [ ] **Step 1: Confirm `withFiles`'s exact signature before delegating to it**
 
-Run: `sed -n '133,202p' packages/bunderstack-query/src/index.ts`
+Run: `sed -n '133,155p' packages/bunderstack-query/src/index.ts`
 
-Note the exact shape of the loop that builds `client.files[bucket]` — you will copy this pattern into the new file in Step 3.
+Confirm it's a method on `createBunderstackQueryClient<TSchema>()` taking `{ baseUrl?, fetch?, queryClient?, buckets }` and returning `FilesQueryClient<TBuckets[number]>` (a `{ files: {...} }` object). You will call this method directly in Step 3/4 — do not reimplement its loop.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -890,12 +890,11 @@ Expected: FAIL — `Cannot find module './index'`.
 
 - [ ] **Step 4: Write the implementation**
 
-Create `packages/bunderstack-sync/src/index.ts`. Replace `<PASTE BUCKET LOOP FROM index.ts STEP 1>` below with the exact bucket-building logic you read in Step 1 (it loops `options.buckets`, calls `createBucketClient`, spreads in `attachBucketMutationOptions`, and assigns into a `files` object — copy it verbatim, only renaming local variables if they'd collide):
+Create `packages/bunderstack-sync/src/index.ts`. The `.files` surface delegates to `bunderstack-query`'s own `createBunderstackQueryClient().withFiles(...)` — do not reimplement its bucket loop:
 ```ts
 import type { QueryClient } from '@tanstack/react-query'
 import {
-  createBucketClient,
-  attachBucketMutationOptions,
+  createBunderstackQueryClient,
   type FilesQueryClient,
 } from 'bunderstack-query'
 
@@ -939,21 +938,13 @@ export function createBunderstackSyncClient<
         })
       }
 
-      // <PASTE BUCKET LOOP FROM index.ts STEP 1>
-      const filesClient: FilesQueryClient<TBuckets[number]> = {
-        files: {} as FilesQueryClient<TBuckets[number]>['files'],
-      }
-      for (const bucket of options.buckets) {
-        const bucketClient = createBucketClient({
-          bucket,
+      const filesClient: FilesQueryClient<TBuckets[number]> =
+        createBunderstackQueryClient<TSchema>().withFiles({
           baseUrl,
           fetch: fetchFn,
+          buckets: options.buckets,
+          queryClient: options.queryClient,
         })
-        filesClient.files[bucket as TBuckets[number]] = {
-          ...bucketClient,
-          ...attachBucketMutationOptions(bucketClient, options.queryClient),
-        }
-      }
 
       const realtime =
         options.realtime === false
