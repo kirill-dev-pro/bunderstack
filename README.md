@@ -290,26 +290,40 @@ export const PATCH = GET
 export const DELETE = GET
 ```
 
-### TanStack Start / any Vite SSR
+### TanStack Start: bunderstack-start
+
+The `bunderstack-start` adapter owns all Start-specific glue — SSR-aware
+fetch, the API file route, session lookup, and the auth client:
 
 ```ts
-// src/routes/api/$.tsx
-import { createAPIFileRoute } from '@tanstack/react-start/api'
-import { getApp } from '~/bunderstack'
+// src/bunderstack.ts (server)
+export const app = createBunderstack({ schema, access, storage, realtime: true })
+export type App = typeof app
 
-export const APIRoute = createAPIFileRoute('/api/$')({
-  GET: ({ request }) => getApp().then((app) => app.handler(request)),
-  POST: ({ request }) => getApp().then((app) => app.handler(request)),
-  PATCH: ({ request }) => getApp().then((app) => app.handler(request)),
-  DELETE: ({ request }) => getApp().then((app) => app.handler(request)),
+// src/client.ts — the entire client setup
+import { bunderstackStart } from 'bunderstack-start'
+import type { App } from './bunderstack'
+export const { createQueryClient, createApi } = bunderstackStart<App>()
+
+// src/routes/api/$.tsx
+import { createApiHandlers } from 'bunderstack-start'
+import { app } from '~/bunderstack'
+export const Route = createFileRoute('/api/$')({
+  server: { handlers: createApiHandlers(app) },
 })
 ```
+
+Tables and buckets are inferred from `App` — no tuples to keep in sync with
+the server. Realtime defaults to on in the browser and off during SSR.
+`getSessionUser(app, request)` resolves the BetterAuth session in server
+functions, and `createStartAuthClient()` is the browser auth SDK.
 
 ---
 
 ## Client: bunderstack-query
 
-A companion TanStack Query client with full type inference from your schema.
+A companion TanStack Query client with full type inference from your server
+app — a type-only import, so no server code lands in the bundle:
 
 ```sh
 bun add bunderstack-query @tanstack/react-query
@@ -317,20 +331,19 @@ bun add bunderstack-query @tanstack/react-query
 
 ```ts
 // api-client.ts
-import { createBunderstackQueryClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack-query'
 import { QueryClient } from '@tanstack/react-query'
-import type * as schema from './schema'
+import type { App } from './bunderstack' // type-only import
 
 export const queryClient = new QueryClient()
 
-// Type-only import — schema is never bundled on the client
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
-  queryClient,
-  tables: ['posts', 'user', 'follows', 'likes'] as const,
-})
+// Exposed tables and buckets are inferred from the server's access +
+// storage config; clients materialize lazily on first property access.
+// (Object.keys(api) is empty by design — it's a lazy Proxy.)
+export const api = createClient<App>({ queryClient })
 ```
 
-Each entry in `tables` gets a full typed client:
+Every exposed table gets a full typed client:
 
 ```ts
 // In a component
@@ -342,16 +355,45 @@ const update = useMutation(api.posts.updateMutation())
 const remove = useMutation(api.posts.deleteMutation())
 ```
 
-**If you can import the schema as a value** (server component, no bundle concern), use `.withSchema()` instead — exposed tables are determined automatically by access rules, with auth tables excluded:
+**Explicit alternatives** — `createBunderstackQueryClient<typeof schema>().withTables({ tables: [...] })` (hand-picked table tuple) and `.withSchema({ schema })` (schema imported as a value) still work when you want explicit control instead of app-type inference.
+
+### Sync collections: bunderstack-sync
+
+`createSyncClient<App>()` layers TanStack DB collections on top — same
+inference, plus live-query collections with realtime fan-out:
 
 ```ts
-import * as schema from './schema'
+import { createSyncClient } from 'bunderstack-sync'
+import type { App } from './bunderstack'
 
-export const api = createBunderstackQueryClient().withSchema({
-  schema,
-  queryClient,
+const api = createSyncClient<App>({ queryClient })
+
+// Default capped collection + raw table client
+api.posts.collection
+api.posts.table.list({ limit: 20 })
+
+// Growing-window pagination (cursor-walking, cached by options):
+const feed = api.posts.scopedCollection({
+  filter: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
 })
+feed.collection // use with useLiveQuery
+await feed.loadMore() // grow the window in place — no scroll jumps
+feed.hasMore() // exact, from the server's last response
+
+// Resolve exactly these rows (chunked at the server's IN-filter cap):
+const authors = api.user.collectionByIds(authorIds)
+
+// Files + realtime
+api.files.avatars.upload(file)
+api.realtime?.subscribe(['posts', 'user'])
 ```
+
+Realtime events fan out to every materialized view of a table — the base
+collection, scoped windows (filtered client-side by each window's own
+predicate), and byIds sets. `MAX_LIST_LIMIT` (200, the server's per-request
+cap) is exported from both `bunderstack` and `bunderstack-query`.
 
 ---
 

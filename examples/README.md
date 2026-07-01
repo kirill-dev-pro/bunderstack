@@ -139,21 +139,24 @@ Typed TanStack Query options for auto-CRUD tables. See `packages/bunderstack-que
 ```ts
 import { QueryClient } from '@tanstack/react-query'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { createBunderstackQueryClient } from 'bunderstack-query'
-import type * as schema from './schema'
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack' // type-only: export type App = typeof app
 
 export const queryClient = new QueryClient()
-export const api = createBunderstackQueryClient<typeof schema>().with({
-  tables: ['posts'] as const,
-  buckets: ['avatars'] as const,
-  queryClient,
-})
+// Tables and buckets are inferred from the server app type — no tuples.
+export const api = createClient<App>({ queryClient })
 
 // In components:
 useQuery(api.posts.listQuery({ limit: 10, offset: 0 }))
 useQuery(api.posts.getQuery(postId))
 useMutation(api.posts.createMutation())
+api.files.avatars.upload(file)
 ```
+
+TanStack Start apps can skip even that: `bunderstack-start`'s
+`bunderstackStart<App>()` wires the QueryClient, SSR-aware fetch, and a
+`bunderstack-sync` collection client in one call — see
+`examples/twitter-db-tanstack/src/client.ts` and `examples/tldraw/src/client.ts`.
 
 ## Environment variables
 
