@@ -1,13 +1,15 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
+import { generateTypeId } from 'bunderstack'
+import type { TypeId } from 'bunderstack/typeid'
 
 import { UserAvatar } from '~/components/UserAvatar'
-import { useToastMutation } from '~/hooks/useToastMutation'
-import { toast } from '~/utils/oat'
+import { Button } from '~/components/ui/button'
+import { toast } from '~/lib/toast'
 import type { Post } from '~/utils/posts'
 
 type ReplyComposerProps = {
-  user: { id: string; name: string; image?: string | null } | null
+  user: { id: TypeId<'user'>; name: string; image?: string | null } | null
   replyToId: Post['id']
   placeholder?: string
   onPosted?: () => void
@@ -21,56 +23,64 @@ export function ReplyComposer({
 }: ReplyComposerProps) {
   const { api } = useRouteContext({ from: '__root__' })
   const [body, setBody] = React.useState('')
-
-  const createMutation = useToastMutation(
-    api.posts.createMutation({
-      onSuccess: () => {
-        setBody('')
-        onPosted?.()
-        toast.success('Reply posted')
-      },
-      onError: () => {
-        toast.error('Could not post reply')
-      },
-    }),
-  )
+  const [posting, setPosting] = React.useState(false)
 
   if (!user) {
     return (
-      <p className="reply-login-prompt">
-        <Link to="/login">Log in</Link> to reply.
+      <p className="text-muted-foreground border-b p-4 text-sm">
+        <Link to="/login" className="text-primary hover:underline">
+          Log in
+        </Link>{' '}
+        to reply.
       </p>
     )
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const text = body.trim()
+    if (!text) return
+    setPosting(true)
+    try {
+      const tx = api.posts.collection.insert({
+        id: generateTypeId('post'),
+        userId: user!.id,
+        body: text,
+        title: text.slice(0, 80) || 'Reply',
+        imageUrl: null,
+        replyToId,
+        createdAt: new Date(),
+      })
+      await tx.isPersisted.promise
+      setBody('')
+      toast.success('Reply posted')
+      onPosted?.()
+    } catch {
+      toast.error('Could not post reply')
+    } finally {
+      setPosting(false)
+    }
+  }
+
   return (
     <form
-      className="reply-composer"
-      onSubmit={(e) => {
-        e.preventDefault()
-        const text = body.trim()
-        if (!text) return
-        createMutation.mutate({
-          body: text,
-          title: text.slice(0, 80) || 'Reply',
-          replyToId,
-        })
-      }}
+      className="flex gap-3 border-b p-4"
+      onSubmit={(e) => void handleSubmit(e)}
     >
       <UserAvatar name={user.name} image={user.image} size={40} />
-      <div className="reply-composer-main">
+      <div className="flex-1 space-y-2">
         <textarea
+          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
           rows={2}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={placeholder ?? 'Post your reply'}
         />
-        <button
-          type="submit"
-          disabled={createMutation.isPending || !body.trim()}
-        >
-          {createMutation.isPending ? 'Posting…' : 'Reply'}
-        </button>
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" disabled={posting || !body.trim()}>
+            {posting ? 'Posting…' : 'Reply'}
+          </Button>
+        </div>
       </div>
     </form>
   )

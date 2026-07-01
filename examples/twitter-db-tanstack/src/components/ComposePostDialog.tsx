@@ -1,26 +1,36 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
+import { generateTypeId } from 'bunderstack'
+import type { TypeId } from 'bunderstack/typeid'
 
 import {
-  uploadFile,
   fileIdFromUrl,
   thumbnailUrl,
   type UploadedFile,
 } from '~/components/ImageUpload'
 import { UserAvatar } from '~/components/UserAvatar'
-import { useToastMutation } from '~/hooks/useToastMutation'
-import { closeDialog, showDialog, toast } from '~/utils/oat'
+import { Button } from '~/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { toast } from '~/lib/toast'
 import type { Post } from '~/utils/posts'
 
 type ComposePostDialogProps = {
-  dialogRef: React.RefObject<HTMLDialogElement | null>
-  user: { id: string; name: string; image?: string | null }
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  user: { id: TypeId<'user'>; name: string; image?: string | null }
   replyToId?: Post['id']
   onPosted?: () => void
 }
 
 export function ComposePostDialog({
-  dialogRef,
+  open,
+  onOpenChange,
   user,
   replyToId,
   onPosted,
@@ -29,22 +39,8 @@ export function ComposePostDialog({
   const [body, setBody] = React.useState('')
   const [imageUrl, setImageUrl] = React.useState<string | null>(null)
   const [uploading, setUploading] = React.useState(false)
+  const [posting, setPosting] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  const createMutation = useToastMutation(
-    api.posts.createMutation({
-      onSuccess: () => {
-        setBody('')
-        setImageUrl(null)
-        closeDialog(dialogRef.current)
-        toast.success('Post published!')
-        onPosted?.()
-      },
-      onError: () => {
-        toast.error('Could not publish post')
-      },
-    }),
-  )
 
   const reset = () => {
     setBody('')
@@ -53,48 +49,66 @@ export function ComposePostDialog({
 
   const previewFileId = fileIdFromUrl(imageUrl)
 
-  return (
-    <dialog ref={dialogRef} closedby="any" onClose={reset}>
-      <form
-        method="dialog"
-        onSubmit={(e) => {
-          e.preventDefault()
-          const text = body.trim()
-          if (!text && !imageUrl) {
-            toast.warning('Write something or attach an image')
-            return
-          }
-          createMutation.mutate({
-            body: text,
-            title: text.slice(0, 80) || 'Post',
-            imageUrl: imageUrl ?? undefined,
-            ...(replyToId != null ? { replyToId } : {}),
-          })
-        }}
-      >
-        <header>
-          <h3>New post</h3>
-        </header>
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const text = body.trim()
+    if (!text && !imageUrl) {
+      toast.warning('Write something or attach an image')
+      return
+    }
+    setPosting(true)
+    try {
+      const tx = api.posts.collection.insert({
+        id: generateTypeId('post'),
+        userId: user.id,
+        body: text,
+        title: text.slice(0, 80) || 'Post',
+        imageUrl: imageUrl ?? null,
+        replyToId: replyToId ?? null,
+        createdAt: new Date(),
+      })
+      await tx.isPersisted.promise
+      reset()
+      onOpenChange(false)
+      toast.success('Post published!')
+      onPosted?.()
+    } catch {
+      toast.error('Could not publish post')
+    } finally {
+      setPosting(false)
+    }
+  }
 
-        <div className="compose-body vstack">
-          <div className="compose-author">
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset()
+        onOpenChange(next)
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New post</DialogTitle>
+        </DialogHeader>
+
+        <form className="space-y-3" onSubmit={(e) => void handleSubmit(e)}>
+          <div className="flex items-center gap-2">
             <UserAvatar name={user.name} image={user.image} size={40} />
-            <span>{user.name}</span>
+            <span className="font-semibold">{user.name}</span>
           </div>
 
-          <label>
-            What&apos;s happening?
-            <textarea
-              rows={4}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Share an update…"
-              maxLength={500}
-            />
-          </label>
+          <textarea
+            className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+            rows={4}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Share an update…"
+            maxLength={500}
+          />
 
           {previewFileId ? (
-            <figure className="compose-preview">
+            <figure className="space-y-2">
               <img
                 src={thumbnailUrl(previewFileId, {
                   w: 320,
@@ -102,14 +116,16 @@ export function ComposePostDialog({
                   format: 'webp',
                 })}
                 alt="Attachment preview"
+                className="rounded-lg border"
               />
-              <button
+              <Button
                 type="button"
-                className="outline small"
+                variant="outline"
+                size="sm"
                 onClick={() => setImageUrl(null)}
               >
                 Remove image
-              </button>
+              </Button>
             </figure>
           ) : null}
 
@@ -123,7 +139,8 @@ export function ComposePostDialog({
               if (!file) return
               setUploading(true)
               try {
-                const uploaded: UploadedFile = await uploadFile(file)
+                const uploaded: UploadedFile =
+                  await api.files.attachments.upload(file)
                 setImageUrl(uploaded.url)
                 toast.success('Image attached')
               } catch (err) {
@@ -136,35 +153,32 @@ export function ComposePostDialog({
               }
             }}
           />
-        </div>
 
-        <footer className="compose-footer">
-          <button
-            type="button"
-            className="outline"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? 'Uploading…' : 'Attach image'}
-          </button>
-          <div>
-            <button
+          <DialogFooter className="sm:justify-between">
+            <Button
               type="button"
-              className="outline"
-              onClick={() => closeDialog(dialogRef.current)}
+              variant="outline"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={createMutation.isPending || uploading}
-            >
-              {createMutation.isPending ? 'Posting…' : 'Post'}
-            </button>
-          </div>
-        </footer>
-      </form>
-    </dialog>
+              {uploading ? 'Uploading…' : 'Attach image'}
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={posting || uploading}>
+                {posting ? 'Posting…' : 'Post'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -172,22 +186,29 @@ export function ComposePostTrigger({
   user,
   onOpen,
 }: {
-  user: { id: string; name: string; image?: string | null } | null
+  user: { id: TypeId<'user'>; name: string; image?: string | null } | null
   onOpen: () => void
 }) {
   if (!user) {
     return (
-      <article className="card compose-prompt">
+      <article className="border-b p-4">
         <p>
-          <Link to="/login">Log in</Link> to share a post with the community.
+          <Link to="/login" className="text-primary hover:underline">
+            Log in
+          </Link>{' '}
+          to share a post with the community.
         </p>
       </article>
     )
   }
 
   return (
-    <article className="card compose-prompt">
-      <button type="button" className="compose-trigger" onClick={onOpen}>
+    <article className="border-b p-4">
+      <button
+        type="button"
+        className="text-muted-foreground flex w-full items-center gap-3 text-left"
+        onClick={onOpen}
+      >
         <UserAvatar name={user.name} image={user.image} size={40} />
         <span>What&apos;s happening?</span>
       </button>
