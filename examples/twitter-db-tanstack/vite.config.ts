@@ -53,7 +53,9 @@ function bunderstackApiDevMiddleware(): Plugin {
           if (setCookie.length) res.setHeader('set-cookie', setCookie)
 
           if (response.body) {
-            Readable.from(response.body).pipe(res)
+            Readable.fromWeb(response.body)
+              .on('error', (err) => res.destroy(err))
+              .pipe(res)
           } else {
             res.end()
           }
