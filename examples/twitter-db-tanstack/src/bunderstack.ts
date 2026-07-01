@@ -8,7 +8,7 @@ export const app = createBunderstack({
   access,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
   auth: {
-    baseURL: process.env.APP_URL ?? 'http://localhost:3000',
+    baseURL: process.env.APP_URL ?? 'http://localhost:3003',
     emailAndPassword: { enabled: true },
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
     advanced: {
@@ -43,3 +43,6 @@ export const app = createBunderstack({
   },
   realtime: true,
 })
+
+/** Type-only handle for client inference (`bunderstackStart<App>()`). */
+export type App = typeof app

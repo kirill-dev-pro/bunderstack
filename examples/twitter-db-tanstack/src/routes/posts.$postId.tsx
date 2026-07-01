@@ -12,7 +12,6 @@ import * as React from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 import { ArrowLeft } from 'lucide-react'
 
-import { createRepliesCollection, createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -89,44 +88,34 @@ function PostThread({
   user: RouterContext['user']
 }) {
   const { api, queryClient } = Route.useRouteContext()
-  const [desiredCount, setDesiredCount] = React.useState(20)
-  const desiredCountRef = React.useRef(desiredCount)
-  desiredCountRef.current = desiredCount
   const [loadingMore, setLoadingMore] = React.useState(false)
 
   const { data: post } = useQuery(api.posts.table.getQuery(postId), queryClient)
 
-  // Stable for the page's lifetime — "load more" bumps desiredCountRef and
-  // refetches in place instead of swapping in a brand new collection, which
-  // would otherwise briefly render zero replies and reset scroll position.
-  const repliesCollection = React.useMemo(
-    () =>
-      createRepliesCollection(
-        queryClient,
-        api.posts.table,
-        postId,
-        () => desiredCountRef.current,
-      ),
-    [queryClient, api.posts.table, postId],
-  )
+  // Growing-window replies: cached by options, so the same instance
+  // survives re-renders and "load more" refetches in place instead of
+  // swapping in a brand new collection.
+  const repliesWindow = api.posts.scopedCollection({
+    filter: { replyToId: postId },
+    sort: 'createdAt',
+    order: 'asc',
+  })
 
   const loadMore = React.useCallback(async () => {
-    desiredCountRef.current += 20
-    setDesiredCount(desiredCountRef.current)
     setLoadingMore(true)
     try {
-      await repliesCollection.utils.refetch()
+      await repliesWindow.loadMore()
     } finally {
       setLoadingMore(false)
     }
-  }, [repliesCollection])
+  }, [repliesWindow])
 
   const { data: replyItems } = useLiveQuery(
     (q) =>
       q
-        .from({ post: repliesCollection })
+        .from({ post: repliesWindow.collection })
         .orderBy(({ post }) => post.createdAt, 'asc'),
-    [repliesCollection],
+    [repliesWindow.collection],
   )
 
   const replies = replyItems ?? []
@@ -143,10 +132,7 @@ function PostThread({
     () => Array.from(new Set(allPosts.map((p) => p.userId))).sort(),
     [allPosts],
   )
-  const usersByIdCollection = React.useMemo(
-    () => createUsersByIdCollection(queryClient, api.user.table, authorIds),
-    [queryClient, api.user.table, authorIds],
-  )
+  const usersByIdCollection = api.user.collectionByIds(authorIds)
   const { data: users } = useLiveQuery(
     (q) => q.from({ user: usersByIdCollection }),
     [usersByIdCollection],
@@ -162,7 +148,7 @@ function PostThread({
     () => new Map((users ?? []).map((u) => [u.id, u])),
     [users],
   )
-  const hasMore = replies.length >= desiredCount
+  const hasMore = repliesWindow.hasMore()
 
   if (!post) {
     return (

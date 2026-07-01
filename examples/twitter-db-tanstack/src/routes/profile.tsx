@@ -3,7 +3,6 @@ import { useLiveQuery } from '@tanstack/react-db'
 import * as React from 'react'
 import type { TypeId } from 'bunderstack/typeid'
 
-import { createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import {
   AVATARS_BUCKET,
@@ -42,7 +41,7 @@ function ProfilePage() {
 // cannot run during SSR (@tanstack/react-db@0.1.91). Isolated in its own
 // component so the hook is never invoked server-side.
 function ProfileSettings({ userId }: { userId: TypeId<'user'> }) {
-  const { api, queryClient } = Route.useRouteContext()
+  const { api } = Route.useRouteContext()
   const [about, setAbout] = React.useState('')
   const [avatarPending, setAvatarPending] = React.useState(false)
   const [aboutPending, setAboutPending] = React.useState(false)
@@ -50,10 +49,7 @@ function ProfileSettings({ userId }: { userId: TypeId<'user'> }) {
   // Scoped to just this one id — the general api.user.collection only syncs
   // its default limit, and the signed-in user isn't guaranteed to be in that
   // window once the user table is larger than ~100 rows.
-  const ownUserCollection = React.useMemo(
-    () => createUsersByIdCollection(queryClient, api.user.table, [userId]),
-    [queryClient, api.user.table, userId],
-  )
+  const ownUserCollection = api.user.collectionByIds([userId])
   const { data: matches } = useLiveQuery(
     (q) => q.from({ user: ownUserCollection }),
     [ownUserCollection],

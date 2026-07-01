@@ -12,7 +12,6 @@ import * as React from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 import { ArrowLeft } from 'lucide-react'
 
-import { createUserPostsCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
 import { LoadMore } from '~/components/LoadMore'
@@ -85,9 +84,6 @@ function UserProfile({
   currentUser: RouterContext['user']
 }) {
   const { api, queryClient } = Route.useRouteContext()
-  const [desiredCount, setDesiredCount] = React.useState(20)
-  const desiredCountRef = React.useRef(desiredCount)
-  desiredCountRef.current = desiredCount
   const [loadingMore, setLoadingMore] = React.useState(false)
 
   const { data: profile } = useQuery(
@@ -95,37 +91,30 @@ function UserProfile({
     queryClient,
   )
 
-  // Stable for the page's lifetime — "load more" bumps desiredCountRef and
-  // refetches in place instead of swapping in a brand new collection, which
-  // would otherwise briefly render zero posts and reset scroll position.
-  const userPostsCollection = React.useMemo(
-    () =>
-      createUserPostsCollection(
-        queryClient,
-        api.posts.table,
-        userId,
-        () => desiredCountRef.current,
-      ),
-    [queryClient, api.posts.table, userId],
-  )
+  // Growing-window profile posts: cached by options, so the same instance
+  // survives re-renders and "load more" refetches in place instead of
+  // swapping in a brand new collection.
+  const userPosts = api.posts.scopedCollection({
+    filter: { userId },
+    sort: 'createdAt',
+    order: 'desc',
+  })
 
   const loadMore = React.useCallback(async () => {
-    desiredCountRef.current += 20
-    setDesiredCount(desiredCountRef.current)
     setLoadingMore(true)
     try {
-      await userPostsCollection.utils.refetch()
+      await userPosts.loadMore()
     } finally {
       setLoadingMore(false)
     }
-  }, [userPostsCollection])
+  }, [userPosts])
 
   const { data: postItems } = useLiveQuery(
     (q) =>
       q
-        .from({ post: userPostsCollection })
+        .from({ post: userPosts.collection })
         .orderBy(({ post }) => post.createdAt, 'desc'),
-    [userPostsCollection],
+    [userPosts.collection],
   )
   const { data: likes } = useLiveQuery((q) =>
     q.from({ like: api.likes.collection }),
@@ -150,7 +139,7 @@ function UserProfile({
   )
 
   const allPosts = postItems ?? []
-  const hasMore = allPosts.length >= desiredCount
+  const hasMore = userPosts.hasMore()
 
   const authorMap = React.useMemo(
     () => new Map(profile ? [[profile.id, profile] as const] : []),

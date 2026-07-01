@@ -2,7 +2,6 @@ import * as React from 'react'
 import { ClientOnly, Link, createFileRoute } from '@tanstack/react-router'
 import { useLiveQuery } from '@tanstack/react-db'
 
-import { createFeedPostsCollection, createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import {
   ComposePostDialog,
@@ -92,46 +91,33 @@ function FeedList({
   tab: 'for-you' | 'following'
   user: RouterContext['user']
 }) {
-  const { api, queryClient } = Route.useRouteContext()
-  const [desiredCount, setDesiredCount] = React.useState(20)
-  const desiredCountRef = React.useRef(desiredCount)
-  desiredCountRef.current = desiredCount
+  const { api } = Route.useRouteContext()
   const [loadingMore, setLoadingMore] = React.useState(false)
 
-  // One stable collection for the whole page's lifetime — its queryFn walks
-  // cursor-paginated server pages (each ≤200 rows) up to whatever
-  // desiredCountRef currently holds. "Load more" bumps the ref and calls
-  // .utils.refetch() to re-run the same queryFn for a bigger slice, instead
-  // of creating a brand new collection each time: a new collection starts
-  // from an empty local state, so swapping collections on every page would
-  // briefly render zero posts and reset scroll position.
-  const feedPostsCollection = React.useMemo(
-    () =>
-      createFeedPostsCollection(
-        queryClient,
-        api.posts.table,
-        () => desiredCountRef.current,
-      ),
-    [queryClient, api.posts.table],
-  )
+  // Growing-window feed: the library caches this by its options, so the
+  // same instance survives re-renders and "load more" refetches in place —
+  // already-rendered posts never unmount (no scroll jumps).
+  const feedWindow = api.posts.scopedCollection({
+    filter: { replyToId: null },
+    sort: 'createdAt',
+    order: 'desc',
+  })
 
   const loadMore = React.useCallback(async () => {
-    desiredCountRef.current += 20
-    setDesiredCount(desiredCountRef.current)
     setLoadingMore(true)
     try {
-      await feedPostsCollection.utils.refetch()
+      await feedWindow.loadMore()
     } finally {
       setLoadingMore(false)
     }
-  }, [feedPostsCollection])
+  }, [feedWindow])
 
   const { data: allPosts } = useLiveQuery(
     (q) =>
       q
-        .from({ post: feedPostsCollection })
+        .from({ post: feedWindow.collection })
         .orderBy(({ post }) => post.createdAt, 'desc'),
-    [feedPostsCollection],
+    [feedWindow.collection],
   )
 
   const posts = allPosts ?? []
@@ -143,10 +129,7 @@ function FeedList({
     () => Array.from(new Set(posts.map((p) => p.userId))).sort(),
     [posts],
   )
-  const usersByIdCollection = React.useMemo(
-    () => createUsersByIdCollection(queryClient, api.user.table, authorIds),
-    [queryClient, api.user.table, authorIds],
-  )
+  const usersByIdCollection = api.user.collectionByIds(authorIds)
   const { data: users } = useLiveQuery(
     (q) => q.from({ user: usersByIdCollection }),
     [usersByIdCollection],
@@ -185,12 +168,9 @@ function FeedList({
     return posts
   }, [posts, tab, user, followingIds])
 
-  // Heuristic: a full page means there's likely more to load. The
-  // cursor-accumulating collection doesn't surface the server's `hasMore`
-  // directly through useLiveQuery, so this can under/over-show "Load more"
-  // by one click at the exact tail of the table — an accepted trade-off for
-  // this demo's pagination UI.
-  const hasMore = posts.length >= desiredCount
+  // Exact: the scoped collection records the server's `hasMore` from its
+  // last fetch, so "Load more" hides precisely at the tail of the table.
+  const hasMore = feedWindow.hasMore()
 
   if (feed.length === 0) {
     return (

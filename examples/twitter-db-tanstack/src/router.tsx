@@ -2,11 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import type { TypeId } from 'bunderstack/typeid'
 
-import {
-  createSyncApi,
-  createQueryClient,
-  type SyncApi,
-} from './collections'
+import { createApi, createQueryClient, type SyncApi } from './client'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
 import { routeTree } from './routeTree.gen'
@@ -24,7 +20,7 @@ export type RouterContext = {
 
 export function getRouter() {
   const queryClient = createQueryClient()
-  const api = createSyncApi(queryClient)
+  const api = createApi(queryClient)
 
   const router = createRouter({
     routeTree,

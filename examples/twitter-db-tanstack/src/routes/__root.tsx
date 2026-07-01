@@ -5,8 +5,6 @@ import {
   createRootRouteWithContext,
   ClientOnly,
 } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
 import type { RouterContext } from '~/router'
@@ -42,6 +40,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootComponent() {
+  const { api } = Route.useRouteContext()
+
+  // Live SSE updates for every table the app renders. No-op during SSR
+  // (api.realtime is undefined there) and safe to re-run — the realtime
+  // client replaces its subscription list idempotently.
+  React.useEffect(() => {
+    void api.realtime?.subscribe([
+      'posts',
+      'user',
+      'follows',
+      'likes',
+      'retweets',
+    ])
+  }, [api])
+
   return (
     <RootDocument>
       <Outlet />
