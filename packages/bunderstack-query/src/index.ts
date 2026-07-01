@@ -233,4 +233,4 @@ export type {
 export { createTableClient } from './table-client'
 export type { TableClient, TableClientConfig } from './table-client'
 export { createRealtimeClient } from './realtime-client'
-export type { RealtimeClientConfig } from './realtime-client'
+export type { RealtimeClientConfig, RealtimeEvent } from './realtime-client'

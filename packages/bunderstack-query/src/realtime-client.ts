@@ -23,7 +23,7 @@ import { createTableClient } from './table-client'
 // `postSubscribe` on the connect frame. Swap the connect loop below back to that.
 // ---------------------------------------------------------------------------
 
-type RealtimeEvent = {
+export type RealtimeEvent = {
   eventId: number
   action: 'create' | 'update' | 'delete'
   table: string
@@ -47,6 +47,18 @@ export type RealtimeClientConfig = {
    */
   keepaliveMs?: number
   onStatus?: (s: RealtimeStatus) => void
+  /**
+   * Override how an event is applied to local state. Defaults to patching
+   * the TanStack Query cache (setQueryData on detail key + invalidateQueries
+   * on the list key). Set this to integrate with a different local store
+   * (e.g. a TanStack DB collection's direct-write API).
+   */
+  applyEvent?: (evt: RealtimeEvent) => void
+  /**
+   * Override full-resync-on-gap behavior. Defaults to invalidating every
+   * subscribed table's list query.
+   */
+  onGap?: () => void
 }
 
 export function createRealtimeClient(config: RealtimeClientConfig) {
@@ -79,6 +91,10 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
     const keys = keysByTable.get(evt.table)
     if (!keys) return
     if (typeof evt.eventId === 'number') lastEventId = evt.eventId
+    if (config.applyEvent) {
+      config.applyEvent(evt)
+      return
+    }
     const id = evt.record['id'] as string | number
     if (evt.action === 'delete')
       queryClient.removeQueries({ queryKey: keys.detail(id) })
@@ -87,6 +103,10 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   }
 
   function invalidateAllSubscribed() {
+    if (config.onGap) {
+      config.onGap()
+      return
+    }
     for (const t of tables) {
       const keys = keysByTable.get(t)
       if (keys) queryClient.invalidateQueries({ queryKey: keys.lists() })

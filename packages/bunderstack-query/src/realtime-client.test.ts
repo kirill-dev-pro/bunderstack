@@ -132,3 +132,44 @@ it('re-subscribes with since=lastEventId and invalidates all on gap after reconn
     Math.random = originalRandom
   }
 })
+
+it('uses applyEvent/onGap overrides instead of the default cache patching', async () => {
+  const qc = new QueryClient()
+  const stream = makeStreamResponse()
+  const applied: any[] = []
+  let gapCalled = false
+  const fetchMock = (async (_url: string | URL, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      return new Response(JSON.stringify({ gap: false }), { status: 200 })
+    }
+    return stream.response
+  }) as unknown as typeof fetch
+
+  const rt = createRealtimeClient({
+    baseUrl: 'http://x/api',
+    queryClient: qc,
+    tables: ['cards'],
+    fetch: fetchMock,
+    applyEvent: (evt) => applied.push(evt),
+    onGap: () => {
+      gapCalled = true
+    },
+  })
+  stream.push({ clientId: 'c1' })
+  await rt.subscribe(['cards'])
+  stream.push({
+    eventId: 1,
+    action: 'create',
+    table: 'cards',
+    record: { id: 'card_1', title: 'A' },
+  })
+  await new Promise((r) => setTimeout(r, 5))
+
+  expect(applied).toEqual([
+    { eventId: 1, action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } },
+  ])
+  // Default cache-patching must NOT have run.
+  expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toBeUndefined()
+  expect(gapCalled).toBe(false)
+  rt.close()
+})
