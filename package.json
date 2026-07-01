@@ -7,7 +7,7 @@
   ],
   "type": "module",
   "scripts": {
-    "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync",
+    "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync && bun test --cwd packages/bunderstack-start",
     "dev": "bun run --cwd examples/standalone dev",
     "dev:standalone": "bun run --cwd examples/standalone dev",
     "dev:nextjs": "bun run --cwd examples/nextjs dev",
