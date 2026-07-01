@@ -22,6 +22,9 @@
   "overrides": {
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/query-core": "^5.101.1",
+    "@tanstack/react-db": "^0.1.91",
+    "@tanstack/db": "^0.6.13",
+    "@tanstack/query-db-collection": "^1.0.45",
     "zod": "^4.4.3"
   },
   "devDependencies": {
