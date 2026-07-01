@@ -1,8 +1,10 @@
-import * as React from 'react'
-
-import { thumbnailUrl } from '~/components/ImageUpload'
-import { fileIdFromUrl } from '~/components/ImageUpload'
-import { closeDialog, showDialog } from '~/utils/oat'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog'
+import { fileIdFromUrl, thumbnailUrl } from '~/components/ImageUpload'
 
 type ImageLightboxProps = {
   imageUrl: string
@@ -13,7 +15,6 @@ export function ImageLightbox({
   imageUrl,
   alt = 'Attachment',
 }: ImageLightboxProps) {
-  const dialogRef = React.useRef<HTMLDialogElement>(null)
   const fileId = fileIdFromUrl(imageUrl)
   const fullSrc = fileId ? thumbnailUrl(fileId) : imageUrl
   const thumbSrc = fileId
@@ -21,36 +22,29 @@ export function ImageLightbox({
     : imageUrl
 
   return (
-    <>
-      <button
-        type="button"
-        className="post-image-thumb"
-        onClick={() => showDialog(dialogRef.current)}
-        aria-label="View full image"
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="relative z-10 block max-h-80 overflow-hidden rounded-lg border"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="View full image"
+        >
+          <img src={thumbSrc} alt={alt} loading="lazy" className="block" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="max-w-3xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <img src={thumbSrc} alt={alt} loading="lazy" />
-      </button>
-
-      <dialog ref={dialogRef} closedby="any">
-        <form method="dialog">
-          <header>
-            <h3>Image</h3>
-          </header>
-          <div className="lightbox-body">
-            <img src={fullSrc} alt={alt} className="lightbox-image" />
-          </div>
-          <footer>
-            <button
-              type="button"
-              className="outline"
-              onClick={() => closeDialog(dialogRef.current)}
-            >
-              Close
-            </button>
-          </footer>
-        </form>
-      </dialog>
-    </>
+        <DialogTitle className="sr-only">Image</DialogTitle>
+        <img
+          src={fullSrc}
+          alt={alt}
+          className="max-h-[80vh] w-full object-contain"
+        />
+      </DialogContent>
+    </Dialog>
   )
 }
 

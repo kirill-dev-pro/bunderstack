@@ -1,8 +1,7 @@
+import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack-query'
-
-import { filesApi } from '~/api-client'
+import type { UploadedFile } from 'bunderstack-sync'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
 export const AVATARS_BUCKET = 'avatars'
@@ -10,23 +9,39 @@ export const AVATARS_BUCKET = 'avatars'
 export const FILES_BUCKET = ATTACHMENTS_BUCKET
 
 type UploadBucket = typeof ATTACHMENTS_BUCKET | typeof AVATARS_BUCKET
-export type UploadedFile = BunderstackUploadedFile
+export type { UploadedFile }
 
-export async function uploadFile(
-  file: File,
-  bucket: UploadBucket = ATTACHMENTS_BUCKET,
-): Promise<UploadedFile> {
-  return filesApi.files[bucket].upload(file)
+/** Matches the path building in bunderstack-query's bucket client `url()` — a
+ * pure function of bucket + fileId, so it doesn't need a live api instance. */
+function encodeFilePath(idOrFileId: string): string {
+  return idOrFileId
+    .split('/')
+    .map((segment) =>
+      encodeURIComponent(decodeURIComponent(segment)).replace(/\./g, '%2E'),
+    )
+    .join('/')
+}
+
+function relativeId(bucket: UploadBucket, idOrFileId: string): string {
+  const prefix = `${bucket}/`
+  return idOrFileId.startsWith(prefix)
+    ? idOrFileId.slice(prefix.length)
+    : idOrFileId
 }
 
 export function thumbnailUrl(
   fileId: string,
   opts?: { w?: number; h?: number; format?: 'webp' | 'jpeg' },
 ) {
-  const bucket = fileId.startsWith(`${AVATARS_BUCKET}/`)
-    ? filesApi.files.avatars
-    : filesApi.files.attachments
-  return bucket.url(fileId, opts)
+  const bucket: UploadBucket = fileId.startsWith(`${AVATARS_BUCKET}/`)
+    ? AVATARS_BUCKET
+    : ATTACHMENTS_BUCKET
+  const params = new URLSearchParams()
+  if (opts?.w !== undefined) params.set('w', String(opts.w))
+  if (opts?.h !== undefined) params.set('h', String(opts.h))
+  if (opts?.format) params.set('format', opts.format)
+  const qs = params.toString()
+  return `/api/files/${bucket}/${encodeFilePath(relativeId(bucket, fileId))}${qs ? `?${qs}` : ''}`
 }
 
 export function fileIdFromUrl(url: string | null | undefined): string | null {
@@ -51,6 +66,7 @@ export function ImageUpload({
   onUploaded,
   disabled,
 }: ImageUploadProps) {
+  const { api } = useRouteContext({ from: '__root__' })
   const [status, setStatus] = React.useState<'idle' | 'uploading' | 'error'>(
     'idle',
   )
@@ -75,7 +91,7 @@ export function ImageUpload({
           setStatus('uploading')
           setError(null)
           try {
-            const uploaded = await uploadFile(file, bucket)
+            const uploaded = await api.files[bucket].upload(file)
             await onUploaded(uploaded)
             setStatus('idle')
           } catch (err) {
