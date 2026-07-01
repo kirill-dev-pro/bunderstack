@@ -14,6 +14,7 @@ import type { RouterContext } from '~/router'
 import { AppDevtools } from '~/components/AppDevtools'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
+import { Toaster } from '~/components/ui/sonner'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 import { fetchUser } from '~/utils/session'
@@ -56,6 +57,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster />
         {import.meta.env.DEV ? (
           <ClientOnly>
             <AppDevtools />
