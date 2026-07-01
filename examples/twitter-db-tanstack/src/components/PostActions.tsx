@@ -1,8 +1,9 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
+import { generateTypeId } from 'bunderstack'
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 
-import { useToastMutation } from '~/hooks/useToastMutation'
-import { toast } from '~/utils/oat'
+import { toast } from '~/lib/toast'
 import type { Like, Post, Retweet } from '~/utils/posts'
 
 type PostActionsProps = {
@@ -21,6 +22,8 @@ export function PostActions({
   retweets,
 }: PostActionsProps) {
   const { api } = useRouteContext({ from: '__root__' })
+  const [pending, setPending] = React.useState(false)
+
   const myLike = React.useMemo(
     () => likes.find((r) => r.postId === postId && r.userId === currentUserId),
     [likes, postId, currentUserId],
@@ -33,83 +36,99 @@ export function PostActions({
   const likeCount = likes.filter((r) => r.postId === postId).length
   const rtCount = retweets.filter((r) => r.postId === postId).length
 
-  const likeCreate = useToastMutation(
-    api.likes.createMutation({
-      onSuccess: () => toast.success('Liked'),
-      onError: () => toast.error('Could not like'),
-    }),
-  )
-  const likeDelete = useToastMutation(
-    api.likes.deleteMutation({
-      onSuccess: () => toast.success('Unliked'),
-      onError: () => toast.error('Could not unlike'),
-    }),
-  )
-  const rtCreate = useToastMutation(
-    api.retweets.createMutation({
-      onSuccess: () => toast.success('Reposted'),
-      onError: () => toast.error('Could not repost'),
-    }),
-  )
-  const rtDelete = useToastMutation(
-    api.retweets.deleteMutation({
-      onSuccess: () => toast.success('Undone repost'),
-      onError: () => toast.error('Could not undo repost'),
-    }),
-  )
+  async function toggleLike() {
+    if (!currentUserId) return
+    setPending(true)
+    try {
+      if (myLike) {
+        await api.likes.collection.delete(myLike.id).isPersisted.promise
+        toast.success('Unliked')
+      } else {
+        await api.likes.collection.insert({
+          id: generateTypeId('like'),
+          userId: currentUserId,
+          postId,
+          createdAt: new Date(),
+        }).isPersisted.promise
+        toast.success('Liked')
+      }
+    } catch {
+      toast.error(myLike ? 'Could not unlike' : 'Could not like')
+    } finally {
+      setPending(false)
+    }
+  }
 
-  const pending =
-    likeCreate.isPending ||
-    likeDelete.isPending ||
-    rtCreate.isPending ||
-    rtDelete.isPending
-
-  const replyTo = `/posts/${postId}`
+  async function toggleRetweet() {
+    if (!currentUserId) return
+    setPending(true)
+    try {
+      if (myRt) {
+        await api.retweets.collection.delete(myRt.id).isPersisted.promise
+        toast.success('Undone repost')
+      } else {
+        await api.retweets.collection.insert({
+          id: generateTypeId('retweet'),
+          userId: currentUserId,
+          postId,
+          createdAt: new Date(),
+        }).isPersisted.promise
+        toast.success('Reposted')
+      }
+    } catch {
+      toast.error(myRt ? 'Could not undo repost' : 'Could not repost')
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
-    <div className="post-actions-bar" role="group" aria-label="Post actions">
+    <div
+      className="text-muted-foreground flex items-center gap-6"
+      role="group"
+      aria-label="Post actions"
+    >
       <Link
         to="/posts/$postId"
         params={{ postId: String(postId) }}
-        className="post-action post-action--reply"
+        className="hover:text-foreground flex items-center gap-1"
         aria-label="Reply"
       >
-        <span aria-hidden>💬</span>
-        {replyCount > 0 ? <span>{replyCount}</span> : null}
+        <MessageCircle className="size-4" aria-hidden />
+        {replyCount > 0 ? <span className="text-sm">{replyCount}</span> : null}
       </Link>
 
       <button
         type="button"
-        className="post-action post-action--repost"
+        className="hover:text-foreground flex items-center gap-1 disabled:opacity-50"
         disabled={!currentUserId || pending}
         aria-pressed={!!myRt}
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!currentUserId) return
-          if (myRt) rtDelete.mutate(myRt.id)
-          else rtCreate.mutate({ postId })
+          void toggleRetweet()
         }}
       >
-        <span aria-hidden>↻</span>
-        {rtCount > 0 ? <span>{rtCount}</span> : null}
+        <Repeat2 className={`size-4 ${myRt ? 'text-green-600' : ''}`} aria-hidden />
+        {rtCount > 0 ? <span className="text-sm">{rtCount}</span> : null}
       </button>
 
       <button
         type="button"
-        className={`post-action post-action--like${myLike ? ' is-active' : ''}`}
+        className="hover:text-foreground flex items-center gap-1 disabled:opacity-50"
         disabled={!currentUserId || pending}
         aria-pressed={!!myLike}
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!currentUserId) return
-          if (myLike) likeDelete.mutate(myLike.id)
-          else likeCreate.mutate({ postId })
+          void toggleLike()
         }}
       >
-        <span aria-hidden>{myLike ? '♥' : '♡'}</span>
-        {likeCount > 0 ? <span>{likeCount}</span> : null}
+        <Heart
+          className={`size-4 ${myLike ? 'fill-red-500 text-red-500' : ''}`}
+          aria-hidden
+        />
+        {likeCount > 0 ? <span className="text-sm">{likeCount}</span> : null}
       </button>
     </div>
   )
