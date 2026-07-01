@@ -1,0 +1,52 @@
+{
+  "name": "bunderstack-example-twitter-db-tanstack",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css",
+    "src/utils/oat.ts",
+    "src/components/OatInit.tsx"
+  ],
+  "scripts": {
+    "dev": "bun --bun vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "db:push": "drizzle-kit push --config=drizzle.config.ts",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "migrate": "bun scripts/migrate.ts",
+    "seed": "bun scripts/seed.ts",
+    "stress-seed": "bun scripts/stress-seed.ts"
+  },
+  "dependencies": {
+    "@knadh/oat": "^0.6.2",
+    "@libsql/client": "^0.14.0",
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/react-start": "^1.168.26",
+    "better-auth": "^1.0.0",
+    "bunderstack": "workspace:*",
+    "bunderstack-query": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/devtools-vite": "^0.8.0",
+    "@tanstack/react-devtools": "^0.10.7",
+    "@tanstack/react-query-devtools": "^5.101.0",
+    "@tanstack/react-router-devtools": "^1.167.0",
+    "@tanstack/react-router-ssr-query": "^1.167.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "drizzle-kit": "^0.30.0",
+    "nitro": "^3.0.260610-beta",
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0",
+    "typescript": "^5.0.0",
+    "vite": "^8.0.0"
+  }
+}

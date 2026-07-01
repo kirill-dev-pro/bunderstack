@@ -1,0 +1,9 @@
+node_modules/
+.vinxi/
+dist/
+app.config.timestamp_*.js
+data.db
+.uploads/
+uploads/
+.nitro/
+.output/
