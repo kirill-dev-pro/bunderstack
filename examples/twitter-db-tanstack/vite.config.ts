@@ -53,7 +53,12 @@ function bunderstackApiDevMiddleware(): Plugin {
           if (setCookie.length) res.setHeader('set-cookie', setCookie)
 
           if (response.body) {
-            Readable.fromWeb(response.body)
+            // `response.body` is the DOM lib's ReadableStream type; Node's
+            // Readable.fromWeb wants node:stream/web's own (structurally
+            // identical at runtime, nominally different generic instantiation).
+            Readable.fromWeb(
+              response.body as unknown as import('node:stream/web').ReadableStream,
+            )
               .on('error', (err) => res.destroy(err))
               .pipe(res)
           } else {

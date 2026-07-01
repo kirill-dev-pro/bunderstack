@@ -1,3 +1,12 @@
+import { Button } from '~/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
+import { Input } from '~/components/ui/input'
+
 export function Auth({
   actionText,
   onSubmit,
@@ -14,58 +23,69 @@ export function Auth({
   message?: string | null
 }) {
   return (
-    <div className="auth-page">
-      <article className="card">
-        <header>
-          <h1>{actionText}</h1>
-        </header>
-        <form
-          className="vstack"
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSubmit(e)
-          }}
-        >
-          <label>
-            Email
-            <input
-              type="email"
-              name="email"
-              id="email"
-              required
-              autoComplete="email"
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              name="password"
-              id="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
-          {message ? (
-            <output data-variant="danger" role="alert">
-              {message}
-            </output>
-          ) : null}
-          <button type="submit" disabled={status === 'pending'}>
-            {status === 'pending' ? 'Please wait…' : actionText}
-          </button>
-          {onSecondaryClick && secondaryLabel ? (
-            <button
-              type="button"
-              className="outline"
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">{actionText}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              onSubmit(e)
+            }}
+          >
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                type="email"
+                name="email"
+                id="email"
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                type="password"
+                name="password"
+                id="password"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            {message ? (
+              <p className="text-destructive text-sm" role="alert">
+                {message}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              className="w-full"
               disabled={status === 'pending'}
-              onClick={onSecondaryClick}
             >
-              {secondaryLabel}
-            </button>
-          ) : null}
-        </form>
-      </article>
+              {status === 'pending' ? 'Please wait…' : actionText}
+            </Button>
+            {onSecondaryClick && secondaryLabel ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={status === 'pending'}
+                onClick={onSecondaryClick}
+              >
+                {secondaryLabel}
+              </Button>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

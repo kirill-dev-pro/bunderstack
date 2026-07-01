@@ -3,8 +3,8 @@ import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { Auth } from '~/components/Auth'
+import { toast } from '~/lib/toast'
 import { authClient } from '~/utils/auth-client'
-import { toast } from '~/utils/oat'
 
 export const Route = createFileRoute('/signup')({
   component: SignupComp,
@@ -13,28 +13,32 @@ export const Route = createFileRoute('/signup')({
 function SignupComp() {
   const navigate = useNavigate()
   const router = useRouter()
+  const { queryClient } = Route.useRouteContext()
   const [message, setMessage] = useState<string | null>(null)
 
-  const signupMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
-      const { error } = await authClient.signUp.email({
-        email: data.email,
-        password: data.password,
-        name: data.email.split('@')[0],
-      })
-      if (error) throw new Error(error.message ?? 'Signup failed')
+  const signupMutation = useMutation(
+    {
+      mutationFn: async (data: { email: string; password: string }) => {
+        const { error } = await authClient.signUp.email({
+          email: data.email,
+          password: data.password,
+          name: data.email.split('@')[0],
+        })
+        if (error) throw new Error(error.message ?? 'Signup failed')
+      },
+      onMutate: () => setMessage(null),
+      onSuccess: async () => {
+        toast.success('Account created!')
+        await router.invalidate()
+        await navigate({ to: '/', search: { tab: 'for-you' } })
+      },
+      onError: (err) => {
+        setMessage(err.message)
+        toast.error(err.message)
+      },
     },
-    onMutate: () => setMessage(null),
-    onSuccess: async () => {
-      toast.success('Account created!')
-      await router.invalidate()
-      await navigate({ to: '/', search: { tab: 'for-you' } })
-    },
-    onError: (err) => {
-      setMessage(err.message)
-      toast.error(err.message)
-    },
-  })
+    queryClient,
+  )
 
   return (
     <Auth
