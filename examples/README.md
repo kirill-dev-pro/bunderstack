@@ -42,13 +42,11 @@ Add `export * from 'bunderstack/schema'` to your `schema.ts` so migrations inclu
 
 Use separate terminals — each binds a different port.
 
-| Example                 | Command                                   | URL                   |
-| ----------------------- | ----------------------------------------- | --------------------- |
-| Standalone (Bun.serve)  | `bun run dev` or `bun run dev:standalone` | http://localhost:3001 |
-| Twitter (TanStack Start) | `bun run dev:twitter-tanstack`           | http://localhost:3000 |
-| Next.js                 | `bun run dev:nextjs`                      | http://localhost:3002 |
-| Kanban (Solid + Vite)   | `bun run dev:kanban`                      | http://localhost:5174 |
-| Kanban (TanStack Start) | `bun run dev:kanban-tanstack`             | http://localhost:5175 |
+| Example                  | Command                        | URL                   |
+| ------------------------ | ------------------------------ | --------------------- |
+| Twitter (TanStack Start) | `bun run dev:twitter-tanstack` | http://localhost:3000 |
+| Kanban (Solid + Vite)    | `bun run dev:kanban`           | http://localhost:5174 |
+| Kanban (TanStack Start)  | `bun run dev:kanban-tanstack`  | http://localhost:5175 |
 
 ### Standalone
 
@@ -158,8 +156,8 @@ useMutation(api.posts.createMutation())
 
 ## Environment variables
 
-| Variable       | Default          | Description                                    |
-| -------------- | ---------------- | ---------------------------------------------- |
-| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                  |
-| `AUTH_SECRET`  | dev default      | BetterAuth secret                              |
+| Variable       | Default          | Description                                                                     |
+| -------------- | ---------------- | ------------------------------------------------------------------------------- |
+| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                                   |
+| `AUTH_SECRET`  | dev default      | BetterAuth secret                                                               |
 | `NODE_ENV`     | —                | Set `production` in deploy; omit `app.provision()` and run `db:migrate` instead |
