@@ -1,6 +1,6 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-import { generateTypeId } from 'bunderstack'
+import { generate as generateTypeId } from 'bunderstack/typeid'
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
 
 import { toast } from '~/lib/toast'

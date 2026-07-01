@@ -1,7 +1,6 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-import { generateTypeId } from 'bunderstack'
-import type { TypeId } from 'bunderstack/typeid'
+import { generate as generateTypeId, type TypeId } from 'bunderstack/typeid'
 
 import {
   fileIdFromUrl,

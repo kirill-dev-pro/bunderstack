@@ -1,7 +1,7 @@
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 import type { InferSelect } from 'bunderstack-sync'
-import { generateTypeId } from 'bunderstack'
+import { generate as generateTypeId } from 'bunderstack/typeid'
 
 import { toast } from '~/lib/toast'
 import { Button } from '~/components/ui/button'
