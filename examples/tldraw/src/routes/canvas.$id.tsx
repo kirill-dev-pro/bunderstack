@@ -201,14 +201,11 @@ function WhiteboardClient() {
 
     const position = draftPositions[drag.id]
     if (position) {
-      api.shape.table
-        .update(drag.id, {
-          x: Math.round(position.x),
-          y: Math.round(position.y),
-          updatedAt: new Date(),
-        })
-        .then(() => api.shape.collection.utils.refetch())
-        .catch((error: Error) => toast.error(error.message))
+      api.shape.collection.update(drag.id, (draft) => {
+        draft.x = Math.round(position.x)
+        draft.y = Math.round(position.y)
+        draft.updatedAt = new Date()
+      })
     }
 
     setDrag(null)
@@ -217,7 +214,7 @@ function WhiteboardClient() {
       delete next[drag.id]
       return next
     })
-  }, [api.shape.collection.utils, api.shape.table, draftPositions, drag])
+  }, [api.shape.collection, draftPositions, drag])
 
   return (
     <div className="flex h-full min-h-[calc(100vh-57px)] flex-col bg-slate-100 text-slate-950">
