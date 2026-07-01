@@ -124,4 +124,44 @@ describe('createSyncRealtimeClient', () => {
     expect(users.refetchCount).toBe(1)
     rt.close()
   })
+
+  it('handles refetch rejection gracefully and refetches other collections', async () => {
+    const stream = makeStreamResponse()
+    const posts = fakeCollection()
+    const errorLogs: unknown[] = []
+    const originalError = console.error
+    console.error = (...args: unknown[]) => errorLogs.push(args)
+
+    const users = {
+      ...fakeCollection(),
+      utils: {
+        ...fakeCollection().utils,
+        refetch: async () => {
+          throw new Error('network error')
+        },
+      },
+    }
+
+    const fetchMock = (async (_url: string | URL, init?: RequestInit) => {
+      if (init?.method === 'POST')
+        return new Response(JSON.stringify({ gap: true }), { status: 200 })
+      return stream.response
+    }) as unknown as typeof fetch
+
+    const rt = createSyncRealtimeClient({
+      baseUrl: 'http://x/api',
+      queryClient: new QueryClient(),
+      fetch: fetchMock,
+      collections: { posts, users },
+    })
+    stream.push({ clientId: 'c1' })
+    await rt.subscribe(['posts', 'users'])
+    await new Promise((r) => setTimeout(r, 5))
+
+    expect(posts.refetchCount).toBe(1)
+    expect(errorLogs.length).toBe(1)
+    expect(errorLogs[0]).toContain('bunderstack-sync: gap-recovery refetch failed')
+    console.error = originalError
+    rt.close()
+  })
 })

@@ -36,7 +36,9 @@ export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
     },
     onGap: () => {
       for (const collection of Object.values(config.collections)) {
-        void collection.utils.refetch()
+        collection.utils.refetch().catch((err) => {
+          console.error('bunderstack-sync: gap-recovery refetch failed', err)
+        })
       }
     },
   })
