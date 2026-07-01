@@ -2,6 +2,10 @@ import type { QueryClient } from '@tanstack/react-query'
 import {
   createBunderstackQueryClient,
   type FilesQueryClient,
+  BunderstackApiError,
+  type InferSelect,
+  type InferInsert,
+  type UploadedFile,
 } from 'bunderstack-query'
 
 import { createTableCollection } from './collection'
@@ -97,3 +101,7 @@ export { createTableCollection } from './collection'
 export type { TableCollectionConfig } from './collection'
 export { createSyncRealtimeClient } from './realtime-sync'
 export type { SyncRealtimeConfig } from './realtime-sync'
+
+// Re-export bunderstack-query types and utilities for convenience
+export { BunderstackApiError } from 'bunderstack-query'
+export type { InferSelect, InferInsert, UploadedFile } from 'bunderstack-query'

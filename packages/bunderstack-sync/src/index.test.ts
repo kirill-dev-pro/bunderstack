@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
 
-import { createBunderstackSyncClient } from './index'
+import {
+  createBunderstackSyncClient,
+  BunderstackApiError,
+  type InferSelect,
+  type InferInsert,
+  type UploadedFile,
+} from './index'
 
 type Schema = {
   posts: unknown
@@ -50,5 +56,20 @@ describe('createBunderstackSyncClient', () => {
 
     expect(api.realtime).toBeDefined()
     api.realtime!.close()
+  })
+})
+
+describe('Re-exported bunderstack-query symbols', () => {
+  it('exports BunderstackApiError and can be used with instanceof', () => {
+    const error = new BunderstackApiError('Test error', 400)
+    expect(error instanceof BunderstackApiError).toBe(true)
+    expect(error.message).toBe('Test error')
+  })
+
+  it('exports InferSelect, InferInsert, and UploadedFile types for type checking', () => {
+    // Type-only test: the imports succeed and TypeScript compilation passes
+    // These types are available for use in consuming code
+    // If they weren't exported, this file wouldn't compile
+    expect(true).toBe(true)
   })
 })
