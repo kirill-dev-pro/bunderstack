@@ -173,3 +173,33 @@ it('uses applyEvent/onGap overrides instead of the default cache patching', asyn
   expect(gapCalled).toBe(false)
   rt.close()
 })
+
+it('routes events for unknown tables to a custom applyEvent', async () => {
+  const qc = new QueryClient()
+  const stream = makeStreamResponse()
+  const fetchMock = (async (_url: string | URL, init?: RequestInit) => {
+    if (init?.method === 'POST')
+      return new Response(JSON.stringify({ gap: false }), { status: 200 })
+    return stream.response
+  }) as unknown as typeof fetch
+
+  const seen: string[] = []
+  const rt = createRealtimeClient({
+    baseUrl: 'http://x/api',
+    queryClient: qc,
+    tables: [], // lazy clients cannot enumerate tables upfront
+    fetch: fetchMock,
+    applyEvent: (evt) => seen.push(evt.table),
+  })
+  stream.push({ clientId: 'c1' })
+  stream.push({
+    eventId: 1,
+    action: 'create',
+    table: 'posts',
+    record: { id: 'p1' },
+  })
+  await new Promise((r) => setTimeout(r, 5))
+
+  expect(seen).toEqual(['posts'])
+  rt.close()
+})

@@ -88,13 +88,15 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
   }
 
   function apply(evt: RealtimeEvent) {
-    const keys = keysByTable.get(evt.table)
-    if (!keys) return
     if (typeof evt.eventId === 'number') lastEventId = evt.eventId
+    // A custom applyEvent owns routing entirely — lazy clients can't
+    // enumerate tables upfront, so don't gate on the static list.
     if (config.applyEvent) {
       config.applyEvent(evt)
       return
     }
+    const keys = keysByTable.get(evt.table)
+    if (!keys) return
     const id = evt.record['id'] as string | number
     if (evt.action === 'delete')
       queryClient.removeQueries({ queryKey: keys.detail(id) })
