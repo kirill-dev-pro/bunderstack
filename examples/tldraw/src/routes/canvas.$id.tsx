@@ -1,0 +1,343 @@
+import { useLiveQuery, eq } from '@tanstack/react-db'
+import {
+  ClientOnly,
+  Link,
+  createFileRoute,
+  redirect,
+} from '@tanstack/react-router'
+import type { TypeId } from 'bunderstack/typeid'
+import * as React from 'react'
+import { toast } from 'sonner'
+
+import { createClientTypeId, shapeListParams } from '~/utils/canvas-data'
+
+const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed'] as const
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+export const Route = createFileRoute('/canvas/$id')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+  },
+  component: RouteComponent,
+})
+
+function RouteComponent() {
+  return (
+    <ClientOnly
+      fallback={
+        <div className="grid min-h-[calc(100vh-57px)] place-items-center bg-white text-slate-500">
+          Loading whiteboard...
+        </div>
+      }
+    >
+      <WhiteboardClient />
+    </ClientOnly>
+  )
+}
+
+function WhiteboardClient() {
+  const { id } = Route.useParams()
+  const { api, user } = Route.useRouteContext()
+  const boardRef = React.useRef<HTMLDivElement>(null)
+  const [viewport, setViewport] = React.useState({ x: 180, y: 120, scale: 1 })
+  const [pan, setPan] = React.useState<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
+  const [drag, setDrag] = React.useState<{
+    id: string
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
+  const [draftPositions, setDraftPositions] = React.useState<
+    Record<string, { x: number; y: number }>
+  >({})
+  const params = React.useMemo(() => shapeListParams(id), [id])
+
+  React.useEffect(() => {
+    void api.realtime?.subscribe(['canvas', 'shape'])
+    void Promise.all([
+      api.canvas.table.get(id).then((canvas) => {
+        api.canvas.collection.utils.writeUpsert(canvas)
+      }),
+      api.shape.table.list(params).then((page) => {
+        for (const shape of page.items) {
+          api.shape.collection.utils.writeUpsert(shape)
+        }
+      }),
+    ]).catch((error: Error) => toast.error(error.message))
+  }, [
+    api.canvas.collection.utils,
+    api.canvas.table,
+    api.realtime,
+    api.shape.collection.utils,
+    api.shape.table,
+    id,
+    params,
+  ])
+
+  const { data: canvases = [] } = useLiveQuery((query) =>
+    query
+      .from({ canvas: api.canvas.collection })
+      .where(({ canvas }) => eq(canvas.id, id))
+      .select(({ canvas }) => canvas),
+  )
+
+  const { data: shapes = [] } = useLiveQuery((query) =>
+    query
+      .from({ shape: api.shape.collection })
+      .where(({ shape }) => eq(shape.canvasId, params.canvasId))
+      .orderBy(({ shape }) => shape.createdAt, params.order)
+      .limit(params.limit)
+      .select(({ shape }) => shape),
+  )
+
+  const canvas = canvases[0]
+
+  const screenToWorld = React.useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = boardRef.current?.getBoundingClientRect()
+      if (!rect) return { x: 0, y: 0 }
+
+      return {
+        x: (clientX - rect.left - viewport.x) / viewport.scale,
+        y: (clientY - rect.top - viewport.y) / viewport.scale,
+      }
+    },
+    [viewport],
+  )
+
+  const addShapeAt = React.useCallback(
+    (clientX: number, clientY: number) => {
+      if (!canvas) {
+        toast.error('Canvas is not ready yet')
+        return
+      }
+
+      const point = screenToWorld(clientX, clientY)
+      const color = COLORS[shapes.length % COLORS.length]
+
+      const now = new Date()
+      api.shape.collection.insert({
+        id: createClientTypeId('shape'),
+        canvasId: id as TypeId<'canvas'>,
+        ownerId: user!.id,
+        type: 'rectangle',
+        x: Math.round(point.x - 80),
+        y: Math.round(point.y - 48),
+        width: 160,
+        height: 96,
+        rotation: 0,
+        color,
+        createdAt: now,
+        updatedAt: now,
+      })
+    },
+    [api.shape.collection, canvas, id, screenToWorld, shapes.length, user],
+  )
+
+  const addShapeInCenter = () => {
+    const rect = boardRef.current?.getBoundingClientRect()
+    if (!rect) return
+    addShapeAt(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  }
+
+  const commitDrag = React.useCallback(() => {
+    if (!drag) return
+
+    const position = draftPositions[drag.id]
+    if (position) {
+      api.shape.table
+        .update(drag.id, {
+          x: Math.round(position.x),
+          y: Math.round(position.y),
+          updatedAt: new Date(),
+        })
+        .then(() => api.shape.collection.utils.refetch())
+        .catch((error: Error) => toast.error(error.message))
+    }
+
+    setDrag(null)
+    setDraftPositions((positions) => {
+      const next = { ...positions }
+      delete next[drag.id]
+      return next
+    })
+  }, [api.shape.collection.utils, api.shape.table, draftPositions, drag])
+
+  return (
+    <div className="flex h-full min-h-[calc(100vh-57px)] flex-col bg-slate-100 text-slate-950">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 shadow-sm">
+        <div className="min-w-0">
+          <Link to="/" className="text-sm font-medium text-blue-600">
+            Back home
+          </Link>
+          <span className="px-2 text-sm text-slate-300">/</span>
+          <Link to="/canvas" className="text-sm font-medium text-blue-600">
+            Canvases
+          </Link>
+          <h1 className="truncate text-xl font-black">
+            {canvas?.name ?? 'Canvas'}
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+            Double-click to add
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+            Drag empty space to pan
+          </span>
+          <button
+            type="button"
+            className="rounded-full bg-slate-950 px-4 py-2 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            onClick={addShapeInCenter}
+            disabled={!canvas}
+          >
+            Add shape
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={boardRef}
+        className={`relative min-h-0 flex-1 touch-none overflow-hidden bg-white ${
+          pan ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.45) 1px, transparent 0)',
+          backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+          backgroundSize: `${32 * viewport.scale}px ${32 * viewport.scale}px`,
+        }}
+        onDoubleClick={(event) => {
+          if (event.target !== event.currentTarget) return
+          addShapeAt(event.clientX, event.clientY)
+        }}
+        onPointerDown={(event) => {
+          if (event.button !== 0 || event.target !== event.currentTarget) return
+          event.currentTarget.setPointerCapture(event.pointerId)
+          setPan({
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: viewport.x,
+            originY: viewport.y,
+          })
+        }}
+        onPointerMove={(event) => {
+          if (pan && pan.pointerId === event.pointerId) {
+            setViewport((current) => ({
+              ...current,
+              x: pan.originX + event.clientX - pan.startX,
+              y: pan.originY + event.clientY - pan.startY,
+            }))
+          }
+
+          if (drag) {
+            const nextX =
+              drag.originX + (event.clientX - drag.startX) / viewport.scale
+            const nextY =
+              drag.originY + (event.clientY - drag.startY) / viewport.scale
+            setDraftPositions((positions) => ({
+              ...positions,
+              [drag.id]: { x: nextX, y: nextY },
+            }))
+          }
+        }}
+        onPointerUp={(event) => {
+          if (pan?.pointerId === event.pointerId) setPan(null)
+          commitDrag()
+        }}
+        onPointerCancel={() => {
+          setPan(null)
+          commitDrag()
+        }}
+        onWheel={(event) => {
+          event.preventDefault()
+          const rect = boardRef.current?.getBoundingClientRect()
+          if (!rect) return
+
+          setViewport((current) => {
+            const nextScale = clamp(
+              current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
+              0.25,
+              2.5,
+            )
+            const pointerX = event.clientX - rect.left
+            const pointerY = event.clientY - rect.top
+            const worldX = (pointerX - current.x) / current.scale
+            const worldY = (pointerY - current.y) / current.scale
+
+            return {
+              scale: nextScale,
+              x: pointerX - worldX * nextScale,
+              y: pointerY - worldY * nextScale,
+            }
+          })
+        }}
+      >
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+          }}
+        >
+          {shapes.map((shape) => {
+            const position = draftPositions[shape.id] ?? shape
+
+            return (
+              <button
+                key={shape.id}
+                type="button"
+                className="absolute cursor-move rounded-2xl border-2 bg-white/90 p-0 shadow-lg outline-none transition focus:ring-4 focus:ring-blue-200"
+                style={{
+                  left: position.x,
+                  top: position.y,
+                  width: shape.width,
+                  height: shape.height,
+                  rotate: `${shape.rotation}deg`,
+                  borderColor: shape.color,
+                  color: shape.color,
+                }}
+                onPointerDown={(event) => {
+                  event.stopPropagation()
+                  setDrag({
+                    id: shape.id,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    originX: position.x,
+                    originY: position.y,
+                  })
+                }}
+              >
+                <span className="grid h-full place-items-center text-sm font-bold">
+                  Shape
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {shapes.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center">
+            <div className="rounded-3xl border bg-white/90 p-6 text-center shadow-xl">
+              <h2 className="text-xl font-black">Start anywhere</h2>
+              <p className="mt-1 max-w-xs text-sm text-slate-500">
+                Double-click the whiteboard or use Add shape to create the
+                first object.
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}

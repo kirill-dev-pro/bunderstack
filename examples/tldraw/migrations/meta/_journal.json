@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1782896834878,
+      "tag": "0000_handy_unicorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782896923609,
+      "tag": "0001_elite_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782899316417,
+      "tag": "0002_unusual_vindicator",
+      "breakpoints": true
+    }
+  ]
+}

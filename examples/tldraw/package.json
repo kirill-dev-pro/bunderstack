@@ -1,0 +1,49 @@
+{
+  "name": "tanstack-start-example-basic",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && tsc --noEmit",
+    "preview": "vite preview",
+    "start": "node .output/server/index.mjs",
+    "generate": "drizzle-kit generate",
+    "migrate": "bun run scripts/migrate.ts",
+    "lint": "oxlint --fix",
+    "format": "oxfmt",
+    "fix": "bun run lint && bun run format"
+  },
+  "dependencies": {
+    "@tanstack/query-db-collection": "^1.0.45",
+    "@tanstack/react-db": "^0.1.91",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/react-router-devtools": "^1.167.0",
+    "@tanstack/react-start": "^1.168.26",
+    "better-auth": "^1.6.23",
+    "bunderstack": "workspace:*",
+    "bunderstack-query": "workspace:*",
+    "bunderstack-sync": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^22.5.4",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.10",
+    "nitro": "^3.0.260311-beta",
+    "oxfmt": "^0.57.0",
+    "oxlint": "^1.72.0",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.14"
+  }
+}
