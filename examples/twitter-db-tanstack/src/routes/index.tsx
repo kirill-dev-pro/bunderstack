@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { ClientOnly, Link, createFileRoute } from '@tanstack/react-router'
-import { useLiveQuery, eq } from '@tanstack/react-db'
+import { useLiveQuery } from '@tanstack/react-db'
 
 import { createFeedPostsCollection, createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
@@ -94,17 +94,39 @@ function FeedList({
 }) {
   const { api, queryClient } = Route.useRouteContext()
   const [desiredCount, setDesiredCount] = React.useState(20)
+  const desiredCountRef = React.useRef(desiredCount)
+  desiredCountRef.current = desiredCount
+  const [loadingMore, setLoadingMore] = React.useState(false)
 
-  // New collection instance each time desiredCount grows — its queryFn walks
-  // cursor-paginated server pages (each ≤200 rows) up to desiredCount,
-  // rather than a single list() call that the server would clamp at 200
-  // regardless of what limit was requested.
+  // One stable collection for the whole page's lifetime — its queryFn walks
+  // cursor-paginated server pages (each ≤200 rows) up to whatever
+  // desiredCountRef currently holds. "Load more" bumps the ref and calls
+  // .utils.refetch() to re-run the same queryFn for a bigger slice, instead
+  // of creating a brand new collection each time: a new collection starts
+  // from an empty local state, so swapping collections on every page would
+  // briefly render zero posts and reset scroll position.
   const feedPostsCollection = React.useMemo(
-    () => createFeedPostsCollection(queryClient, api.posts.table, desiredCount),
-    [queryClient, api.posts.table, desiredCount],
+    () =>
+      createFeedPostsCollection(
+        queryClient,
+        api.posts.table,
+        () => desiredCountRef.current,
+      ),
+    [queryClient, api.posts.table],
   )
 
-  const { data: allPosts, isLoading } = useLiveQuery(
+  const loadMore = React.useCallback(async () => {
+    desiredCountRef.current += 20
+    setDesiredCount(desiredCountRef.current)
+    setLoadingMore(true)
+    try {
+      await feedPostsCollection.utils.refetch()
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [feedPostsCollection])
+
+  const { data: allPosts } = useLiveQuery(
     (q) =>
       q
         .from({ post: feedPostsCollection })
@@ -198,8 +220,8 @@ function FeedList({
       ))}
       <LoadMore
         hasMore={hasMore}
-        loading={isLoading}
-        onLoadMore={() => setDesiredCount((n) => n + 20)}
+        loading={loadingMore}
+        onLoadMore={() => void loadMore()}
       />
     </div>
   )

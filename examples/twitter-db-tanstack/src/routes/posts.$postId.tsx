@@ -90,15 +90,38 @@ function PostThread({
 }) {
   const { api, queryClient } = Route.useRouteContext()
   const [desiredCount, setDesiredCount] = React.useState(20)
+  const desiredCountRef = React.useRef(desiredCount)
+  desiredCountRef.current = desiredCount
+  const [loadingMore, setLoadingMore] = React.useState(false)
 
   const { data: post } = useQuery(api.posts.table.getQuery(postId), queryClient)
 
+  // Stable for the page's lifetime — "load more" bumps desiredCountRef and
+  // refetches in place instead of swapping in a brand new collection, which
+  // would otherwise briefly render zero replies and reset scroll position.
   const repliesCollection = React.useMemo(
     () =>
-      createRepliesCollection(queryClient, api.posts.table, postId, desiredCount),
-    [queryClient, api.posts.table, postId, desiredCount],
+      createRepliesCollection(
+        queryClient,
+        api.posts.table,
+        postId,
+        () => desiredCountRef.current,
+      ),
+    [queryClient, api.posts.table, postId],
   )
-  const { data: replyItems, isLoading } = useLiveQuery(
+
+  const loadMore = React.useCallback(async () => {
+    desiredCountRef.current += 20
+    setDesiredCount(desiredCountRef.current)
+    setLoadingMore(true)
+    try {
+      await repliesCollection.utils.refetch()
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [repliesCollection])
+
+  const { data: replyItems } = useLiveQuery(
     (q) =>
       q
         .from({ post: repliesCollection })
@@ -197,8 +220,8 @@ function PostThread({
         )}
         <LoadMore
           hasMore={hasMore}
-          loading={isLoading}
-          onLoadMore={() => setDesiredCount((n) => n + 20)}
+          loading={loadingMore}
+          onLoadMore={() => void loadMore()}
           label="Load more replies"
         />
       </section>

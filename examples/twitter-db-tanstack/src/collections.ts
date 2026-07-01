@@ -63,11 +63,19 @@ type PostsTable = SyncApi['posts']['table']
 /**
  * Growing-window, cursor-accumulating posts collection shared by the feed
  * and a single thread's replies: walks server pages (each capped at
- * PAGE_SIZE by the server) until `desiredCount` rows are collected or the
- * table runs out. Re-created (new queryKey) each time `desiredCount` grows,
- * so "load more" is just bumping a number — but unlike a naive single
- * list() call with an ever-larger `limit`, this actually walks multiple
- * server-bounded pages instead of being silently clamped at 200 total rows.
+ * PAGE_SIZE by the server) until the current desired count is collected or
+ * the table runs out.
+ *
+ * The collection itself is stable across "load more" clicks — its queryKey
+ * never changes, and `getDesiredCount` is read fresh on every (re)fetch, so
+ * bumping the count and calling `.utils.refetch()` re-runs the same
+ * queryFn for a bigger slice instead of creating a brand new collection.
+ * That matters because a new collection starts from an empty local sync
+ * state: swapping collections on every "load more" briefly renders zero
+ * items while the new one does its first fetch, which collapses the list's
+ * height and resets scroll position. Refetching in place only ever adds
+ * rows (every previously-fetched id is still included in the larger
+ * result), so the already-rendered posts never unmount.
  *
  * Read-only view: mutations (create/update/delete) go through the plain
  * `api.posts.collection` from createSyncApi, not this one.
@@ -75,7 +83,7 @@ type PostsTable = SyncApi['posts']['table']
 function createScopedPostsCollection(
   queryClient: QueryClient,
   table: PostsTable,
-  desiredCount: number,
+  getDesiredCount: () => number,
   config: {
     queryKeySuffix: readonly unknown[]
     order: 'asc' | 'desc'
@@ -84,8 +92,9 @@ function createScopedPostsCollection(
 ) {
   return createCollection(
     queryCollectionOptions<Post>({
-      queryKey: ['posts', ...config.queryKeySuffix, desiredCount],
+      queryKey: ['posts', ...config.queryKeySuffix],
       queryFn: async () => {
+        const desiredCount = getDesiredCount()
         const items: Post[] = []
         let cursor: string | undefined
         while (items.length < desiredCount) {
@@ -117,9 +126,9 @@ function createScopedPostsCollection(
 export function createFeedPostsCollection(
   queryClient: QueryClient,
   table: PostsTable,
-  desiredCount: number,
+  getDesiredCount: () => number,
 ) {
-  return createScopedPostsCollection(queryClient, table, desiredCount, {
+  return createScopedPostsCollection(queryClient, table, getDesiredCount, {
     queryKeySuffix: ['feed'],
     order: 'desc',
     filter: { replyToId: null },
@@ -131,9 +140,9 @@ export function createRepliesCollection(
   queryClient: QueryClient,
   table: PostsTable,
   postId: Post['id'],
-  desiredCount: number,
+  getDesiredCount: () => number,
 ) {
-  return createScopedPostsCollection(queryClient, table, desiredCount, {
+  return createScopedPostsCollection(queryClient, table, getDesiredCount, {
     queryKeySuffix: ['replies', postId],
     order: 'asc',
     filter: { replyToId: postId },
@@ -145,9 +154,9 @@ export function createUserPostsCollection(
   queryClient: QueryClient,
   table: PostsTable,
   userId: Post['userId'],
-  desiredCount: number,
+  getDesiredCount: () => number,
 ) {
-  return createScopedPostsCollection(queryClient, table, desiredCount, {
+  return createScopedPostsCollection(queryClient, table, getDesiredCount, {
     queryKeySuffix: ['byUser', userId],
     order: 'desc',
     filter: { userId },

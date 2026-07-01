@@ -86,18 +86,41 @@ function UserProfile({
 }) {
   const { api, queryClient } = Route.useRouteContext()
   const [desiredCount, setDesiredCount] = React.useState(20)
+  const desiredCountRef = React.useRef(desiredCount)
+  desiredCountRef.current = desiredCount
+  const [loadingMore, setLoadingMore] = React.useState(false)
 
   const { data: profile } = useQuery(
     api.user.table.getQuery(userId),
     queryClient,
   )
 
+  // Stable for the page's lifetime — "load more" bumps desiredCountRef and
+  // refetches in place instead of swapping in a brand new collection, which
+  // would otherwise briefly render zero posts and reset scroll position.
   const userPostsCollection = React.useMemo(
     () =>
-      createUserPostsCollection(queryClient, api.posts.table, userId, desiredCount),
-    [queryClient, api.posts.table, userId, desiredCount],
+      createUserPostsCollection(
+        queryClient,
+        api.posts.table,
+        userId,
+        () => desiredCountRef.current,
+      ),
+    [queryClient, api.posts.table, userId],
   )
-  const { data: postItems, isLoading } = useLiveQuery(
+
+  const loadMore = React.useCallback(async () => {
+    desiredCountRef.current += 20
+    setDesiredCount(desiredCountRef.current)
+    setLoadingMore(true)
+    try {
+      await userPostsCollection.utils.refetch()
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [userPostsCollection])
+
+  const { data: postItems } = useLiveQuery(
     (q) =>
       q
         .from({ post: userPostsCollection })
@@ -199,8 +222,8 @@ function UserProfile({
             ))}
             <LoadMore
               hasMore={hasMore}
-              loading={isLoading}
-              onLoadMore={() => setDesiredCount((n) => n + 20)}
+              loading={loadingMore}
+              onLoadMore={() => void loadMore()}
             />
           </div>
         )}
