@@ -1,0 +1,54 @@
+import { describe, it, expect } from 'bun:test'
+import { QueryClient } from '@tanstack/react-query'
+
+import { createBunderstackSyncClient } from './index'
+
+type Schema = {
+  posts: unknown
+  user: unknown
+}
+
+function fetchMockFactory() {
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.includes('/posts')) {
+      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+    }
+    if (url.includes('/user')) {
+      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+    }
+    throw new Error(`unhandled request: ${url}`)
+  }) as unknown as typeof fetch
+}
+
+describe('createBunderstackSyncClient', () => {
+  it('builds one collection per table and a files surface per bucket', () => {
+    const queryClient = new QueryClient()
+    const api = createBunderstackSyncClient<Schema>().with({
+      queryClient,
+      fetch: fetchMockFactory(),
+      tables: ['posts', 'user'] as const,
+      buckets: ['attachments'] as const,
+      realtime: false,
+    })
+
+    expect(api.posts.collection).toBeDefined()
+    expect(api.user.collection).toBeDefined()
+    expect(api.files.attachments.upload).toBeDefined()
+    expect(api.files.attachments.url).toBeDefined()
+    expect(api.realtime).toBeUndefined()
+  })
+
+  it('exposes a realtime client when realtime is true (default)', () => {
+    const queryClient = new QueryClient()
+    const api = createBunderstackSyncClient<Schema>().with({
+      queryClient,
+      fetch: fetchMockFactory(),
+      tables: ['posts'] as const,
+      buckets: [] as const,
+    })
+
+    expect(api.realtime).toBeDefined()
+    api.realtime!.close()
+  })
+})
