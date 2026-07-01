@@ -36,11 +36,16 @@ export function createTableCollection<
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
         const mutation = transaction.mutations[0]!
-        // `modified` carries the full inserted row (including the client-
-        // assigned `id`), but the create endpoint expects only the
-        // TCreate-shaped payload — the server assigns the id.
-        const { id: _id, ...rest } = mutation.modified as TRow
-        await table.create(rest as unknown as Partial<TCreate>)
+        // Pass the client-generated `id` through as-is. TanStack DB's
+        // optimistic insert keys the local row by this `id` (via `getKey`),
+        // and this matches `sanitizeWriteBody`'s default on the server: a
+        // client-supplied `id` on create is accepted unless the table's
+        // access config sets an explicit `writableColumns` allowlist that
+        // excludes `id`. Apps that DO restrict it that way will see the
+        // server regenerate the id, and the optimistic entry's key will get
+        // swapped once the synced row comes back — a known, narrower
+        // trade-off in that uncommon case, not the default.
+        await table.create(mutation.modified as unknown as Partial<TCreate>)
       },
       onUpdate: async ({ transaction }) => {
         const mutation = transaction.mutations[0]!

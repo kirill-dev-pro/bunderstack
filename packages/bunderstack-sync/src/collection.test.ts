@@ -5,7 +5,13 @@ import { createTableCollection } from './collection'
 
 type Card = { id: string; title: string }
 
-function fetchMockFactory() {
+function fetchMockFactory(options?: {
+  /** Id the mock create endpoint assigns to new rows. Defaults to
+   * 'card_3'. Used to simulate a server that ignores the client-supplied
+   * id (e.g. an app restricting `writableColumns` to exclude `id`). */
+  createdId?: string
+}) {
+  const createdId = options?.createdId ?? 'card_3'
   const db = new Map<string, Card>([
     ['card_1', { id: 'card_1', title: 'A' }],
     ['card_2', { id: 'card_2', title: 'B' }],
@@ -33,7 +39,7 @@ function fetchMockFactory() {
     }
     if (method === 'POST' && url.endsWith('/cards')) {
       const body = JSON.parse(String(init!.body))
-      const created = { id: 'card_3', title: body.title }
+      const created = { id: createdId, title: body.title }
       db.set(created.id, created)
       return new Response(JSON.stringify(created), { status: 200 })
     }
@@ -93,7 +99,34 @@ describe('createTableCollection', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     const createCall = calls.find((c) => c.method === 'POST')
-    expect(createCall?.body).toEqual({ title: 'C' })
+    expect(createCall?.body).toEqual({ id: 'card_3', title: 'C' })
+  })
+
+  it('onInsert still sends the client-generated id even when the server assigns a different one', async () => {
+    // Simulate an app whose access config restricts `writableColumns` to
+    // exclude `id`, so the server ignores the client-supplied id and
+    // assigns its own (`server_generated_id`) on create. This library's
+    // job is only to pass the client's id through in the request payload —
+    // what the server does with it (and how TanStack DB reconciles the
+    // optimistic entry once the synced row comes back under a different
+    // key) is out of scope for this test.
+    const { fetchMock, calls } = fetchMockFactory({
+      createdId: 'server_generated_id',
+    })
+    const queryClient = new QueryClient()
+    const { collection } = createTableCollection<Card, { title: string }>({
+      tableName: 'cards',
+      baseUrl: 'http://x/api',
+      fetch: fetchMock,
+      queryClient,
+    })
+    await collection.stateWhenReady()
+
+    collection.insert({ id: 'card_3', title: 'C' })
+    await new Promise((r) => setTimeout(r, 10))
+
+    const createCall = calls.find((c) => c.method === 'POST')
+    expect(createCall?.body).toEqual({ id: 'card_3', title: 'C' })
   })
 
   it('onDelete calls table.delete with the row key', async () => {
