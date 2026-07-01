@@ -1,4 +1,3 @@
-import { QueryClientProvider } from '@tanstack/react-query'
 import {
   HeadContent,
   Outlet,
@@ -15,7 +14,6 @@ import type { RouterContext } from '~/router'
 import { AppDevtools } from '~/components/AppDevtools'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
-import { OatInit } from '~/components/OatInit'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 import { fetchUser } from '~/utils/session'
@@ -51,24 +49,18 @@ function RootComponent() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const { queryClient } = Route.useRouteContext()
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <ClientOnly>
-          <OatInit />
-        </ClientOnly>
-        <QueryClientProvider client={queryClient}>
-          {children}
-          {import.meta.env.DEV ? (
-            <ClientOnly>
-              <AppDevtools />
-            </ClientOnly>
-          ) : null}
-        </QueryClientProvider>
+        {children}
+        {import.meta.env.DEV ? (
+          <ClientOnly>
+            <AppDevtools />
+          </ClientOnly>
+        ) : null}
         <Scripts />
       </body>
     </html>

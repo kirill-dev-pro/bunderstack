@@ -1,20 +1,19 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
-import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import type { TypeId } from 'bunderstack/typeid'
 
 import {
-  createApi,
+  createSyncApi,
   createQueryClient,
-  type AppApi,
-} from './api-client'
+  type SyncApi,
+} from './collections'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
 import { routeTree } from './routeTree.gen'
 
 export type RouterContext = {
   queryClient: QueryClient
-  api: AppApi
+  api: SyncApi
   user: {
     id: TypeId<'user'>
     email: string
@@ -25,7 +24,7 @@ export type RouterContext = {
 
 export function getRouter() {
   const queryClient = createQueryClient()
-  const api = createApi(queryClient)
+  const api = createSyncApi(queryClient)
 
   const router = createRouter({
     routeTree,
@@ -38,14 +37,6 @@ export function getRouter() {
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,
-  })
-
-  setupRouterSsrQueryIntegration({
-    router,
-    queryClient,
-    // QueryClientProvider is wired explicitly in __root.tsx so it's visible
-    // there instead of being injected implicitly via router.options.Wrap.
-    wrapQueryClient: false,
   })
 
   return router
