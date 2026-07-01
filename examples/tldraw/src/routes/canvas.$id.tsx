@@ -1,3 +1,5 @@
+import type { TypeId } from 'bunderstack/typeid'
+
 import { useLiveQuery, eq } from '@tanstack/react-db'
 import {
   ClientOnly,
@@ -5,11 +7,11 @@ import {
   createFileRoute,
   redirect,
 } from '@tanstack/react-router'
-import type { TypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 import { toast } from 'sonner'
 
 import { createClientTypeId, shapeListParams } from '~/utils/canvas-data'
+import { fetchCanvas } from '~/utils/canvas-loader'
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed'] as const
 
@@ -20,6 +22,12 @@ function clamp(value: number, min: number, max: number) {
 export const Route = createFileRoute('/canvas/$id')({
   beforeLoad: ({ context }) => {
     if (!context.user) throw redirect({ to: '/login' })
+  },
+  loader: async ({ params }) => {
+    const canvas = await fetchCanvas({ data: params.id })
+    if (!canvas) throw redirect({ to: '/canvas' })
+
+    return { canvas }
   },
   component: RouteComponent,
 })
@@ -40,6 +48,7 @@ function RouteComponent() {
 
 function WhiteboardClient() {
   const { id } = Route.useParams()
+  const { canvas } = Route.useLoaderData()
   const { api, user } = Route.useRouteContext()
   const boardRef = React.useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = React.useState({ x: 180, y: 120, scale: 1 })
@@ -63,33 +72,16 @@ function WhiteboardClient() {
   const params = React.useMemo(() => shapeListParams(id), [id])
 
   React.useEffect(() => {
-    void api.realtime?.subscribe(['canvas', 'shape'])
-    void Promise.all([
-      api.canvas.table.get(id).then((canvas) => {
-        api.canvas.collection.utils.writeUpsert(canvas)
-      }),
-      api.shape.table.list(params).then((page) => {
+    void api.realtime?.subscribe(['shape'])
+    void api.shape.table
+      .list(params)
+      .then((page) => {
         for (const shape of page.items) {
           api.shape.collection.utils.writeUpsert(shape)
         }
-      }),
-    ]).catch((error: Error) => toast.error(error.message))
-  }, [
-    api.canvas.collection.utils,
-    api.canvas.table,
-    api.realtime,
-    api.shape.collection.utils,
-    api.shape.table,
-    id,
-    params,
-  ])
-
-  const { data: canvases = [] } = useLiveQuery((query) =>
-    query
-      .from({ canvas: api.canvas.collection })
-      .where(({ canvas }) => eq(canvas.id, id))
-      .select(({ canvas }) => canvas),
-  )
+      })
+      .catch((error: Error) => toast.error(error.message))
+  }, [api.realtime, api.shape.collection.utils, api.shape.table, params])
 
   const { data: shapes = [] } = useLiveQuery((query) =>
     query
@@ -99,8 +91,6 @@ function WhiteboardClient() {
       .limit(params.limit)
       .select(({ shape }) => shape),
   )
-
-  const canvas = canvases[0]
 
   const screenToWorld = React.useCallback(
     (clientX: number, clientY: number) => {
@@ -331,8 +321,8 @@ function WhiteboardClient() {
             <div className="rounded-3xl border bg-white/90 p-6 text-center shadow-xl">
               <h2 className="text-xl font-black">Start anywhere</h2>
               <p className="mt-1 max-w-xs text-sm text-slate-500">
-                Double-click the whiteboard or use Add shape to create the
-                first object.
+                Double-click the whiteboard or use Add shape to create the first
+                object.
               </p>
             </div>
           </div>

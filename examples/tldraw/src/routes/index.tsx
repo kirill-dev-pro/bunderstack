@@ -9,6 +9,9 @@ function Home() {
   const primaryCta = user
     ? ({ to: '/canvas', label: 'Open your canvases' } as const)
     : ({ to: '/login', label: 'Start drawing' } as const)
+  const secondaryCta = user
+    ? ({ to: '/canvas', label: 'View boards' } as const)
+    : ({ to: '/login', label: 'Sign in to view boards' } as const)
 
   return (
     <div className="relative isolate overflow-hidden bg-slate-950 text-white">
@@ -37,10 +40,10 @@ function Home() {
               {primaryCta.label}
             </Link>
             <Link
-              to="/canvas"
+              to={secondaryCta.to}
               className="rounded-full border border-white/20 px-6 py-3 font-bold text-white transition hover:-translate-y-0.5 hover:bg-white/10"
             >
-              View boards
+              {secondaryCta.label}
             </Link>
           </div>
 
