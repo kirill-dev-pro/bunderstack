@@ -42,11 +42,12 @@ Add `export * from 'bunderstack/schema'` to your `schema.ts` so migrations inclu
 
 Use separate terminals — each binds a different port.
 
-| Example                  | Command                        | URL                   |
-| ------------------------ | ------------------------------ | --------------------- |
-| Twitter (TanStack Start) | `bun run dev:twitter-tanstack` | http://localhost:3000 |
-| Kanban (Solid + Vite)    | `bun run dev:kanban`           | http://localhost:5174 |
-| Kanban (TanStack Start)  | `bun run dev:kanban-tanstack`  | http://localhost:5175 |
+| Example                        | Command                           | URL                   |
+| ------------------------------ | ---------------------------------- | --------------------- |
+| Twitter (TanStack Start)       | `bun run dev:twitter-tanstack`    | http://localhost:3000 |
+| Twitter (TanStack DB + shadcn) | `bun run dev:twitter-db-tanstack` | http://localhost:3003 |
+| Kanban (Solid + Vite)          | `bun run dev:kanban`              | http://localhost:5174 |
+| Kanban (TanStack Start)        | `bun run dev:kanban-tanstack`     | http://localhost:5175 |
 
 ### Standalone
 
