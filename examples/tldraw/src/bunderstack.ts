@@ -34,3 +34,6 @@ export const app = createBunderstack({
   },
   realtime: true,
 })
+
+/** Type-only handle for client inference (`bunderstackStart<App>()`). */
+export type App = typeof app

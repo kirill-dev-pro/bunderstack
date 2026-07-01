@@ -10,7 +10,6 @@ import {
 import * as React from 'react'
 import { toast } from 'sonner'
 
-import { filesApi } from '~/api-client'
 import {
   SHAPE_TOOLS,
   createClientTypeId,
@@ -183,7 +182,7 @@ function WhiteboardClient() {
 
     setUploadingImage(true)
     try {
-      const uploaded = await filesApi.files.images.upload(file)
+      const uploaded = await api.files.images.upload(file)
       addShapeAt(point.x, point.y, 'image', {
         imageFileId: uploaded.fileId,
         imageName: uploaded.name,
@@ -478,6 +477,8 @@ function ShapeContents({
   }
   type: ShapeType
 }) {
+  const { api } = Route.useRouteContext()
+
   if (type === 'image') {
     if (!shape.imageFileId) {
       return (
@@ -489,7 +490,7 @@ function ShapeContents({
 
     return (
       <img
-        src={filesApi.files.images.url(shape.imageFileId, {
+        src={api.files.images.url(shape.imageFileId, {
           w: 640,
           format: 'webp',
         })}

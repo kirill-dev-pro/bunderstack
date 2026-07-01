@@ -79,6 +79,7 @@
         "better-auth": "^1.6.23",
         "bunderstack": "workspace:*",
         "bunderstack-query": "workspace:*",
+        "bunderstack-start": "workspace:*",
         "bunderstack-sync": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "react": "^19.0.0",
