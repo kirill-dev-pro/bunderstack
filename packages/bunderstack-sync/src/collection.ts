@@ -63,3 +63,9 @@ export function createTableCollection<
 
   return { collection, table: table as TableClient<TRow, TCreate, TUpdate> }
 }
+
+export type TableCollection<
+  TRow extends { id: string | number },
+  TCreate = Partial<TRow>,
+  TUpdate = Partial<TRow>,
+> = ReturnType<typeof createTableCollection<TRow, TCreate, TUpdate>>

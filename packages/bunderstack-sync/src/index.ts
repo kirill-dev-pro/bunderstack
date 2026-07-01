@@ -8,13 +8,40 @@ import {
   type UploadedFile,
 } from 'bunderstack-query'
 
-import { createTableCollection } from './collection'
+import { createTableCollection, type TableCollection } from './collection'
 import { createSyncRealtimeClient } from './realtime-sync'
 
 type BaseOptions = {
   baseUrl?: string
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   queryClient: QueryClient
+}
+
+type RowFor<
+  TSchema extends Record<string, unknown>,
+  K extends keyof TSchema,
+> = [InferSelect<TSchema[K]>] extends [never]
+  ? { id: string | number }
+  : InferSelect<TSchema[K]> extends { id: string | number }
+  ? InferSelect<TSchema[K]>
+  : { id: string | number }
+
+type CreateFor<
+  TSchema extends Record<string, unknown>,
+  K extends keyof TSchema,
+> = [InferInsert<TSchema[K]>] extends [never]
+  ? Partial<RowFor<TSchema, K>>
+  : InferInsert<TSchema[K]>
+
+type SyncTablesClient<
+  TSchema extends Record<string, unknown>,
+  TTable extends keyof TSchema & string,
+> = {
+  [K in TTable]: TableCollection<
+    RowFor<TSchema, K>,
+    CreateFor<TSchema, K>,
+    Partial<RowFor<TSchema, K>>
+  >
 }
 
 export function createBunderstackSyncClient<
@@ -88,9 +115,8 @@ export function createBunderstackSyncClient<
         ...tablesClient,
         ...filesClient,
         realtime,
-      } as unknown as {
-        [K in TTables[number]]: ReturnType<typeof createTableCollection>
-      } & FilesQueryClient<TBuckets[number]> & {
+      } as unknown as SyncTablesClient<TSchema, TTables[number]> &
+        FilesQueryClient<TBuckets[number]> & {
           realtime: typeof realtime
         }
     },
@@ -98,7 +124,7 @@ export function createBunderstackSyncClient<
 }
 
 export { createTableCollection } from './collection'
-export type { TableCollectionConfig } from './collection'
+export type { TableCollection, TableCollectionConfig } from './collection'
 export { createSyncRealtimeClient } from './realtime-sync'
 export type { SyncRealtimeConfig } from './realtime-sync'
 
