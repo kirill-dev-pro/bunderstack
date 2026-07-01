@@ -2,6 +2,12 @@ import type { ListParams, Paginated } from './types'
 
 import { BunderstackApiError } from './errors'
 
+/**
+ * Server-side cap on any single list request — mirrors MAX_LIST_LIMIT in
+ * packages/bunderstack/src/list-query.ts (parity enforced by test).
+ */
+export const MAX_LIST_LIMIT = 200
+
 const RESERVED_LIST_PARAMS = new Set([
   'limit',
   'offset',

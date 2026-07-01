@@ -202,6 +202,17 @@ export function createBunderstackQueryClient<
   }
 }
 
+export { createClient, lazyRecord } from './lazy-client'
+export type { BunderstackClient, ClientOptions } from './lazy-client'
+export { MAX_LIST_LIMIT } from './table-client'
+export type {
+  AnyBunderstackApp,
+  ClientCarrier,
+  ExposedTables,
+  InferBuckets,
+  InferSchema,
+  InferTables,
+} from './infer'
 export { BunderstackApiError } from './errors'
 export type {
   BunderstackQueryClient,
