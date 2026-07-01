@@ -1,16 +1,34 @@
-import type { InferSelect } from 'bunderstack-query'
-
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
+import type { InferSelect } from 'bunderstack-sync'
 
 import type { user } from '~/schema'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '~/components/ui/alert-dialog'
+import { Button } from '~/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '~/components/ui/dialog'
 import { PostImagePreview } from '~/components/ImageLightbox'
 import { PostActions } from '~/components/PostActions'
 import { PostTime } from '~/components/PostTime'
 import { UserAvatar } from '~/components/UserAvatar'
-import { useToastMutation } from '~/hooks/useToastMutation'
-import { closeDialog, showDialog, toast } from '~/utils/oat'
+import { toast } from '~/lib/toast'
 import {
   countReplies,
   handleFromEmail,
@@ -45,7 +63,9 @@ export function PostCard({
 }: PostCardProps) {
   const { api } = useRouteContext({ from: '__root__' })
   const [editBody, setEditBody] = React.useState(post.body)
-  const editDialogRef = React.useRef<HTMLDialogElement>(null)
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   const replyCount = countReplies(post.id, allPosts)
   const isOwner = currentUserId === post.userId
@@ -56,55 +76,64 @@ export function PostCard({
     : undefined
   const parentAuthor = parentPost ? authorMap.get(parentPost.userId) : undefined
 
-  const updateMutation = useToastMutation(
-    api.posts.updateMutation({
-      onSuccess: () => {
-        closeDialog(editDialogRef.current)
-        toast.success('Post updated')
-      },
-      onError: () => {
-        toast.error('Could not update post')
-      },
-    }),
-  )
+  async function handleSave() {
+    const body = editBody.trim()
+    if (!body) return
+    setSaving(true)
+    try {
+      const tx = api.posts.collection.update(post.id, (draft) => {
+        draft.body = body
+        draft.title = body.slice(0, 80) || 'Post'
+      })
+      await tx.isPersisted.promise
+      toast.success('Post updated')
+      setEditOpen(false)
+    } catch {
+      toast.error('Could not update post')
+    } finally {
+      setSaving(false)
+    }
+  }
 
-  const deleteMutation = useToastMutation(
-    api.posts.deleteMutation({
-      onSuccess: () => {
-        toast.success('Post deleted')
-      },
-      onError: () => {
-        toast.error('Could not delete post')
-      },
-    }),
-  )
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      const tx = api.posts.collection.delete(post.id)
+      await tx.isPersisted.promise
+      toast.success('Post deleted')
+    } catch {
+      toast.error('Could not delete post')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const content = (
     <>
-      <header className="post-x-header">
-        <div className="post-x-meta">
+      <header className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1 text-sm">
           {author ? (
             <>
               <Link
                 to="/users/$userId"
                 params={{ userId: author.id }}
-                className="post-x-name"
+                className="font-semibold hover:underline"
               >
                 {author.name}
               </Link>
-              <span className="post-x-handle">@{handle}</span>
+              <span className="text-muted-foreground">@{handle}</span>
             </>
           ) : (
-            <span className="post-x-name">Unknown</span>
+            <span className="font-semibold">Unknown</span>
           )}
-          <span className="post-x-dot" aria-hidden>
+          <span className="text-muted-foreground" aria-hidden>
             ·
           </span>
           {variant === 'feed' || variant === 'reply' ? (
             <Link
               to="/posts/$postId"
               params={{ postId: String(post.id) }}
-              className="post-x-time-link"
+              className="hover:underline"
             >
               <PostTime value={post.createdAt} />
             </Link>
@@ -114,47 +143,103 @@ export function PostCard({
         </div>
 
         {isOwner ? (
-          <div className="post-x-owner-actions">
-            <button
-              type="button"
-              className="outline small"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setEditBody(post.body)
-                showDialog(editDialogRef.current)
-              }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="outline small"
-              data-variant="danger"
-              disabled={deleteMutation.isPending}
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                if (confirm('Delete this post?')) deleteMutation.mutate(post.id)
-              }}
-            >
-              Delete
-            </button>
+          <div className="relative z-10 flex shrink-0 items-center gap-2">
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setEditBody(post.body)
+                  }}
+                >
+                  Edit
+                </Button>
+              </DialogTrigger>
+              <DialogContent onClick={(e) => e.stopPropagation()}>
+                <DialogHeader>
+                  <DialogTitle>Edit post</DialogTitle>
+                </DialogHeader>
+                <textarea
+                  className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+                  rows={4}
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  required
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void handleSave()}
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                >
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleting}
+                    onClick={() => void handleDelete()}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         ) : null}
       </header>
 
       {post.replyToId && parentAuthor ? (
-        <p className="post-x-replying">
+        <p className="text-muted-foreground text-sm">
           Replying to{' '}
-          <Link to="/users/$userId" params={{ userId: parentAuthor.id }}>
+          <Link
+            to="/users/$userId"
+            params={{ userId: parentAuthor.id }}
+            className="relative z-10 hover:underline"
+          >
             @{handleFromEmail(parentAuthor.email)}
           </Link>
         </p>
       ) : null}
 
-      <div className="post-x-body">
-        <p>{post.body}</p>
+      <div className="space-y-2">
+        <p className="whitespace-pre-wrap">{post.body}</p>
         {post.imageUrl ? (
           <PostImagePreview imageUrl={post.imageUrl} alt="Post attachment" />
         ) : null}
@@ -172,79 +257,35 @@ export function PostCard({
 
   return (
     <article
-      className={`post-x${variant === 'reply' ? ' post-x--reply' : ''}${variant === 'detail' ? ' post-x--detail' : ''}`}
+      className={`relative flex gap-3 border-b p-4 ${variant === 'reply' ? 'pl-8' : ''} ${variant === 'detail' ? 'border-b-0' : ''}`}
     >
       {author ? (
         <Link
           to="/users/$userId"
           params={{ userId: author.id }}
-          className="post-x-avatar"
+          className="relative z-10 shrink-0"
           aria-label={author.name}
         >
           <UserAvatar name={author.name} image={author.image} size={40} />
         </Link>
       ) : (
-        <div className="post-x-avatar">
+        <div className="shrink-0">
           <UserAvatar name="?" size={40} />
         </div>
       )}
 
-      <div className="post-x-content">
+      <div className="relative min-w-0 flex-1 space-y-2">
         {variant === 'feed' ? (
           <Link
             to="/posts/$postId"
             params={{ postId: String(post.id) }}
-            className="post-x-stretch-link"
+            className="absolute inset-0"
           >
             <span className="sr-only">View post</span>
           </Link>
         ) : null}
         {content}
       </div>
-
-      <dialog ref={editDialogRef} closedby="any">
-        <form
-          method="dialog"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (!editBody.trim()) return
-            updateMutation.mutate({
-              id: post.id,
-              data: {
-                body: editBody.trim(),
-                title: editBody.trim().slice(0, 80) || 'Post',
-              },
-            })
-          }}
-        >
-          <header>
-            <h3>Edit post</h3>
-          </header>
-          <div className="vstack">
-            <label>
-              Content
-              <textarea
-                rows={4}
-                value={editBody}
-                onChange={(e) => setEditBody(e.target.value)}
-                required
-              />
-            </label>
-          </div>
-          <footer>
-            <button
-              type="button"
-              className="outline"
-              onClick={() => closeDialog(editDialogRef.current)}
-            >
-              Cancel
-            </button>
-            <button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving…' : 'Save'}
-            </button>
-          </footer>
-        </form>
-      </dialog>
     </article>
   )
 }
