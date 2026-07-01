@@ -115,7 +115,21 @@ describe('createBunderstackSyncClient', () => {
     expect(typecheck).toBeFunction()
   })
 
-  it('exposes a realtime client when realtime is true (default)', () => {
+  it('exposes a realtime client when realtime is true', () => {
+    const queryClient = new QueryClient()
+    const api = createBunderstackSyncClient<Schema>().with({
+      queryClient,
+      fetch: fetchMockFactory(),
+      tables: ['posts'] as const,
+      buckets: [] as const,
+      realtime: true,
+    })
+
+    expect(api.realtime).toBeDefined()
+    api.realtime!.close()
+  })
+
+  it('disables realtime by default outside the browser (SSR)', () => {
     const queryClient = new QueryClient()
     const api = createBunderstackSyncClient<Schema>().with({
       queryClient,
@@ -124,8 +138,7 @@ describe('createBunderstackSyncClient', () => {
       buckets: [] as const,
     })
 
-    expect(api.realtime).toBeDefined()
-    api.realtime!.close()
+    expect(api.realtime).toBeUndefined() // bun test has no `window`
   })
 })
 

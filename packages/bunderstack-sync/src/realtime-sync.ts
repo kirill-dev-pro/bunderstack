@@ -9,16 +9,31 @@ type SyncableCollection = {
   }
 }
 
+/** A table bundle the resolver mode routes events into (see collection.ts). */
+export type SyncRealtimeTarget = {
+  applyRealtimeEvent: (
+    action: 'create' | 'update' | 'delete',
+    record: Record<string, unknown>,
+  ) => void
+  refetchAll: () => Promise<void>
+}
+
 export type SyncRealtimeConfig = {
   baseUrl: string
   queryClient: QueryClient
   fetch?: typeof fetch
-  /** Map of table name -> the collection that table's rows sync into. */
-  collections: Record<string, SyncableCollection>
+  /** Static map of table name -> the collection that table's rows sync into. */
+  collections?: Record<string, SyncableCollection>
+  /** Lazy lookup: resolve a table's target at event time (proxy clients that
+   * can't enumerate tables upfront). Takes precedence over `collections`. */
+  resolve?: (table: string) => SyncRealtimeTarget | undefined
+  /** All materialized targets — used for gap recovery in resolver mode. */
+  resolveAll?: () => Iterable<SyncRealtimeTarget>
 }
 
 export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
-  const tables = Object.keys(config.collections)
+  const staticCollections = config.collections ?? {}
+  const tables = Object.keys(staticCollections)
 
   return createRealtimeClient({
     baseUrl: config.baseUrl,
@@ -26,7 +41,11 @@ export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
     tables,
     fetch: config.fetch,
     applyEvent: (evt: RealtimeEvent) => {
-      const collection = config.collections[evt.table]
+      if (config.resolve) {
+        config.resolve(evt.table)?.applyRealtimeEvent(evt.action, evt.record)
+        return
+      }
+      const collection = staticCollections[evt.table]
       if (!collection) return
       if (evt.action === 'delete') {
         collection.utils.writeDelete(evt.record['id'])
@@ -35,7 +54,15 @@ export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
       }
     },
     onGap: () => {
-      for (const collection of Object.values(config.collections)) {
+      if (config.resolveAll) {
+        for (const target of config.resolveAll()) {
+          target.refetchAll().catch((err) => {
+            console.error('bunderstack-sync: gap-recovery refetch failed', err)
+          })
+        }
+        return
+      }
+      for (const collection of Object.values(staticCollections)) {
         collection.utils.refetch().catch((err) => {
           console.error('bunderstack-sync: gap-recovery refetch failed', err)
         })

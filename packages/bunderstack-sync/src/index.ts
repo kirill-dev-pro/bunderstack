@@ -10,28 +10,13 @@ import {
 
 import { createTableCollection, type TableCollection } from './collection'
 import { createSyncRealtimeClient } from './realtime-sync'
+import type { CreateFor, RowFor } from './sync-client'
 
 type BaseOptions = {
   baseUrl?: string
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   queryClient: QueryClient
 }
-
-type RowFor<
-  TSchema extends Record<string, unknown>,
-  K extends keyof TSchema,
-> = [InferSelect<TSchema[K]>] extends [never]
-  ? { id: string | number }
-  : InferSelect<TSchema[K]> extends { id: string | number }
-  ? InferSelect<TSchema[K]>
-  : { id: string | number }
-
-type CreateFor<
-  TSchema extends Record<string, unknown>,
-  K extends keyof TSchema,
-> = [InferInsert<TSchema[K]>] extends [never]
-  ? Partial<RowFor<TSchema, K>>
-  : InferInsert<TSchema[K]>
 
 type SyncTablesClient<
   TSchema extends Record<string, unknown>,
@@ -55,7 +40,8 @@ export function createBunderstackSyncClient<
       options: BaseOptions & {
         tables: TTables
         buckets: TBuckets
-        /** Subscribe these tables to live SSE updates. Defaults to true. */
+        /** Subscribe these tables to live SSE updates. Defaults to true in
+         * the browser, false during SSR. */
         realtime?: boolean
       },
     ) {
@@ -83,8 +69,9 @@ export function createBunderstackSyncClient<
           queryClient: options.queryClient,
         })
 
+      // Realtime needs a browser-side persistent connection; default off in SSR.
       const realtime =
-        options.realtime === false
+        !(options.realtime ?? typeof window !== 'undefined')
           ? undefined
           : createSyncRealtimeClient({
               baseUrl,
@@ -105,9 +92,8 @@ export function createBunderstackSyncClient<
                   k,
                   v.collection,
                 ]),
-              ) as unknown as Record<
-                string,
-                Parameters<typeof createSyncRealtimeClient>[0]['collections'][string]
+              ) as unknown as NonNullable<
+                Parameters<typeof createSyncRealtimeClient>[0]['collections']
               >,
             })
 
@@ -123,11 +109,31 @@ export function createBunderstackSyncClient<
   }
 }
 
+export { createSyncClient } from './sync-client'
+export type {
+  BunderstackSyncClient,
+  CreateFor,
+  RowFor,
+  SyncClientOptions,
+} from './sync-client'
 export { createTableCollection } from './collection'
-export type { TableCollection, TableCollectionConfig } from './collection'
+export type {
+  ScopedCollectionOptions,
+  ScopedFilterValue,
+  TableCollection,
+  TableCollectionConfig,
+} from './collection'
 export { createSyncRealtimeClient } from './realtime-sync'
-export type { SyncRealtimeConfig } from './realtime-sync'
+export type { SyncRealtimeConfig, SyncRealtimeTarget } from './realtime-sync'
 
 // Re-export bunderstack-query types and utilities for convenience
-export { BunderstackApiError } from 'bunderstack-query'
-export type { InferSelect, InferInsert, UploadedFile } from 'bunderstack-query'
+export { BunderstackApiError, MAX_LIST_LIMIT } from 'bunderstack-query'
+export type {
+  AnyBunderstackApp,
+  InferBuckets,
+  InferInsert,
+  InferSchema,
+  InferSelect,
+  InferTables,
+  UploadedFile,
+} from 'bunderstack-query'
