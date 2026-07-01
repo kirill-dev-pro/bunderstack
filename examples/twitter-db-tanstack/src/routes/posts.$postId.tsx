@@ -12,7 +12,7 @@ import * as React from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 import { ArrowLeft } from 'lucide-react'
 
-import { createRepliesCollection } from '~/collections'
+import { createRepliesCollection, createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -105,8 +105,28 @@ function PostThread({
         .orderBy(({ post }) => post.createdAt, 'asc'),
     [repliesCollection],
   )
-  const { data: users } = useLiveQuery((q) =>
-    q.from({ user: api.user.collection }),
+
+  const replies = replyItems ?? []
+  const allPosts = React.useMemo(
+    () => (post ? [post, ...replies] : replies),
+    [post, replies],
+  )
+
+  // Scoped to exactly the root post's + replies' authors — not the whole
+  // user table, which is capped at the default sync limit and would show
+  // "Unknown" for any author outside that window once there are more than
+  // ~100 users.
+  const authorIds = React.useMemo(
+    () => Array.from(new Set(allPosts.map((p) => p.userId))).sort(),
+    [allPosts],
+  )
+  const usersByIdCollection = React.useMemo(
+    () => createUsersByIdCollection(queryClient, api.user.table, authorIds),
+    [queryClient, api.user.table, authorIds],
+  )
+  const { data: users } = useLiveQuery(
+    (q) => q.from({ user: usersByIdCollection }),
+    [usersByIdCollection],
   )
   const { data: likes } = useLiveQuery((q) =>
     q.from({ like: api.likes.collection }),
@@ -115,11 +135,6 @@ function PostThread({
     q.from({ retweet: api.retweets.collection }),
   )
 
-  const replies = replyItems ?? []
-  const allPosts = React.useMemo(
-    () => (post ? [post, ...replies] : replies),
-    [post, replies],
-  )
   const authorMap = React.useMemo(
     () => new Map((users ?? []).map((u) => [u.id, u])),
     [users],

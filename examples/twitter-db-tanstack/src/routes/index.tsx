@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ClientOnly, Link, createFileRoute } from '@tanstack/react-router'
 import { useLiveQuery, eq } from '@tanstack/react-db'
 
-import { createFeedPostsCollection } from '~/collections'
+import { createFeedPostsCollection, createUsersByIdCollection } from '~/collections'
 import { AppShell } from '~/components/AppShell'
 import {
   ComposePostDialog,
@@ -111,8 +111,23 @@ function FeedList({
         .orderBy(({ post }) => post.createdAt, 'desc'),
     [feedPostsCollection],
   )
-  const { data: users } = useLiveQuery((q) =>
-    q.from({ user: api.user.collection }),
+
+  const posts = allPosts ?? []
+
+  // Scoped to exactly this page's post authors — not the whole user table,
+  // which is capped at the default sync limit and would show "Unknown" for
+  // any author outside that window once there are more than ~100 users.
+  const authorIds = React.useMemo(
+    () => Array.from(new Set(posts.map((p) => p.userId))).sort(),
+    [posts],
+  )
+  const usersByIdCollection = React.useMemo(
+    () => createUsersByIdCollection(queryClient, api.user.table, authorIds),
+    [queryClient, api.user.table, authorIds],
+  )
+  const { data: users } = useLiveQuery(
+    (q) => q.from({ user: usersByIdCollection }),
+    [usersByIdCollection],
   )
   const { data: likes } = useLiveQuery((q) =>
     q.from({ like: api.likes.collection }),
@@ -123,8 +138,6 @@ function FeedList({
   const { data: follows } = useLiveQuery((q) =>
     q.from({ follow: api.follows.collection }),
   )
-
-  const posts = allPosts ?? []
 
   const authorMap = React.useMemo(
     () => new Map((users ?? []).map((u) => [u.id, u])),

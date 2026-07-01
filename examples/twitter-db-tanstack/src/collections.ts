@@ -6,9 +6,10 @@ import { createIsomorphicFn } from '@tanstack/react-start'
 
 import type * as schema from './schema'
 import type { InferSelect } from 'bunderstack-sync'
-import type { posts } from './schema'
+import type { posts, user } from './schema'
 
 type Post = InferSelect<typeof posts>
+type User = InferSelect<typeof user>
 
 /**
  * Rows per underlying HTTP request. The server hard-caps every list() call
@@ -151,4 +152,43 @@ export function createUserPostsCollection(
     order: 'desc',
     filter: { userId },
   })
+}
+
+type UserTable = SyncApi['user']['table']
+
+/**
+ * Users scoped to exactly a given set of ids, via the server's `?id=a,b,c`
+ * IN-filter (chunked at PAGE_SIZE, matching the server's own per-request
+ * cap). The general `api.user.collection` only syncs the default 100 rows —
+ * fine for a "some users" sample, but resolving a specific set of post
+ * authors against it silently drops (shows "Unknown" for) anyone outside
+ * that window once the user table is larger than ~100 rows. `ids` should be
+ * deduped by the caller so the queryKey stays stable across renders that
+ * don't actually introduce a new author.
+ */
+export function createUsersByIdCollection(
+  queryClient: QueryClient,
+  table: UserTable,
+  ids: readonly Post['userId'][],
+) {
+  return createCollection(
+    queryCollectionOptions<User>({
+      queryKey: ['user', 'byId', ids],
+      queryFn: async () => {
+        if (ids.length === 0) return []
+        const items: User[] = []
+        for (let i = 0; i < ids.length; i += PAGE_SIZE) {
+          const chunk = ids.slice(i, i + PAGE_SIZE)
+          const page = await table.list({
+            id: chunk.join(','),
+            limit: chunk.length,
+          })
+          items.push(...(page.items as User[]))
+        }
+        return items
+      },
+      queryClient,
+      getKey: (item) => item.id,
+    }),
+  )
 }
