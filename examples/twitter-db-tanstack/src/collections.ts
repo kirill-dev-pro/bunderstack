@@ -60,25 +60,30 @@ export type SyncApi = ReturnType<typeof createSyncApi>
 type PostsTable = SyncApi['posts']['table']
 
 /**
- * Growing-window feed collection: fetches root-level posts newest-first,
- * accumulating server pages (each capped at PAGE_SIZE by the server) via
- * cursor pagination until `desiredCount` rows are collected or the table
- * runs out. Re-created (new queryKey) each time `desiredCount` grows, so
- * "load more" is just bumping a number — but unlike a naive single list()
- * call with an ever-larger `limit`, this actually walks multiple
+ * Growing-window, cursor-accumulating posts collection shared by the feed
+ * and a single thread's replies: walks server pages (each capped at
+ * PAGE_SIZE by the server) until `desiredCount` rows are collected or the
+ * table runs out. Re-created (new queryKey) each time `desiredCount` grows,
+ * so "load more" is just bumping a number — but unlike a naive single
+ * list() call with an ever-larger `limit`, this actually walks multiple
  * server-bounded pages instead of being silently clamped at 200 total rows.
  *
  * Read-only view: mutations (create/update/delete) go through the plain
  * `api.posts.collection` from createSyncApi, not this one.
  */
-export function createFeedPostsCollection(
+function createScopedPostsCollection(
   queryClient: QueryClient,
   table: PostsTable,
   desiredCount: number,
+  config: {
+    queryKeySuffix: readonly unknown[]
+    order: 'asc' | 'desc'
+    filter: Record<string, unknown>
+  },
 ) {
   return createCollection(
     queryCollectionOptions<Post>({
-      queryKey: ['posts', 'feed', desiredCount],
+      queryKey: ['posts', ...config.queryKeySuffix, desiredCount],
       queryFn: async () => {
         const items: Post[] = []
         let cursor: string | undefined
@@ -88,9 +93,9 @@ export function createFeedPostsCollection(
           // because a later page might need more.
           const remaining = Math.min(PAGE_SIZE, desiredCount - items.length)
           const page = await table.list({
-            replyToId: null,
+            ...config.filter,
             sort: 'createdAt',
-            order: 'desc',
+            order: config.order,
             cursorMode: true,
             limit: remaining,
             ...(cursor ? { cursor } : {}),
@@ -105,4 +110,31 @@ export function createFeedPostsCollection(
       getKey: (item) => item.id,
     }),
   )
+}
+
+/** Root-level posts, newest-first — the home feed. */
+export function createFeedPostsCollection(
+  queryClient: QueryClient,
+  table: PostsTable,
+  desiredCount: number,
+) {
+  return createScopedPostsCollection(queryClient, table, desiredCount, {
+    queryKeySuffix: ['feed'],
+    order: 'desc',
+    filter: { replyToId: null },
+  })
+}
+
+/** Replies to a single post, oldest-first — a thread page. */
+export function createRepliesCollection(
+  queryClient: QueryClient,
+  table: PostsTable,
+  postId: Post['id'],
+  desiredCount: number,
+) {
+  return createScopedPostsCollection(queryClient, table, desiredCount, {
+    queryKeySuffix: ['replies', postId],
+    order: 'asc',
+    filter: { replyToId: postId },
+  })
 }
