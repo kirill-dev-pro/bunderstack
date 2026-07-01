@@ -108,6 +108,9 @@ export const shape = sqliteTable('shape', {
   height: integer('height').notNull(),
   rotation: integer('rotation').notNull(),
   color: text('color').notNull(),
+  text: text('text'),
+  imageFileId: text('imageFileId'),
+  imageName: text('imageName'),
 
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()

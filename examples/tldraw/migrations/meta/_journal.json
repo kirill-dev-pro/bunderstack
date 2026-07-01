@@ -22,6 +22,13 @@
       "when": 1782899316417,
       "tag": "0002_unusual_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782904351891,
+      "tag": "0003_new_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

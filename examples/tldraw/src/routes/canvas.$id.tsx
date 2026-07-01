@@ -10,7 +10,14 @@ import {
 import * as React from 'react'
 import { toast } from 'sonner'
 
-import { createClientTypeId, shapeListParams } from '~/utils/canvas-data'
+import { filesApi } from '~/api-client'
+import {
+  SHAPE_TOOLS,
+  createClientTypeId,
+  createShapeDraft,
+  shapeListParams,
+  type ShapeType,
+} from '~/utils/canvas-data'
 import { fetchCanvas } from '~/utils/canvas-loader'
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed'] as const
@@ -51,7 +58,13 @@ function WhiteboardClient() {
   const { canvas } = Route.useLoaderData()
   const { api, user } = Route.useRouteContext()
   const boardRef = React.useRef<HTMLDivElement>(null)
+  const imageInputRef = React.useRef<HTMLInputElement>(null)
+  const pendingImagePointRef = React.useRef<{ x: number; y: number } | null>(
+    null,
+  )
   const [viewport, setViewport] = React.useState({ x: 180, y: 120, scale: 1 })
+  const [activeTool, setActiveTool] = React.useState<ShapeType>('rectangle')
+  const [uploadingImage, setUploadingImage] = React.useState(false)
   const [pan, setPan] = React.useState<{
     pointerId: number
     startX: number
@@ -106,7 +119,16 @@ function WhiteboardClient() {
   )
 
   const addShapeAt = React.useCallback(
-    (clientX: number, clientY: number) => {
+    (
+      clientX: number,
+      clientY: number,
+      type: ShapeType = activeTool,
+      options: {
+        text?: string
+        imageFileId?: string
+        imageName?: string
+      } = {},
+    ) => {
       if (!canvas) {
         toast.error('Canvas is not ready yet')
         return
@@ -114,30 +136,64 @@ function WhiteboardClient() {
 
       const point = screenToWorld(clientX, clientY)
       const color = COLORS[shapes.length % COLORS.length]
+      const draft = createShapeDraft(type, point, color, options)
 
       const now = new Date()
       api.shape.collection.insert({
         id: createClientTypeId('shape'),
         canvasId: id as TypeId<'canvas'>,
         ownerId: user!.id,
-        type: 'rectangle',
-        x: Math.round(point.x - 80),
-        y: Math.round(point.y - 48),
-        width: 160,
-        height: 96,
-        rotation: 0,
-        color,
+        ...draft,
         createdAt: now,
         updatedAt: now,
       })
     },
-    [api.shape.collection, canvas, id, screenToWorld, shapes.length, user],
+    [
+      activeTool,
+      api.shape.collection,
+      canvas,
+      id,
+      screenToWorld,
+      shapes.length,
+      user,
+    ],
   )
 
   const addShapeInCenter = () => {
     const rect = boardRef.current?.getBoundingClientRect()
     if (!rect) return
-    addShapeAt(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    const point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+
+    if (activeTool === 'image') {
+      pendingImagePointRef.current = point
+      imageInputRef.current?.click()
+      return
+    }
+
+    addShapeAt(point.x, point.y, activeTool, promptOptions(activeTool))
+  }
+
+  async function uploadImageShape(file: File) {
+    const rect = boardRef.current?.getBoundingClientRect()
+    const point =
+      pendingImagePointRef.current ??
+      (rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null)
+    pendingImagePointRef.current = null
+    if (!point) return
+
+    setUploadingImage(true)
+    try {
+      const uploaded = await filesApi.files.images.upload(file)
+      addShapeAt(point.x, point.y, 'image', {
+        imageFileId: uploaded.fileId,
+        imageName: uploaded.name,
+      })
+      toast.success('Image added')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Image upload failed')
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const commitDrag = React.useCallback(() => {
@@ -179,19 +235,44 @@ function WhiteboardClient() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-            Double-click to add
-          </span>
+          <div className="flex rounded-full bg-slate-100 p-1">
+            {SHAPE_TOOLS.map((tool) => (
+              <button
+                key={tool.type}
+                type="button"
+                className={`rounded-full px-3 py-1 font-semibold transition ${
+                  activeTool === tool.type
+                    ? 'bg-slate-950 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-white'
+                }`}
+                onClick={() => setActiveTool(tool.type)}
+              >
+                {tool.label}
+              </button>
+            ))}
+          </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
             Drag empty space to pan
           </span>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploadingImage}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void uploadImageShape(file)
+              event.currentTarget.value = ''
+            }}
+          />
           <button
             type="button"
             className="rounded-full bg-slate-950 px-4 py-2 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
             onClick={addShapeInCenter}
-            disabled={!canvas}
+            disabled={!canvas || uploadingImage}
           >
-            Add shape
+            {uploadingImage ? 'Uploading image...' : `Add ${activeTool}`}
           </button>
         </div>
       </div>
@@ -209,7 +290,21 @@ function WhiteboardClient() {
         }}
         onDoubleClick={(event) => {
           if (event.target !== event.currentTarget) return
-          addShapeAt(event.clientX, event.clientY)
+          if (activeTool === 'image') {
+            pendingImagePointRef.current = {
+              x: event.clientX,
+              y: event.clientY,
+            }
+            imageInputRef.current?.click()
+            return
+          }
+
+          addShapeAt(
+            event.clientX,
+            event.clientY,
+            activeTool,
+            promptOptions(activeTool),
+          )
         }}
         onPointerDown={(event) => {
           if (event.button !== 0 || event.target !== event.currentTarget) return
@@ -282,12 +377,14 @@ function WhiteboardClient() {
         >
           {shapes.map((shape) => {
             const position = draftPositions[shape.id] ?? shape
+            const shapeType = shape.type as ShapeType
 
             return (
               <button
                 key={shape.id}
                 type="button"
-                className="absolute cursor-move rounded-2xl border-2 bg-white/90 p-0 shadow-lg outline-none transition focus:ring-4 focus:ring-blue-200"
+                aria-label={shapeAccessibleName(shape, shapeType)}
+                className={`absolute cursor-move overflow-hidden border-2 bg-white/90 p-0 shadow-lg outline-none transition focus:ring-4 focus:ring-blue-200 ${shapeClassName(shapeType)}`}
                 style={{
                   left: position.x,
                   top: position.y,
@@ -296,6 +393,10 @@ function WhiteboardClient() {
                   rotate: `${shape.rotation}deg`,
                   borderColor: shape.color,
                   color: shape.color,
+                  clipPath:
+                    shapeType === 'diamond'
+                      ? 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)'
+                      : undefined,
                 }}
                 onPointerDown={(event) => {
                   event.stopPropagation()
@@ -308,9 +409,7 @@ function WhiteboardClient() {
                   })
                 }}
               >
-                <span className="grid h-full place-items-center text-sm font-bold">
-                  Shape
-                </span>
+                <ShapeContents shape={shape} type={shapeType} />
               </button>
             )
           })}
@@ -329,5 +428,92 @@ function WhiteboardClient() {
         ) : null}
       </div>
     </div>
+  )
+}
+
+function promptOptions(type: ShapeType) {
+  if (type !== 'text') return {}
+
+  return {
+    text:
+      window.prompt('Text for this note', 'New idea')?.trim() || 'New idea',
+  }
+}
+
+function shapeClassName(type: ShapeType) {
+  switch (type) {
+    case 'ellipse':
+      return 'rounded-full'
+    case 'diamond':
+      return 'rounded-none'
+    case 'text':
+      return 'rounded-2xl bg-amber-50/95'
+    case 'image':
+      return 'rounded-3xl bg-slate-100'
+    default:
+      return 'rounded-2xl'
+  }
+}
+
+function shapeAccessibleName(
+  shape: {
+    imageName?: string | null
+    text?: string | null
+  },
+  type: ShapeType,
+) {
+  if (type === 'text') return shape.text ?? 'Text shape'
+  if (type === 'image') return shape.imageName ?? 'Image shape'
+  if (type === 'ellipse') return 'Ellipse shape'
+  if (type === 'diamond') return 'Diamond shape'
+  return 'Rectangle shape'
+}
+
+function ShapeContents({
+  shape,
+  type,
+}: {
+  shape: {
+    color: string
+    imageFileId?: string | null
+    imageName?: string | null
+    text?: string | null
+  }
+  type: ShapeType
+}) {
+  if (type === 'image') {
+    if (!shape.imageFileId) {
+      return (
+        <span className="grid h-full place-items-center px-4 text-sm font-bold text-slate-500">
+          Missing image
+        </span>
+      )
+    }
+
+    return (
+      <img
+        src={filesApi.files.images.url(shape.imageFileId, {
+          w: 640,
+          format: 'webp',
+        })}
+        alt={shape.imageName ?? 'Whiteboard image'}
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
+    )
+  }
+
+  if (type === 'text') {
+    return (
+      <span className="grid h-full place-items-center px-4 text-center text-lg font-black leading-tight text-slate-900">
+        {shape.text ?? 'Text'}
+      </span>
+    )
+  }
+
+  return (
+    <span className="grid h-full place-items-center text-sm font-bold">
+      {type === 'ellipse' ? 'Ellipse' : type === 'diamond' ? 'Diamond' : 'Shape'}
+    </span>
   )
 }

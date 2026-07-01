@@ -19,6 +19,18 @@ export const app = createBunderstack({
   },
   storage: {
     local: './uploads',
+    defaultBucket: 'images',
+    buckets: {
+      images: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: {
+          maxSize: '10mb',
+          accept: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        },
+        transforms: true,
+      },
+    },
   },
   realtime: true,
 })

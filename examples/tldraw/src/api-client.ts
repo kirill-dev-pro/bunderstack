@@ -38,7 +38,7 @@ export function createApi(queryClient: QueryClient) {
     queryClient,
     fetch: isomorphicFetch,
     tables: ['user', 'canvas', 'shape'] as const,
-    buckets: ['attachments', 'avatars'] as const,
+    buckets: ['images'] as const,
     // Realtime needs a browser-side persistent connection; skip it during SSR.
     realtime: typeof window !== 'undefined',
   })
@@ -83,5 +83,5 @@ export function byColumnIn(column: string, ids: readonly string[]) {
 export const filesApi = createBunderstackQueryClient<typeof schema>().with({
   fetch: isomorphicFetch,
   tables: [] as const,
-  buckets: ['attachments', 'avatars'] as const,
+  buckets: ['images'] as const,
 })
