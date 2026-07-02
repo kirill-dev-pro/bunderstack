@@ -1,9 +1,11 @@
 import {
+  ClientOnly,
   createRootRoute,
   HeadContent,
   Outlet,
   Scripts,
 } from '@tanstack/react-router'
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
 import { Provider } from '@/components/provider'
 import appCss from '@/styles/app.css?url'
@@ -36,6 +38,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="flex min-h-screen flex-col">
         <Provider>{children}</Provider>
         <Scripts />
+        <ClientOnly>
+          <TanStackRouterDevtools />
+        </ClientOnly>
       </body>
     </html>
   )

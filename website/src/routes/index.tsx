@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import '@shikijs/twoslash/style-rich.css'
+
 import snippets from '@/lib/code-snippets.gen.json'
 
 const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
@@ -313,7 +314,11 @@ function DeclareOnce() {
           snippet={snippets[tab]}
           header={
             <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-2 pl-2">
-              <div className="flex gap-1" role="tablist" aria-label="Client package">
+              <div
+                className="flex gap-1"
+                role="tablist"
+                aria-label="Client package"
+              >
                 {CLIENT_TABS.map((t) => (
                   <button
                     key={t.key}
@@ -360,7 +365,7 @@ function Batteries() {
   }, [paused])
 
   return (
-    <section className="pb-24">
+    <section className="min-h-[600px]">
       <SectionTitle
         eyebrow="what you get"
         title="Batteries included"
@@ -401,10 +406,7 @@ function Batteries() {
             <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
               {active.text}
             </p>
-            <div
-              aria-hidden
-              className="mt-5 flex gap-1.5"
-            >
+            <div aria-hidden className="mt-5 flex gap-1.5">
               {BATTERIES.map((b, i) => (
                 <span
                   key={b.key}
@@ -715,8 +717,8 @@ function Landing() {
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#5c6b80] sm:text-lg">
             A batteries-included backend framework for{' '}
-            <span className="font-mono text-[#1c2430]">Bun</span>. Point it at
-            a Drizzle schema — CRUD, auth, files, and realtime fall out. The
+            <span className="font-mono text-[#1c2430]">Bun</span>. Point it at a
+            Drizzle schema — CRUD, auth, files, and realtime fall out. The
             client is inferred from your server&apos;s types.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
