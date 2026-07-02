@@ -76,13 +76,25 @@ const BATTERIES = [
 /* The glue a typical app carries for the same behavior — what a battery
  * replaces. Counts are honest ballparks, marked as such in the UI. */
 const GLUE_FILES = [
-  { file: 'routes/posts.ts', lines: 120, note: 'CRUD handlers, pagination, search' },
-  { file: 'validators/posts.ts', lines: 50, note: 'request schemas, write guards' },
+  {
+    file: 'routes/posts.ts',
+    lines: 120,
+    note: 'CRUD handlers, pagination, search',
+  },
+  {
+    file: 'validators/posts.ts',
+    lines: 50,
+    note: 'request schemas, write guards',
+  },
   { file: 'api-client.ts', lines: 90, note: 'fetch wrappers + response types' },
   { file: 'auth/…', lines: 210, note: 'sessions, sign-in, OAuth callbacks' },
   { file: 'upload.ts', lines: 90, note: 'multipart, S3, thumbnail resizes' },
   { file: 'realtime.ts', lines: 140, note: 'socket server, event fan-out' },
-  { file: 'types.gen.ts', lines: 0, note: 'a codegen step you re-run and commit' },
+  {
+    file: 'types.gen.ts',
+    lines: 0,
+    note: 'a codegen step you re-run and commit',
+  },
 ]
 
 const COMPARISON = {
@@ -365,7 +377,7 @@ function Batteries() {
   }, [paused])
 
   return (
-    <section className="min-h-[600px]">
+    <section className="mb:min-h-[600px] h-[650px]">
       <SectionTitle
         eyebrow="what you get"
         title="Batteries included"
@@ -448,7 +460,10 @@ function WhatYouDontWrite() {
           </div>
           <div className="overflow-x-auto p-4 font-mono text-[13px] leading-7">
             {GLUE_FILES.map((f) => (
-              <div key={f.file} className="flex items-baseline gap-3 whitespace-nowrap">
+              <div
+                key={f.file}
+                className="flex items-baseline gap-3 whitespace-nowrap"
+              >
                 <span className="w-10 shrink-0 text-right text-[#c9d6e6]">
                   {f.lines || '—'}
                 </span>
@@ -462,11 +477,17 @@ function WhatYouDontWrite() {
               <span className="w-10 shrink-0 text-right text-[#5c6b80]">
                 ≈{total}
               </span>
-              <span className="text-[#5c6b80]">total, per project, forever</span>
+              <span className="text-[#5c6b80]">
+                total, per project, forever
+              </span>
             </div>
             <div className="mt-3 flex items-baseline gap-3 whitespace-nowrap">
-              <span className="w-10 shrink-0 text-right text-[#4a90d9]">14</span>
-              <span className="font-semibold text-[#1c2430]">bunderstack.ts</span>
+              <span className="w-10 shrink-0 text-right text-[#4a90d9]">
+                14
+              </span>
+              <span className="font-semibold text-[#1c2430]">
+                bunderstack.ts
+              </span>
               <span className="text-xs text-[#4a90d9]">
                 the config at the top of this page
               </span>
@@ -511,8 +532,8 @@ function NoWalls() {
           <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
             Not a hosted platform, not a binary beside your app — a library
             inside it. Your schema stays in your repo, your database stays
-            yours, and the day you outgrow a battery you&apos;re already
-            holding the underlying instance.
+            yours, and the day you outgrow a battery you&apos;re already holding
+            the underlying instance.
           </p>
         </div>
       </div>
@@ -547,7 +568,9 @@ function NoWalls() {
                   <td
                     key={COMPARISON.columns[i]}
                     className={`px-4 py-2.5 ${
-                      i === 0 ? 'bg-[#eaf2fb]/60 text-[#1c2430]' : 'text-[#5c6b80]'
+                      i === 0
+                        ? 'bg-[#eaf2fb]/60 text-[#1c2430]'
+                        : 'text-[#5c6b80]'
                     }`}
                   >
                     {cell}
