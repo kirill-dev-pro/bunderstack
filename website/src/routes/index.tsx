@@ -171,7 +171,9 @@ function CodeCard({
   header?: React.ReactNode
 }) {
   return (
-    <div className="snippet min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/85 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)] backdrop-blur">
+    // NOTE: no backdrop-blur here — backdrop-filter creates a stacking
+    // context that would trap the twoslash hover popups under sibling cards.
+    <div className="snippet min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)]">
       {header ?? (
         <div className="flex items-center gap-2 border-b border-dotted border-[#dde5ef] px-4 py-2.5 font-mono text-xs text-[#5c6b80]">
           {title}
@@ -326,19 +328,36 @@ function Landing() {
         @keyframes cloud-bob { from { transform: translateY(0); } to { transform: translateY(10px); } }
 
         /* shiki + twoslash, tuned to the page palette */
+        /* Mobile-first: wrap long lines instead of scrolling — snippets never
+           show scrollbars anywhere. */
         .snippet pre.shiki {
           margin: 0;
           padding: 1rem 1.25rem;
           background: transparent !important;
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.6;
-          overflow-x: auto;
+          overflow: hidden;
+          white-space: pre-wrap;
+          word-break: break-word;
         }
-        /* Hover popups live inside the pre; a scroll container would clip
-           them. Desktop lines are short, so let them overflow visibly where
-           hover exists. */
+        /* Desktop with a mouse: lines fit, keep them unwrapped and let hover
+           popups overflow the pane freely (no scroll container to clip them). */
         @media (hover: hover) and (min-width: 1024px) {
-          .snippet pre.shiki { overflow: visible; }
+          .snippet pre.shiki {
+            font-size: 13px;
+            overflow: visible;
+            white-space: pre;
+            word-break: normal;
+          }
+        }
+        /* Popups escape the pane; lift the hovered card above its siblings
+           so they never hide under a neighboring block. */
+        .snippet { position: relative; }
+        .snippet:hover { z-index: 50; }
+        /* Touch devices get no hover — don't let tap-triggered popups add
+           scrollbars there. */
+        @media (hover: none) {
+          .snippet .twoslash .twoslash-popup-container { display: none; }
         }
         .snippet .twoslash-hover { border-bottom: 1px dotted #b9cade; }
         .snippet {
@@ -357,8 +376,11 @@ function Landing() {
         }
         .snippet .twoslash .twoslash-popup-code {
           display: block;
-          max-height: 16rem;
-          overflow: auto;
+          max-height: 18rem;
+          overflow-y: auto;
+          overflow-x: hidden;
+          white-space: pre-wrap;
+          word-break: break-word;
           font-size: 12px;
         }
         .snippet .twoslash .twoslash-popup-docs {
