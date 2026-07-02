@@ -1,5 +1,4 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import browserCollections from 'collections/browser'
 import { useFumadocsLoader } from 'fumadocs-core/source/client'
 import { DocsLayout } from 'fumadocs-ui/layouts/docs'
@@ -13,31 +12,23 @@ import { Suspense } from 'react'
 
 import { useMDXComponents } from '@/components/mdx'
 import { baseOptions } from '@/lib/layout.shared'
-import { source } from '@/lib/source'
+// Build-time page tree + slug→file map (scripts/gen-docs-manifest.ts). Keeping
+// the loader pure means navigation never calls a server function — required
+// for static hosting (GitHub Pages), where /_serverFn/* RPCs would 404.
+import manifest from '@/lib/docs-manifest.gen.json'
+
+const paths = manifest.paths as Record<string, string>
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,
   loader: async ({ params }) => {
-    const slugs = params._splat?.split('/') ?? []
-    const data = await serverLoader({ data: slugs })
-    await clientLoader.preload(data.path)
-    return data
+    const slug = params._splat ?? ''
+    const path = paths[slug]
+    if (!path) throw notFound()
+    await clientLoader.preload(path)
+    return { path, pageTree: manifest.pageTree }
   },
 })
-
-const serverLoader = createServerFn({
-  method: 'GET',
-})
-  .validator((slugs: string[]) => slugs)
-  .handler(async ({ data: slugs }) => {
-    const page = source.getPage(slugs)
-    if (!page) throw notFound()
-
-    return {
-      path: page.path,
-      pageTree: await source.serializePageTree(source.getPageTree()),
-    }
-  })
 
 const clientLoader = browserCollections.docs.createClientLoader({
   component({ toc, frontmatter, default: MDX }, _props: undefined) {

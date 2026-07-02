@@ -1,0 +1,108 @@
+{
+  "pageTree": {
+    "$fumadocs_loader": "page-tree",
+    "data": {
+      "type": "root",
+      "$ref": {
+        "folder": "",
+        "meta": "meta.json"
+      },
+      "$id": "root",
+      "name": "Bunderstack",
+      "children": [
+        {
+          "$id": "index.mdx",
+          "type": "page",
+          "name": "Introduction",
+          "description": "What Bunderstack is and why it exists",
+          "url": "/docs",
+          "$ref": "index.mdx"
+        },
+        {
+          "$id": "getting-started.mdx",
+          "type": "page",
+          "name": "Getting Started",
+          "description": "Install Bunderstack and have a working backend in under 5 minutes",
+          "url": "/docs/getting-started",
+          "$ref": "getting-started.mdx"
+        },
+        {
+          "$id": "configuration.mdx",
+          "type": "page",
+          "name": "Configuration",
+          "description": "All createBunderstack options and environment variables",
+          "url": "/docs/configuration",
+          "$ref": "configuration.mdx"
+        },
+        {
+          "$id": "crud.mdx",
+          "type": "page",
+          "name": "Auto CRUD",
+          "description": "REST routes generated from your Drizzle schema with row-level access control",
+          "url": "/docs/crud",
+          "$ref": "crud.mdx"
+        },
+        {
+          "$id": "auth.mdx",
+          "type": "page",
+          "name": "Auth",
+          "description": "BetterAuth wired to your Drizzle database",
+          "url": "/docs/auth",
+          "$ref": "auth.mdx"
+        },
+        {
+          "$id": "storage.mdx",
+          "type": "page",
+          "name": "Storage",
+          "description": "File uploads with local filesystem or S3",
+          "url": "/docs/storage",
+          "$ref": "storage.mdx"
+        },
+        {
+          "$id": "thumbnails.mdx",
+          "type": "page",
+          "name": "Thumbnails",
+          "description": "On-the-fly image transforms via sharp",
+          "url": "/docs/thumbnails",
+          "$ref": "thumbnails.mdx"
+        },
+        {
+          "$id": "query-client.mdx",
+          "type": "page",
+          "name": "Query Client",
+          "description": "Typed TanStack Query hooks generated from your schema",
+          "url": "/docs/query-client",
+          "$ref": "query-client.mdx"
+        },
+        {
+          "$id": "framework-portability.mdx",
+          "type": "page",
+          "name": "Framework Portability",
+          "description": "Mount app.handler in any modern TypeScript framework",
+          "url": "/docs/framework-portability",
+          "$ref": "framework-portability.mdx"
+        },
+        {
+          "$id": "api-reference.mdx",
+          "type": "page",
+          "name": "API Reference",
+          "description": "Complete exported surface of Bunderstack",
+          "url": "/docs/api-reference",
+          "$ref": "api-reference.mdx"
+        }
+      ]
+    }
+  },
+  "paths": {
+    "api-reference": "api-reference.mdx",
+    "auth": "auth.mdx",
+    "configuration": "configuration.mdx",
+    "crud": "crud.mdx",
+    "framework-portability": "framework-portability.mdx",
+    "getting-started": "getting-started.mdx",
+    "": "index.mdx",
+    "query-client": "query-client.mdx",
+    "storage": "storage.mdx",
+    "thumbnails": "thumbnails.mdx"
+  }
+}

@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "bun scripts/gen-docs-manifest.ts",
     "dev": "vite dev --port 3010",
+    "prebuild": "bun scripts/gen-docs-manifest.ts",
     "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview --port 3010",
     "preview:pages": "GITHUB_PAGES=true bun run build && vite preview --port 3010"
