@@ -13,6 +13,7 @@
     "dev:nextjs": "bun run --cwd examples/nextjs dev",
     "dev:twitter-tanstack": "bun run --cwd examples/twitter-tanstack dev",
     "dev:twitter-db-tanstack": "bun run --cwd examples/twitter-db-tanstack dev",
+    "dev:tldraw": "bun run --cwd examples/tldraw dev",
     "dev:kanban": "bun run --cwd examples/kanban-solid-1.9 dev",
     "dev:kanban-tanstack": "bun run --cwd examples/kanban-tanstack dev",
     "db:push": "bun run --cwd examples/standalone db:push && bun run --cwd examples/twitter-tanstack db:push && bun run --cwd examples/nextjs db:push && bun run --cwd examples/twitter-db-tanstack db:push",

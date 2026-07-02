@@ -1,526 +1,365 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState } from 'react'
 
-const INSTALL_CODE = `bun add bunderstack`
+const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
 
-const QUICKSTART_CODE = `// bunderstack.ts
-import { createBunderstack } from 'bunderstack'
-import * as schema from './schema'
+/* Signature mark: a cumulus drawn in glyphs — the sky and the terminal in
+ * one object. Kept as a line array so no character needs escaping. */
+const ASCII_CLOUD = [
+  '                _  _',
+  "             (  '   ) _",
+  "          (            ' )  _",
+  "       ('       (        )  ' )",
+  '      (     (      )   (      )',
+  "       '~~-(_____)-~(_____)-~~'",
+].join('\n')
 
-export const app = createBunderstack({
-  schema,
-  auth: { emailAndPassword: { enabled: true } },
-  access: {
-    posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
-  },
-})
+const SERVER_CODE = [
+  { c: '// the whole backend' },
+  { t: "import { createBunderstack } from 'bunderstack'" },
+  { t: "import * as schema from './schema'" },
+  { t: '' },
+  { t: 'export const app = createBunderstack({' },
+  { t: '  schema,' },
+  { t: "  access: { posts: { ownerColumn: 'userId' } }," },
+  { t: "  storage: { local: './uploads', buckets: { images: {} } }," },
+  { t: '  realtime: true,' },
+  { t: '})' },
+  { t: '' },
+  { t: 'export type App = typeof app' },
+]
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
-// GET    /api/posts          → list (public)
-// POST   /api/posts          → create (authenticated, owner set from session)
-// PATCH  /api/posts/:id      → update (owner only)
-// DELETE /api/posts/:id      → delete (owner only)
-// POST   /api/auth/sign-up/email`
+const CLIENT_CODE = [
+  { c: '// nothing to configure' },
+  { t: "import { createClient } from 'bunderstack-query'" },
+  { t: "import type { App } from './bunderstack'" },
+  { t: '' },
+  { t: 'const api = createClient<App>({ queryClient })' },
+  { t: '' },
+  { t: 'api.posts.list({ limit: 20 })', c: '// typed rows' },
+  { t: 'api.posts.create({ title })', c: '// owner from session' },
+  { t: 'api.files.images.upload(file)', c: '// bucket inferred' },
+]
 
-const STANDALONE_CODE = `// server.ts
-import { app } from './bunderstack'
-Bun.serve({ port: 3001, fetch: app.handler })`
-
-const NEXTJS_CODE = `// app/api/[...bunderstack]/route.ts
-import { getApp } from '@/bunderstack'
-export async function GET(req: Request) {
-  return (await getApp()).handler(req)
-}
-export const POST = GET
-export const PATCH = GET
-export const DELETE = GET`
-
-const TANSTACK_CODE = `// src/routes/api/$.tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { app } from '~/bunderstack'
-
-const handle = ({ request }: { request: Request }) => app.handler(request)
-
-export const Route = createFileRoute('/api/$')({
-  server: {
-    handlers: { GET: handle, POST: handle, PATCH: handle, DELETE: handle },
-  },
-})`
-
-const QUERY_CLIENT_CODE = `// api-client.ts — type-only import, zero bundle cost
-import { createBunderstackQueryClient } from 'bunderstack-query'
-import { QueryClient } from '@tanstack/react-query'
-import type * as schema from './schema'
-
-export const queryClient = new QueryClient()
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
-  queryClient,
-  tables: ['posts', 'user', 'likes'] as const,
-})
-
-// In a component:
-const { data } = useQuery(api.posts.listQuery({ limit: 20, offset: 0 }))
-// data: { items: Post[], limit: number, offset: number }
-const create = useMutation(api.posts.createMutation())`
-
-const features = [
+const FEATURES = [
   {
-    title: 'Auto CRUD',
-    desc: 'REST routes generated from your Drizzle schema. Paginate, owner-filter, full-text search.',
+    name: 'crud',
+    text: 'GET/POST/PATCH/DELETE for every table in your Drizzle schema, mounted at /api. No route files.',
   },
   {
-    title: 'Auth built-in',
-    desc: 'BetterAuth under the hood. Email/password, OAuth, sessions — wired to your DB, zero config.',
+    name: 'access',
+    text: 'public / authenticated / owner rules per operation, plus row scoping — enforced server-side.',
   },
   {
-    title: 'File storage',
-    desc: 'Local filesystem or S3-compatible. Upload API, MIME validation, size limits.',
+    name: 'auth',
+    text: 'BetterAuth wired to your database. Sign-up, sessions, OAuth — /api/auth/* just exists.',
   },
   {
-    title: 'Image transforms',
-    desc: 'On-the-fly resize and convert via sharp. ?w=200&h=200&format=webp. Cached after first generate.',
+    name: 'files',
+    text: 'Uploads into local or S3 buckets, with sharp image transforms via query params.',
   },
   {
-    title: 'Access control',
-    desc: 'Per-table, per-operation rules: public, authenticated, owner, or a custom function. All server-enforced.',
+    name: 'realtime',
+    text: 'Broadcast-on-write over SSE. Collections on the client stay live without extra wiring.',
   },
   {
-    title: 'Query client',
-    desc: 'bunderstack-query: typed TanStack Query hooks from your schema. Type-only import, zero client bundle cost.',
+    name: 'inference',
+    text: 'Clients derive tables and buckets from typeof app. Add a table, the client type-checks it.',
+  },
+]
+
+const EXAMPLES = [
+  {
+    dir: 'twitter-db-tanstack',
+    desc: 'Twitter-style feed on TanStack DB collections — growing-window pagination, live via SSE.',
+    cmd: 'bun run dev:twitter-db-tanstack',
+  },
+  {
+    dir: 'tldraw',
+    desc: 'Collaborative whiteboard. Canvases and shapes are synced collections; images are bucket uploads.',
+    cmd: 'bun run dev:tldraw',
+  },
+  {
+    dir: 'kanban-tanstack',
+    desc: 'Realtime kanban on TanStack Start — boards, lists, cards, comments.',
+    cmd: 'bun run dev:kanban-tanstack',
+  },
+  {
+    dir: 'kanban-solid-1.9',
+    desc: 'The same kanban in Solid 1.9, driven by bunderstack-query and SSE.',
+    cmd: 'bun run dev:kanban',
+  },
+  {
+    dir: 'twitter-tanstack',
+    desc: 'The Twitter demo on plain TanStack Query — no sync layer, just typed query options.',
+    cmd: 'bun run dev:twitter-tanstack',
   },
 ]
 
 export const Route = createFileRoute('/')({
-  component: HomePage,
+  head: () => ({
+    meta: [
+      { title: 'Bunderstack — batteries-included backend for Bun' },
+      {
+        name: 'description',
+        content:
+          'Point Bunderstack at a Drizzle schema and get CRUD, auth, file storage, and realtime — with clients inferred from your server types.',
+      },
+    ],
+  }),
+  component: Landing,
 })
 
-function HomePage() {
+function CopyInstall() {
+  const [copied, setCopied] = useState(false)
   return (
-    <div
-      style={{
-        maxWidth: '900px',
-        margin: '0 auto',
-        padding: '4rem 2rem',
-        background: '#0a0a0a',
-        color: '#e5e5e5',
-        minHeight: '100vh',
-        fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText('bun add bunderstack')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1600)
       }}
+      className="group inline-flex items-center gap-3 rounded-md border border-dashed border-[#b9cade] bg-white/70 px-4 py-2.5 font-mono text-sm text-[#1c2430] shadow-[0_1px_0_#e3ecf6] backdrop-blur transition-colors hover:border-[#4a90d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
+      aria-label="Copy install command"
     >
-      <nav
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginBottom: '6rem',
-          fontSize: '0.875rem',
-        }}
-      >
-        <span
-          style={{
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            fontSize: '1rem',
-          }}
-        >
-          bunderstack
+      <span className="select-none text-[#4a90d9]">$</span>
+      <span>bun add bunderstack</span>
+      <span className="w-8 text-left text-xs text-[#5c6b80] transition-colors group-hover:text-[#4a90d9]">
+        {copied ? 'ok ✓' : 'copy'}
+      </span>
+    </button>
+  )
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="mb-8 flex items-baseline gap-3 font-mono text-sm text-[#5c6b80]">
+      <span className="text-[#4a90d9]">#</span>
+      <span>{children}</span>
+      <span
+        aria-hidden
+        className="flex-1 border-b border-dotted border-[#c9d6e6]"
+      />
+    </div>
+  )
+}
+
+function CodePane({
+  title,
+  lines,
+}: {
+  title: string
+  lines: { t?: string; c?: string }[]
+}) {
+  return (
+    <div className="min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/80 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)] backdrop-blur">
+      <div className="flex items-center gap-2 border-b border-dotted border-[#dde5ef] px-4 py-2.5 font-mono text-xs text-[#5c6b80]">
+        <span aria-hidden className="text-[#b9cade]">
+          ┌─
         </span>
-        <div style={{ display: 'flex', gap: '2rem' }}>
-          <Link to="/docs" style={{ color: '#a3a3a3', textDecoration: 'none' }}>
-            Docs
-          </Link>
-          <a
-            href="https://github.com/bunderstack/bunderstack"
-            style={{ color: '#a3a3a3', textDecoration: 'none' }}
-          >
-            GitHub
-          </a>
-        </div>
-      </nav>
-
-      <header style={{ marginBottom: '5rem' }}>
-        <p
-          style={{
-            color: '#a3a3a3',
-            fontSize: '0.75rem',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '1rem',
-          }}
-        >
-          Bun · Drizzle · BetterAuth · Hono
-        </p>
-        <h1
-          style={{
-            fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-            fontWeight: 800,
-            lineHeight: 1.1,
-            letterSpacing: '-0.03em',
-            marginBottom: '1.5rem',
-          }}
-        >
-          The backend you assemble
-          <br />
-          <span style={{ color: '#6366f1' }}>every project.</span> Prebuilt.
-        </h1>
-        <p
-          style={{
-            color: '#a3a3a3',
-            fontSize: '1.125rem',
-            maxWidth: '600px',
-            lineHeight: 1.6,
-            marginBottom: '2.5rem',
-          }}
-        >
-          Give Bunderstack a Drizzle schema. Get auth, CRUD routes, file
-          storage, and image thumbnails — wired together and typed end to end.
-          Mounts in TanStack Start, Next.js, or standalone Bun via a single
-          <code
-            style={{
-              background: '#1a1a1a',
-              padding: '0 0.3em',
-              borderRadius: '3px',
-            }}
-          >
-            Request → Response
-          </code>{' '}
-          handler.
-        </p>
-        <pre
-          style={{
-            background: '#111',
-            border: '1px solid #222',
-            borderRadius: '8px',
-            padding: '1rem 1.25rem',
-            fontSize: '0.875rem',
-            marginBottom: '2rem',
-            display: 'inline-block',
-          }}
-        >
-          <code style={{ color: '#a3a3a3' }}>$ </code>
-          <code>{INSTALL_CODE}</code>
-        </pre>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <Link
-            to="/docs/getting-started"
-            style={{
-              background: '#6366f1',
-              color: '#fff',
-              padding: '0.625rem 1.5rem',
-              borderRadius: '6px',
-              textDecoration: 'none',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-            }}
-          >
-            Get Started →
-          </Link>
-          <Link
-            to="/docs"
-            style={{
-              background: '#1a1a1a',
-              color: '#e5e5e5',
-              padding: '0.625rem 1.5rem',
-              borderRadius: '6px',
-              textDecoration: 'none',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              border: '1px solid #333',
-            }}
-          >
-            Documentation
-          </Link>
-        </div>
-      </header>
-
-      <section style={{ marginBottom: '5rem' }}>
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            marginBottom: '1rem',
-            color: '#a3a3a3',
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Quick start
-        </h2>
-        <pre
-          style={{
-            background: '#111',
-            border: '1px solid #222',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            fontSize: '0.8125rem',
-            lineHeight: 1.7,
-            overflowX: 'auto',
-          }}
-        >
-          <code>{QUICKSTART_CODE}</code>
-        </pre>
-      </section>
-
-      <section style={{ marginBottom: '5rem' }}>
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            marginBottom: '2rem',
-            color: '#a3a3a3',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
-          What you get
-        </h2>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '1px',
-            background: '#222',
-            border: '1px solid #222',
-            borderRadius: '8px',
-            overflow: 'hidden',
-          }}
-        >
-          {features.map((f) => (
-            <div
-              key={f.title}
-              style={{ background: '#0a0a0a', padding: '1.5rem' }}
-            >
-              <h3
-                style={{
-                  fontWeight: 700,
-                  marginBottom: '0.5rem',
-                  fontSize: '0.9375rem',
-                }}
-              >
-                {f.title}
-              </h3>
-              <p
-                style={{
-                  color: '#737373',
-                  fontSize: '0.8125rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                {f.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ marginBottom: '5rem' }}>
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            marginBottom: '2rem',
-            color: '#a3a3a3',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
-          One handler, every framework
-        </h2>
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {[
-            { label: 'Standalone Bun', code: STANDALONE_CODE },
-            { label: 'Next.js App Router', code: NEXTJS_CODE },
-            { label: 'TanStack Start', code: TANSTACK_CODE },
-          ].map(({ label, code }) => (
-            <div
-              key={label}
-              style={{
-                border: '1px solid #222',
-                borderRadius: '8px',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  background: '#111',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.75rem',
-                  color: '#737373',
-                  borderBottom: '1px solid #222',
-                }}
-              >
-                {label}
-              </div>
-              <pre
-                style={{
-                  background: '#0d0d0d',
-                  padding: '1.25rem',
-                  fontSize: '0.8125rem',
-                  lineHeight: 1.7,
-                  overflowX: 'auto',
-                  margin: 0,
-                }}
-              >
-                <code>{code}</code>
-              </pre>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ marginBottom: '5rem' }}>
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            marginBottom: '1rem',
-            color: '#a3a3a3',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Type-safe query client
-        </h2>
-        <p
-          style={{
-            color: '#737373',
-            fontSize: '0.875rem',
-            lineHeight: 1.6,
-            marginBottom: '1rem',
-          }}
-        >
-          <code
-            style={{
-              background: '#1a1a1a',
-              padding: '0 0.3em',
-              borderRadius: '3px',
-            }}
-          >
-            bunderstack-query
-          </code>{' '}
-          generates typed TanStack Query hooks for every route. Import your
-          schema as a type — nothing gets bundled on the client.
-        </p>
-        <pre
-          style={{
-            background: '#111',
-            border: '1px solid #222',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            fontSize: '0.8125rem',
-            lineHeight: 1.7,
-            overflowX: 'auto',
-            marginBottom: '1rem',
-          }}
-        >
-          <code>{QUERY_CLIENT_CODE}</code>
-        </pre>
-        <Link
-          to="/docs/query-client"
-          style={{
-            color: '#6366f1',
-            fontSize: '0.875rem',
-            textDecoration: 'none',
-          }}
-        >
-          Query client docs →
-        </Link>
-      </section>
-
-      <section
-        style={{
-          marginBottom: '5rem',
-          border: '1px solid #222',
-          borderRadius: '8px',
-          padding: '2rem',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            marginBottom: '1.5rem',
-            color: '#a3a3a3',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
-          You never hit a wall
-        </h2>
-        {[
-          {
-            level: 'Level 0',
-            desc: 'createBunderstack({ schema }) — working backend, zero ceremony',
-          },
-          {
-            level: 'Level 1',
-            desc: 'Pass config: auth providers, storage target, access rules',
-          },
-          {
-            level: 'Level 2',
-            desc: 'Reach into app.db, app.auth, app.storage, app.router',
-          },
-          {
-            level: 'Level 3',
-            desc: 'Bypass Bunderstack for a route; write plain Hono + Drizzle',
-          },
-        ].map(({ level, desc }) => (
-          <div
-            key={level}
-            style={{
-              display: 'flex',
-              gap: '1.5rem',
-              alignItems: 'flex-start',
-              marginBottom: '1rem',
-            }}
-          >
-            <span
-              style={{
-                color: '#6366f1',
-                fontWeight: 700,
-                fontSize: '0.8125rem',
-                minWidth: '60px',
-                paddingTop: '0.1rem',
-              }}
-            >
-              {level}
-            </span>
-            <span
-              style={{
-                color: '#a3a3a3',
-                fontSize: '0.875rem',
-                lineHeight: 1.5,
-              }}
-            >
-              {desc}
-            </span>
+        {title}
+      </div>
+      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-6 text-[#1c2430]">
+        {lines.map((line, i) => (
+          <div key={i}>
+            {line.t}
+            {line.c ? (
+              <span className="text-[#8296ad]">
+                {line.t ? '  ' : ''}
+                {line.c}
+              </span>
+            ) : null}
+            {!line.t && !line.c ? ' ' : ''}
           </div>
         ))}
-      </section>
-
-      <footer
-        style={{
-          borderTop: '1px solid #222',
-          paddingTop: '2rem',
-          color: '#525252',
-          fontSize: '0.75rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-        }}
-      >
-        <span>© 2026 Bunderstack</span>
-        <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <Link to="/docs" style={{ color: '#525252', textDecoration: 'none' }}>
-            Docs
-          </Link>
-          <a
-            href="https://github.com/bunderstack/bunderstack"
-            style={{ color: '#525252', textDecoration: 'none' }}
-          >
-            GitHub
-          </a>
-        </div>
-      </footer>
+      </pre>
     </div>
+  )
+}
+
+function Landing() {
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#fbfcfe] text-[#1c2430]">
+      <style>{`
+        @media (prefers-reduced-motion: no-preference) {
+          .cloud-blob-a { animation: cloud-drift-a 46s ease-in-out infinite alternate; }
+          .cloud-blob-b { animation: cloud-drift-b 58s ease-in-out infinite alternate; }
+          .ascii-cloud { animation: cloud-bob 9s ease-in-out infinite alternate; }
+        }
+        @keyframes cloud-drift-a { from { transform: translate(0, 0); } to { transform: translate(9rem, 2.5rem); } }
+        @keyframes cloud-drift-b { from { transform: translate(0, 0); } to { transform: translate(-11rem, -2rem); } }
+        @keyframes cloud-bob { from { transform: translateY(0); } to { transform: translateY(10px); } }
+      `}</style>
+
+      {/* sky */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="cloud-blob-a absolute -top-24 left-[8%] h-96 w-[42rem] rounded-full bg-[#dbeafe] opacity-70 blur-3xl" />
+        <div className="cloud-blob-b absolute top-40 right-[-10%] h-80 w-[36rem] rounded-full bg-[#ede9fe] opacity-60 blur-3xl" />
+        <div className="cloud-blob-a absolute top-[36rem] left-[-8%] h-72 w-[30rem] rounded-full bg-[#e0f2fe] opacity-60 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.35]"
+          style={{
+            backgroundImage: 'radial-gradient(#c9d6e6 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-5xl px-5 sm:px-8">
+        {/* nav */}
+        <nav className="flex items-center justify-between py-6 font-mono text-sm">
+          <span className="text-[#1c2430]">
+            <span className="text-[#5c6b80]">~/</span>bunderstack
+          </span>
+          <div className="flex items-center gap-6 text-[#5c6b80]">
+            <Link
+              to="/docs/$"
+              params={{ _splat: '' }}
+              className="transition-colors hover:text-[#4a90d9]"
+            >
+              docs
+            </Link>
+            <a
+              href="#examples"
+              className="transition-colors hover:text-[#4a90d9]"
+            >
+              examples
+            </a>
+            <a
+              href={GITHUB}
+              className="transition-colors hover:text-[#4a90d9]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github ↗
+            </a>
+          </div>
+        </nav>
+
+        {/* hero */}
+        <header className="pt-10 pb-20 text-center sm:pt-14">
+          <pre
+            aria-hidden
+            className="ascii-cloud mx-auto mb-2 inline-block text-left font-mono text-[11px] leading-[1.15] text-[#9fb6cf] select-none sm:text-[13px]"
+          >
+            {ASCII_CLOUD}
+          </pre>
+          <h1 className="font-mono text-4xl font-semibold tracking-tight sm:text-5xl">
+            bunderstack
+          </h1>
+          <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#5c6b80] sm:text-lg">
+            A batteries-included backend framework for{' '}
+            <span className="font-mono text-[#1c2430]">Bun</span>. Point it at
+            a Drizzle schema — CRUD, auth, files, and realtime fall out. The
+            client is inferred from your server&apos;s types.
+          </p>
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <CopyInstall />
+            <div className="flex items-center gap-5 font-mono text-sm">
+              <Link
+                to="/docs/$"
+                params={{ _splat: 'getting-started' }}
+                className="rounded-md bg-[#4a90d9] px-4 py-2 text-white shadow-[0_10px_24px_-12px_rgba(74,144,217,0.8)] transition-colors hover:bg-[#3b7dc4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
+              >
+                read the docs →
+              </Link>
+              <a
+                href="#examples"
+                className="text-[#5c6b80] underline decoration-dotted underline-offset-4 transition-colors hover:text-[#4a90d9]"
+              >
+                browse examples
+              </a>
+            </div>
+          </div>
+        </header>
+
+        {/* declare once */}
+        <section className="pb-20">
+          <SectionLabel>
+            declare once — everything else is inferred
+          </SectionLabel>
+          <div className="flex flex-col gap-5 lg:flex-row">
+            <CodePane title="bunderstack.ts" lines={SERVER_CODE} />
+            <div
+              aria-hidden
+              className="hidden items-center font-mono text-xl text-[#9fb6cf] lg:flex"
+            >
+              →
+            </div>
+            <CodePane title="api-client.ts" lines={CLIENT_CODE} />
+          </div>
+          <p className="mt-5 text-center font-mono text-xs text-[#8296ad]">
+            no table lists, no generated code, no OpenAPI step — the app type
+            carries it all
+          </p>
+        </section>
+
+        {/* batteries */}
+        <section className="pb-20">
+          <SectionLabel>batteries included</SectionLabel>
+          <div className="grid gap-px overflow-hidden rounded-lg border border-dotted border-[#c9d6e6] bg-[#c9d6e6]/40 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f) => (
+              <div key={f.name} className="bg-[#fbfcfe]/95 p-5">
+                <div className="font-mono text-sm text-[#4a90d9]">
+                  --{f.name}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[#5c6b80]">
+                  {f.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* examples */}
+        <section id="examples" className="pb-20">
+          <SectionLabel>examples — real apps in the repo</SectionLabel>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {EXAMPLES.map((ex) => (
+              <a
+                key={ex.dir}
+                href={`${GITHUB}/tree/main/examples/${ex.dir}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group rounded-lg border border-[#dde5ef] bg-white/80 p-5 shadow-[0_14px_30px_-24px_rgba(74,124,180,0.4)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-[#4a90d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
+              >
+                <div className="flex items-baseline justify-between font-mono text-sm">
+                  <span className="text-[#1c2430]">
+                    examples/
+                    <span className="font-semibold">{ex.dir}</span>
+                  </span>
+                  <span className="text-[#9fb6cf] transition-colors group-hover:text-[#4a90d9]">
+                    ↗
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[#5c6b80]">
+                  {ex.desc}
+                </p>
+                <div className="mt-3 font-mono text-xs text-[#8296ad]">
+                  <span className="text-[#4a90d9]">$</span> {ex.cmd}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        {/* footer */}
+        <footer className="flex flex-col items-center gap-2 border-t border-dotted border-[#c9d6e6] py-10 font-mono text-xs text-[#8296ad] sm:flex-row sm:justify-between">
+          <span>
+            <span className="text-[#4a90d9]">#</span> MIT — built on bun ·
+            drizzle · better-auth · hono
+          </span>
+          <a
+            href={GITHUB}
+            className="transition-colors hover:text-[#4a90d9]"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/kirill-dev-pro/bunderstack
+          </a>
+        </footer>
+      </div>
+    </main>
   )
 }
