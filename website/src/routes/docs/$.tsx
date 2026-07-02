@@ -1,6 +1,9 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import browserCollections from 'collections/browser'
-import { useFumadocsLoader } from 'fumadocs-core/source/client'
+import {
+  useFumadocsLoader,
+  type SerializedPageTree,
+} from 'fumadocs-core/source/client'
 import { DocsLayout } from 'fumadocs-ui/layouts/docs'
 import {
   DocsBody,
@@ -15,9 +18,17 @@ import { baseOptions } from '@/lib/layout.shared'
 // Build-time page tree + slug→file map (scripts/gen-docs-manifest.ts). Keeping
 // the loader pure means navigation never calls a server function — required
 // for static hosting (GitHub Pages), where /_serverFn/* RPCs would 404.
-import manifest from '@/lib/docs-manifest.gen.json'
+import manifestJson from '@/lib/docs-manifest.gen.json'
 
-const paths = manifest.paths as Record<string, string>
+// The JSON is produced by fumadocs-core's own serializePageTree (see the
+// generator script), so this assertion restores the type the JSON import
+// can't carry.
+const manifest = manifestJson as unknown as {
+  pageTree: SerializedPageTree
+  paths: Record<string, string>
+}
+
+const paths = manifest.paths
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,

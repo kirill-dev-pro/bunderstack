@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "bun scripts/gen-docs-manifest.ts",
+    "predev": "bun scripts/gen-docs-manifest.ts && bun scripts/gen-code-snippets.ts",
     "dev": "vite dev --port 3010",
-    "prebuild": "bun scripts/gen-docs-manifest.ts",
+    "prebuild": "bun scripts/gen-docs-manifest.ts && bun scripts/gen-code-snippets.ts",
     "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview --port 3010",
     "preview:pages": "GITHUB_PAGES=true bun run build && vite preview --port 3010"
@@ -20,14 +20,18 @@
     "react-dom": "^19"
   },
   "devDependencies": {
+    "@shikijs/twoslash": "^4.3.0",
     "@tailwindcss/vite": "^4",
+    "@tanstack/react-query": "^5.101.2",
+    "@types/bun": "^1.3.14",
     "@types/mdx": "^2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "twoslash": "^0.3.9",
+    "typescript": "^6.0.3",
     "vite": "^8",
     "vite-tsconfig-paths": "^5"
   }
