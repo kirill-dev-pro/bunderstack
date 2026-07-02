@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import '@shikijs/twoslash/style-rich.css'
 import snippets from '@/lib/code-snippets.gen.json'
@@ -161,28 +162,69 @@ function SectionTitle({
   )
 }
 
+function CopyCodeButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1600)
+      }}
+      aria-label="Copy code"
+      className="rounded px-2 py-0.5 font-mono text-[11px] text-[#8296ad] transition-colors hover:bg-[#eaf2fb] hover:text-[#3b7dc4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
+    >
+      {copied ? 'copied ✓' : 'copy'}
+    </button>
+  )
+}
+
 function CodeCard({
   title,
-  html,
+  snippet,
   header,
+  className = '',
 }: {
   title?: string
-  html: string
-  header?: React.ReactNode
+  snippet: { html: string; code: string }
+  header?: ReactNode
+  className?: string
 }) {
   return (
     // NOTE: no backdrop-blur here — backdrop-filter creates a stacking
     // context that would trap the twoslash hover popups under sibling cards.
-    <div className="snippet min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)]">
+    <div
+      className={`snippet min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)] ${className}`}
+    >
       {header ?? (
-        <div className="flex items-center gap-2 border-b border-dotted border-[#dde5ef] px-4 py-2.5 font-mono text-xs text-[#5c6b80]">
-          {title}
+        <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-2 pl-4">
+          <span className="font-mono text-xs text-[#5c6b80]">{title}</span>
+          <CopyCodeButton code={snippet.code} />
         </div>
       )}
       {/* Generated at build time by scripts/gen-code-snippets.ts (shiki + twoslash) */}
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      <div dangerouslySetInnerHTML={{ __html: snippet.html }} />
     </div>
   )
+}
+
+/** Click/tap pins a type popup open (hover still works with a mouse). */
+function usePinnablePopups() {
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const hover = target.closest?.('.twoslash-hover')
+      document.querySelectorAll('.twoslash-pinned').forEach((el) => {
+        if (el !== hover) el.classList.remove('twoslash-pinned')
+      })
+      if (hover && !target.closest('.twoslash-popup-container')) {
+        hover.classList.toggle('twoslash-pinned')
+      }
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
 }
 
 function DeclareOnce() {
@@ -197,7 +239,7 @@ function DeclareOnce() {
         sub="Schema, access rules, storage — one server file. Every client is inferred from its type: no table lists, no codegen, no OpenAPI step. Hover the code — the types are real."
       />
       <div className="flex flex-col gap-5 lg:flex-row">
-        <CodeCard title="bunderstack.ts" html={snippets.server} />
+        <CodeCard title="bunderstack.ts" snippet={snippets.server} />
         <div
           aria-hidden
           className="hidden items-center font-mono text-xl text-[#9fb6cf] lg:flex"
@@ -205,9 +247,9 @@ function DeclareOnce() {
           →
         </div>
         <CodeCard
-          html={snippets[tab]}
+          snippet={snippets[tab]}
           header={
-            <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] px-2 py-1.5">
+            <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-2 pl-2">
               <div className="flex gap-1" role="tablist" aria-label="Client package">
                 {CLIENT_TABS.map((t) => (
                   <button
@@ -225,9 +267,12 @@ function DeclareOnce() {
                   </button>
                 ))}
               </div>
-              <span className="hidden px-2 font-mono text-[11px] text-[#9fb6cf] sm:inline">
-                {active.note}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="hidden px-1 font-mono text-[11px] text-[#9fb6cf] xl:inline">
+                  {active.note}
+                </span>
+                <CopyCodeButton code={snippets[tab].code} />
+              </div>
             </div>
           }
         />
@@ -307,7 +352,11 @@ function Batteries() {
               ))}
             </div>
           </div>
-          <CodeCard title={active.file} html={snippets[active.key]} />
+          <CodeCard
+            title={active.file}
+            snippet={snippets[active.key]}
+            className="lg:max-w-[42rem]"
+          />
         </div>
       </div>
     </section>
@@ -315,6 +364,8 @@ function Batteries() {
 }
 
 function Landing() {
+  usePinnablePopups()
+
   return (
     <main className="relative min-h-screen overflow-x-clip bg-[#fbfcfe] text-[#1c2430]">
       <style>{`
@@ -354,11 +405,12 @@ function Landing() {
            so they never hide under a neighboring block. */
         .snippet { position: relative; }
         .snippet:hover { z-index: 50; }
-        /* Touch devices get no hover — don't let tap-triggered popups add
-           scrollbars there. */
-        @media (hover: none) {
-          .snippet .twoslash .twoslash-popup-container { display: none; }
+        /* Click/tap pins a popup open (usePinnablePopups toggles the class). */
+        .snippet .twoslash .twoslash-pinned .twoslash-popup-container {
+          opacity: 1;
+          pointer-events: auto;
         }
+        .snippet .twoslash-hover { cursor: pointer; }
         .snippet .twoslash-hover { border-bottom: 1px dotted #b9cade; }
         .snippet {
           --twoslash-border-color: #dde5ef;
@@ -371,7 +423,8 @@ function Landing() {
         }
         .snippet .twoslash .twoslash-popup-container {
           z-index: 40;
-          max-width: min(32rem, 82vw);
+          width: max-content;
+          max-width: min(32rem, 86vw);
           border-radius: 8px;
         }
         .snippet .twoslash .twoslash-popup-code {
@@ -380,8 +433,26 @@ function Landing() {
           overflow-y: auto;
           overflow-x: hidden;
           white-space: pre-wrap;
-          word-break: break-word;
+          word-break: normal;
+          overflow-wrap: break-word;
           font-size: 12px;
+        }
+        /* Phones: a tapped popup becomes a bottom sheet — no clipping or
+           off-screen positioning to fight. */
+        @media (max-width: 640px) {
+          .snippet .twoslash .twoslash-popup-container {
+            position: fixed;
+            left: 0.75rem;
+            right: 0.75rem;
+            bottom: 0.75rem;
+            top: auto;
+            width: auto;
+            max-width: none;
+            transform: none;
+            box-shadow: 0 -8px 40px -12px rgba(60, 100, 150, 0.5);
+          }
+          .snippet .twoslash .twoslash-popup-arrow { display: none; }
+          .snippet .twoslash .twoslash-popup-code { max-height: 40vh; }
         }
         .snippet .twoslash .twoslash-popup-docs {
           font-size: 12px;

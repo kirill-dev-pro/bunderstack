@@ -184,13 +184,28 @@ const twoslash = transformerTwoslash({
   },
 })
 
-const out: Record<string, string> = {}
+/** The part of a snippet the reader sees (and copies): after the last cut. */
+function visibleSource(code: string): string {
+  const cut = code.lastIndexOf('// ---cut---')
+  const start = cut === -1 ? 0 : code.indexOf('\n', cut) + 1
+  return code
+    .slice(start)
+    .split('\n')
+    .filter((line) => !line.startsWith('// @'))
+    .join('\n')
+    .trim()
+}
+
+const out: Record<string, { html: string; code: string }> = {}
 for (const [name, code] of Object.entries(snippets)) {
-  out[name] = highlighter.codeToHtml(code, {
-    lang: 'ts',
-    theme: 'min-light',
-    transformers: [twoslash],
-  })
+  out[name] = {
+    html: highlighter.codeToHtml(code, {
+      lang: 'ts',
+      theme: 'min-light',
+      transformers: [twoslash],
+    }),
+    code: visibleSource(code),
+  }
   console.log(`snippet ok: ${name}`)
 }
 
