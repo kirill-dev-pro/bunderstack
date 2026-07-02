@@ -18,26 +18,40 @@ export const access = defineAccess(schema, {
   },
   canvas: {
     ownerColumn: 'ownerId',
+    // `get` is public so a board URL is a share link — anyone who has it can
+    // open the board. No `scope`: it would also hide shared boards from
+    // guests; the "Your canvases" page filters by ownerId instead.
     list: 'authenticated',
-    get: 'owner',
+    get: 'public',
     create: 'authenticated',
     update: 'owner',
     delete: 'owner',
     filterableColumns: ['ownerId'],
     sortableColumns: ['updatedAt', 'createdAt', 'id'],
-    scope: ({ user }) => ({ ownerId: user?.id ?? '' }),
   },
+  // Shared boards are guest-editable: anyone with the link can draw. No
+  // owner scoping — every visitor sees every shape on the board.
   shape: {
     crud: true,
-    ownerColumn: 'ownerId',
-    list: 'authenticated',
-    get: 'owner',
-    create: 'authenticated',
-    update: 'owner',
-    delete: 'owner',
+    list: 'public',
+    get: 'public',
+    create: 'public',
+    update: 'public',
+    delete: 'public',
     filterableColumns: ['canvasId', 'ownerId'],
     sortableColumns: ['createdAt', 'updatedAt', 'id'],
-    scope: ({ user }) => ({ ownerId: user?.id ?? '' }),
+  },
+  // Presence (live cursors, who's online) is an ordinary public table —
+  // realtime broadcast-on-write does the rest.
+  presence: {
+    crud: true,
+    list: 'public',
+    get: 'public',
+    create: 'public',
+    update: 'public',
+    delete: 'public',
+    filterableColumns: ['canvasId'],
+    sortableColumns: ['updatedAt', 'id'],
   },
   session: { crud: false },
   account: { crud: false },

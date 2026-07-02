@@ -119,3 +119,27 @@ export const shape = sqliteTable('shape', {
     .notNull()
     .$defaultFn(() => new Date()),
 })
+
+// Who is on a board right now: one row per connected client, updated as the
+// cursor moves and heartbeat-refreshed while idle. Rows whose `updatedAt`
+// goes stale simply stop rendering — realtime fan-out keeps everyone's copy
+// live, so presence needs no infrastructure beyond a table.
+export const presence = sqliteTable('presence', {
+  id: typeid('presence')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('presence')),
+
+  canvasId: typeid('canvas')
+    .notNull()
+    .references(() => canvas.id, { onDelete: 'cascade' }),
+
+  name: text('name').notNull(),
+  color: text('color').notNull(),
+  // World coordinates of the cursor; null until the first move.
+  x: integer('x'),
+  y: integer('y'),
+
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})

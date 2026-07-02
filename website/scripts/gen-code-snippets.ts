@@ -157,6 +157,23 @@ const api = createClient<App>({ queryClient })
 
 api.posts // inferred from schema + access
 api.secrets // not in the schema — the client knows`,
+
+  escape: `${SCHEMA_FILE}${APP_FILE}
+// @filename: custom.ts
+// ---cut---
+import { app } from './bunderstack'
+import { desc } from 'bunderstack'
+import * as schema from './schema'
+
+const { db, auth, router } = app // the real instances
+
+const latest = await db // raw drizzle — no query wrapper
+  .select()
+  .from(schema.posts)
+  .orderBy(desc(schema.posts.createdAt))
+  .limit(5)
+
+router.get('/api/digest', (c) => c.json({ latest }))`,
 }
 
 const highlighter = await createHighlighter({
@@ -196,16 +213,31 @@ function visibleSource(code: string): string {
     .trim()
 }
 
+/**
+ * When TypeScript can't resolve the package sources (e.g. the root workspace
+ * node_modules is missing in CI), twoslash doesn't error — every hover just
+ * degrades to `any`. Fail the build instead of deploying that.
+ */
+function assertNoAnyHovers(name: string, html: string) {
+  const anyHover = /:\s*any\b|&#x3C;\s*any\b|<\s*any\b/
+  if (anyHover.test(html)) {
+    console.error(
+      `snippet "${name}": hover types degraded to \`any\` — package sources ` +
+        `didn't resolve. Run \`bun install\` at the repo root and retry.`,
+    )
+    process.exit(1)
+  }
+}
+
 const out: Record<string, { html: string; code: string }> = {}
 for (const [name, code] of Object.entries(snippets)) {
-  out[name] = {
-    html: highlighter.codeToHtml(code, {
-      lang: 'ts',
-      theme: 'min-light',
-      transformers: [twoslash],
-    }),
-    code: visibleSource(code),
-  }
+  const html = highlighter.codeToHtml(code, {
+    lang: 'ts',
+    theme: 'min-light',
+    transformers: [twoslash],
+  })
+  assertNoAnyHovers(name, html)
+  out[name] = { html, code: visibleSource(code) }
   console.log(`snippet ok: ${name}`)
 }
 

@@ -48,6 +48,7 @@ Use separate terminals — each binds a different port.
 | Twitter (TanStack DB + shadcn) | `bun run dev:twitter-db-tanstack` | http://localhost:3003 |
 | Kanban (Solid + Vite)          | `bun run dev:kanban`              | http://localhost:5174 |
 | Kanban (TanStack Start)        | `bun run dev:kanban-tanstack`     | http://localhost:5175 |
+| Whiteboard (TanStack Start)    | `bun run dev:tldraw`              | http://localhost:3000 |
 
 ### Standalone
 
@@ -62,6 +63,26 @@ API routes:
 - `POST /api/files/uploads` — multipart upload (`file` field)
 - `GET /api/files/uploads/:id?w=200&h=200&format=webp` — thumbnails
 - `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`
+
+### Whiteboard (TanStack Start)
+
+Collaborative whiteboard — canvases and shapes are synced collections, images
+are bucket uploads. A board URL is a share link: guests can open it, draw,
+and show up in presence without an account. Live cursors and the who's-online
+avatars are powered by an ordinary `presence` table (name, cursor x/y,
+heartbeat timestamp) with public access rules — realtime broadcast-on-write
+does the rest, no extra infrastructure.
+
+```bash
+bun run dev:tldraw
+bun run --cwd examples/tldraw migrate   # once
+```
+
+| Route         | Purpose                                          |
+| ------------- | ------------------------------------------------ |
+| `/canvas`     | Your boards (auth required)                      |
+| `/canvas/:id` | The board — shareable, guest-editable, live      |
+| `/login`      | BetterAuth                                       |
 
 ### Twitter (TanStack Start)
 
