@@ -70,9 +70,17 @@
           "$id": "query-client.mdx",
           "type": "page",
           "name": "Query Client",
-          "description": "Typed TanStack Query hooks generated from your schema",
+          "description": "Typed TanStack Query clients inferred from your server app",
           "url": "/docs/query-client",
           "$ref": "query-client.mdx"
+        },
+        {
+          "$id": "sync-collections.mdx",
+          "type": "page",
+          "name": "Sync Collections",
+          "description": "TanStack DB collections with realtime sync, inferred from your app",
+          "url": "/docs/sync-collections",
+          "$ref": "sync-collections.mdx"
         },
         {
           "$id": "framework-portability.mdx",
@@ -103,6 +111,7 @@
     "": "index.mdx",
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
+    "sync-collections": "sync-collections.mdx",
     "thumbnails": "thumbnails.mdx"
   }
 }

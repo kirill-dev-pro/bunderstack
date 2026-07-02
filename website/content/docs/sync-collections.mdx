@@ -1,0 +1,107 @@
+---
+title: Sync Collections
+description: TanStack DB collections with realtime sync, inferred from your app
+---
+
+# Sync Collections
+
+`bunderstack-sync` layers [TanStack DB](https://tanstack.com/db) collections on
+top of the query client — local live-query state, optimistic mutations, and
+realtime SSE fan-out, all inferred from your server app type.
+
+## Install
+
+```bash
+bun add bunderstack-sync @tanstack/react-query @tanstack/db @tanstack/query-db-collection
+```
+
+## createSyncClient
+
+```ts
+import { createSyncClient } from 'bunderstack-sync'
+import type { App } from './bunderstack' // type-only import
+
+const api = createSyncClient<App>({ queryClient })
+```
+
+Like `createClient`, tables and buckets are inferred and materialize lazily.
+Every exposed table gets a bundle:
+
+```ts
+api.posts.collection // TanStack DB collection (default: first 100 rows)
+api.posts.table      // raw typed table client (list/get/create/update/delete)
+api.posts.scopedCollection(options)
+api.posts.collectionByIds(ids)
+api.files.avatars    // bucket client
+api.realtime         // SSE client (undefined during SSR)
+```
+
+Mutations on `collection` are optimistic and persist through the CRUD API:
+
+```ts
+api.posts.collection.insert({ id, title, userId })
+api.posts.collection.update(id, (draft) => {
+  draft.title = 'renamed'
+})
+api.posts.collection.delete(id)
+```
+
+## scopedCollection — growing-window pagination
+
+The default `collection` syncs a capped window — fine for small tables, wrong
+for feeds. `scopedCollection` walks cursor pages server-side and grows in
+place:
+
+```ts
+const feed = api.posts.scopedCollection({
+  filter: { replyToId: null }, // equality filters (filterableColumns)
+  sort: 'createdAt',
+  order: 'desc',
+  initialCount: 20, // window size + loadMore step (default 20)
+})
+
+useLiveQuery((q) =>
+  q.from({ post: feed.collection }).orderBy(({ post }) => post.createdAt, 'desc'),
+)
+
+await feed.loadMore() // grow the window in place — rendered rows never unmount
+feed.hasMore()        // exact, from the server's last response
+```
+
+Collections are **cached by their options** — calling `scopedCollection` with
+the same options during render returns the same instance, no `useMemo` needed.
+
+## collectionByIds — resolve exact rows
+
+For "show the authors of these posts" lookups, don't scan a capped table —
+fetch exactly the ids you need (chunked at the server's IN-filter cap):
+
+```ts
+const authorIds = [...new Set(posts.map((p) => p.userId))].sort()
+const authors = api.user.collectionByIds(authorIds)
+
+useLiveQuery((q) => q.from({ user: authors }))
+```
+
+## Realtime
+
+With `realtime: true` on the server, the sync client subscribes over SSE and
+fans every event out to **all materialized views** of a table — the base
+collection, scoped windows (filtered client-side by each window's own
+predicate), and byIds sets:
+
+```ts
+// e.g. in your root component
+React.useEffect(() => {
+  void api.realtime?.subscribe(['posts', 'user', 'likes'])
+}, [api])
+```
+
+Realtime defaults to **on in the browser, off during SSR** (it needs a
+persistent connection). `api.realtime` is `undefined` server-side, so the
+optional call above is SSR-safe.
+
+## TanStack Start apps
+
+The `bunderstack-start` adapter wires all of this (plus SSR-aware fetch) in
+one call — see [Framework Portability](/docs/framework-portability).

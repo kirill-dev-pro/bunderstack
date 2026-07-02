@@ -50,28 +50,17 @@ export async function getApp() {
 }
 ```
 
-## TanStack Start
+## TanStack Start: bunderstack-start
 
-```ts
-// src/routes/api/$.tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { app } from '~/bunderstack'
+The `bunderstack-start` adapter owns all Start-specific glue — the API file
+route, SSR-aware fetch, the client setup, session lookup, and the auth client.
 
-const handle = ({ request }: { request: Request }) => app.handler(request)
-
-export const Route = createFileRoute('/api/$')({
-  server: {
-    handlers: {
-      GET: handle,
-      POST: handle,
-      PATCH: handle,
-      DELETE: handle,
-    },
-  },
-})
+```bash
+bun add bunderstack-start bunderstack-sync bunderstack-query
 ```
 
-TanStack Start supports top-level `await`, so `bunderstack.ts` can export `app` directly:
+TanStack Start supports top-level `await`, so `bunderstack.ts` exports `app`
+directly, plus the type handle for client inference:
 
 ```ts
 // src/bunderstack.ts
@@ -85,7 +74,51 @@ export const app = createBunderstack({
   auth: { emailAndPassword: { enabled: true } },
 })
 
+export type App = typeof app
+
 if (process.env.NODE_ENV !== 'production') {
   await app.provision()
 }
+```
+
+Mount the API and set up the whole client:
+
+```ts
+// src/routes/api/$.tsx
+import { createFileRoute } from '@tanstack/react-router'
+import { createApiHandlers } from 'bunderstack-start'
+import { app } from '~/bunderstack'
+
+export const Route = createFileRoute('/api/$')({
+  server: { handlers: createApiHandlers(app) },
+})
+```
+
+```ts
+// src/api.ts — the entire client setup
+import { bunderstackStart } from 'bunderstack-start'
+import type { App } from './bunderstack'
+
+export const { createQueryClient, createApi } = bunderstackStart<App>()
+```
+
+`createApi(queryClient)` returns the fully inferred
+[sync client](/docs/sync-collections) with SSR-aware fetch and
+realtime-off-during-SSR already handled.
+
+> **Don't name that file `src/client.ts`.** It's a reserved TanStack Start
+> entry-point name — a file called `client.ts` silently replaces the
+> framework's hydration entry, and the app renders server-side but is
+> completely inert in the browser, with no console error.
+
+Also included:
+
+```ts
+import { getSessionUser, createStartAuthClient } from 'bunderstack-start'
+
+// In a server function: resolve the BetterAuth session
+const user = await getSessionUser(app, request)
+
+// Browser-side BetterAuth SDK pointed at /api/auth/*
+export const authClient = createStartAuthClient()
 ```

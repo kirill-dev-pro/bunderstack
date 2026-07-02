@@ -1,11 +1,12 @@
 ---
 title: Query Client
-description: Typed TanStack Query hooks generated from your schema
+description: Typed TanStack Query clients inferred from your server app
 ---
 
 # Query Client
 
-`bunderstack-query` generates typed TanStack Query hooks for every CRUD route.
+`bunderstack-query` gives you a fully typed client for every CRUD route —
+inferred from your server app, with nothing to configure on the client.
 
 ## Install
 
@@ -13,58 +14,68 @@ description: Typed TanStack Query hooks generated from your schema
 bun add bunderstack-query @tanstack/react-query
 ```
 
-## withTables (recommended for client bundles)
+## createClient (recommended)
 
-Provide your schema as a **type-only import** — nothing is bundled on the client.
+Export the app type from your server entry, then infer everything from it:
+
+```ts
+// bunderstack.ts (server)
+export const app = createBunderstack({ schema, access, storage })
+export type App = typeof app
+```
 
 ```ts
 // api-client.ts
-import { createBunderstackQueryClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack-query'
 import { QueryClient } from '@tanstack/react-query'
-import type * as schema from './schema'
+import type { App } from './bunderstack' // type-only import
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
 })
 
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
-  queryClient,
-  tables: ['posts', 'user', 'likes', 'follows'] as const,
-})
+export const api = createClient<App>({ queryClient })
 ```
 
-Each table in `tables` gets a full typed client. The return type is inferred from the schema type.
-
-## withSchema (server components / no bundle concern)
-
-If you can import the schema as a value, use `.withSchema()`. Exposed tables are determined automatically by your access config — auth tables excluded by default.
+- **Exposed tables and buckets are inferred** from your access rules and
+  storage config — no `tables: [...]` tuples to keep in sync with the server.
+  Add a table server-side and `api.newTable` type-checks immediately.
+- **Type-only import** — no server code (or Drizzle schema) lands in the
+  client bundle.
+- **Lazy** — table and bucket clients materialize on first property access.
+  One consequence: `Object.keys(api)` is empty by design; access members
+  directly.
 
 ```ts
-import * as schema from './schema'
-import { access } from './access'
-
-export const api = createBunderstackQueryClient().withSchema({
-  schema,
-  access,
-  queryClient,
-})
+api.posts.list({ limit: 20 })
+api.posts.get(postId)
+api.files.avatars.upload(file) // buckets under api.files.*
 ```
 
 ## Available methods
 
 ```ts
-// List
+// Raw promises
+api.posts.list({ limit: 20, offset: 0 })
+api.posts.list({ q: 'search term' }) // if searchableColumns set
+api.posts.list({ userId: id })       // filterableColumns → WHERE userId = ?
+api.posts.list({ id: [a, b, c] })    // array value → WHERE id IN (a, b, c)
+api.posts.get(postId)
+api.posts.create(data)
+api.posts.update(postId, patch)
+api.posts.delete(postId)
+
+// TanStack Query option factories
 api.posts.listQuery({ limit: 20, offset: 0 })
-api.posts.listQuery({ limit: 20, offset: 0, q: 'search term' }) // if searchableColumns set
-
-// Get by id
+api.posts.listInfiniteQuery({ limit: 20 }) // keyset cursor pagination
 api.posts.getQuery(postId)
-
-// Mutations
 api.posts.createMutation()
 api.posts.updateMutation()
 api.posts.deleteMutation()
 ```
+
+The server caps every list request at `MAX_LIST_LIMIT` (200), exported from
+both `bunderstack` and `bunderstack-query`.
 
 ## In a component
 
@@ -77,8 +88,6 @@ function PostList() {
   // data: { items: Post[], limit: number, offset: number }
 
   const create = useMutation(api.posts.createMutation())
-  const update = useMutation(api.posts.updateMutation())
-  const remove = useMutation(api.posts.deleteMutation())
 
   return (
     <ul>
@@ -105,7 +114,32 @@ export const Route = createFileRoute('/')({
 
 ## Query invalidation
 
-Pass `queryClient` when creating the client and mutations will automatically invalidate the affected table's queries on success.
+Pass `queryClient` when creating the client and mutations automatically
+invalidate the affected table's queries on success.
+
+## Explicit alternatives
+
+When you want explicit control instead of app-type inference, the builder API
+still works:
+
+```ts
+import { createBunderstackQueryClient } from 'bunderstack-query'
+import type * as schema from './schema'
+
+// Hand-picked table tuple (type-only schema import)
+export const api = createBunderstackQueryClient<typeof schema>().withTables({
+  queryClient,
+  tables: ['posts', 'user'] as const,
+})
+
+// Or schema-as-value (server components, no bundle concern) — exposed tables
+// resolved from access rules at runtime
+export const api2 = createBunderstackQueryClient().withSchema({
+  schema,
+  access,
+  queryClient,
+})
+```
 
 ## Type utilities
 

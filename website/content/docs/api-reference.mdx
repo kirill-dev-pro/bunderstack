@@ -8,34 +8,91 @@ description: Complete exported surface of Bunderstack
 ## createBunderstack(options)
 
 ```ts
-function createBunderstack<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema>,
-): BunderstackApp<TSchema>
+function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage>,
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>>
 ```
+
+The access and storage generics are captured so clients can infer exposed
+tables and bucket names from `typeof app` (see `$inferClient` below).
 
 ### BunderstackConfig
 
 ```ts
-type BunderstackConfig<TSchema> = {
+type BunderstackConfig<TSchema, TAccess, TStorage> = {
   schema: TSchema
+  access?: TAccess // Record<tableKey, TableAccessInput>
   database?: { url?: string; authToken?: string }
   auth?: BetterAuthConfig // native BetterAuth options (except database)
-  storage?: { local: string | true } | { s3: true | { endpoint?: string } }
-  storageOptions?: { uploadRules?: UploadRules }
+  storage?: TStorage // StorageConfigInput: backends, defaultBucket, buckets
+  rateLimit?: boolean | RateLimitConfig
+  idempotency?: boolean | IdempotencyConfig
+  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number; redis?: … }
 }
 ```
 
 ### BunderstackApp
 
 ```ts
-type BunderstackApp<TSchema> = {
+type BunderstackApp<TSchema, TAccess, TBuckets> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: Auth
   storage: StorageFacade
   router: Hono
   provision: (options?: { force?: boolean }) => Promise<void>
+  /** Type-only carrier for client inference — never assigned at runtime. */
+  readonly $inferClient?: { schema: TSchema; access: TAccess; buckets: TBuckets }
 }
+```
+
+Export `type App = typeof app` and the client packages infer everything from
+it.
+
+## Client packages
+
+### bunderstack-query
+
+```ts
+function createClient<TApp extends AnyBunderstackApp>(options?: {
+  baseUrl?: string // default '/api'
+  fetch?: (input, init?) => Promise<Response>
+  queryClient?: QueryClient // enables mutation cache invalidation
+}): BunderstackClient<TApp>
+```
+
+Lazy proxy: `api.<table>` (list/get/create/update/delete + TanStack Query
+option factories) and `api.files.<bucket>` (upload/url/delete). Also exports
+`MAX_LIST_LIMIT` (200 — the server's per-request list cap), `InferSelect`,
+`InferInsert`, and the explicit `createBunderstackQueryClient` builder.
+
+### bunderstack-sync
+
+```ts
+function createSyncClient<TApp extends AnyBunderstackApp>(options: {
+  queryClient: QueryClient
+  baseUrl?: string
+  fetch?: (input, init?) => Promise<Response>
+  realtime?: boolean // default: true in the browser, false during SSR
+}): BunderstackSyncClient<TApp>
+```
+
+Per table: `collection`, `table`, `scopedCollection(options)`,
+`collectionByIds(ids)`; plus `files.<bucket>` and `realtime` — see
+[Sync Collections](/docs/sync-collections).
+
+### bunderstack-start
+
+```ts
+bunderstackStart<TApp>(options?): { createQueryClient(); createApi(queryClient) }
+createApiHandlers(app): { GET; POST; PATCH; DELETE } // catch-all API route
+createIsomorphicFetch(options?): fetch // SSR-aware relative-URL fetch
+getSessionUser(app, request): Promise<SessionUser | null>
+createStartAuthClient(options?) // BetterAuth browser client
 ```
 
 ## StorageAdapter

@@ -62,6 +62,9 @@ export const app = createBunderstack({
   auth: { emailAndPassword: { enabled: true } },
 })
 
+/** Type-only handle for client inference — see "Talk to it from the client". */
+export type App = typeof app
+
 if (process.env.NODE_ENV !== 'production') {
   await app.provision()
 }
@@ -135,9 +138,30 @@ if (process.env.NODE_ENV !== 'production') {
 }
 ```
 
+## Talk to it from the client
+
+Because `App` carries your schema, access rules, and buckets at the type
+level, the client needs zero configuration — tables and buckets are inferred:
+
+```ts
+// api-client.ts
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack' // type-only: no server code in the bundle
+
+export const api = createClient<App>({ queryClient })
+
+api.posts.list({ limit: 20 })
+api.files.uploads.upload(file)
+```
+
+Add a table on the server and the client knows it instantly — no tuples to
+keep in sync. See [Query client](/docs/query-client) and
+[Sync collections](/docs/sync-collections).
+
 ## Next steps
 
 - [Auto CRUD](/docs/crud) — access rules, search, column guards
 - [Auth](/docs/auth) — OAuth providers, session access
 - [Storage](/docs/storage) — file uploads, S3 config
 - [Query client](/docs/query-client) — typed TanStack Query hooks
+- [Sync collections](/docs/sync-collections) — TanStack DB collections with realtime
