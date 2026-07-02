@@ -10,6 +10,8 @@ import {
 import * as React from 'react'
 import { toast } from 'sonner'
 
+import type { RouterContext } from '~/router'
+
 import {
   SHAPE_TOOLS,
   createClientTypeId,
@@ -18,6 +20,15 @@ import {
   type ShapeType,
 } from '~/utils/canvas-data'
 import { fetchCanvas } from '~/utils/canvas-loader'
+import {
+  CURSOR_THROTTLE_MS,
+  PRESENCE_HEARTBEAT_MS,
+  getGuestName,
+  isPresenceFresh,
+  presenceColor,
+  presenceInitials,
+  type PresenceRow,
+} from '~/utils/presence'
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed'] as const
 
@@ -26,9 +37,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export const Route = createFileRoute('/canvas/$id')({
-  beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
-  },
+  // No auth guard: a board URL is a share link, guests can view and edit.
   loader: async ({ params }) => {
     const canvas = await fetchCanvas({ data: params.id })
     if (!canvas) throw redirect({ to: '/canvas' })
@@ -82,9 +91,14 @@ function WhiteboardClient() {
     Record<string, { x: number; y: number }>
   >({})
   const params = React.useMemo(() => shapeListParams(id), [id])
+  const { presenceId, myName, myColor, sendCursor } = usePresence(
+    api,
+    id as TypeId<'canvas'>,
+    user,
+  )
 
   React.useEffect(() => {
-    void api.realtime?.subscribe(['shape'])
+    void api.realtime?.subscribe(['shape', 'presence'])
     void api.shape.table
       .list(params)
       .then((page) => {
@@ -93,7 +107,22 @@ function WhiteboardClient() {
         }
       })
       .catch((error: Error) => toast.error(error.message))
-  }, [api.realtime, api.shape.collection.utils, api.shape.table, params])
+    void api.presence.table
+      .list({ canvasId: params.canvasId, limit: 100 })
+      .then((page) => {
+        for (const row of page.items) {
+          api.presence.collection.utils.writeUpsert(row)
+        }
+      })
+      .catch(() => {})
+  }, [
+    api.presence.collection.utils,
+    api.presence.table,
+    api.realtime,
+    api.shape.collection.utils,
+    api.shape.table,
+    params,
+  ])
 
   const { data: shapes = [] } = useLiveQuery((query) =>
     query
@@ -102,6 +131,32 @@ function WhiteboardClient() {
       .orderBy(({ shape }) => shape.createdAt, params.order)
       .limit(params.limit)
       .select(({ shape }) => shape),
+  )
+
+  const { data: presenceLiveRows = [] } = useLiveQuery((query) =>
+    query
+      .from({ presence: api.presence.collection })
+      .where(({ presence }) => eq(presence.canvasId, params.canvasId))
+      .select(({ presence }) => presence),
+  )
+  // Same live-query inference quirk the shape query above carries; the rows
+  // are presence rows at runtime.
+  const presenceRows = presenceLiveRows as unknown as PresenceRow[]
+
+  // Stale presence rows (closed tabs that never sent a delete) drop out as
+  // this clock ticks past their last heartbeat.
+  const [presenceNow, setPresenceNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    const timer = setInterval(() => setPresenceNow(Date.now()), 10_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const peers = React.useMemo(
+    () =>
+      presenceRows.filter(
+        (row) => row.id !== presenceId && isPresenceFresh(row, presenceNow),
+      ),
+    [presenceRows, presenceId, presenceNow],
   )
 
   const screenToWorld = React.useCallback(
@@ -141,7 +196,7 @@ function WhiteboardClient() {
       api.shape.collection.insert({
         id: createClientTypeId('shape'),
         canvasId: id as TypeId<'canvas'>,
-        ownerId: user!.id,
+        ownerId: user?.id ?? null,
         ...draft,
         createdAt: now,
         updatedAt: now,
@@ -231,6 +286,11 @@ function WhiteboardClient() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
+          <PresenceAvatars
+            me={{ id: presenceId, name: myName, color: myColor }}
+            peers={peers}
+          />
+          <ShareBoardUrl />
           <div className="flex rounded-full bg-slate-100 p-1">
             {SHAPE_TOOLS.map((tool) => (
               <button
@@ -314,6 +374,8 @@ function WhiteboardClient() {
           })
         }}
         onPointerMove={(event) => {
+          sendCursor(screenToWorld(event.clientX, event.clientY))
+
           if (pan && pan.pointerId === event.pointerId) {
             setViewport((current) => ({
               ...current,
@@ -409,6 +471,37 @@ function WhiteboardClient() {
               </button>
             )
           })}
+
+          {peers.map((peer) =>
+            peer.x == null || peer.y == null ? null : (
+              <div
+                key={peer.id}
+                className="pointer-events-none absolute z-10"
+                style={{
+                  left: peer.x,
+                  top: peer.y,
+                  // Cursors live in world coordinates but keep screen size.
+                  transform: `scale(${1 / viewport.scale})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <svg width="18" height="22" viewBox="0 0 18 22" aria-hidden>
+                  <path
+                    d="M1 1 L17 12.5 L9.5 13.8 L6 21 Z"
+                    fill={peer.color}
+                    stroke="#fff"
+                    strokeWidth="1.2"
+                  />
+                </svg>
+                <span
+                  className="mt-0.5 ml-3 inline-block max-w-40 truncate rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-white"
+                  style={{ backgroundColor: peer.color }}
+                >
+                  {peer.name}
+                </span>
+              </div>
+            ),
+          )}
         </div>
 
         {shapes.length === 0 ? (
@@ -423,6 +516,145 @@ function WhiteboardClient() {
           </div>
         ) : null}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Presence is an ordinary synced table: join by inserting a row, keep it
+ * fresh with a heartbeat, move the cursor with throttled updates, and leave
+ * by deleting it. Realtime broadcast-on-write fans every change out to the
+ * other clients on the board.
+ */
+function usePresence(
+  api: RouterContext['api'],
+  canvasId: TypeId<'canvas'>,
+  user: RouterContext['user'],
+) {
+  const [presenceId] = React.useState(() => createClientTypeId('presence'))
+  const myColor = React.useMemo(() => presenceColor(presenceId), [presenceId])
+  const myName = React.useMemo(
+    () =>
+      user
+        ? user.name?.trim() || user.email
+        : getGuestName(window.localStorage),
+    [user],
+  )
+  // Cursor/heartbeat updates only make sense once the join row exists on the
+  // server — otherwise the PATCH races the initial POST.
+  const joinedRef = React.useRef(false)
+  const lastCursorSentRef = React.useRef(0)
+
+  React.useEffect(() => {
+    const tx = api.presence.collection.insert({
+      id: presenceId,
+      canvasId,
+      name: myName,
+      color: myColor,
+      x: null,
+      y: null,
+      updatedAt: new Date(),
+    })
+    void tx.isPersisted.promise.then(
+      () => {
+        joinedRef.current = true
+      },
+      () => {},
+    )
+
+    const heartbeat = setInterval(() => {
+      if (!joinedRef.current) return
+      api.presence.collection.update(presenceId, (draft) => {
+        draft.updatedAt = new Date()
+      })
+    }, PRESENCE_HEARTBEAT_MS)
+
+    const leave = () => {
+      if (!joinedRef.current) return
+      joinedRef.current = false
+      api.presence.collection.delete(presenceId)
+    }
+    // Best effort on tab close; stale rows age out via `isPresenceFresh`.
+    window.addEventListener('pagehide', leave)
+    return () => {
+      clearInterval(heartbeat)
+      window.removeEventListener('pagehide', leave)
+      leave()
+    }
+  }, [api.presence.collection, canvasId, myColor, myName, presenceId])
+
+  const sendCursor = React.useCallback(
+    (world: { x: number; y: number }) => {
+      if (!joinedRef.current) return
+      const now = Date.now()
+      if (now - lastCursorSentRef.current < CURSOR_THROTTLE_MS) return
+      lastCursorSentRef.current = now
+      api.presence.collection.update(presenceId, (draft) => {
+        draft.x = Math.round(world.x)
+        draft.y = Math.round(world.y)
+        draft.updatedAt = new Date()
+      })
+    },
+    [api.presence.collection, presenceId],
+  )
+
+  return { presenceId, myName, myColor, sendCursor }
+}
+
+function PresenceAvatars({
+  me,
+  peers,
+}: {
+  me: { id: string; name: string; color: string }
+  peers: PresenceRow[]
+}) {
+  const people = [me, ...peers]
+  const shown = people.slice(0, 5)
+  const extra = people.length - shown.length
+
+  return (
+    <div className="flex items-center -space-x-2" aria-label="Online now">
+      {shown.map((person) => (
+        <span
+          key={person.id}
+          title={person.id === me.id ? `${person.name} (you)` : person.name}
+          className="grid size-8 place-items-center rounded-full text-[11px] font-black text-white ring-2 ring-white"
+          style={{ backgroundColor: person.color }}
+        >
+          {presenceInitials(person.name)}
+        </span>
+      ))}
+      {extra > 0 ? (
+        <span className="grid size-8 place-items-center rounded-full bg-slate-200 text-[11px] font-black text-slate-600 ring-2 ring-white">
+          +{extra}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+function ShareBoardUrl() {
+  const [copied, setCopied] = React.useState(false)
+  // Rendered inside <ClientOnly>, so window is always available.
+  const url = window.location.href
+
+  return (
+    <div className="flex items-center gap-1 rounded-full border bg-slate-50 py-1 pr-1 pl-3">
+      <span className="max-w-36 truncate font-mono text-xs text-slate-500 sm:max-w-52">
+        {url.replace(/^https?:\/\//, '')}
+      </span>
+      <button
+        type="button"
+        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50"
+        onClick={() => {
+          void navigator.clipboard.writeText(url)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1600)
+          toast.success('Board link copied — anyone with it can draw here')
+        }}
+      >
+        {copied ? 'Copied ✓' : 'Copy link'}
+      </button>
     </div>
   )
 }

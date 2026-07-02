@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      # Landing snippets typecheck against the real package sources — a
+      # package change can change (or break) the rendered hover types.
+      - 'packages/**'
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
@@ -24,6 +27,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+
+      # Root install first: gen-code-snippets.ts resolves bunderstack packages
+      # from ../packages/*/src, whose imports (drizzle-orm, better-auth, hono,
+      # @tanstack/db, …) live in the root workspace node_modules. Without it,
+      # twoslash silently renders every hover as `any`.
+      - name: Install workspace deps
+        run: bun install
 
       - name: Install & build
         working-directory: website

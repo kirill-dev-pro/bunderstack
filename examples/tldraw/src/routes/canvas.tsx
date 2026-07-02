@@ -18,8 +18,12 @@ import {
 } from '~/utils/canvas-data'
 
 export const Route = createFileRoute('/canvas')({
-  beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
+  // Only the canvas list needs an account. Child board routes (/canvas/:id)
+  // are shared by URL and open for guests, so the guard is path-exact.
+  beforeLoad: ({ context, location }) => {
+    if (!context.user && location.pathname === '/canvas') {
+      throw redirect({ to: '/login' })
+    }
   },
   component: CanvasesPage,
 })

@@ -72,6 +72,69 @@ const BATTERIES = [
   },
 ]
 
+/* The glue a typical app carries for the same behavior — what a battery
+ * replaces. Counts are honest ballparks, marked as such in the UI. */
+const GLUE_FILES = [
+  { file: 'routes/posts.ts', lines: 120, note: 'CRUD handlers, pagination, search' },
+  { file: 'validators/posts.ts', lines: 50, note: 'request schemas, write guards' },
+  { file: 'api-client.ts', lines: 90, note: 'fetch wrappers + response types' },
+  { file: 'auth/…', lines: 210, note: 'sessions, sign-in, OAuth callbacks' },
+  { file: 'upload.ts', lines: 90, note: 'multipart, S3, thumbnail resizes' },
+  { file: 'realtime.ts', lines: 140, note: 'socket server, event fan-out' },
+  { file: 'types.gen.ts', lines: 0, note: 'a codegen step you re-run and commit' },
+]
+
+const COMPARISON = {
+  columns: ['bunderstack', 'Supabase', 'PocketBase', 'hand-rolled'],
+  rows: [
+    {
+      label: 'runs as',
+      cells: [
+        'a library in your app',
+        'hosted service / Docker',
+        'a Go binary next to it',
+        'your own code',
+      ],
+    },
+    {
+      label: 'client types',
+      cells: [
+        'inferred from typeof app',
+        'codegen CLI step',
+        'untyped REST + SDK',
+        'you write and sync them',
+      ],
+    },
+    {
+      label: 'escape hatch',
+      cells: [
+        'the raw db / auth / router',
+        'SQL + edge functions',
+        'Go hooks, then a fork',
+        'everything, all the time',
+      ],
+    },
+    {
+      label: 'realtime',
+      cells: [
+        'SSE, broadcast-on-write',
+        'websocket channels',
+        'subscriptions',
+        'you build the fan-out',
+      ],
+    },
+    {
+      label: 'your schema',
+      cells: [
+        'Drizzle, in your repo',
+        'theirs, in their dashboard',
+        'theirs, in their admin',
+        'yours',
+      ],
+    },
+  ],
+}
+
 const EXAMPLES = [
   {
     dir: 'twitter-db-tanstack',
@@ -80,7 +143,7 @@ const EXAMPLES = [
   },
   {
     dir: 'tldraw',
-    desc: 'Collaborative whiteboard. Canvases and shapes are synced collections; images are bucket uploads.',
+    desc: 'Collaborative whiteboard with live cursors and guest editing — share a board by URL. Presence is just another synced table.',
     cmd: 'bun run dev:tldraw',
   },
   {
@@ -363,6 +426,140 @@ function Batteries() {
   )
 }
 
+function WhatYouDontWrite() {
+  const total = GLUE_FILES.reduce((sum, f) => sum + f.lines, 0)
+
+  return (
+    <section className="pb-24">
+      <SectionTitle
+        eyebrow="the delta"
+        title="What you don't write"
+        sub="Each battery replaces a file you'd otherwise maintain by hand. Same behavior, one config object — and it stays typed end to end."
+      />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)]">
+          <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-4 pl-4">
+            <span className="font-mono text-xs text-[#5c6b80]">
+              <span className="text-[#4a90d9]">$</span> wc -l src/api/**
+              <span className="text-[#9fb6cf]"> # the usual glue, ±</span>
+            </span>
+          </div>
+          <div className="overflow-x-auto p-4 font-mono text-[13px] leading-7">
+            {GLUE_FILES.map((f) => (
+              <div key={f.file} className="flex items-baseline gap-3 whitespace-nowrap">
+                <span className="w-10 shrink-0 text-right text-[#c9d6e6]">
+                  {f.lines || '—'}
+                </span>
+                <span className="text-[#8296ad] line-through decoration-[#c9d6e6]">
+                  {f.file}
+                </span>
+                <span className="text-xs text-[#9fb6cf]">{f.note}</span>
+              </div>
+            ))}
+            <div className="mt-2 flex items-baseline gap-3 border-t border-dotted border-[#dde5ef] pt-2 whitespace-nowrap">
+              <span className="w-10 shrink-0 text-right text-[#5c6b80]">
+                ≈{total}
+              </span>
+              <span className="text-[#5c6b80]">total, per project, forever</span>
+            </div>
+            <div className="mt-3 flex items-baseline gap-3 whitespace-nowrap">
+              <span className="w-10 shrink-0 text-right text-[#4a90d9]">14</span>
+              <span className="font-semibold text-[#1c2430]">bunderstack.ts</span>
+              <span className="text-xs text-[#4a90d9]">
+                the config at the top of this page
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="lg:w-[19rem] lg:shrink-0 lg:pt-2">
+          <h3 className="text-xl font-semibold text-[#1c2430]">
+            The schema was the spec all along
+          </h3>
+          <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
+            Route handlers, request validation, fetch wrappers, auth wiring,
+            upload endpoints, socket fan-out — none of it says anything your
+            Drizzle schema and access rules didn&apos;t already say. Bunderstack
+            derives all of it, so there&apos;s nothing to drift, regenerate, or
+            review.
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function NoWalls() {
+  return (
+    <section className="pb-24">
+      <SectionTitle
+        eyebrow="no walls"
+        title="Never hit a ceiling"
+        sub="Bunderstack composes Drizzle, BetterAuth, and Hono — and re-exports the raw instances, never sealed behind a wrapper. When auto-CRUD stops being enough, drop one level down and keep going."
+      />
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <CodeCard
+          title="custom.ts"
+          snippet={snippets.escape}
+          className="lg:max-w-[42rem]"
+        />
+        <div className="lg:w-[19rem] lg:shrink-0 lg:pt-2">
+          <h3 className="text-xl font-semibold text-[#1c2430]">
+            A backend service you <span className="font-mono">bun add</span>
+          </h3>
+          <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
+            Not a hosted platform, not a binary beside your app — a library
+            inside it. Your schema stays in your repo, your database stays
+            yours, and the day you outgrow a battery you&apos;re already
+            holding the underlying instance.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-10 overflow-x-auto rounded-lg border border-[#dde5ef] bg-white/80 shadow-[0_14px_30px_-24px_rgba(74,124,180,0.4)]">
+        <table className="w-full min-w-[46rem] border-collapse text-left font-mono text-xs">
+          <thead>
+            <tr className="border-b border-dotted border-[#dde5ef] text-[#5c6b80]">
+              <th className="px-4 py-2.5 font-normal" />
+              {COMPARISON.columns.map((col, i) => (
+                <th
+                  key={col}
+                  className={`px-4 py-2.5 font-semibold ${
+                    i === 0 ? 'text-[#3b7dc4]' : 'text-[#5c6b80]'
+                  }`}
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON.rows.map((row) => (
+              <tr
+                key={row.label}
+                className="border-b border-dotted border-[#dde5ef] last:border-b-0"
+              >
+                <td className="px-4 py-2.5 whitespace-nowrap text-[#9fb6cf]">
+                  {row.label}
+                </td>
+                {row.cells.map((cell, i) => (
+                  <td
+                    key={COMPARISON.columns[i]}
+                    className={`px-4 py-2.5 ${
+                      i === 0 ? 'bg-[#eaf2fb]/60 text-[#1c2430]' : 'text-[#5c6b80]'
+                    }`}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function Landing() {
   usePinnablePopups()
 
@@ -544,6 +741,8 @@ function Landing() {
 
         <DeclareOnce />
         <Batteries />
+        <WhatYouDontWrite />
+        <NoWalls />
 
         {/* examples */}
         <section id="examples" className="pb-24">
