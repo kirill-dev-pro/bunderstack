@@ -1,4 +1,4 @@
-# Env validation, custom typed endpoints, and email sending
+# Env validation, tRPC endpoints, and email sending
 
 Date: 2026-07-12
 Branch: main (feature branch to be created at implementation time)
@@ -24,20 +24,24 @@ batteries-included backend:
 All three are defined from the bunderstack config, consistent with the
 existing surface. Decisions validated in brainstorming:
 
-- Endpoints: typed RPC (option B) with a query/mutation distinction, picked up
-  by `bunderstack-query` through the `$inferClient` phantom.
+- Endpoints: adopt **tRPC** as the endpoint layer (compose best-in-class,
+  don't invent a parallel RPC), defined inline in the config via a builder
+  callback, picked up by `bunderstack-query` through the `$inferClient`
+  phantom using tRPC's official TanStack Query integration.
 - Env: built-in base schema inside the lib + user extension in config
   (not a separate `defineEnv()` entry file); t3-env-style server/client split,
   rolled on zod (already a dependency), no `@t3-oss/env-core` dep.
 - Email: built-in adapters (`resend` first-class, `smtp`, `console`) plus a
   custom-adapter escape hatch; auto-wire better-auth email flows. More
   built-in adapters can be added later behind the same interface.
+- Endpoint payloads use superjson (tRPC's transformer slot) so Dates, Maps,
+  Sets, BigInt, and `undefined` survive the round trip.
 
 ## Goals
 
 - `createBunderstack()` refuses to boot with a single aggregated error when
   env is missing/invalid; validated typed env exposed as `app.env`.
-- Users declare typed query/mutation endpoints in config; the query-library
+- Users declare typed tRPC procedures inline in the config; the query-library
   client calls them fully typed with TanStack Query integration.
 - `app.email.send()` works with one line of config; better-auth email flows
   work automatically once email is configured.
@@ -46,8 +50,8 @@ existing surface. Decisions validated in brainstorming:
 
 - No email templating system (plain default templates for auth mails only).
 - No additional email adapters beyond resend/smtp/console in this iteration.
-- No middleware/plugin system for endpoints (auth gate + input validation
-  only).
+- No tRPC subscriptions/WebSocket link in this iteration (bunderstack's SSE
+  realtime remains the realtime story).
 
 ---
 
@@ -89,7 +93,7 @@ createBunderstack({
 - Validation aggregates **all** failures into one thrown error listing every
   missing/invalid var, then refuses to boot.
 - The merged, typed result (base + user server + user client) is exposed as
-  `app.env` and as `ctx.env` in endpoint handlers.
+  `app.env` and as `ctx.env` in tRPC procedures.
 - `resolveConfig()` consumes the validated env instead of raw `process.env`
   reads — single source of truth. Explicit config fields
   (`database: { url }`) still win over env, unchanged precedence.
@@ -112,85 +116,95 @@ exports `createClientEnv(envConfig)`:
 `BunderstackConfig` gains a `TEnv` generic inferred from the `env` key.
 `app.env` is typed as `BaseEnv & InferServerEnv<TEnv> & InferClientEnv<TEnv>`.
 
-## 2. Custom typed endpoints
+## 2. tRPC endpoints
 
-New module `packages/bunderstack/src/endpoints.ts`; router mounted at
-`/api/endpoints/<name>` in `src/handler.ts`.
+Adopt tRPC (v11) as the custom-endpoint layer instead of inventing a parallel
+RPC format. New module `packages/bunderstack/src/trpc.ts`; tRPC's fetch
+adapter mounted at `/api/trpc/*` in `src/handler.ts`.
 
-### Definition
+New dependencies: `@trpc/server` (bunderstack), `@trpc/client` +
+`@trpc/tanstack-query` (bunderstack-query), `superjson` (both). All are
+zero-transitive-dependency packages.
 
-A `defineEndpoints` helper bound to schema (and optionally env config) so
-`ctx.db` / `ctx.env` are typed without generic-inference gymnastics inside
-the config literal:
+### Definition — builder callback in config
+
+The `trpc` config key is a function receiving a pre-built `t` instance, so
+the full app stays definable as one config object with no separate
+`initTRPC`/`createTRPC` invocation:
 
 ```ts
-const endpoints = defineEndpoints({ schema, env: envConfig }, {
-  feed: {
-    type: 'query',                       // GET, cacheable
-    input: z.object({ cursor: z.string().optional() }),
-    handler: async ({ input, db, user, env, email, req }) => {
-      // one query joining posts + likes + users
-      return { posts, nextCursor }       // return type inferred
-    },
-  },
-  sendReport: {
-    type: 'mutation',                    // POST
-    auth: true,                          // 401 before handler if no session
-    input: z.object({ postId: z.string() }),
-    handler: async ({ input, user, email }) => { /* ... */ },
-  },
+const app = createBunderstack({
+  schema,
+  env: { server: { OPENAI_API_KEY: z.string() } },
+  email: { from: 'hello@myapp.com', provider: 'resend' },
+  trpc: (t) =>
+    t.router({
+      feed: t.procedure
+        .input(z.object({ cursor: z.string().optional() }))
+        .query(async ({ ctx, input }) => {
+          // one query joining posts + likes + users
+          return { posts, nextCursor }   // Date columns fine — superjson
+        }),
+      sendReport: t.protectedProcedure   // UNAUTHORIZED without session
+        .input(z.object({ postId: z.string() }))
+        .mutation(async ({ ctx, input }) => { /* ... */ }),
+    }),
 })
-
-createBunderstack({ schema, endpoints, ... })
 ```
 
-- `type: 'query' | 'mutation'` is required.
-- `input` is an optional zod schema; when absent the endpoint takes no input.
-- `auth?: boolean` (default `false`): when `true`, respond `401` before the
-  handler runs if there is no session.
-- Handler context: `{ input, db, user, env, email, req }` where `user` is
-  `AccessUser | null` (resolved via the existing `AuthSessionResolver`),
-  `db` is the user-schema drizzle instance, `req` the raw `Request`.
+- `TSchema`/`TEnv` are inferred from the sibling config keys; the callback's
+  `t` parameter is typed contextually from them (same pattern as drizzle's
+  `relations()` callback); the router type is inferred from the callback's
+  return value and lands on `$inferClient`.
+- The `t` instance bunderstack builds provides:
+  - `t.router`, `t.middleware`, `t.mergeRouters` — plain tRPC, nothing
+    wrapped. Nested routers compose inline: `t.router({ posts: t.router({...}) })`.
+  - `t.procedure` — base procedure; `ctx` is
+    `{ db, user, env, email, req }` with `user: AccessUser | null`
+    (resolved via the existing `AuthSessionResolver`), `db` the user-schema
+    drizzle instance, `req` the raw `Request`.
+  - `t.protectedProcedure` — pre-built auth middleware: throws tRPC
+    `UNAUTHORIZED` without a session; narrows `ctx.user` to non-null.
+- superjson is configured as the transformer on the instance — Dates, Maps,
+  Sets, BigInt, `undefined` round-trip in inputs and outputs; procedures can
+  return drizzle rows with `Date` columns directly. (CRUD routes keep their
+  existing plain-JSON wire format.)
 
-### Wire format
+### Escape hatch
 
-- Query: `GET /api/endpoints/<name>?input=<url-encoded superjson>`
-  (single-param, tRPC-style — round-trips trivially).
-- Mutation: `POST /api/endpoints/<name>` with superjson body.
-- Response: superjson (`{ json, meta }` envelope). Dates, Maps, Sets, BigInt,
-  and `undefined` survive the round trip in both directions — endpoint
-  handlers can return drizzle rows with `Date` columns directly. `superjson`
-  becomes a regular dependency of both `bunderstack` and `bunderstack-query`
-  (endpoints only; CRUD routes keep their existing plain-JSON wire format).
+`trpc:` also accepts a pre-built router (not just a callback), and
+`bunderstack/trpc` exports `createTRPC<typeof schema>()` returning the same
+`t` instance — for apps that outgrow the inline callback and want procedures
+split across files/routers. The callback is the blessed inline path; nothing
+seals.
 
-### Errors
+### Mounting and errors
 
-- Invalid input → `400` with zod issues, existing error shape from
-  `src/errors.ts`.
-- `auth: true` without session → `401`.
-- Handler throw → `500`, message redacted per existing error conventions.
-- Endpoint names validated at boot: URL-safe identifier
-  (`/^[a-zA-Z][a-zA-Z0-9_-]*$/`); boot error otherwise. No collision concern
-  with tables — separate path prefix and client namespace.
+- tRPC's `fetchRequestHandler` mounted at `/api/trpc/*`, after
+  storage/realtime routes; the existing global rate limiter already wraps it.
+- Per-request context built by bunderstack from its internals (db, auth
+  resolver, validated env, email facade).
+- Error semantics are tRPC's own (`TRPCError` codes → HTTP statuses; zod
+  input failures → `BAD_REQUEST` with issues). No bunderstack-specific error
+  envelope for tRPC routes.
 
 ### Client (`bunderstack-query`)
 
-- `$inferClient` gains an `endpoints` field carrying the endpoint definitions
-  type.
-- `createClient<App>()` exposes a reserved `endpoints` namespace, built with
-  the same lazy-Proxy pattern as `files`:
+- `$inferClient` gains a `trpc` field carrying the router type.
+- `createClient<App>()` exposes a reserved `trpc` namespace built on tRPC
+  v11's official `@trpc/tanstack-query` integration
+  (`createTRPCOptionsProxy`), which produces the same
+  `queryOptions`/`mutationOptions` shape the rest of bunderstack-query
+  already uses:
 
 ```ts
-api.endpoints.feed.queryOptions({ cursor })   // key: ['endpoints', 'feed', input]
-api.endpoints.feed.call({ cursor })           // plain typed fetch
-api.endpoints.sendReport.mutationOptions()    // for useMutation
+api.trpc.feed.queryOptions({ cursor })       // useQuery
+api.trpc.sendReport.mutationOptions()        // useMutation
 ```
 
-- Query endpoints expose `queryOptions` + `call`; mutation endpoints expose
-  `mutationOptions` + `call`. Types: input from the zod schema
-  (`z.input`), output `Awaited<ReturnType<handler>>`.
-- Query keys derive from `['endpoints', name, input]` so caching /
-  invalidation / refetching work with TanStack Query out of the box.
+- The underlying tRPC client uses `httpBatchLink` pointed at
+  `<baseUrl>/trpc` with the superjson transformer, honoring the
+  `fetch`/`baseUrl` options `createClient` already takes.
 
 ## 3. Email
 
@@ -230,10 +244,10 @@ email: {
 
 ### Surface
 
-- `app.email.send(msg)` and `ctx.email` in endpoint handlers.
+- `app.email.send(msg)` and `ctx.email` in tRPC procedures.
 - The surface always exists: when `email` is not configured, `send()` throws
   `"email is not configured — add an email key to your bunderstack config"`
-  so endpoint code needs no null checks.
+  so procedure code needs no null checks.
 
 ### better-auth auto-wiring
 
@@ -253,14 +267,15 @@ handlers in the `auth:` config always win; injection only fills gaps.
 2. Resolve config, consuming validated env.
 3. Create email facade.
 4. Create db, auth (with email auto-wiring), storage, realtime — unchanged.
-5. Build endpoint router (receives db, authResolver, env, email facade).
+5. Build the `t` instance, invoke the `trpc` builder callback (or take the
+   pre-built router), mount the fetch adapter.
 6. Mount in handler after storage/realtime routes.
 
 ### Implementation order
 
 1. **Env** (email depends on it for provider credentials).
-2. **Email** (endpoints ctx wants it; auth wiring lands here).
-3. **Endpoints** server-side, then **client** support in `bunderstack-query`.
+2. **Email** (tRPC ctx wants it; auth wiring lands here).
+3. **tRPC** server-side, then **client** support in `bunderstack-query`.
 
 Each phase lands with tests green and is independently shippable.
 
@@ -273,18 +288,19 @@ Each phase lands with tests green and is independently shippable.
   dev, boot error in prod); message validation; resend adapter with mocked
   fetch; custom adapter passthrough; better-auth injection (fills gaps,
   never overrides user handlers).
-- `src/endpoints.test.ts`: GET/POST wiring; `?input=` superjson parsing; zod
-  400s; auth gate 401; ctx contents (db/user/env/email/req); name validation
-  at boot; superjson round-trip of Date/Map/undefined through input and
-  output.
-- `bunderstack-query`: `endpoints` namespace — queryOptions key shape, call()
-  URL construction for query vs mutation, type-level test that inferred
-  input/output match server definitions.
+- `src/trpc.test.ts`: builder callback receives working `t`; query/mutation
+  over the mounted adapter; protectedProcedure UNAUTHORIZED without session
+  and narrowed ctx.user with one; ctx contents (db/user/env/email/req);
+  pre-built-router escape hatch; superjson round-trip of Date/Map/undefined
+  through input and output.
+- `bunderstack-query`: `trpc` namespace — queryOptions/mutationOptions
+  shapes from `createTRPCOptionsProxy`, link URL construction, type-level
+  test that inferred input/output match server procedures.
 - Existing suites must stay green relative to the known pre-existing-failure
   baseline (3 bunderstack tests).
 
 ### Docs / examples
 
-- The twitter-style feed endpoint becomes the showcase example (posts +
+- The twitter-style feed procedure becomes the showcase example (posts +
   likes + users in one call).
 - README/website snippets for all three features.
