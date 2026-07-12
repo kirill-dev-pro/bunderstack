@@ -1,10 +1,17 @@
-import type { QueryClient } from '@tanstack/react-query'
+import type { AnyRouter } from '@trpc/server'
+import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query'
+
+import { QueryClient } from '@tanstack/react-query'
+import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query'
+import superjson from 'superjson'
 
 import type {
   AnyBunderstackApp,
   InferBuckets,
   InferSchema,
   InferTables,
+  InferTrpcRouter,
 } from './infer'
 import type { FilesQueryClient, TableQueryOptionsForKey } from './types'
 
@@ -23,7 +30,10 @@ export type ClientOptions = {
 
 export type BunderstackClient<TApp extends AnyBunderstackApp> = {
   [K in InferTables<TApp>]: TableQueryOptionsForKey<InferSchema<TApp>, K>
-} & FilesQueryClient<InferBuckets<TApp>>
+} & FilesQueryClient<InferBuckets<TApp>> &
+  ([InferTrpcRouter<TApp>] extends [never]
+    ? unknown
+    : { trpc: TRPCOptionsProxy<InferTrpcRouter<TApp>> })
 
 /** Props a lazy Proxy must not materialize (await/introspection probes). */
 const PROXY_SKIP = new Set<string>([
@@ -94,10 +104,29 @@ export function createClient<TApp extends AnyBunderstackApp>(
     }
   })
 
+  // Lazily built so apps without a trpc router pay nothing.
+  let trpcProxy: unknown
+  const getTrpc = () => {
+    trpcProxy ??= createTRPCOptionsProxy({
+      client: createTRPCClient<AnyRouter>({
+        links: [
+          httpBatchLink({
+            url: `${baseUrl}/trpc`,
+            transformer: superjson,
+            fetch: fetchFn,
+          }),
+        ],
+      }),
+      queryClient: options.queryClient ?? new QueryClient(),
+    })
+    return trpcProxy
+  }
+
   return new Proxy({} as BunderstackClient<TApp>, {
     get(_target, prop) {
       if (typeof prop !== 'string' || PROXY_SKIP.has(prop)) return undefined
       if (prop === 'files') return files
+      if (prop === 'trpc') return getTrpc()
       return (tables as Record<string, unknown>)[prop]
     },
     has(_target, prop) {

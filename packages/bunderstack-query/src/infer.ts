@@ -1,3 +1,5 @@
+import type { AnyRouter } from '@trpc/server'
+
 import type { AuthTableName, CrudTableKey, InferSelect } from './types'
 
 /** Shape of the `$inferClient` phantom `createBunderstack` puts on the app. */
@@ -5,6 +7,8 @@ export type ClientCarrier = {
   schema: Record<string, unknown>
   access: unknown
   buckets: string
+  // Optional: apps built before the trpc feature still match.
+  trpc?: unknown
 }
 
 export type AnyBunderstackApp = { $inferClient?: ClientCarrier | undefined }
@@ -16,6 +20,14 @@ export type InferSchema<TApp extends AnyBunderstackApp> =
   InferCarrier<TApp>['schema']
 export type InferBuckets<TApp extends AnyBunderstackApp> =
   InferCarrier<TApp>['buckets']
+
+/** The app's tRPC router type, or `never` when it doesn't declare one. */
+export type InferTrpcRouter<TApp extends AnyBunderstackApp> =
+  InferCarrier<TApp>['trpc'] extends infer R
+    ? R extends AnyRouter
+      ? R
+      : never
+    : never
 
 type DisabledKeys<TAccess> = {
   [K in keyof TAccess & string]: TAccess[K] extends { crud: false } ? K : never

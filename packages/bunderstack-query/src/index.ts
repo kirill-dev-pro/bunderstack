@@ -212,6 +212,7 @@ export type {
   InferBuckets,
   InferSchema,
   InferTables,
+  InferTrpcRouter,
 } from './infer'
 export { BunderstackApiError } from './errors'
 export type {
