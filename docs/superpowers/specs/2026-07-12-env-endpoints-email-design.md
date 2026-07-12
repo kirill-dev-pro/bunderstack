@@ -175,8 +175,10 @@ const app = createBunderstack({
 `trpc:` also accepts a pre-built router (not just a callback), and
 `bunderstack/trpc` exports `createTRPC<typeof schema>()` returning the same
 `t` instance — for apps that outgrow the inline callback and want procedures
-split across files/routers. The callback is the blessed inline path; nothing
-seals.
+split across files/routers (sub-routers are plain tRPC routers composed at
+the root). `bunderstack/trpc` also exports a `BunderstackTRPC<TSchema, TEnv>`
+type so a builder callback declared in a separate file can type its `t`
+parameter. The callback is the blessed inline path; nothing seals.
 
 ### Mounting and errors
 
