@@ -10,6 +10,7 @@ import { validateAndResolveAccess } from './access'
 import { createAuth, toAuthSessionResolver } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
+import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
 import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { buildHandler } from './handler'
@@ -59,12 +60,15 @@ export type BunderstackApp<
   TSchema extends Record<string, unknown>,
   TAccess extends Record<string, TableAccessInput> | undefined = undefined,
   TBuckets extends string = string,
+  TEnv extends EnvConfigInput | undefined = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: AuthInstance
   storage: StorageFacade
   router: HonoType
+  /** Validated env: bunderstack's base vars plus the config's `env` extension. */
+  env: ValidatedEnv<TEnv>
   /** Push the merged schema (user + internal tables) to the database. */
   provision: (options?: { force?: boolean }) => Promise<void>
   /**
@@ -83,10 +87,14 @@ export function createBunderstack<
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage>,
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>> {
-  const config = resolveConfig(options)
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv>,
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv> {
+  // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
+  // and everything downstream (config, email, trpc ctx) consumes the result.
+  const env = validateEnv(options.env)
+  const config = resolveConfig(options, env)
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -110,7 +118,7 @@ export function createBunderstack<
   const realtimeBufferSize =
     typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
   const redisUrl = config.realtime
-    ? resolveRealtimeRedisUrl(config.realtime)
+    ? resolveRealtimeRedisUrl(config.realtime, env)
     : undefined
   const broker = config.realtime
     ? redisUrl
@@ -195,13 +203,14 @@ export function createBunderstack<
     rateLimit: options.rateLimit,
   })
 
-  const app: BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>> = {
+  const app: BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv> = {
     handler,
     // Internal tables live on the runtime db but stay out of the public type.
     db: userDb,
     auth,
     storage,
     router,
+    env,
     provision: (opts) =>
       provisionSchema(db, mergedSchema, {
         force: opts?.force,
@@ -220,6 +229,8 @@ export type {
   ResolvedConfig,
 } from './config'
 export { provisionSchema } from './provision'
+export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
+export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
 export {
   defineAccess,
   validateAndResolveAccess,

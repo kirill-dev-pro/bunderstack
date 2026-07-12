@@ -1,8 +1,15 @@
 // tests/config.test.ts
 import { test, expect } from 'bun:test'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import * as schema from '../../../examples/standalone/schema'
 import { resolveConfig } from './config'
+import { validateEnv } from './env'
+
+const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+})
+const schema = { posts }
 
 test('resolveConfig applies SQLite default url', () => {
   const cfg = resolveConfig({ schema })
@@ -56,4 +63,29 @@ test('resolveConfig s3 true reads env vars', () => {
 test('resolveConfig auth defaults', () => {
   const cfg = resolveConfig({ schema })
   expect(typeof cfg.auth.secret).toBe('string')
+})
+
+test('resolveConfig consumes a validated env for database url', () => {
+  const env = validateEnv(undefined, {
+    source: { DATABASE_URL: 'libsql://from-env.turso.io' },
+  })
+  const cfg = resolveConfig({ schema: {} }, env)
+  expect(cfg.database.url).toBe('libsql://from-env.turso.io')
+})
+
+test('explicit config wins over env', () => {
+  const env = validateEnv(undefined, {
+    source: { DATABASE_URL: 'libsql://from-env.turso.io' },
+  })
+  const cfg = resolveConfig(
+    { schema: {}, database: { url: 'file:./explicit.db' } },
+    env,
+  )
+  expect(cfg.database.url).toBe('file:./explicit.db')
+})
+
+test('resolveConfig auth secret comes from validated env', () => {
+  const env = validateEnv(undefined, { source: { AUTH_SECRET: 'from-env' } })
+  const cfg = resolveConfig({ schema: {} }, env)
+  expect(cfg.auth.secret).toBe('from-env')
 })
