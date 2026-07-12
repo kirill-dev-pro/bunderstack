@@ -50,7 +50,7 @@ test('trpc queryOptions has a stable key and working queryFn', async () => {
 
 test('trpc mutationOptions executes the mutation', async () => {
   const options = api.trpc.bump.mutationOptions()
-  const result = await options.mutationFn!({ n: 41 })
+  const result = await options.mutationFn!({ n: 41 }, undefined as never)
   expect(result.n).toBe(42)
 })
 

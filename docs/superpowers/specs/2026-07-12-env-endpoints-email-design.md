@@ -123,7 +123,7 @@ RPC format. New module `packages/bunderstack/src/trpc.ts`; tRPC's fetch
 adapter mounted at `/api/trpc/*` in `src/handler.ts`.
 
 New dependencies: `@trpc/server` (bunderstack), `@trpc/client` +
-`@trpc/tanstack-query` (bunderstack-query), `superjson` (both). All are
+`@trpc/tanstack-react-query` (bunderstack-query), `superjson` (both). All are
 zero-transitive-dependency packages.
 
 ### Definition — builder callback in config
@@ -194,7 +194,7 @@ parameter. The callback is the blessed inline path; nothing seals.
 
 - `$inferClient` gains a `trpc` field carrying the router type.
 - `createClient<App>()` exposes a reserved `trpc` namespace built on tRPC
-  v11's official `@trpc/tanstack-query` integration
+  v11's official `@trpc/tanstack-react-query` integration
   (`createTRPCOptionsProxy`), which produces the same
   `queryOptions`/`mutationOptions` shape the rest of bunderstack-query
   already uses:

@@ -4,9 +4,9 @@
 
 **Goal:** Add validated env (built-in base schema + user extension), a tRPC endpoint layer defined from the bunderstack config, and email sending with better-auth auto-wiring — per `docs/superpowers/specs/2026-07-12-env-endpoints-email-design.md`.
 
-**Architecture:** Three new modules in `packages/bunderstack/src` (`env.ts`, `email.ts`, `trpc.ts`) wired into `createBunderstack()` boot order: validate env → resolve config from env → create email facade → create auth with email defaults → build tRPC router from a builder callback and mount its fetch adapter at `/api/trpc/*`. `bunderstack-query` gains a `trpc` namespace on `createClient` backed by `@trpc/tanstack-query`.
+**Architecture:** Three new modules in `packages/bunderstack/src` (`env.ts`, `email.ts`, `trpc.ts`) wired into `createBunderstack()` boot order: validate env → resolve config from env → create email facade → create auth with email defaults → build tRPC router from a builder callback and mount its fetch adapter at `/api/trpc/*`. `bunderstack-query` gains a `trpc` namespace on `createClient` backed by `@trpc/tanstack-react-query`.
 
-**Tech Stack:** Bun, zod v4, tRPC v11 (`@trpc/server`, `@trpc/client`, `@trpc/tanstack-query`), superjson, better-auth, Hono, drizzle.
+**Tech Stack:** Bun, zod v4, tRPC v11 (`@trpc/server`, `@trpc/client`, `@trpc/tanstack-react-query`), superjson, better-auth, Hono, drizzle.
 
 ## Global Constraints
 
@@ -15,7 +15,7 @@
 - **Pre-existing failure baseline:** some existing tests import the deleted `examples/standalone/` and fail on main (3 bunderstack tests). Compare against that baseline, never against zero. Do NOT fix or touch them.
 - **Define test schemas inline** with `sqliteTable` from `drizzle-orm/sqlite-core` — do not import from `examples/`.
 - zod is `^4.4.3` (v4 API). tRPC packages at `^11`. superjson at `^2`.
-- Dependency placement per spec: `@trpc/server` + `superjson` in `bunderstack`; `@trpc/client` + `@trpc/tanstack-query` + `superjson` in `bunderstack-query`; `nodemailer` optional peer of `bunderstack` (never installed).
+- Dependency placement per spec: `@trpc/server` + `superjson` in `bunderstack`; `@trpc/client` + `@trpc/tanstack-react-query` + `superjson` in `bunderstack-query`; `nodemailer` optional peer of `bunderstack` (never installed).
 - Client env prefix is exactly `PUBLIC_`.
 - tRPC mounts at `/api/trpc/*`; superjson is the transformer on both sides.
 - Commit style: conventional (`feat:`, `test:`, `docs:`), workspace root is the git root.
@@ -1641,7 +1641,7 @@ git commit -m "feat(bunderstack): trpc config key with builder callback, mounted
 - Create: `packages/bunderstack-query/src/trpc-client.test.ts`
 
 **Interfaces:**
-- Consumes: server app from Task 7 (`$inferClient.trpc` carries the router type); `createTRPCOptionsProxy` + `TRPCOptionsProxy` from `@trpc/tanstack-query`; `createTRPCClient`, `httpBatchLink` from `@trpc/client`.
+- Consumes: server app from Task 7 (`$inferClient.trpc` carries the router type); `createTRPCOptionsProxy` + `TRPCOptionsProxy` from `@trpc/tanstack-react-query`; `createTRPCClient`, `httpBatchLink` from `@trpc/client`.
 - Produces:
   - `ClientCarrier` gains **optional** `trpc?: unknown` (optional so pre-existing apps still satisfy `AnyBunderstackApp`).
   - `InferTrpcRouter<TApp>` type in `infer.ts`.
@@ -1655,7 +1655,7 @@ In `packages/bunderstack-query/package.json` dependencies add:
 ```json
 "@trpc/client": "^11.0.0",
 "@trpc/server": "^11.0.0",
-"@trpc/tanstack-query": "^11.0.0",
+"@trpc/tanstack-react-query": "^11.0.0",
 "superjson": "^2.2.0"
 ```
 
@@ -1759,7 +1759,7 @@ In `packages/bunderstack-query/src/lazy-client.ts`:
 ```ts
 import type { AnyRouter } from '@trpc/server'
 import { createTRPCClient, httpBatchLink } from '@trpc/client'
-import { createTRPCOptionsProxy, type TRPCOptionsProxy } from '@trpc/tanstack-query'
+import { createTRPCOptionsProxy, type TRPCOptionsProxy } from '@trpc/tanstack-react-query'
 import { QueryClient } from '@tanstack/react-query'
 import superjson from 'superjson'
 
@@ -1809,7 +1809,7 @@ Also run `bun test --cwd packages/bunderstack` to confirm no server regressions.
 
 ```bash
 git add packages/bunderstack-query/package.json packages/bunderstack-query/src/infer.ts packages/bunderstack-query/src/lazy-client.ts packages/bunderstack-query/src/index.ts packages/bunderstack-query/src/trpc-client.test.ts bun.lock
-git commit -m "feat(bunderstack-query): typed api.trpc namespace via @trpc/tanstack-query"
+git commit -m "feat(bunderstack-query): typed api.trpc namespace via @trpc/tanstack-react-query"
 ```
 
 ---
