@@ -10,7 +10,8 @@
     "./access": "./src/access.ts",
     "./schema": "./src/schema-export.ts",
     "./typeid": "./src/typeid.ts",
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./trpc": "./src/trpc.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -20,9 +21,11 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "@trpc/server": "^11.0.0",
     "better-auth": "^1.0.0",
     "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
+    "superjson": "^2.2.0",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
