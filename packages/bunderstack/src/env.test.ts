@@ -2,7 +2,7 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
 
-import { validateEnv, BunderstackEnvError } from './env'
+import { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 
 test('base schema applies dev defaults with empty source', () => {
   const env = validateEnv(undefined, { source: {} })
@@ -117,4 +117,40 @@ test('optional user vars may be absent', () => {
     { source: {} },
   )
   expect(env.FEATURE_FLAG).toBeUndefined()
+})
+
+test('createClientEnv validates client vars from runtimeEnv', () => {
+  const env = createClientEnv({
+    server: { SECRET_KEY: z.string() },
+    client: { PUBLIC_APP_URL: z.string().url() },
+    runtimeEnv: { PUBLIC_APP_URL: 'https://app.example.com' },
+  })
+  expect(env.PUBLIC_APP_URL).toBe('https://app.example.com')
+})
+
+test('createClientEnv throws on server key access', () => {
+  const env = createClientEnv({
+    server: { SECRET_KEY: z.string() },
+    client: { PUBLIC_APP_URL: z.string() },
+    runtimeEnv: { PUBLIC_APP_URL: 'x' },
+  })
+  expect(() => (env as Record<string, unknown>).SECRET_KEY).toThrow(
+    /SECRET_KEY is server-only/,
+  )
+})
+
+test('createClientEnv aggregates client validation failures', () => {
+  expect(() =>
+    createClientEnv({
+      client: { PUBLIC_APP_URL: z.string().url() },
+      runtimeEnv: { PUBLIC_APP_URL: 'not-a-url' },
+    }),
+  ).toThrow(BunderstackEnvError)
+})
+
+test('createClientEnv falls back to process.env', () => {
+  process.env.PUBLIC_FROM_PROCESS = 'yes'
+  const env = createClientEnv({ client: { PUBLIC_FROM_PROCESS: z.string() } })
+  expect(env.PUBLIC_FROM_PROCESS).toBe('yes')
+  delete process.env.PUBLIC_FROM_PROCESS
 })

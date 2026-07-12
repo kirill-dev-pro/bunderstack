@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./access": "./src/access.ts",
     "./schema": "./src/schema-export.ts",
-    "./typeid": "./src/typeid.ts"
+    "./typeid": "./src/typeid.ts",
+    "./env": "./src/env.ts"
   },
   "scripts": {
     "test": "bun test",

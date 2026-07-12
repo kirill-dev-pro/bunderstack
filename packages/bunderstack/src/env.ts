@@ -115,3 +115,34 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
   if (issues.length > 0) throw new BunderstackEnvError(issues)
   return { ...base, ...userVars } as ValidatedEnv<TEnv>
 }
+
+/**
+ * Browser-side companion (t3-env style): validates ONLY the client section.
+ * Server keys exist on the returned object as traps that throw on access, so
+ * a leaked import fails loudly instead of silently reading undefined.
+ */
+export function createClientEnv<TEnv extends EnvConfigInput>(
+  envConfig: TEnv,
+): InferVars<TEnv['client']> {
+  const source =
+    envConfig.runtimeEnv ??
+    (typeof process !== 'undefined'
+      ? (process.env as Record<string, unknown>)
+      : {})
+  const issues: string[] = []
+  const values: Record<string, unknown> = {}
+  validateSection(envConfig.client, 'client', source, issues, values)
+  if (issues.length > 0) throw new BunderstackEnvError(issues)
+
+  const serverKeys = new Set(Object.keys(envConfig.server ?? {}))
+  return new Proxy(values, {
+    get(target, prop) {
+      if (typeof prop === 'string' && serverKeys.has(prop)) {
+        throw new Error(
+          `${prop} is server-only and not available in client env`,
+        )
+      }
+      return Reflect.get(target, prop)
+    },
+  }) as InferVars<TEnv['client']>
+}
