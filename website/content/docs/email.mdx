@@ -1,0 +1,148 @@
+---
+title: Email
+description: Send emails with resend, SMTP, console, or a custom adapter
+---
+
+# Email
+
+Bunderstack includes an email facade with pluggable providers. Add an `email`
+key to your config and use `app.email.send()` anywhere on the server.
+
+## Configuration
+
+```ts
+import { createBunderstack } from 'bunderstack'
+import * as schema from './schema'
+
+export const app = createBunderstack({
+  schema,
+  auth: { emailAndPassword: { enabled: true } },
+  email: {
+    from: 'noreply@example.com',
+    provider: 'resend', // or 'smtp', 'console', a custom adapter
+  },
+})
+```
+
+## Providers
+
+### Resend
+
+```bash
+RESEND_API_KEY=re_xxx bun run server.ts
+```
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: 'resend',
+}
+```
+
+Uses the [Resend API](https://resend.com). Set `RESEND_API_KEY` in your
+environment. Bunderstack validates it at boot when `provider: 'resend'`.
+
+### SMTP
+
+```bash
+SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
+```
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: 'smtp',
+}
+```
+
+Uses [nodemailer](https://nodemailer.com) under the hood. Install it as an
+optional peer:
+
+```bash
+bun add nodemailer
+```
+
+Bunderstack lazy-loads it on the first send, so boot stays synchronous.
+
+### Console (development default)
+
+When no provider is specified in development, emails are logged to the console
+instead of being sent. In production, omitting a provider throws at boot.
+
+```ts
+email: {
+  from: 'noreply@example.com'
+}
+// provider defaults to 'console' in development — logs to stdout
+```
+
+### Custom adapter
+
+Pass a full `EmailAdapter` or just a `send` function:
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: {
+    async send(msg) {
+      // msg has `from` already resolved
+      await mySendService(msg)
+      return { id: 'msg_123' }
+    },
+  },
+}
+```
+
+Or the function shorthand:
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: async (msg) => {
+    await fetch('https://my-email-api.com/send', {
+      method: 'POST',
+      body: JSON.stringify(msg),
+    })
+    return {}
+  },
+}
+```
+
+## Sending
+
+```ts
+await app.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome!',
+  html: '<h1>Hello</h1>',
+  text: 'Hello',
+})
+```
+
+All fields except `subject` and one of `html`/`text` are optional. The `from`
+field defaults to the config's `from` but can be overridden per-message.
+
+```ts
+await app.email.send({
+  to: ['alice@a.com', 'bob@b.com'],
+  subject: 'Team update',
+  html: '<p>Hi team</p>',
+  from: 'team@example.com', // overrides config default
+  replyTo: 'support@example.com',
+  cc: 'manager@example.com',
+  bcc: 'archive@example.com',
+})
+```
+
+Returns `{ id?: string }` — the provider-specific message ID when available.
+
+## BetterAuth auto-wiring
+
+When you configure an `email` key, Bunderstack automatically wires it into
+BetterAuth for email verification and password reset flows. No extra config
+needed — just add `email` to `createBunderstack`.
+
+## Without email
+
+If you don't need email, omit the `email` key entirely. `app.email` is still
+present on the app, but calling `send()` throws with a descriptive error.

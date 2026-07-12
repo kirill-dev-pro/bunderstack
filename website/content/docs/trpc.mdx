@@ -1,0 +1,182 @@
+---
+title: tRPC Endpoints
+description: Pre-wired tRPC with superjson, protected procedures, and typed TanStack Query client
+---
+
+# tRPC Endpoints
+
+Bunderstack ships with a pre-configured tRPC instance — superjson transformer,
+typed context (db, user, env, email), and a `protectedProcedure` that rejects
+unauthenticated callers. Mounted at `/api/trpc`.
+
+## Quick start
+
+```ts
+import { createBunderstack } from 'bunderstack'
+import { z } from 'zod'
+import * as schema from './schema'
+
+export const app = createBunderstack({
+  schema,
+  email: { from: 'noreply@example.com', provider: 'console' },
+  trpc: (t) =>
+    t.router({
+      // Public — no auth required
+      hello: t.procedure.query(() => 'world'),
+
+      // Protected — throws UNAUTHORIZED when no session
+      me: t.protectedProcedure.query(({ ctx }) => {
+        return ctx.user // AccessUser — the current session
+      }),
+
+      // Input validation with Zod
+      greet: t.procedure
+        .input(z.object({ name: z.string() }))
+        .query(({ input }) => `Hello, ${input.name}`),
+
+      // Side effects with mutation
+      sendWelcome: t.protectedProcedure
+        .input(z.object({ email: z.string().email() }))
+        .mutation(async ({ ctx, input }) => {
+          await ctx.email.send({
+            to: input.email,
+            subject: 'Welcome!',
+            html: '<p>Thanks for joining</p>',
+          })
+          return { ok: true }
+        }),
+    }),
+})
+```
+
+## Builder callback vs. prebuilt router
+
+The `trpc` config key accepts either form:
+
+```ts
+// Builder callback — `t` gets contextual typing automatically
+trpc: (t) => t.router({ ... })
+
+// Prebuilt router — for routers defined in separate files
+// Use the BunderstackTRPC type helper for the `t` parameter
+trpc: myExternalRouter
+```
+
+## Context
+
+Every procedure receives:
+
+| Field   | Type                      | Description                 |
+| ------- | ------------------------- | --------------------------- |
+| `db`    | `LibSQLDatabase<TSchema>` | Your Drizzle database       |
+| `user`  | `AccessUser \| null`      | Current session, or null    |
+| `env`   | `ValidatedEnv<TEnv>`      | Typed, validated env vars   |
+| `email` | `EmailFacade`             | Send emails from procedures |
+| `req`   | `Request`                 | Raw incoming Request        |
+
+## `t` API
+
+The builder callback receives a pre-wired `t` instance with:
+
+```ts
+t.router // build a router
+t.procedure // public procedure
+t.protectedProcedure // rejects unauthenticated callers
+t.middleware // reusable middleware
+t.mergeRouters // compose routers from separate files
+```
+
+## Superjson
+
+All tRPC payloads use [superjson](https://github.com/blitz-js/superjson) as the
+transformer. Dates, Maps, Sets, BigInt, and `undefined` round-trip correctly
+without manual serialization.
+
+```ts
+trpc: (t) =>
+  t.router({
+    now: t.procedure.query(() => new Date()),
+    // Client receives a Date, not a string — no parsing needed
+  })
+```
+
+## External router files
+
+For larger apps, define routers in separate files using the `BunderstackTRPC`
+type:
+
+```ts
+// routers/posts.ts
+import type { BunderstackTRPC } from 'bunderstack'
+import type * as schema from '../schema'
+import { z } from 'zod'
+
+export function postsRouter(t: BunderstackTRPC<typeof schema>) {
+  return t.router({
+    list: t.procedure.query(async ({ ctx }) => {
+      return ctx.db.select().from(schema.posts).all()
+    }),
+    byId: t.procedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        return ctx.db
+          .select()
+          .from(schema.posts)
+          .where(eq(schema.posts.id, input.id))
+          .get()
+      }),
+  })
+}
+```
+
+```ts
+// bunderstack.ts
+import { postsRouter } from './routers/posts'
+
+export const app = createBunderstack({
+  schema,
+  trpc: (t) => {
+    // mergeRouters preserves full type safety across files
+    return t.mergeRouters(postsRouter(t))
+  },
+})
+```
+
+## Client-side
+
+### `api.trpc` via `createClient`
+
+When the server has a `trpc` key, `api.trpc` is fully typed and uses
+`@trpc/tanstack-react-query` under the hood:
+
+```ts
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack'
+
+const api = createClient<App>({ queryClient })
+
+// Typed tRPC hooks — no codegen needed
+api.trpc.hello.useQuery()
+api.trpc.me.useQuery()
+api.trpc.greet.useQuery({ name: 'Alice' })
+api.trpc.sendWelcome.useMutation()
+```
+
+```bash
+bun add bunderstack-query @trpc/client @trpc/tanstack-react-query @trpc/server superjson
+```
+
+### Explicit builder
+
+The `createBunderstackQueryClient` builder also exposes a typed `withTrpc`
+path when you use the `$inferClient` carrier:
+
+```ts
+import { createBunderstackQueryClient } from 'bunderstack-query'
+
+const api = createBunderstackQueryClient<typeof schema>().withTables({
+  queryClient,
+  tables: ['posts'],
+})
+// trpc is auto-available via createClient<App> — withTrpc for explicit setups
+```

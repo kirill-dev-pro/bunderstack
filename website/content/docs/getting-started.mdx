@@ -74,11 +74,11 @@ if (process.env.NODE_ENV !== 'production') {
 
 ## Database lifecycle
 
-| Phase | Command | When |
-| ----- | ------- | ---- |
-| Dev push | `await app.provision()` | Local development |
+| Phase    | Command                     | When                 |
+| -------- | --------------------------- | -------------------- |
+| Dev push | `await app.provision()`     | Local development    |
 | Generate | `bunx drizzle-kit generate` | After schema changes |
-| Migrate | `bunx drizzle-kit migrate` | Production deploy |
+| Migrate  | `bunx drizzle-kit migrate`  | Production deploy    |
 
 Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`.
 
@@ -162,6 +162,9 @@ keep in sync. See [Query client](/docs/query-client) and
 
 - [Auto CRUD](/docs/crud) — access rules, search, column guards
 - [Auth](/docs/auth) — OAuth providers, session access
+- [tRPC Endpoints](/docs/trpc) — typed procedures with superjson
+- [Email](/docs/email) — resend, SMTP, console, or custom adapters
+- [Env Validation](/docs/env) — validate env vars at boot, typed server & client
 - [Storage](/docs/storage) — file uploads, S3 config
 - [Query client](/docs/query-client) — typed TanStack Query hooks
 - [Sync collections](/docs/sync-collections) — TanStack DB collections with realtime

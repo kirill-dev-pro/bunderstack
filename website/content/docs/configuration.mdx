@@ -28,6 +28,20 @@ createBunderstack({
     uploadRules?: { allowedMimeTypes?: string[], maxSizeBytes?: number },
     access?: { create?: string, get?: string, delete?: string },
   },
+  email?: {
+    from: string,
+    provider?: 'resend' | 'smtp' | 'console'
+      | { send(msg): Promise<{ id?: string }> }, // custom adapter
+  },
+  env?: {
+    server?: Record<string, ZodType>,  // must NOT start with PUBLIC_
+    client?: Record<string, ZodType>,  // MUST start with PUBLIC_
+    runtimeEnv?: Record<string, unknown>, // browser value source (Vite's import.meta.env)
+  },
+  trpc?: ((t: BunderstackTRPC) => AnyRouter) | AnyRouter, // builder callback or prebuilt router
+  rateLimit?: boolean | RateLimitConfig,
+  idempotency?: boolean | IdempotencyConfig,
+  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number; redis?: … },
 })
 ```
 
@@ -38,6 +52,9 @@ createBunderstack({
 | `DATABASE_URL`         | `file:./data.db` | libSQL connection string                   |
 | `DATABASE_AUTH_TOKEN`  | —                | Turso auth token                           |
 | `AUTH_SECRET`          | dev default      | BetterAuth secret — required in production |
+| `REDIS_URL`            | —                | Redis URL for multi-process realtime       |
+| `RESEND_API_KEY`       | —                | Required when email provider is 'resend'   |
+| `SMTP_URL`             | —                | Required when email provider is 'smtp'     |
 | `S3_BUCKET`            | —                | S3 bucket name                             |
 | `S3_REGION`            | `us-east-1`      | S3 region                                  |
 | `S3_ACCESS_KEY_ID`     | —                | S3 access key                              |

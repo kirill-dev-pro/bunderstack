@@ -58,8 +58,8 @@ api.files.avatars.upload(file) // buckets under api.files.*
 // Raw promises
 api.posts.list({ limit: 20, offset: 0 })
 api.posts.list({ q: 'search term' }) // if searchableColumns set
-api.posts.list({ userId: id })       // filterableColumns → WHERE userId = ?
-api.posts.list({ id: [a, b, c] })    // array value → WHERE id IN (a, b, c)
+api.posts.list({ userId: id }) // filterableColumns → WHERE userId = ?
+api.posts.list({ id: [a, b, c] }) // array value → WHERE id IN (a, b, c)
 api.posts.get(postId)
 api.posts.create(data)
 api.posts.update(postId, patch)
@@ -116,6 +116,27 @@ export const Route = createFileRoute('/')({
 
 Pass `queryClient` when creating the client and mutations automatically
 invalidate the affected table's queries on success.
+
+## trpc — `api.trpc`
+
+When your server declares a tRPC router, `api.trpc` is a fully typed
+`@trpc/tanstack-react-query` proxy — no codegen needed:
+
+```ts
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack'
+
+const api = createClient<App>({ queryClient })
+
+// Typed tRPC hooks inferred from your server router
+const { data } = api.trpc.hello.useQuery()
+const { data: me } = api.trpc.me.useQuery()
+const greet = api.trpc.greet.useMutation()
+```
+
+Requires `@trpc/client`, `@trpc/tanstack-react-query`, `@trpc/server`, and
+`superjson` as peer dependencies. See [tRPC Endpoints](/docs/trpc) for the
+server-side setup.
 
 ## Explicit alternatives
 

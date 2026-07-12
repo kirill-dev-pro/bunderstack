@@ -1,6 +1,6 @@
 # bunderstack
 
-A batteries-included backend framework for Bun. Point it at a Drizzle schema and get CRUD APIs, auth, and file storage — all from a single `Request → Response` handler you can drop into any runtime.
+A batteries-included backend framework for Bun. Point it at a Drizzle schema and get CRUD APIs, auth, file storage, realtime, typed custom endpoints (tRPC), email, and validated env — all from a single config object and a single `Request → Response` handler you can drop into any runtime.
 
 ```ts
 import { createBunderstack } from 'bunderstack'
@@ -39,8 +39,11 @@ That's it. You now have:
 | Database         | Drizzle ORM + libSQL / Turso |
 | Auth             | BetterAuth                   |
 | HTTP routing     | Hono                         |
+| Custom endpoints | tRPC (+ superjson)           |
 | Storage          | Local disk or S3-compatible  |
 | Image transforms | sharp                        |
+| Email            | Resend / SMTP / custom       |
+| Env validation   | zod (t3-env style)           |
 | Runtime          | Bun                          |
 
 ---
@@ -153,6 +156,30 @@ Auth routes are mounted at `/api/auth/*` automatically.
 
 ---
 
+## Email
+
+One config key gives you `app.email.send()` and auto-wired auth emails:
+
+```ts
+email: {
+  from: 'MyApp <hello@myapp.com>',
+  provider: 'resend',   // 'resend' | 'smtp' | 'console' | custom adapter
+},
+```
+
+- **`resend`** — plain `fetch` to the Resend API, no SDK. Reads `RESEND_API_KEY` (required at boot when this provider is set).
+- **`smtp`** — via `nodemailer` (optional peer dependency). Reads `SMTP_URL`.
+- **`console`** — pretty-prints the mail to the terminal instead of sending. The default in development when no provider is set; in production an unset provider is a boot error.
+- **Custom** — pass `{ send: async (msg) => ({ id }) }` or a bare async function.
+
+```ts
+await app.email.send({ to: 'user@example.com', subject: 'Hi', text: '...' })
+```
+
+When email is configured, BetterAuth's password-reset and email-verification mails work automatically with plain default templates — handlers you supply in `auth:` always win.
+
+---
+
 ## File storage
 
 Upload, retrieve, and delete files. Supports local disk and S3-compatible storage.
@@ -256,6 +283,74 @@ bunx drizzle-kit migrate    # apply before starting the server
 
 ---
 
+## Custom endpoints (tRPC)
+
+For non-CRUD endpoints — aggregations, multi-table reads, custom mutations — declare a tRPC router inline in the config. The `t` instance comes pre-wired: procedures get `ctx` of `{ db, user, env, email, req }`, and superjson is the transformer, so Dates, Maps, Sets, and BigInt survive the round trip (return drizzle rows directly).
+
+```ts
+import { z } from 'zod'
+import { desc, eq, sql } from 'bunderstack'
+
+const app = createBunderstack({
+  schema,
+  trpc: (t) =>
+    t.router({
+      feed: t.procedure
+        .input(z.object({ limit: z.number().int().max(50).default(20) }))
+        .query(({ ctx, input }) =>
+          // posts + authors + like counts in ONE request
+          ctx.db
+            .select({
+              post: schema.posts,
+              author: { id: schema.user.id, name: schema.user.name },
+              likeCount: sql<number>`count(${schema.likes.id})`,
+            })
+            .from(schema.posts)
+            .innerJoin(schema.user, eq(schema.posts.userId, schema.user.id))
+            .leftJoin(schema.likes, eq(schema.likes.postId, schema.posts.id))
+            .groupBy(schema.posts.id)
+            .orderBy(desc(schema.posts.createdAt))
+            .limit(input.limit),
+        ),
+      deleteAccount: t.protectedProcedure // UNAUTHORIZED without a session; ctx.user is non-null
+        .mutation(({ ctx }) => { /* ... */ }),
+    }),
+})
+```
+
+The router mounts at `/api/trpc/*`. On the client, `api.trpc.*` is fully typed from the server app (see [bunderstack-query](#client-bunderstack-query)):
+
+```ts
+const { data } = useQuery(api.trpc.feed.queryOptions({ limit: 20 }))
+const del = useMutation(api.trpc.deleteAccount.mutationOptions())
+```
+
+`t.router`, `t.middleware`, and `t.mergeRouters` are plain tRPC — nested routers compose as usual. When the app outgrows the inline callback, pass a prebuilt router instead and build sub-routers in separate files with `createTRPC<typeof schema>()` from `bunderstack/trpc`.
+
+---
+
+## Env validation
+
+Bunderstack always validates its own env vars at boot (`DATABASE_URL`, `AUTH_SECRET` — required in production, `REDIS_URL`, email provider credentials). Declare your own on top, t3-env style; the app refuses to start with a single aggregated error listing every missing or invalid var.
+
+```ts
+import { z } from 'zod'
+
+const app = createBunderstack({
+  schema,
+  env: {
+    server: { OPENAI_API_KEY: z.string() },
+    client: { PUBLIC_APP_URL: z.string().url() }, // client keys must be PUBLIC_-prefixed
+  },
+})
+
+app.env.OPENAI_API_KEY // typed + validated; also available as ctx.env in tRPC procedures
+```
+
+Browser side, `createClientEnv` from the server-code-free `bunderstack/env` subpath validates only the `client` section — and accessing a server key from it throws instead of silently reading `undefined`. Values resolve from `process.env.PUBLIC_*` (inline them with `bun build --env 'PUBLIC_*'`) or a `runtimeEnv` override for bundlers like Vite.
+
+---
+
 ## Framework adapters
 
 ### Standalone (Bun)
@@ -356,6 +451,13 @@ const update = useMutation(api.posts.updateMutation())
 const remove = useMutation(api.posts.deleteMutation())
 ```
 
+If the server declares a `trpc` router, the client grows a typed `trpc` namespace (backed by tRPC's official TanStack Query integration — same `queryOptions`/`mutationOptions` shape as the table clients):
+
+```ts
+const { data } = useQuery(api.trpc.feed.queryOptions({ limit: 20 }))
+// data's type is inferred from the procedure's return — Dates included
+```
+
 **Explicit alternatives** — `createBunderstackQueryClient<typeof schema>().withTables({ tables: [...] })` (hand-picked table tuple) and `.withSchema({ schema })` (schema imported as a value) still work when you want explicit control instead of app-type inference.
 
 ### Sync collections: bunderstack-sync
@@ -420,6 +522,20 @@ createBunderstack({
 
   storage: { local: './uploads' },  // or { s3: true } / { s3: { endpoint } }
 
+  env: {
+    server: { OPENAI_API_KEY: z.string() },      // validated at boot, typed on app.env
+    client: { PUBLIC_APP_URL: z.string().url() }, // PUBLIC_-prefixed, browser-safe
+  },
+
+  email: {
+    from: 'MyApp <hello@myapp.com>',
+    provider: 'resend',            // 'resend' | 'smtp' | 'console' | custom adapter
+  },
+
+  trpc: (t) => t.router({ ... }),  // or a prebuilt router; mounted at /api/trpc/*
+
+  realtime: true,                  // SSE broadcast-on-write; optional { redis } for multi-instance
+
   access: {
     tableName: {
       ownerColumn: 'userId',
@@ -448,14 +564,11 @@ createBunderstack({
 ```sh
 bun install
 
-# Run standalone example
-bun dev
+# Run an example
+bun run dev:twitter-tanstack
 
 # Run tests
 bun test
-
-# Push schema to DB
-bun db:push
 ```
 
-Examples are in [`examples/`](./examples) — standalone Bun server, Next.js, and TanStack Start.
+Examples are in [`examples/`](./examples) — Twitter clones (TanStack Start, with a tRPC `feed` showcase; TanStack DB + shadcn), kanban boards (Solid, TanStack), and a collaborative tldraw canvas.

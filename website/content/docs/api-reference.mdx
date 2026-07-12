@@ -10,25 +10,34 @@ description: Complete exported surface of Bunderstack
 ```ts
 function createBunderstack<
   TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter extends AnyRouter = AnyRouter,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage>,
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>>
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
+  },
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
 ```
 
-The access and storage generics are captured so clients can infer exposed
-tables and bucket names from `typeof app` (see `$inferClient` below).
+Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
+Generics are captured so clients can infer tables, buckets, and the tRPC
+router from `typeof app` (see `$inferClient` below).
 
 ### BunderstackConfig
 
 ```ts
-type BunderstackConfig<TSchema, TAccess, TStorage> = {
+type BunderstackConfig<TSchema, TAccess, TStorage, TEnv> = {
   schema: TSchema
   access?: TAccess // Record<tableKey, TableAccessInput>
   database?: { url?: string; authToken?: string }
   auth?: BetterAuthConfig // native BetterAuth options (except database)
   storage?: TStorage // StorageConfigInput: backends, defaultBucket, buckets
+  email?: EmailConfigInput // { from: string; provider?: 'resend' | 'smtp' | 'console' | adapter }
+  env?: TEnv // EnvConfigInput: server + client Zod schemas
+  // trpc is declared on createBunderstack's overloads for contextual typing
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?: boolean | { keepaliveMs?: number; bufferSize?: number; redis?: … }
@@ -38,15 +47,26 @@ type BunderstackConfig<TSchema, TAccess, TStorage> = {
 ### BunderstackApp
 
 ```ts
-type BunderstackApp<TSchema, TAccess, TBuckets> = {
+type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: Auth
   storage: StorageFacade
   router: Hono
+  /** Validated env: base vars + config's `env` extension, fully typed. */
+  env: ValidatedEnv<TEnv>
+  /** Email facade — always present; send() throws if email isn't configured. */
+  email: EmailFacade
+  /** Raw tRPC router when the config declared one — escape hatch. */
+  trpcRouter?: AnyRouter
   provision: (options?: { force?: boolean }) => Promise<void>
   /** Type-only carrier for client inference — never assigned at runtime. */
-  readonly $inferClient?: { schema: TSchema; access: TAccess; buckets: TBuckets }
+  readonly $inferClient?: {
+    schema: TSchema
+    access: TAccess
+    buckets: TBuckets
+    trpc: TRouter
+  }
 }
 ```
 
@@ -66,9 +86,11 @@ function createClient<TApp extends AnyBunderstackApp>(options?: {
 ```
 
 Lazy proxy: `api.<table>` (list/get/create/update/delete + TanStack Query
-option factories) and `api.files.<bucket>` (upload/url/delete). Also exports
-`MAX_LIST_LIMIT` (200 — the server's per-request list cap), `InferSelect`,
-`InferInsert`, and the explicit `createBunderstackQueryClient` builder.
+option factories), `api.files.<bucket>` (upload/url/delete), and `api.trpc`
+(typed `@trpc/tanstack-react-query` proxy when the server declares a tRPC
+router). Also exports `MAX_LIST_LIMIT` (200 — the server's per-request list
+cap), `InferSelect`, `InferInsert`, and the explicit
+`createBunderstackQueryClient` builder.
 
 ### bunderstack-sync
 
@@ -129,4 +151,94 @@ interface TransformSpec {
   format?: 'webp' | 'jpeg' | 'png' | 'avif'
   quality?: number
 }
+```
+
+## EmailFacade
+
+```ts
+interface EmailFacade {
+  send(msg: EmailMessage): Promise<SentEmail>
+}
+
+type EmailMessage = {
+  to: string | string[]
+  subject: string
+  html?: string
+  text?: string
+  from?: string
+  replyTo?: string
+  cc?: string | string[]
+  bcc?: string | string[]
+}
+
+type SentEmail = { id?: string }
+```
+
+## EmailConfigInput
+
+```ts
+type EmailConfigInput = {
+  from: string
+  provider?: 'resend' | 'smtp' | 'console' | EmailAdapter | EmailAdapter['send']
+}
+
+type EmailAdapter = {
+  send(msg: EmailMessage & { from: string }): Promise<SentEmail>
+}
+```
+
+## EnvConfigInput
+
+```ts
+type EnvConfigInput = {
+  server?: Record<string, ZodType>
+  client?: Record<string, ZodType>
+  runtimeEnv?: Record<string, unknown>
+}
+```
+
+## ValidatedEnv / BaseEnv
+
+```ts
+type BaseEnv = {
+  NODE_ENV?: string
+  DATABASE_URL: string
+  DATABASE_AUTH_TOKEN?: string
+  AUTH_SECRET: string
+  REDIS_URL?: string
+  RESEND_API_KEY?: string
+  SMTP_URL?: string
+}
+
+type ValidatedEnv<TEnv> = BaseEnv &
+  InferVars<TEnv['server']> &
+  InferVars<TEnv['client']>
+```
+
+## BunderstackTRPC
+
+```ts
+type BunderstackTRPC<TSchema, TEnvResult> = {
+  router: /* tRPC router builder */
+  middleware: /* tRPC middleware builder */
+  mergeRouters: /* tRPC mergeRouters */
+  procedure: /* public procedure builder */
+  protectedProcedure: /* rejects UNAUTHORIZED when no session */
+}
+```
+
+## Server exports
+
+```ts
+// Email
+export { createEmail } from 'bunderstack'
+export type { EmailMessage, EmailAdapter, EmailConfigInput, EmailFacade }
+
+// Env
+export { validateEnv, createClientEnv, BunderstackEnvError }
+export type { EnvConfigInput, BaseEnv, ValidatedEnv }
+
+// tRPC
+export { createTRPC }
+export type { BunderstackTRPC, TRPCContext }
 ```

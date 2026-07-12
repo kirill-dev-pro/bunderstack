@@ -51,6 +51,30 @@
           "$ref": "auth.mdx"
         },
         {
+          "$id": "trpc.mdx",
+          "type": "page",
+          "name": "tRPC Endpoints",
+          "description": "Pre-wired tRPC with superjson, protected procedures, and typed TanStack Query client",
+          "url": "/docs/trpc",
+          "$ref": "trpc.mdx"
+        },
+        {
+          "$id": "email.mdx",
+          "type": "page",
+          "name": "Email",
+          "description": "Send emails with resend, SMTP, console, or a custom adapter",
+          "url": "/docs/email",
+          "$ref": "email.mdx"
+        },
+        {
+          "$id": "env.mdx",
+          "type": "page",
+          "name": "Environment Validation",
+          "description": "Validate env vars at boot with Zod schemas, typed server-side and browser-safe",
+          "url": "/docs/env",
+          "$ref": "env.mdx"
+        },
+        {
           "$id": "storage.mdx",
           "type": "page",
           "name": "Storage",
@@ -106,12 +130,15 @@
     "auth": "auth.mdx",
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
+    "email": "email.mdx",
+    "env": "env.mdx",
     "framework-portability": "framework-portability.mdx",
     "getting-started": "getting-started.mdx",
     "": "index.mdx",
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
     "sync-collections": "sync-collections.mdx",
-    "thumbnails": "thumbnails.mdx"
+    "thumbnails": "thumbnails.mdx",
+    "trpc": "trpc.mdx"
   }
 }
