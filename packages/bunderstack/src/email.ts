@@ -107,12 +107,14 @@ function createSmtpAdapter(
       "email provider 'smtp' requires nodemailer — install it with: bun add nodemailer",
     )
   }
-  // Lazy import so boot stays sync; cached across sends.
+  // Lazy import so boot stays sync; cached across sends. Variable specifier
+  // keeps TS from resolving the optional peer's types at compile time.
+  const specifier = 'nodemailer'
   let transportPromise: Promise<{
     sendMail(opts: Record<string, unknown>): Promise<{ messageId?: string }>
   }> | null = null
   const getTransport = () => {
-    transportPromise ??= import('nodemailer').then((mod) =>
+    transportPromise ??= import(specifier).then((mod) =>
       (mod.default ?? mod).createTransport(smtpUrl),
     )
     return transportPromise

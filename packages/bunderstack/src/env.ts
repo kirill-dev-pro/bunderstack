@@ -25,9 +25,14 @@ type InferVars<T> = T extends Record<string, ZodType>
   ? { [K in keyof T]: z.output<T[K]> }
   : unknown
 
-export type ValidatedEnv<TEnv extends EnvConfigInput | undefined> = BaseEnv &
-  InferVars<NonNullable<TEnv>['server']> &
-  InferVars<NonNullable<TEnv>['client']>
+// Non-distributive so `ValidatedEnv<undefined>` is BaseEnv, not `never`.
+export type ValidatedEnv<TEnv extends EnvConfigInput | undefined> = [
+  TEnv,
+] extends [EnvConfigInput]
+  ? BaseEnv &
+      InferVars<NonNullable<TEnv>['server']> &
+      InferVars<NonNullable<TEnv>['client']>
+  : BaseEnv
 
 export class BunderstackEnvError extends Error {
   readonly issues: string[]

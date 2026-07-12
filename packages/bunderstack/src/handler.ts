@@ -8,6 +8,7 @@ interface HandlerParts {
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
   realtimeRouter?: Hono
+  trpcHandler?: (req: Request) => Promise<Response>
   rateLimit?: boolean | RateLimitConfig
 }
 
@@ -35,6 +36,10 @@ export function buildHandler(parts: HandlerParts): {
 
   if (parts.realtimeRouter) {
     app.route('/api', parts.realtimeRouter)
+  }
+
+  if (parts.trpcHandler) {
+    app.all('/api/trpc/*', (c) => parts.trpcHandler!(c.req.raw))
   }
 
   const inner = (req: Request): Promise<Response> =>

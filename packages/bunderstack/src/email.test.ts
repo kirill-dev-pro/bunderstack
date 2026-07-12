@@ -62,7 +62,9 @@ test('resend provider posts to the resend API with from default', async () => {
 
 test('resend provider surfaces API errors', async () => {
   const fetchFn = (async () =>
-    new Response('{"message":"invalid"}', { status: 422 })) as typeof fetch
+    new Response('{"message":"invalid"}', {
+      status: 422,
+    })) as unknown as typeof fetch
   const email = createEmail(
     { from: 'app@example.com', provider: 'resend' },
     { env: { ...devEnv, RESEND_API_KEY: 're_test' }, fetchFn },

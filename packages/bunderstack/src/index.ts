@@ -1,17 +1,21 @@
 // src/index.ts
+import type { AnyRouter } from '@trpc/server'
 import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
+
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 import type { StorageAdapter } from './storage/index'
 import type { TableAccessInput } from './access'
 import type { StorageConfigInput } from './storage/buckets'
 
-import { validateAndResolveAccess } from './access'
+import { resolveAccessUser, validateAndResolveAccess } from './access'
 import { createAuth, toAuthSessionResolver, withEmailAuthDefaults } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import { createTRPC, type BunderstackTRPC } from './trpc'
 import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { buildHandler } from './handler'
@@ -57,17 +61,21 @@ export type BucketNamesOf<TStorage> = TStorage extends {
   ? keyof B & string
   : string
 
+
 export type BunderstackApp<
   TSchema extends Record<string, unknown>,
   TAccess extends Record<string, TableAccessInput> | undefined = undefined,
   TBuckets extends string = string,
   TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: LibSQLDatabase<TSchema>
   auth: AuthInstance
   storage: StorageFacade
   router: HonoType
+  /** Raw tRPC router when the config declared one — escape hatch. */
+  trpcRouter?: AnyRouter
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
   env: ValidatedEnv<TEnv>
   /** Email facade; always present — send() throws when email isn't configured. */
@@ -82,9 +90,40 @@ export type BunderstackApp<
     schema: TSchema
     access: TAccess
     buckets: TBuckets
+    trpc: TRouter
   }
 }
 
+// Overloads: the builder-callback form and the prebuilt-router/none form are
+// separate signatures so the callback's `t` parameter gets contextual typing
+// and the router type lands on `$inferClient` without conditional-type
+// inference (which breaks under contextual return types).
+export function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter extends AnyRouter = AnyRouter,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    /** Builder callback receiving the pre-wired `t` instance. */
+    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
+  },
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
+export function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter extends AnyRouter | undefined = undefined,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    /** Prebuilt tRPC router (escape hatch for multi-file setups). */
+    trpc?: TRouter
+  },
+): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -92,8 +131,18 @@ export function createBunderstack<
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv>,
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv> {
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    trpc?:
+      | AnyRouter
+      | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)
+  },
+): BunderstackApp<
+  TSchema,
+  TAccess,
+  BucketNamesOf<TStorage>,
+  TEnv,
+  AnyRouter | undefined
+> {
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream (config, email, trpc ctx) consumes the result.
   const env = validateEnv(options.env, {
@@ -204,15 +253,41 @@ export function createBunderstack<
     void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
   }, SWEEP_INTERVAL_MS)
   sweepTimer.unref?.()
+  const trpcRouter: AnyRouter | undefined =
+    typeof options.trpc === 'function'
+      ? options.trpc(createTRPC<TSchema, ValidatedEnv<TEnv>>())
+      : options.trpc
+  const trpcHandler = trpcRouter
+    ? (req: Request) =>
+        fetchRequestHandler({
+          endpoint: '/api/trpc',
+          req,
+          router: trpcRouter,
+          createContext: async () => ({
+            db: userDb,
+            user: await resolveAccessUser(authResolver, req.headers),
+            env,
+            email,
+            req,
+          }),
+        })
+    : undefined
   const { handler, router } = buildHandler({
     crudRouter,
     authHandler: (req) => auth.handler(req),
     storageRouter,
     realtimeRouter,
+    trpcHandler,
     rateLimit: options.rateLimit,
   })
 
-  const app: BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv> = {
+  const app: BunderstackApp<
+    TSchema,
+    TAccess,
+    BucketNamesOf<TStorage>,
+    TEnv,
+    AnyRouter | undefined
+  > = {
     handler,
     // Internal tables live on the runtime db but stay out of the public type.
     db: userDb,
@@ -221,6 +296,7 @@ export function createBunderstack<
     router,
     env,
     email,
+    trpcRouter,
     provision: (opts) =>
       provisionSchema(db, mergedSchema, {
         force: opts?.force,
@@ -248,6 +324,8 @@ export type {
   EmailConfigInput,
   EmailFacade,
 } from './email'
+export { createTRPC } from './trpc'
+export type { BunderstackTRPC, TRPCContext } from './trpc'
 export {
   defineAccess,
   validateAndResolveAccess,
