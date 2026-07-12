@@ -2,14 +2,27 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 // tests/crud.test.ts
 import { test, expect, beforeAll } from 'bun:test'
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 import { Hono } from 'hono'
 
-import { posts } from '../../../examples/standalone/schema'
 import { validateAndResolveAccess } from './access'
 import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { withInternalTables } from './internal-tables'
 import { provisionSchema } from './provision'
+
+// Inline replica of the deleted examples/standalone posts table; the shape
+// the assertions below rely on (numeric autoincrement id, authorId owner
+// column, auto-defaulted createdAt).
+const posts = sqliteTable('posts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  body: text('body'),
+  authorId: text('authorId'),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
 
 const testAuth = {
   api: {
