@@ -86,7 +86,7 @@ bun run --cwd examples/tldraw migrate   # once
 
 ### Twitter (TanStack Start)
 
-Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via **bunderstack-query**.
+Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via **bunderstack-query**. Includes a tRPC `feed` procedure — posts, authors, and like counts in one call (`api.trpc.feed.queryOptions()`).
 
 ```bash
 bun run dev:twitter-tanstack

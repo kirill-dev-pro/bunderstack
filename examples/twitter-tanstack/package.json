@@ -30,7 +30,8 @@
     "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.0",

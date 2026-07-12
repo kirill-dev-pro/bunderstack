@@ -7,7 +7,7 @@ import { createBunderstackQueryClient } from 'bunderstack-query'
 import type * as schema from './schema'
 
 /** Bun/Node fetch requires absolute URLs during SSR; the browser accepts `/api/...`. */
-const isomorphicFetch = createIsomorphicFn()
+export const isomorphicFetch = createIsomorphicFn()
   .client((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init))
   .server(async (input: RequestInfo | URL, init?: RequestInit) => {
     if (typeof input === 'string' && input.startsWith('/')) {
