@@ -44,8 +44,6 @@ existing surface. Decisions validated in brainstorming:
 
 ## Non-goals
 
-- No superjson / rich serialization for endpoint payloads (JSON only,
-  documented).
 - No email templating system (plain default templates for auth mails only).
 - No additional email adapters beyond resend/smtp/console in this iteration.
 - No middleware/plugin system for endpoints (auth gate + input validation
@@ -156,11 +154,14 @@ createBunderstack({ schema, endpoints, ... })
 
 ### Wire format
 
-- Query: `GET /api/endpoints/<name>?input=<url-encoded JSON>` (single-param,
-  tRPC-style — zod round-trips trivially).
-- Mutation: `POST /api/endpoints/<name>` with JSON body.
-- Response: JSON. Output must be JSON-serializable (documented; no dates/maps
-  survive — no superjson).
+- Query: `GET /api/endpoints/<name>?input=<url-encoded superjson>`
+  (single-param, tRPC-style — round-trips trivially).
+- Mutation: `POST /api/endpoints/<name>` with superjson body.
+- Response: superjson (`{ json, meta }` envelope). Dates, Maps, Sets, BigInt,
+  and `undefined` survive the round trip in both directions — endpoint
+  handlers can return drizzle rows with `Date` columns directly. `superjson`
+  becomes a regular dependency of both `bunderstack` and `bunderstack-query`
+  (endpoints only; CRUD routes keep their existing plain-JSON wire format).
 
 ### Errors
 
@@ -272,9 +273,10 @@ Each phase lands with tests green and is independently shippable.
   dev, boot error in prod); message validation; resend adapter with mocked
   fetch; custom adapter passthrough; better-auth injection (fills gaps,
   never overrides user handlers).
-- `src/endpoints.test.ts`: GET/POST wiring; `?input=` JSON parsing; zod 400s;
-  auth gate 401; ctx contents (db/user/env/email/req); name validation at
-  boot; JSON response shape.
+- `src/endpoints.test.ts`: GET/POST wiring; `?input=` superjson parsing; zod
+  400s; auth gate 401; ctx contents (db/user/env/email/req); name validation
+  at boot; superjson round-trip of Date/Map/undefined through input and
+  output.
 - `bunderstack-query`: `endpoints` namespace — queryOptions key shape, call()
   URL construction for query vs mutation, type-level test that inferred
   input/output match server definitions.
