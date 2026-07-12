@@ -6,6 +6,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 import type { BetterAuthConfig } from './config'
 import type { AuthSessionResolver } from './access'
+import type { EmailFacade } from './email'
 
 export function createAuth(
   db: LibSQLDatabase<Record<string, unknown>>,
@@ -55,4 +56,47 @@ export function toAuthSessionResolver(
       },
     },
   }
+}
+
+/**
+ * Fill better-auth's email hooks from the bunderstack email facade. Only fills
+ * gaps: user-supplied handlers always win, and nothing is injected when email
+ * isn't configured. emailAndPassword is only touched when the user enabled it
+ * (injecting it unasked would enable the feature).
+ */
+export function withEmailAuthDefaults(
+  cfg: BetterAuthConfig,
+  email: EmailFacade,
+  emailConfigured: boolean,
+): BetterAuthConfig {
+  if (!emailConfigured) return cfg
+  const out: BetterAuthConfig = { ...cfg }
+
+  if (cfg.emailAndPassword?.enabled && !cfg.emailAndPassword.sendResetPassword) {
+    out.emailAndPassword = {
+      ...cfg.emailAndPassword,
+      sendResetPassword: async ({ user, url }) => {
+        await email.send({
+          to: user.email,
+          subject: 'Reset your password',
+          text: `Click the link to reset your password:\n\n${url}\n\nIf you didn't request this, you can ignore this email.`,
+        })
+      },
+    }
+  }
+
+  if (!cfg.emailVerification?.sendVerificationEmail) {
+    out.emailVerification = {
+      ...cfg.emailVerification,
+      sendVerificationEmail: async ({ user, url }) => {
+        await email.send({
+          to: user.email,
+          subject: 'Verify your email',
+          text: `Click the link to verify your email address:\n\n${url}`,
+        })
+      },
+    }
+  }
+
+  return out
 }

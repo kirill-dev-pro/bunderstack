@@ -27,10 +27,14 @@
   },
   "peerDependencies": {
     "drizzle-kit": "^0.30.0",
+    "nodemailer": "^6",
     "typescript": "^5"
   },
   "peerDependenciesMeta": {
     "drizzle-kit": {
+      "optional": true
+    },
+    "nodemailer": {
       "optional": true
     }
   }

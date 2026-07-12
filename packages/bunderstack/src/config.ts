@@ -7,6 +7,7 @@ import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
 import { validateEnv, type BaseEnv, type EnvConfigInput } from './env'
+import type { EmailConfigInput } from './email'
 
 import {
   resolveBuckets,
@@ -31,6 +32,8 @@ export const BunderstackOptionsSchema = z.object({
   storage: z.unknown().optional(),
   // Loose: holds zod schemas. Validation happens in validateEnv.
   env: z.unknown().optional(),
+  // Loose: provider may be a function/adapter. Resolution happens in createEmail.
+  email: z.unknown().optional(),
   rateLimit: z
     .union([
       z.boolean(),
@@ -71,13 +74,14 @@ export type BunderstackConfig<
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
 > = Omit<
   z.input<typeof BunderstackOptionsSchema>,
-  'schema' | 'access' | 'auth' | 'storage' | 'env'
+  'schema' | 'access' | 'auth' | 'storage' | 'env' | 'email'
 > & {
   schema: TSchema
   access?: TAccess
   auth?: BetterAuthConfig
   storage?: TStorage
   env?: TEnv
+  email?: EmailConfigInput
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:

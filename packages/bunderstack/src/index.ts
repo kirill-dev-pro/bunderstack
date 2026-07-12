@@ -7,9 +7,10 @@ import type { TableAccessInput } from './access'
 import type { StorageConfigInput } from './storage/buckets'
 
 import { validateAndResolveAccess } from './access'
-import { createAuth, toAuthSessionResolver } from './auth'
+import { createAuth, toAuthSessionResolver, withEmailAuthDefaults } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
+import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
 import { buildCrudRouter } from './crud'
 import { createDb } from './db'
@@ -69,6 +70,8 @@ export type BunderstackApp<
   router: HonoType
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
   env: ValidatedEnv<TEnv>
+  /** Email facade; always present — send() throws when email isn't configured. */
+  email: EmailFacade
   /** Push the merged schema (user + internal tables) to the database. */
   provision: (options?: { force?: boolean }) => Promise<void>
   /**
@@ -93,8 +96,11 @@ export function createBunderstack<
 ): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv> {
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream (config, email, trpc ctx) consumes the result.
-  const env = validateEnv(options.env)
+  const env = validateEnv(options.env, {
+    emailProvider: emailProviderTag(options.email),
+  })
   const config = resolveConfig(options, env)
+  const email = createEmail(options.email, { env })
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -107,7 +113,10 @@ export function createBunderstack<
   // `db` directly), but it can't *narrow* a generic schema view, so this single
   // intentional cast produces the user-facing db type. See `app.db` / crud below.
   const userDb = db as unknown as LibSQLDatabase<TSchema>
-  const auth = createAuth(db, config.auth)
+  const auth = createAuth(
+    db,
+    withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
+  )
   // Internal routers consume the narrow AuthSessionResolver contract, not the
   // raw better-auth instance. app.auth still exposes `auth` unchanged.
   const authResolver = toAuthSessionResolver(auth)
@@ -211,6 +220,7 @@ export function createBunderstack<
     storage,
     router,
     env,
+    email,
     provision: (opts) =>
       provisionSchema(db, mergedSchema, {
         force: opts?.force,
@@ -231,6 +241,13 @@ export type {
 export { provisionSchema } from './provision'
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
+export { createEmail } from './email'
+export type {
+  EmailMessage,
+  EmailAdapter,
+  EmailConfigInput,
+  EmailFacade,
+} from './email'
 export {
   defineAccess,
   validateAndResolveAccess,
