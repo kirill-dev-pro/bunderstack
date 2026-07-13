@@ -43,8 +43,9 @@ Add `export * from 'bunderstack/schema'` to your `schema.ts` so migrations inclu
 Use separate terminals — each binds a different port.
 
 | Example                        | Command                           | URL                   |
-| ------------------------------ | ---------------------------------- | --------------------- |
+| ------------------------------ | --------------------------------- | --------------------- |
 | Twitter (TanStack Start)       | `bun run dev:twitter-tanstack`    | http://localhost:3000 |
+| Todo (TanStack Start)          | `bun run dev:todo`                | http://localhost:3005 |
 | Twitter (TanStack DB + shadcn) | `bun run dev:twitter-db-tanstack` | http://localhost:3003 |
 | Kanban (Solid + Vite)          | `bun run dev:kanban`              | http://localhost:5174 |
 | Kanban (TanStack Start)        | `bun run dev:kanban-tanstack`     | http://localhost:5175 |
@@ -78,11 +79,11 @@ bun run dev:tldraw
 bun run --cwd examples/tldraw migrate   # once
 ```
 
-| Route         | Purpose                                          |
-| ------------- | ------------------------------------------------ |
-| `/canvas`     | Your boards (auth required)                      |
-| `/canvas/:id` | The board — shareable, guest-editable, live      |
-| `/login`      | BetterAuth                                       |
+| Route         | Purpose                                     |
+| ------------- | ------------------------------------------- |
+| `/canvas`     | Your boards (auth required)                 |
+| `/canvas/:id` | The board — shareable, guest-editable, live |
+| `/login`      | BetterAuth                                  |
 
 ### Twitter (TanStack Start)
 
@@ -137,6 +138,26 @@ bun run --cwd examples/kanban-tanstack seed   # once
 ```
 
 Same demo accounts. Routes match the Solid example.
+
+### Todo (TanStack Start)
+
+The minimal full-feature example — every bunderstack feature in ~10 source
+files (see `examples/todo/README.md` for the tour):
+
+- **Auto-CRUD + access**: generated `api.todos.*`, per-user `scope` resolver
+- **Env validation**: `app.env.PUBLIC_APP_NAME` and `NOTIFY_COMPLETED` validated at boot
+- **Email**: completing a task via tRPC sends a notification email (console in dev, SMTP in prod)
+- **tRPC**: `api.trpc.stats` for counts, `api.trpc.complete` for atomic update + email
+- **Storage**: image attachments with on-the-fly sharp thumbnails
+- **Realtime**: SSE broadcast-on-write — open two tabs and watch them sync
+
+```bash
+bun run dev:todo
+```
+
+No signup or seed step: auth is username-only via BetterAuth's `anonymous`
+plugin (only `user` + `session` tables), and the schema is pushed on boot.
+Everything lives on the single `/` route.
 
 ## Tests
 
