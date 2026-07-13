@@ -57,7 +57,6 @@ export const app = createBunderstack({
   // `transforms: true` enables on-the-fly sharp resizing via ?w=&h=&format=.
   storage: {
     local: true,
-    defaultBucket: 'images',
     buckets: {
       images: {
         upload: { maxSize: '5mb', accept: ['image/*'] },

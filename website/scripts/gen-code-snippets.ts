@@ -34,7 +34,7 @@ import * as schema from './schema'
 export const app = createBunderstack({
   schema,
   access: { posts: { ownerColumn: 'userId', searchableColumns: ['title'], filterableColumns: ['replyToId'], sortableColumns: ['createdAt', 'id'] } },
-  storage: { local: './uploads', defaultBucket: 'images', buckets: { images: {} } },
+  storage: { local: './uploads', buckets: { images: {} } },
   realtime: true,
   env: { server: { SMTP_URL: z.string().optional() }, client: { PUBLIC_APP_NAME: z.string().default('Demo') } },
   email: { from: 'hello@example.com' },
