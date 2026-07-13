@@ -1,6 +1,29 @@
 {
   "name": "bunderstack-sync",
   "version": "0.1.0",
+  "description": "TanStack DB collections synced live to a bunderstack backend: optimistic mutations with SSE-driven realtime sync.",
+  "keywords": [
+    "bun",
+    "bunderstack",
+    "optimistic",
+    "realtime",
+    "sse",
+    "sync",
+    "tanstack-db"
+  ],
+  "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kirill-dev-pro/bunderstack.git",
+    "directory": "packages/bunderstack-sync"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -16,17 +39,17 @@
     "bunderstack-query": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/query-core": "^5.101.1",
-    "@tanstack/react-query": "^5.101.1",
     "@tanstack/db": "^0.6.13",
+    "@tanstack/query-core": "^5.101.1",
     "@tanstack/query-db-collection": "^1.0.45",
+    "@tanstack/react-query": "^5.101.1",
     "@types/bun": "^1.3.14",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@tanstack/react-query": "^5.101.0",
     "@tanstack/db": "^0.6.0",
     "@tanstack/query-db-collection": "^1.0.0",
+    "@tanstack/react-query": "^5.101.0",
     "typescript": "^5"
   }
 }

@@ -1,6 +1,28 @@
 {
   "name": "bunderstack-start",
   "version": "0.1.0",
+  "description": "TanStack Start integration for bunderstack: isomorphic fetch wiring, auth client, and query/sync setup for SSR apps.",
+  "keywords": [
+    "auth",
+    "bun",
+    "bunderstack",
+    "react",
+    "ssr",
+    "tanstack-start"
+  ],
+  "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kirill-dev-pro/bunderstack.git",
+    "directory": "packages/bunderstack-start"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",

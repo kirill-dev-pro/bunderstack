@@ -1,6 +1,29 @@
 {
   "name": "bunderstack-query",
   "version": "0.1.0",
+  "description": "Typed client for bunderstack backends: tRPC client, TanStack Query option factories, realtime subscriptions, and React hooks.",
+  "keywords": [
+    "bun",
+    "bunderstack",
+    "client",
+    "react",
+    "realtime",
+    "tanstack-query",
+    "trpc"
+  ],
+  "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kirill-dev-pro/bunderstack.git",
+    "directory": "packages/bunderstack-query"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",

@@ -1,0 +1,44 @@
+name: Publish packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/publish-changed.ts'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # OIDC token for npm trusted publishing — no npm token is stored anywhere.
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Trusted publishing needs npm >= 11.5.1; the runner's bundled npm can lag.
+      - name: Ensure npm supports OIDC
+        run: npm install -g npm@latest && npm --version
+
+      - name: Install workspace deps
+        run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Publish packages with bumped versions
+        run: bun scripts/publish-changed.ts
