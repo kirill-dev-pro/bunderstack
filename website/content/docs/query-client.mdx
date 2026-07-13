@@ -128,10 +128,10 @@ import type { App } from './bunderstack'
 
 const api = createClient<App>({ queryClient })
 
-// Typed tRPC hooks inferred from your server router
-const { data } = api.trpc.hello.useQuery()
-const { data: me } = api.trpc.me.useQuery()
-const greet = api.trpc.greet.useMutation()
+// Typed option factories — wrap with useQuery / useMutation
+const { data } = useQuery(api.trpc.hello.queryOptions())
+const { data: me } = useQuery(api.trpc.me.queryOptions())
+const greet = useMutation(api.trpc.greet.mutationOptions())
 ```
 
 Requires `@trpc/client`, `@trpc/tanstack-react-query`, `@trpc/server`, and

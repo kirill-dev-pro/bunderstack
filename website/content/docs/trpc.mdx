@@ -155,11 +155,11 @@ import type { App } from './bunderstack'
 
 const api = createClient<App>({ queryClient })
 
-// Typed tRPC hooks — no codegen needed
-api.trpc.hello.useQuery()
-api.trpc.me.useQuery()
-api.trpc.greet.useQuery({ name: 'Alice' })
-api.trpc.sendWelcome.useMutation()
+// Typed option factories — wrap with useQuery / useMutation, no codegen needed
+useQuery(api.trpc.hello.queryOptions())
+useQuery(api.trpc.me.queryOptions())
+useQuery(api.trpc.greet.queryOptions({ name: 'Alice' }))
+useMutation(api.trpc.sendWelcome.mutationOptions())
 ```
 
 ```bash
@@ -168,15 +168,5 @@ bun add bunderstack-query @trpc/client @trpc/tanstack-react-query @trpc/server s
 
 ### Explicit builder
 
-The `createBunderstackQueryClient` builder also exposes a typed `withTrpc`
-path when you use the `$inferClient` carrier:
-
-```ts
-import { createBunderstackQueryClient } from 'bunderstack-query'
-
-const api = createBunderstackQueryClient<typeof schema>().withTables({
-  queryClient,
-  tables: ['posts'],
-})
-// trpc is auto-available via createClient<App> — withTrpc for explicit setups
-```
+The `createBunderstackQueryClient` builder does not expose `withTrpc` directly.
+Use `createClient<App>()` for automatic tRPC inference from your server type.
