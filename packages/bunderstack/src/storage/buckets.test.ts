@@ -322,6 +322,22 @@ describe('resolveBuckets — physical-bucket escape hatch', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveBuckets — defaultBucket validation', () => {
+  test('single declared bucket without defaultBucket becomes the default', () => {
+    const result = resolveBuckets({ local: true, buckets: { images: {} } })
+    expect(result.defaultBucket).toBe('images')
+    expect(result.buckets.size).toBe(1)
+    expect(result.buckets.get('images')!.backend).toEqual({
+      type: 'local',
+      path: './uploads',
+    })
+  })
+
+  test('multiple declared buckets without defaultBucket throws', () => {
+    expect(() =>
+      resolveBuckets({ buckets: { images: {}, documents: {} } }),
+    ).toThrow('[bunderstack] defaultBucket "default" is not a declared bucket')
+  })
+
   test('defaultBucket pointing at non-declared bucket throws', () => {
     expect(() =>
       resolveBuckets({

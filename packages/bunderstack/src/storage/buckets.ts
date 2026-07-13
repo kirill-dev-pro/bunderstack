@@ -232,9 +232,14 @@ export function resolveBuckets(
   input: StorageConfigInput | undefined,
   env: Record<string, string | undefined> = process.env,
 ): ResolvedStorageBuckets {
-  const defaultBucketName = input?.defaultBucket ?? 'default'
   const sharedBackend = resolveSharedBackend(input, env)
   const bucketsInput = input?.buckets
+
+  const declaredNames = bucketsInput ? Object.keys(bucketsInput) : []
+  const defaultBucketName =
+    input?.defaultBucket ??
+    // A single declared bucket is unambiguous — treat it as the default.
+    (declaredNames.length === 1 ? declaredNames[0]! : 'default')
 
   const buckets = new Map<string, ResolvedBucket>()
 
