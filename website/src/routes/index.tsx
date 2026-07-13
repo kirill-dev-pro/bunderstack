@@ -66,6 +66,24 @@ const BATTERIES = [
     text: 'Broadcast-on-write over SSE. Client collections apply every event live — including filtered views and scoped windows.',
   },
   {
+    key: 'env' as const,
+    name: 'Env validation',
+    file: 'bunderstack.ts',
+    text: 'Every variable validated with zod at boot — the app refuses to start half-configured. Server vars stay server-only; PUBLIC_ vars are typed for the client.',
+  },
+  {
+    key: 'email' as const,
+    name: 'Email',
+    file: 'notify.ts',
+    text: 'One send() call: console provider in development, SMTP via a single env var in production. BetterAuth verification and reset emails ride the same transport.',
+  },
+  {
+    key: 'trpc' as const,
+    name: 'tRPC',
+    file: 'client.ts',
+    text: 'Custom procedures with db, user, env, and email in a typed context. The client gets queryOptions / mutationOptions factories inferred from the router — superjson included.',
+  },
+  {
     key: 'inference' as const,
     name: 'Type inference',
     file: 'inference.ts',
@@ -90,6 +108,8 @@ const GLUE_FILES = [
   { file: 'auth/…', lines: 210, note: 'sessions, sign-in, OAuth callbacks' },
   { file: 'upload.ts', lines: 90, note: 'multipart, S3, thumbnail resizes' },
   { file: 'realtime.ts', lines: 140, note: 'socket server, event fan-out' },
+  { file: 'env.ts', lines: 40, note: 'parse, validate, type process.env' },
+  { file: 'mailer.ts', lines: 60, note: 'transport setup, dev/prod switch' },
   {
     file: 'types.gen.ts',
     lines: 0,
@@ -149,6 +169,11 @@ const COMPARISON = {
 }
 
 const EXAMPLES = [
+  {
+    dir: 'todo',
+    desc: 'The minimal full-feature app — CRUD, access, env, email, tRPC, image storage, and realtime in ~10 files. Username-only auth, no signup.',
+    cmd: 'bun run dev:todo',
+  },
   {
     dir: 'twitter-db-tanstack',
     desc: 'Twitter-style feed on TanStack DB collections — growing-window pagination, live via SSE.',
@@ -741,8 +766,9 @@ function Landing() {
           <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#5c6b80] sm:text-lg">
             A batteries-included backend framework for{' '}
             <span className="font-mono text-[#1c2430]">Bun</span>. Point it at a
-            Drizzle schema — CRUD, auth, files, and realtime fall out. The
-            client is inferred from your server&apos;s types.
+            Drizzle schema — CRUD, auth, files, realtime, email, and tRPC fall
+            out, with your env validated at boot. The client is inferred from
+            your server&apos;s types.
           </p>
           <div className="mt-8 flex flex-col items-center gap-4">
             <CopyInstall />

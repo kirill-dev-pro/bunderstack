@@ -29,12 +29,16 @@ export const posts = sqliteTable('posts', {
 
 const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
+import { z } from 'zod'
 import * as schema from './schema'
 export const app = createBunderstack({
   schema,
   access: { posts: { ownerColumn: 'userId', searchableColumns: ['title'], filterableColumns: ['replyToId'], sortableColumns: ['createdAt', 'id'] } },
   storage: { local: './uploads', defaultBucket: 'images', buckets: { images: {} } },
   realtime: true,
+  env: { server: { SMTP_URL: z.string().optional() }, client: { PUBLIC_APP_NAME: z.string().default('Demo') } },
+  email: { from: 'hello@example.com' },
+  trpc: (t) => t.router({ stats: t.protectedProcedure.query(({ ctx }) => ({ total: 0, user: ctx.user.name })) }),
 })
 export type App = typeof app
 `
@@ -157,6 +161,48 @@ const api = createClient<App>({ queryClient })
 
 api.posts // inferred from schema + access
 api.secrets // not in the schema — the client knows`,
+
+  env: `${SCHEMA_FILE}
+// @filename: bunderstack.ts
+// ---cut---
+import { createBunderstack } from 'bunderstack'
+import { z } from 'zod'
+import * as schema from './schema'
+
+export const app = createBunderstack({
+  schema,
+  env: {
+    server: { SMTP_URL: z.string().optional() },
+    client: { PUBLIC_APP_NAME: z.string().default('Demo') },
+  },
+})
+
+app.env.PUBLIC_APP_NAME // validated at boot, fully typed
+app.env.SMTP_URL // server-only — never sent to the browser`,
+
+  email: `${SCHEMA_FILE}${APP_FILE}
+// @filename: notify.ts
+// ---cut---
+import { app } from './bunderstack'
+
+await app.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome aboard',
+  text: 'Same call in dev and prod.',
+})
+// console provider in dev, SMTP via one env var in prod —
+// BetterAuth verification & reset emails are auto-wired`,
+
+  trpc: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// ---cut---
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack'
+
+const api = createClient<App>({ queryClient })
+
+const stats = useQuery(api.trpc.stats.queryOptions())
+// typed straight from the server router — no codegen,
+// superjson keeps Dates as Dates`,
 
   escape: `${SCHEMA_FILE}${APP_FILE}
 // @filename: custom.ts
