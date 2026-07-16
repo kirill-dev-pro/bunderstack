@@ -55,12 +55,12 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@electric-sql/pglite": "^0.3.0",
-    "@libsql/client": "^0.14.0",
+    "@electric-sql/pglite": ">=0.3.0",
+    "@libsql/client": ">=0.14.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
     "nodemailer": "^6",
-    "postgres": "^3.4.0",
+    "postgres": ">=3.4.0",
     "typescript": "^5"
   },
   "peerDependenciesMeta": {
@@ -81,8 +81,8 @@
     }
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.0",
-    "@libsql/client": "^0.14.0",
+    "@electric-sql/pglite": ">=0.3.0",
+    "@libsql/client": ">=0.14.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0"
   }
