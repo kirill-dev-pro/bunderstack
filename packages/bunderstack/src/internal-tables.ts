@@ -1,4 +1,5 @@
-import { getTableName, isTable } from 'drizzle-orm'
+import { getTableName, is, isTable } from 'drizzle-orm'
+import { PgDatabase } from 'drizzle-orm/pg-core'
 import {
   index,
   integer,
@@ -6,6 +7,12 @@ import {
   sqliteTable,
   text,
 } from 'drizzle-orm/sqlite-core'
+
+import { detectDialect } from './dialect'
+import {
+  bunderstackFilesPg,
+  bunderstackIdempotencyPg,
+} from './internal-tables-pg'
 
 export const bunderstackFiles = sqliteTable(
   'bunderstack_file_meta',
@@ -51,10 +58,29 @@ export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   '_bunderstack_idempotency',
 ])
 
-const INTERNAL_TABLE_BY_NAME = new Map<string, (typeof INTERNAL_TABLES)[keyof typeof INTERNAL_TABLES]>([
-  [getTableName(bunderstackFiles), bunderstackFiles],
-  [getTableName(bunderstackIdempotency), bunderstackIdempotency],
+export const INTERNAL_TABLES_PG = {
+  bunderstackFiles: bunderstackFilesPg,
+  bunderstackIdempotency: bunderstackIdempotencyPg,
+} as const
+
+// Both dialect twins count as "ours" for the re-export identity check.
+const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
+  [getTableName(bunderstackFiles), [bunderstackFiles, bunderstackFilesPg]],
+  [
+    getTableName(bunderstackIdempotency),
+    [bunderstackIdempotency, bunderstackIdempotencyPg],
+  ],
 ])
+
+/** Internal file-meta table matching the db's dialect. */
+export function filesTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackFilesPg : bunderstackFiles
+}
+
+/** Internal idempotency table matching the db's dialect. */
+export function idempotencyTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackIdempotencyPg : bunderstackIdempotency
+}
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(
   schema: TSchema,
@@ -66,9 +92,9 @@ export function withInternalTables<TSchema extends Record<string, unknown>>(
     const name = getTableName(value)
     if (!INTERNAL_TABLE_NAMES.has(name)) continue
 
-    const internal = INTERNAL_TABLE_BY_NAME.get(name)
-    if (internal === value) {
-      // Re-exported from bunderstack/schema — already in user schema.
+    const candidates = INTERNAL_TABLE_CANDIDATES.get(name)
+    if (candidates?.includes(value)) {
+      // Re-exported from bunderstack/schema(-pg) — already in user schema.
       continue
     }
 
@@ -77,7 +103,9 @@ export function withInternalTables<TSchema extends Record<string, unknown>>(
     )
   }
 
-  for (const [key, table] of Object.entries(INTERNAL_TABLES)) {
+  const internal =
+    detectDialect(schema) === 'pg' ? INTERNAL_TABLES_PG : INTERNAL_TABLES
+  for (const [key, table] of Object.entries(internal)) {
     if (!(key in merged)) {
       ;(merged as Record<string, unknown>)[key] = table
     }

@@ -1,5 +1,6 @@
 import { test, expect, beforeAll } from 'bun:test'
-import { getTableName, isTable } from 'drizzle-orm'
+import { getTableName, is, isTable } from 'drizzle-orm'
+import { PgTable, pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
@@ -11,6 +12,7 @@ import {
   INTERNAL_TABLE_NAMES,
   withInternalTables,
 } from './internal-tables'
+import { bunderstackFilesPg, bunderstackIdempotencyPg } from './internal-tables-pg'
 import { provisionSchema } from './provision'
 
 // --- table name resolution ---
@@ -84,6 +86,30 @@ test('withInternalTables throws on foreign reserved name _bunderstack_idempotenc
   expect(() => withInternalTables({ clash })).toThrow(
     '[bunderstack] table name "_bunderstack_idempotency" is reserved by bunderstack',
   )
+})
+
+// --- pg twins ---
+
+const pgPosts = pgTable('pg_posts', { id: pgText('id').primaryKey() })
+
+test('withInternalTables merges pg twins into a pg schema', () => {
+  const merged = withInternalTables({ pgPosts })
+  expect(is(merged.bunderstackFiles, PgTable)).toBe(true)
+  expect(is(merged.bunderstackIdempotency, PgTable)).toBe(true)
+})
+
+test('withInternalTables accepts the pg twins re-exported into the schema', () => {
+  const merged = withInternalTables({
+    pgPosts,
+    bunderstackFiles: bunderstackFilesPg,
+    bunderstackIdempotency: bunderstackIdempotencyPg,
+  })
+  expect(merged.bunderstackFiles).toBe(bunderstackFilesPg as never)
+})
+
+test('withInternalTables still rejects foreign pg tables using reserved names', () => {
+  const impostor = pgTable('bunderstack_file_meta', { id: pgText('id').primaryKey() })
+  expect(() => withInternalTables({ impostor })).toThrow(/reserved/)
 })
 
 // --- access exclusion ---
