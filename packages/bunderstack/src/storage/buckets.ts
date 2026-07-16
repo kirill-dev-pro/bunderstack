@@ -109,6 +109,32 @@ export function parseSize(value: string | number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Platform override (Bunderhost & co.)
+// ---------------------------------------------------------------------------
+
+/**
+ * A deployment platform that injects BUNDERSTACK_S3_ENDPOINT forces every
+ * bucket onto that backend — code-level `local`/per-bucket `s3` blocks are
+ * ignored so apps deploy unchanged. Logical buckets already prefix object
+ * keys ("<bucket>/<uuid>"), so one physical bucket per environment suffices.
+ */
+function platformS3Backend(
+  env: Record<string, string | undefined>,
+): ResolvedBackend | undefined {
+  const endpoint = env['BUNDERSTACK_S3_ENDPOINT']
+  if (!endpoint) return undefined
+  return {
+    type: 's3',
+    bucket: env['BUNDERSTACK_S3_BUCKET'] ?? '',
+    region: env['BUNDERSTACK_S3_REGION'] ?? 'auto',
+    endpoint,
+    accessKeyId: env['BUNDERSTACK_S3_ACCESS_KEY_ID'] ?? '',
+    secretAccessKey: env['BUNDERSTACK_S3_SECRET_ACCESS_KEY'] ?? '',
+    publicUrl: env['BUNDERSTACK_S3_PUBLIC_URL'],
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared backend resolution
 // ---------------------------------------------------------------------------
 
@@ -149,6 +175,9 @@ function resolveBucketBackend(
   sharedBackend: ResolvedBackend,
   env: Record<string, string | undefined>,
 ): ResolvedBackend {
+  // Platform override active → sharedBackend IS the platform backend and
+  // code-level per-bucket backends are ignored.
+  if (env['BUNDERSTACK_S3_ENDPOINT']) return sharedBackend
   if ('s3' in bucketInput && bucketInput.s3 !== undefined) {
     const block = bucketInput.s3
     return {
@@ -232,7 +261,7 @@ export function resolveBuckets(
   input: StorageConfigInput | undefined,
   env: Record<string, string | undefined> = process.env,
 ): ResolvedStorageBuckets {
-  const sharedBackend = resolveSharedBackend(input, env)
+  const sharedBackend = platformS3Backend(env) ?? resolveSharedBackend(input, env)
   const bucketsInput = input?.buckets
 
   const declaredNames = bucketsInput ? Object.keys(bucketsInput) : []
