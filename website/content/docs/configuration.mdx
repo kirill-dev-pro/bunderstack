@@ -8,7 +8,7 @@ description: All createBunderstack options and environment variables
 ## Options
 
 ```ts
-createBunderstack({
+await createBunderstack({
   schema,
   database: { url?: string, authToken?: string, migrations?: string }, // migrations folder, default './migrations'
   access?: Record<string, {
@@ -45,11 +45,29 @@ createBunderstack({
 })
 ```
 
+## Database dialect and DATABASE_URL
+
+The dialect comes from your schema (`sqliteTable` → SQLite, `pgTable` →
+Postgres) — see [Using PostgreSQL](/docs/getting-started#using-postgresql).
+`DATABASE_URL` then selects the engine within that dialect:
+
+| Schema        | `DATABASE_URL`  | Engine                                      |
+| ------------- | --------------- | -------------------------------------------- |
+| `sqliteTable` | unset           | local SQLite file `./data.db`               |
+| `sqliteTable` | `file:./app.db` | local SQLite file                           |
+| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)      |
+| `pgTable`     | unset           | PGlite in `./data.pglite`                   |
+| `pgTable`     | `file:./pgdata` | PGlite in that directory                    |
+| `pgTable`     | `memory://`     | PGlite in-memory (tests)                    |
+| `pgTable`     | `postgres://…`  | Postgres server (`Bun.sql` under Bun, `postgres`/postgres.js under Node) |
+
+A URL that contradicts the schema's dialect throws a clear error at startup.
+
 ## Environment variables
 
-| Variable               | Default          | Description                                |
-| ---------------------- | ---------------- | ------------------------------------------ |
-| `DATABASE_URL`         | `file:./data.db` | libSQL connection string                   |
+| Variable               | Default                                        | Description                                |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------ |
+| `DATABASE_URL`         | `file:./data.db` (sqlite) / `file:./data.pglite` (pg) | Connection string — see the table above |
 | `DATABASE_AUTH_TOKEN`  | —                | Turso auth token                           |
 | `AUTH_SECRET`          | dev default      | BetterAuth secret — required in production |
 | `REDIS_URL`            | —                | Redis URL for multi-process realtime       |

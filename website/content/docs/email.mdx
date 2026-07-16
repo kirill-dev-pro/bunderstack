@@ -14,7 +14,7 @@ key to your config and use `app.email.send()` anywhere on the server.
 import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
   email: {

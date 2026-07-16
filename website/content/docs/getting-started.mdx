@@ -14,11 +14,11 @@ bun add -d drizzle-kit
 
 ## Write your schema
 
-Import Drizzle builders from `bunderstack` to share its Drizzle instance and avoid version conflicts. Re-export Bunderstack's internal tables so migrations include file storage metadata:
+Import Drizzle builders straight from `drizzle-orm` — bunderstack depends on it as a peer, so your project's own install is the one shared instance. Re-export Bunderstack's internal tables so migrations include file storage metadata:
 
 ```ts
 // schema.ts
-import { sqliteTable, integer, text } from 'bunderstack'
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 export * from 'bunderstack/schema'
 
@@ -58,7 +58,7 @@ import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
 })
@@ -94,6 +94,44 @@ From this point on provision stops pushing and only applies the committed files.
 **Deploying.** Clone, `bun install --production`, start. Applying migrations uses drizzle-orm's built-in migrator, so `drizzle-kit` stays a dev-only dependency — it is never installed on, or shipped to, the server. If you deploy without a migrations folder *and* without drizzle-kit, provision fails with instructions rather than guessing.
 
 Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`. If your migrations live elsewhere, point Bunderstack at them with `database: { migrations: './path' }`.
+
+## Using PostgreSQL
+
+Bunderstack infers the database dialect from your schema: define tables with
+`pgTable` instead of `sqliteTable` and the whole stack — CRUD, auth, storage
+metadata, provisioning — switches to Postgres. No config key to flip.
+
+```ts
+// schema.ts
+import { pgTable, serial, text } from 'drizzle-orm/pg-core'
+
+export const posts = pgTable('posts', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+})
+```
+
+For local development, install PGlite — an embedded Postgres that runs in a
+local directory, no Docker or server required:
+
+```bash
+bun add -d @electric-sql/pglite
+```
+
+With no `DATABASE_URL` set, bunderstack runs PGlite in `./data.pglite`,
+creating it on first start — the same zero-setup experience as the SQLite
+default above. In production, point the same app at a real Postgres server;
+no code changes:
+
+```bash
+DATABASE_URL=postgres://user:pass@host/db
+```
+
+Under Bun, the built-in `Bun.sql` driver is used automatically (no extra
+package). On Node runtimes (e.g. Next.js), install the driver:
+`npm install postgres`.
+
+See [Configuration](/docs/configuration) for the full dialect/URL table.
 
 ## Serve it
 
@@ -140,7 +178,7 @@ export const access = defineAccess(schema, {
 
 ```ts
 // bunderstack.ts
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access,
   auth: { emailAndPassword: { enabled: true } },

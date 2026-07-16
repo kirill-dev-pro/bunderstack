@@ -8,7 +8,7 @@ description: Complete exported surface of Bunderstack
 ## createBunderstack(options)
 
 ```ts
-function createBunderstack<
+async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
@@ -19,12 +19,20 @@ function createBunderstack<
   options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
   },
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
 ```
 
 Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
 Generics are captured so clients can infer tables, buckets, and the tRPC
 router from `typeof app` (see `$inferClient` below).
+
+`createBunderstack` is `async` — it loads the database driver as a dynamic
+import (optional peer dependencies for SQLite/PGlite/Postgres stay out of
+projects that don't need them), so `await` it:
+
+```ts
+export const app = await createBunderstack({ schema })
+```
 
 ### BunderstackConfig
 
@@ -49,7 +57,9 @@ type BunderstackConfig<TSchema, TAccess, TStorage, TEnv> = {
 ```ts
 type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
   handler: (req: Request) => Promise<Response>
-  db: LibSQLDatabase<TSchema>
+  // Typed for your schema's dialect: LibSQLDatabase for sqliteTable,
+  // PgDatabase for pgTable (see Database dialect below)
+  db: DbFor<TSchema>
   auth: Auth
   storage: StorageFacade
   router: Hono
@@ -72,6 +82,38 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
 Export `type App = typeof app` and the client packages infer everything from
 it.
 
+## Database dialect
+
+The dialect is inferred from your schema — `sqliteTable` → SQLite, `pgTable`
+→ Postgres — and `DATABASE_URL` picks the engine within it:
+
+| Schema        | `DATABASE_URL`  | Engine                                   |
+| ------------- | --------------- | ----------------------------------------- |
+| `sqliteTable` | unset           | local SQLite file `./data.db`             |
+| `sqliteTable` | `file:./app.db` | local SQLite file                         |
+| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)    |
+| `pgTable`     | unset           | PGlite in `./data.pglite`                 |
+| `pgTable`     | `file:./pgdata` | PGlite in that directory                  |
+| `pgTable`     | `memory://`     | PGlite in-memory (tests)                  |
+| `pgTable`     | `postgres://…`  | Postgres server (`Bun.sql` / `postgres.js`) |
+
+A URL that contradicts the schema's dialect (e.g. `postgres://` with a
+`sqliteTable` schema) throws at `createBunderstack()` time.
+
+`drizzle-orm` is a required peer dependency — bunderstack compiles against
+your project's own install, so there's no separate copy to keep in sync.
+`@libsql/client`, `@electric-sql/pglite`, and `postgres` are optional peers:
+only the one your setup needs has to be installed, and a missing one throws
+with the exact install command.
+
+**Import Drizzle builders and operators directly from `drizzle-orm`** —
+`sqliteTable`/`pgTable`/`eq`/`desc`/`sql`/etc. are not re-exported from
+`bunderstack`. Two dialect-specific subpaths remain for the pieces that must
+be static per dialect: `bunderstack/schema` (sqlite) / `bunderstack/schema/pg`
+(Postgres) export the internal file-meta/idempotency tables; `bunderstack/typeid`
+(sqlite) / `bunderstack/typeid/pg` (Postgres) export the `typeid()` column
+builder.
+
 ## bunderstack/provision
 
 ```ts
@@ -85,6 +127,13 @@ drizzle-orm's migrator. Otherwise pushes the schema via drizzle-kit (dev-only
 dependency; `bun add -d drizzle-kit`). `force` allows a push that would drop
 data. The low-level `provisionSchema(db, schema, options?)` (push only) is
 exported from the same entry.
+
+**Postgres + `Bun.sql` + dev push:** drizzle-kit's schema push does not yet
+support the `Bun.sql` driver (it assumes raw query results carry a `.rows`
+property, which `Bun.sql` doesn't provide) — this affects only the no-migrations
+dev-push path, not committed migrations. If you hit it, generate and commit
+migrations (`bunx drizzle-kit generate`) instead of relying on push, or run
+against Postgres via `postgres.js` (Node) during development.
 
 ## Client packages
 

@@ -20,7 +20,7 @@ Export the app type from your server entry, then infer everything from it:
 
 ```ts
 // bunderstack.ts (server)
-export const app = createBunderstack({ schema, access, storage })
+export const app = await createBunderstack({ schema, access, storage })
 export type App = typeof app
 ```
 

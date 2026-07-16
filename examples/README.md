@@ -16,7 +16,7 @@ Each example calls `provision(app)` on boot. With no `migrations/` folder it pus
 ```ts
 import { provision } from 'bunderstack/provision'
 
-export const app = createBunderstack({ schema, ... })
+export const app = await createBunderstack({ schema, ... })
 await provision(app)
 ```
 

@@ -39,7 +39,7 @@ let _app: BunderstackApp<typeof schema> | null = null
 
 export async function getApp() {
   if (!_app) {
-    _app = createBunderstack({
+    _app = await createBunderstack({
       schema,
       auth: { emailAndPassword: { enabled: true } },
     })
@@ -48,6 +48,11 @@ export async function getApp() {
   return _app
 }
 ```
+
+Next.js runs on Node, not Bun. If your schema uses `pgTable` and
+`DATABASE_URL` points at a real Postgres server, install the Node driver:
+`npm install postgres` (postgres.js). Under Bun the built-in `Bun.sql` driver
+is used automatically — no extra package needed there.
 
 ## TanStack Start: bunderstack-start
 
@@ -68,7 +73,7 @@ import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 import { access } from './access'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access,
   auth: { emailAndPassword: { enabled: true } },

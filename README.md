@@ -7,7 +7,7 @@ import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
   access: {
@@ -59,7 +59,7 @@ Auth tables are required by BetterAuth. Add your own tables alongside them.
 
 ```ts
 // schema.ts
-import { sqliteTable, integer, text } from 'bunderstack'
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 export * from 'bunderstack/schema'
 
@@ -99,7 +99,7 @@ export const posts = sqliteTable('posts', {
 Every CRUD operation is gated. Rules apply per-table, per-operation.
 
 ```ts
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   access: {
     posts: {
@@ -264,7 +264,7 @@ One line covers the whole lifecycle — the `migrations/` folder is the mode swi
 ```ts
 import { provision } from 'bunderstack/provision'
 
-const app = createBunderstack({ schema, ... })
+const app = await createBunderstack({ schema, ... })
 await provision(app)
 ```
 
@@ -287,9 +287,9 @@ For non-CRUD endpoints — aggregations, multi-table reads, custom mutations —
 
 ```ts
 import { z } from 'zod'
-import { desc, eq, sql } from 'bunderstack'
+import { desc, eq, sql } from 'drizzle-orm'
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   trpc: (t) =>
     t.router({
@@ -334,7 +334,7 @@ Bunderstack always validates its own env vars at boot (`DATABASE_URL`, `AUTH_SEC
 ```ts
 import { z } from 'zod'
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   env: {
     server: { OPENAI_API_KEY: z.string() },
@@ -358,7 +358,7 @@ import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
 })
@@ -389,7 +389,7 @@ fetch, the API file route, session lookup, and the auth client:
 
 ```ts
 // src/bunderstack.ts (server)
-export const app = createBunderstack({ schema, access, storage, realtime: true })
+export const app = await createBunderstack({ schema, access, storage, realtime: true })
 export type App = typeof app
 
 // src/api.ts — the entire client setup
@@ -500,7 +500,7 @@ cap) is exported from both `bunderstack` and `bunderstack-query`.
 ## Configuration reference
 
 ```ts
-createBunderstack({
+await createBunderstack({
   schema,                    // Drizzle schema object (required)
 
   database: {

@@ -6,7 +6,7 @@
  *
  * Wired as predev/prebuild alongside gen-docs-manifest.ts.
  */
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { transformerTwoslash } from '@shikijs/twoslash'
 import { createHighlighter } from 'shiki'
@@ -15,9 +15,23 @@ import ts from 'typescript'
 const root = join(import.meta.dir, '..')
 const outFile = join(root, 'src/lib/code-snippets.gen.json')
 
+// Snippets import drizzle-orm directly (e.g. `sqliteTable` from
+// 'drizzle-orm/sqlite-core'); resolve it to the EXACT copy bunderstack's own
+// source resolves (via bunderstack's node_modules, itself a symlink into the
+// workspace's single hoisted install) rather than letting `website` install
+// its own separate copy — two physical installs of the same version are
+// nominally incompatible (protected/private class members), which breaks
+// twoslash's type-checking across the virtual `bunderstack`/schema files.
+const drizzleOrmDir = dirname(
+  Bun.resolveSync(
+    'drizzle-orm/package.json',
+    join(root, '../packages/bunderstack'),
+  ),
+)
+
 /** Hidden context shared by snippets: a schema and a configured app. */
 const SCHEMA_FILE = `// @filename: schema.ts
-import { sqliteTable, integer, text } from 'bunderstack'
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
@@ -31,7 +45,7 @@ const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
 import { z } from 'zod'
 import * as schema from './schema'
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access: { posts: { ownerColumn: 'userId', searchableColumns: ['title'], filterableColumns: ['replyToId'], sortableColumns: ['createdAt', 'id'] } },
   storage: { local: './uploads', buckets: { images: {} } },
@@ -54,7 +68,7 @@ const snippets: Record<string, string> = {
 import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access: { posts: { ownerColumn: 'userId' } },
   storage: {
@@ -169,7 +183,7 @@ import { createBunderstack } from 'bunderstack'
 import { z } from 'zod'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   env: {
     server: { SMTP_URL: z.string().optional() },
@@ -208,7 +222,7 @@ const stats = useQuery(api.trpc.stats.queryOptions())
 // @filename: custom.ts
 // ---cut---
 import { app } from './bunderstack'
-import { desc } from 'bunderstack'
+import { desc } from 'drizzle-orm'
 import * as schema from './schema'
 
 const { db, auth, router } = app // the real instances
@@ -242,6 +256,8 @@ const twoslash = transformerTwoslash({
         'bunderstack/*': ['../packages/bunderstack/src/*.ts'],
         'bunderstack-query': ['../packages/bunderstack-query/src/index.ts'],
         'bunderstack-sync': ['../packages/bunderstack-sync/src/index.ts'],
+        'drizzle-orm': [drizzleOrmDir],
+        'drizzle-orm/*': [join(drizzleOrmDir, '*')],
       },
     },
   },

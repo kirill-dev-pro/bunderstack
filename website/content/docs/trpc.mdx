@@ -16,7 +16,7 @@ import { createBunderstack } from 'bunderstack'
 import { z } from 'zod'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   email: { from: 'noreply@example.com', provider: 'console' },
   trpc: (t) =>
@@ -133,7 +133,7 @@ export function postsRouter(t: BunderstackTRPC<typeof schema>) {
 // bunderstack.ts
 import { postsRouter } from './routers/posts'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   trpc: (t) => {
     // mergeRouters preserves full type safety across files
