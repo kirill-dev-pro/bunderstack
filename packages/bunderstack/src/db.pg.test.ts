@@ -2,6 +2,10 @@ import { test, expect } from 'bun:test'
 import { pgTable, serial, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { createDb, importDriver } from './db'
 
 const pgPosts = pgTable('posts', {
@@ -29,6 +33,30 @@ test("pg schema + ':memory:' is normalized to in-memory PGlite", async () => {
     { url: ':memory:', dialect: 'pg' },
   )
   expect(driver).toBe('pglite')
+})
+
+test('pg schema + file:<nested/dir> creates the PGlite data directory and is queryable', async () => {
+  // Nested (multi-level) path: PGlite's own NodeFS does a non-recursive
+  // mkdirSync, so this only works because createDb pre-creates the full
+  // directory tree first. Drive an actual query rather than just checking
+  // the directory exists — PGlite's WASM init only fully settles (and
+  // surfaces any init failure) once something awaits a real query.
+  const parent = await mkdtemp(join(tmpdir(), 'bunderstack-pglite-'))
+  const dataDir = join(parent, 'nested', 'pgdata')
+  try {
+    const { db, driver } = await createDb(
+      { posts: pgPosts },
+      { url: `file:${dataDir}`, dialect: 'pg' },
+    )
+    expect(driver).toBe('pglite')
+    await db.execute(
+      `CREATE TABLE posts (id serial PRIMARY KEY, title text NOT NULL)` as never,
+    )
+    const rows = await db.insert(pgPosts).values({ title: 'hi' }).returning()
+    expect(rows[0]?.title).toBe('hi')
+  } finally {
+    await rm(parent, { recursive: true, force: true })
+  }
 })
 
 test('pg schema + postgres:// picks bun-sql under Bun without connecting', async () => {
