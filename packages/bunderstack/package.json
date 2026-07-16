@@ -35,7 +35,9 @@
     "./access": "./src/access.ts",
     "./provision": "./src/provision.ts",
     "./schema": "./src/schema-export.ts",
+    "./schema/pg": "./src/schema-export-pg.ts",
     "./typeid": "./src/typeid.ts",
+    "./typeid/pg": "./src/typeid-pg.ts",
     "./env": "./src/env.ts",
     "./trpc": "./src/trpc.ts"
   },
@@ -46,25 +48,42 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@libsql/client": "^0.14.0",
     "@trpc/server": "^11.0.0",
     "better-auth": "^1.0.0",
-    "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
     "superjson": "^2.2.0",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "@libsql/client": "^0.14.0",
     "drizzle-kit": "^0.30.0",
+    "drizzle-orm": "^0.45.0",
     "nodemailer": "^6",
+    "postgres": "^3.4.0",
     "typescript": "^5"
   },
   "peerDependenciesMeta": {
+    "@electric-sql/pglite": {
+      "optional": true
+    },
+    "@libsql/client": {
+      "optional": true
+    },
     "drizzle-kit": {
       "optional": true
     },
     "nodemailer": {
       "optional": true
+    },
+    "postgres": {
+      "optional": true
     }
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "@libsql/client": "^0.14.0",
+    "drizzle-kit": "^0.30.0",
+    "drizzle-orm": "^0.45.0"
   }
 }
