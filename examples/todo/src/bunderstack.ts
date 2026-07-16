@@ -1,6 +1,7 @@
 /**
  * bunderstack.ts — app entry point, showcasing every feature:
  *
+ *   0. Shareable boards          → capability URLs (see access.ts)
  *   1. Auto-CRUD + access rules  → `schema` + `access` keys
  *   2. Env validation            → `env` key + `app.env`
  *   3. Email sending             → `email` key + `app.email`
@@ -8,7 +9,8 @@
  *   5. File storage + transforms → `storage` key + `api.files`
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
  */
-import { createBunderstack, eq } from 'bunderstack'
+import { createBunderstack, desc, eq } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { anonymous } from 'better-auth/plugins'
 import { z } from 'zod'
@@ -73,20 +75,45 @@ export const app = createBunderstack({
   // context carrying db, user, env, and email.
   trpc: (t) =>
     t.router({
-      /** Aggregate todo stats for the current user. */
-      stats: t.protectedProcedure.query(async ({ ctx }) => {
-        const all = await ctx.db
+      /** Boards owned by the current user — the home screen list.
+       *  Goes through tRPC (not auto-CRUD) so boards can't be enumerated:
+       *  the only way into someone else's board is its shared link. */
+      myBoards: t.protectedProcedure.query(({ ctx }) =>
+        ctx.db
           .select()
-          .from(schema.todos)
-          .where(eq(schema.todos.userId, asTypeId('user', ctx.user.id)))
-          .all()
+          .from(schema.boards)
+          .where(eq(schema.boards.ownerId, asTypeId('user', ctx.user.id)))
+          .orderBy(desc(schema.boards.createdAt))
+          .all(),
+      ),
 
-        return {
-          total: all.length,
-          done: all.filter((t) => t.done).length,
-          pending: all.filter((t) => !t.done).length,
-        }
-      }),
+      /** Create a board with the owner stamped server-side. */
+      createBoard: t.protectedProcedure
+        .input(z.object({ name: z.string().min(1) }))
+        .mutation(async ({ ctx, input }) => {
+          const [board] = await ctx.db
+            .insert(schema.boards)
+            .values({ name: input.name, ownerId: asTypeId('user', ctx.user.id) })
+            .returning()
+          return board!
+        }),
+
+      /** Aggregate todo stats for one board. */
+      stats: t.protectedProcedure
+        .input(z.object({ boardId: z.string() }))
+        .query(async ({ ctx, input }) => {
+          const all = await ctx.db
+            .select()
+            .from(schema.todos)
+            .where(eq(schema.todos.boardId, asTypeId('board', input.boardId)))
+            .all()
+
+          return {
+            total: all.length,
+            done: all.filter((t) => t.done).length,
+            pending: all.filter((t) => !t.done).length,
+          }
+        }),
 
       /** Mark a todo done AND send a notification email — one atomic
        *  server call instead of update + separate email API. */
@@ -100,7 +127,6 @@ export const app = createBunderstack({
             .get()
 
           if (!todo) throw new Error('Todo not found')
-          if (todo.userId !== ctx.user.id) throw new Error('Not your todo')
 
           await ctx.db
             .update(schema.todos)
@@ -123,7 +149,5 @@ export const app = createBunderstack({
 /** Type handle for client inference — no server code in the bundle. */
 export type App = typeof app
 
-// Push schema in development; use drizzle-kit migrate in production.
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+// No migrations/ folder → dev push; committed migrations → applied on boot.
+await provision(app)

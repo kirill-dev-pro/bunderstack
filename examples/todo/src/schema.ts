@@ -36,6 +36,21 @@ export const session = sqliteTable('session', {
 })
 
 // ── Domain tables ────────────────────────────────────────────────────────
+// A board is a shared todo list. Its typeid is unguessable, so the board URL
+// (/b/$boardId) doubles as the invite: anyone with the link is a member.
+export const boards = sqliteTable('boards', {
+  id: typeid('board')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('board')),
+  name: text('name').notNull(),
+  ownerId: typeid('user')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+
 export const todos = sqliteTable('todos', {
   id: typeid('todo')
     .primaryKey()
@@ -43,9 +58,12 @@ export const todos = sqliteTable('todos', {
   title: text('title').notNull(),
   done: integer('done', { mode: 'boolean' }).notNull().default(false),
   imageFileId: text('imageFileId'),
-  userId: typeid('user')
+  boardId: typeid('board')
     .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+    .references(() => boards.id, { onDelete: 'cascade' }),
+  // Denormalized author label — todos are collaborative, so this is display
+  // data, not an ownership column.
+  authorName: text('authorName').notNull().default(''),
   completedAt: integer('completedAt', { mode: 'timestamp' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
