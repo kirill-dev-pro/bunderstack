@@ -1,17 +1,16 @@
 // src/trpc.ts — pre-wired tRPC instance for bunderstack endpoints.
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 
 import type { AccessUser } from './access'
+import type { DbFor } from './db'
 import type { EmailFacade } from './email'
 
 export type TRPCContext<
   TSchema extends Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
 > = {
-  db: LibSQLDatabase<TSchema>
+  db: DbFor<TSchema>
   user: AccessUser | null
   env: TEnvResult
   email: EmailFacade

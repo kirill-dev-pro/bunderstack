@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test'
-import { sqliteTable, integer, text } from 'bunderstack'
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 import {
   createBunderstackQueryClient,

@@ -38,7 +38,7 @@ let app: Hono
 let db: LibSQLDatabase<{ posts: typeof posts }>
 
 beforeAll(async () => {
-  db = createDb({ posts }, { url: ':memory:' })
+  ;({ db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' }))
   // Provision the posts table plus bunderstack's internal tables (the
   // idempotency table is no longer auto-created at runtime). Provisioning the
   // full schema avoids drizzle-kit prompting to drop unknown tables.

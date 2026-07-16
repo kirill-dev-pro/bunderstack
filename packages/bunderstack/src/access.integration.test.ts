@@ -42,10 +42,10 @@ const verification = sqliteTable('verification', {
 
 const schema = { user, session, account, verification, posts }
 
-let app: ReturnType<typeof createBunderstack<typeof schema>>
+let app: Awaited<ReturnType<typeof createBunderstack<typeof schema>>>
 
 beforeAll(async () => {
-  app = createBunderstack({
+  app = await createBunderstack({
     schema,
     database: { url: ':memory:' },
     auth: {},

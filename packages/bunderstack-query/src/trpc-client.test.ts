@@ -2,7 +2,8 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import { QueryClient } from '@tanstack/react-query'
-import { createBunderstack, sqliteTable, text } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { createClient } from './lazy-client'
 
@@ -11,7 +12,7 @@ const notes = sqliteTable('notes', {
   userId: text('userId').notNull(),
 })
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema: { notes },
   database: { url: ':memory:' },
   trpc: (t) =>

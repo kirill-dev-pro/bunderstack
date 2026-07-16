@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
-import { integer, sqliteTable, text } from 'bunderstack'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import {
   BunderstackApiError,

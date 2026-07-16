@@ -1,5 +1,5 @@
 // tests/storage/lifecycle.test.ts
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+import type { AnyDb } from '../dialect'
 
 import { test, expect, beforeEach, afterEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
@@ -22,15 +22,17 @@ import {
 import { LocalStorageAdapter } from './local'
 import { sweepOrphans } from './sweep'
 
-let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
-let dbAny: LibSQLDatabase<Record<string, unknown>>
+let dbAny: AnyDb
 let tmp: string
 let adapter: LocalStorageAdapter
 
 beforeEach(async () => {
-  db = createDb(INTERNAL_TABLES, { url: ':memory:' })
+  const { db } = await createDb(INTERNAL_TABLES, {
+    url: ':memory:',
+    dialect: 'sqlite',
+  })
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
-  dbAny = db as unknown as LibSQLDatabase<Record<string, unknown>>
+  dbAny = db
   tmp = await mkdtemp(join(tmpdir(), 'bs-lifecycle-'))
   adapter = new LocalStorageAdapter(tmp)
 })

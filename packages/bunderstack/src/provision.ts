@@ -1,5 +1,5 @@
 // src/provision.ts
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
+import type { AnyDb } from './dialect'
 
 import { access, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -28,7 +28,7 @@ async function exists(path: string): Promise<boolean> {
 
 /** Push the merged schema to the database via drizzle-kit/api. */
 export async function provisionSchema<TSchema extends Record<string, unknown>>(
-  db: LibSQLDatabase<TSchema>,
+  db: AnyDb,
   schema: TSchema,
   options?: { force?: boolean; databaseUrl?: string },
 ): Promise<void> {
@@ -52,7 +52,7 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
     )
   }
 
-  const result = await pushSQLiteSchema(schema, db)
+  const result = await pushSQLiteSchema(schema, db as never)
 
   if (result.hasDataLoss && !options?.force) {
     throw new Error(
@@ -105,7 +105,7 @@ export async function provision(
   if (await exists(journal)) {
     await ensureSqliteFileParent(databaseUrl)
     const { migrate } = await import('drizzle-orm/libsql/migrator')
-    await migrate(db, { migrationsFolder })
+    await migrate(db as never, { migrationsFolder })
     return
   }
 

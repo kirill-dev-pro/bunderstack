@@ -123,10 +123,10 @@ test('validateAndResolveAccess excludes internal tables from CRUD', () => {
 
 // --- provision round-trip ---
 
-let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
+let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 
 beforeAll(async () => {
-  db = createDb(INTERNAL_TABLES, { url: ':memory:' })
+  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
 })
 

@@ -1,4 +1,3 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 // src/storage/router.ts
 import type { Context } from 'hono'
 
@@ -11,6 +10,7 @@ import type {
   AuthSessionResolver,
   OperationRule,
 } from '../access'
+import type { AnyDb } from '../dialect'
 import type { BucketStorageRegistry } from './registry'
 
 import { checkAccess, resolveSession } from '../access'
@@ -35,7 +35,7 @@ import {
 
 export interface BucketStorageRouterOptions {
   registry: BucketStorageRegistry
-  db: LibSQLDatabase<Record<string, unknown>>
+  db: AnyDb
   auth: AuthSessionResolver | undefined
   /** Default presign TTL (seconds) for PUT/GET URLs. */
   presignExpiresSec?: number
@@ -511,7 +511,7 @@ export function buildBucketStorageRouter(
  * dimension (perUser uses ownerId; perScope uses scopeJson).
  */
 async function quotaExceeded(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   bucket: string,
   quota: { perUserBytes?: number; perScopeBytes?: number },
   ownerId: string | undefined,

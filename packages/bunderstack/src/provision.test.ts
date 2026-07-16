@@ -11,7 +11,7 @@ const widgets = sqliteTable('provision_test_widgets', {
 
 test('provisionSchema pushes schema to in-memory sqlite', async () => {
   const schema = { widgets }
-  const db = createDb(schema, { url: ':memory:' })
+  const { db } = await createDb(schema, { url: ':memory:', dialect: 'sqlite' })
   await provisionSchema(db, schema, { force: true })
 
   const [row] = await db.insert(widgets).values({ label: 'ok' }).returning()

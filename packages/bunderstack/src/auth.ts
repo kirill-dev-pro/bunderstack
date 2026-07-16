@@ -1,20 +1,18 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 // src/auth.ts
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 import type { BetterAuthConfig } from './config'
 import type { AuthSessionResolver } from './access'
+import type { AnyDb, Dialect } from './dialect'
 import type { EmailFacade } from './email'
 
-export function createAuth(
-  db: LibSQLDatabase<Record<string, unknown>>,
-  cfg: BetterAuthConfig,
-) {
+export function createAuth(db: AnyDb, cfg: BetterAuthConfig, dialect: Dialect) {
   return betterAuth({
     ...cfg,
-    database: drizzleAdapter(db, { provider: 'sqlite' }),
+    database: drizzleAdapter(db as Parameters<typeof drizzleAdapter>[0], {
+      provider: dialect === 'pg' ? 'pg' : 'sqlite',
+    }),
   })
 }
 

@@ -1,8 +1,7 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 import { eq, getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import { Hono } from 'hono'
 
+import type { AnyDb } from './dialect'
 import type { RealtimeBroker } from './realtime/index'
 
 import {
@@ -61,7 +60,7 @@ async function enforce(
 
 export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   schema: TSchema,
-  db: LibSQLDatabase<TSchema>,
+  db: AnyDb,
   options: CrudRouterOptions,
 ): Hono {
   const router = new Hono()

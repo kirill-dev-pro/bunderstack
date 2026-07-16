@@ -49,6 +49,8 @@ export type ValidateEnvOptions = {
   emailProvider?: string
   /** Value source; defaults to process.env. Tests pass this explicitly. */
   source?: Record<string, string | undefined>
+  /** Dialect-aware DATABASE_URL fallback; createBunderstack passes it. */
+  defaultDatabaseUrl?: string
 }
 
 const DEV_AUTH_SECRET = 'dev-secret-change-in-prod'
@@ -96,7 +98,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
 
   const base: BaseEnv = {
     NODE_ENV: source.NODE_ENV,
-    DATABASE_URL: source.DATABASE_URL ?? 'file:./data.db',
+    DATABASE_URL:
+      source.DATABASE_URL ?? options.defaultDatabaseUrl ?? 'file:./data.db',
     DATABASE_AUTH_TOKEN: source.DATABASE_AUTH_TOKEN,
     AUTH_SECRET: source.AUTH_SECRET ?? DEV_AUTH_SECRET,
     REDIS_URL: source.REDIS_URL,

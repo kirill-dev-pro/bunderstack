@@ -13,10 +13,16 @@ const posts = sqliteTable('posts', {
 })
 
 test('createDb returns a working Drizzle instance against in-memory SQLite', async () => {
-  const db = createDb({ posts }, { url: ':memory:' })
+  const { db, driver } = await createDb(
+    { posts },
+    { url: ':memory:', dialect: 'sqlite' },
+  )
+  expect(driver).toBe('libsql')
 
-  // Create the table manually (no drizzle-kit needed for the test)
-  await db.$client.execute(
+  // Create the table manually (no drizzle-kit needed for the test). $client is
+  // the raw libsql client — not part of the public DbFor surface — so this
+  // test-only DDL escape hatch needs an explicit cast.
+  await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
     `CREATE TABLE IF NOT EXISTS posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,

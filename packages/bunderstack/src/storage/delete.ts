@@ -1,6 +1,5 @@
 // src/storage/delete.ts
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
+import type { AnyDb } from '../dialect'
 import type { StorageAdapter } from './index'
 
 import { deleteFileMetaRow } from './file-meta'
@@ -14,7 +13,7 @@ import { deleteFileMetaRow } from './file-meta'
  */
 export async function deleteFileWithDerivatives(
   adapter: StorageAdapter,
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   fileId: string,
 ): Promise<void> {
   if (adapter.list) {

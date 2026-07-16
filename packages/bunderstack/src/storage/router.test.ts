@@ -166,7 +166,7 @@ function s3Bucket(
 
 // ─── Harness ────────────────────────────────────────────────────────────────
 
-let db: ReturnType<typeof createDb<typeof INTERNAL_TABLES>>
+let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 let app: Hono
 let local: LocalStorageAdapter
 let fake: FakeS3Adapter
@@ -185,8 +185,10 @@ async function makeApp(registry: BucketStorageRegistry) {
 }
 
 beforeEach(async () => {
-  db = createDb(INTERNAL_TABLES, { url: ':memory:' })
-  await db.$client.execute(
+  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
+  // $client is the raw libsql client — not part of the public DbFor surface —
+  // so this test-only DDL escape hatch needs an explicit cast.
+  await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
     `CREATE TABLE IF NOT EXISTS bunderstack_file_meta (
       file_id TEXT PRIMARY KEY,
       bucket TEXT NOT NULL,

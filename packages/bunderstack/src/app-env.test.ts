@@ -11,9 +11,9 @@ const notes = sqliteTable('notes', {
   userId: text('userId').notNull(),
 })
 
-test('createBunderstack exposes typed app.env', () => {
+test('createBunderstack exposes typed app.env', async () => {
   process.env.MY_API_KEY = 'k-1'
-  const app = createBunderstack({
+  const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:' },
     env: { server: { MY_API_KEY: z.string() } },
@@ -24,12 +24,12 @@ test('createBunderstack exposes typed app.env', () => {
   delete process.env.MY_API_KEY
 })
 
-test('createBunderstack refuses to boot on invalid env', () => {
-  expect(() =>
+test('createBunderstack refuses to boot on invalid env', async () => {
+  await expect(
     createBunderstack({
       schema: { notes },
       database: { url: ':memory:' },
       env: { server: { MISSING_REQUIRED: z.string() } },
     }),
-  ).toThrow(BunderstackEnvError)
+  ).rejects.toThrow(BunderstackEnvError)
 })

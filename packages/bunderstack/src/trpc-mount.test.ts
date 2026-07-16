@@ -11,7 +11,7 @@ const notes = sqliteTable('notes', {
   createdAt: integer('createdAt', { mode: 'timestamp' }),
 })
 
-let app: ReturnType<typeof buildApp>
+let app: Awaited<ReturnType<typeof buildApp>>
 
 function buildApp() {
   return createBunderstack({
@@ -32,8 +32,8 @@ function buildApp() {
   })
 }
 
-beforeAll(() => {
-  app = buildApp()
+beforeAll(async () => {
+  app = await buildApp()
 })
 
 function trpcUrl(path: string, input?: unknown) {
@@ -74,7 +74,7 @@ test('prebuilt router escape hatch works', async () => {
   const { createTRPC } = await import('./trpc')
   const t = createTRPC<{ notes: typeof notes }>()
   const router = t.router({ ping: t.procedure.query(() => 'pong') })
-  const prebuilt = createBunderstack({
+  const prebuilt = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:' },
     trpc: router,

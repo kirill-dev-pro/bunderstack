@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'bun:test'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import {
-  createBunderstack,
-  MAX_LIST_LIMIT,
-  sqliteTable,
-  integer,
-  text,
-} from './index'
+import { createBunderstack, MAX_LIST_LIMIT } from './index'
 import { defineAccess } from './access'
 
 // -- type-level assertion helpers -------------------------------------------
@@ -46,8 +41,8 @@ describe('client type inference carriers', () => {
     expect(access.posts.ownerColumn).toBe('userId')
   })
 
-  it('createBunderstack carries schema/access/buckets in $inferClient', () => {
-    const app = createBunderstack({
+  it('createBunderstack carries schema/access/buckets in $inferClient', async () => {
+    const app = await createBunderstack({
       schema,
       access: {
         user: { exposeAuthTable: true, ownerColumn: 'id' },

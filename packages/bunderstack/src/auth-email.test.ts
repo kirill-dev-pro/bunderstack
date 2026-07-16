@@ -74,8 +74,8 @@ test('default reset template sends through the facade', async () => {
   expect(msg.text).toContain('https://app/reset?token=t')
 })
 
-test('app.email is exposed and unconfigured send throws', () => {
-  const app = createBunderstack({
+test('app.email is exposed and unconfigured send throws', async () => {
+  const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:' },
   })
@@ -84,15 +84,15 @@ test('app.email is exposed and unconfigured send throws', () => {
   ).rejects.toThrow(/email is not configured/)
 })
 
-test('email provider resend requires RESEND_API_KEY at boot', () => {
+test('email provider resend requires RESEND_API_KEY at boot', async () => {
   const hadKey = process.env.RESEND_API_KEY
   delete process.env.RESEND_API_KEY
-  expect(() =>
+  await expect(
     createBunderstack({
       schema: { notes },
       database: { url: ':memory:' },
       email: { from: 'app@example.com', provider: 'resend' },
     }),
-  ).toThrow(/RESEND_API_KEY/)
+  ).rejects.toThrow(/RESEND_API_KEY/)
   if (hadKey) process.env.RESEND_API_KEY = hadKey
 })

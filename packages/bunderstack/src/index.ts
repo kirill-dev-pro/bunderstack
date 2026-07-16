@@ -1,18 +1,19 @@
 // src/index.ts
 import type { AnyRouter } from '@trpc/server'
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 import type { Hono as HonoType } from 'hono'
 
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 import type { StorageAdapter } from './storage/index'
 import type { TableAccessInput } from './access'
+import type { DbFor } from './db'
 import type { StorageConfigInput } from './storage/buckets'
 
 import { resolveAccessUser, validateAndResolveAccess } from './access'
 import { createAuth, toAuthSessionResolver, withEmailAuthDefaults } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
+import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
 import { createTRPC, type BunderstackTRPC } from './trpc'
@@ -73,7 +74,7 @@ export type BunderstackApp<
   TRouter = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
-  db: LibSQLDatabase<TSchema>
+  db: DbFor<TSchema>
   auth: AuthInstance
   storage: StorageFacade
   router: HonoType
@@ -111,7 +112,7 @@ export function createBunderstack<
     /** Builder callback receiving the pre-wired `t` instance. */
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
   },
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -124,8 +125,8 @@ export function createBunderstack<
     /** Prebuilt tRPC router (escape hatch for multi-file setups). */
     trpc?: TRouter
   },
-): BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
-export function createBunderstack<
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
+export async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
@@ -137,17 +138,16 @@ export function createBunderstack<
       | AnyRouter
       | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)
   },
-): BunderstackApp<
-  TSchema,
-  TAccess,
-  BucketNamesOf<TStorage>,
-  TEnv,
-  AnyRouter | undefined
+): Promise<
+  BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, AnyRouter | undefined>
 > {
+  const dialect = detectDialect(options.schema)
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream (config, email, trpc ctx) consumes the result.
   const env = validateEnv(options.env, {
     emailProvider: emailProviderTag(options.email),
+    defaultDatabaseUrl:
+      dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
   })
   const config = resolveConfig(options, env)
   const email = createEmail(options.email, { env })
@@ -155,17 +155,21 @@ export function createBunderstack<
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
-  const db = createDb(mergedSchema, config.database)
+  const { db, driver } = await createDb(mergedSchema, {
+    ...config.database,
+    dialect,
+  })
   // `db` is typed with the merged schema (user tables + internal tables) so the
   // storage/idempotency code can query the internal tables. The public surface
-  // and CRUD only expose the USER schema. TS can widen `LibSQLDatabase<merged>`
-  // to `LibSQLDatabase<Record<string, unknown>>` on its own (storage/auth pass
-  // `db` directly), but it can't *narrow* a generic schema view, so this single
-  // intentional cast produces the user-facing db type. See `app.db` / crud below.
-  const userDb = db as unknown as LibSQLDatabase<TSchema>
+  // and CRUD only expose the USER schema. TS can widen the merged-schema db type
+  // on its own (storage/auth pass `db` directly), but it can't *narrow* a
+  // generic schema view, so this single intentional cast produces the
+  // user-facing, per-dialect db type. See `app.db` / crud below.
+  const userDb = db as unknown as DbFor<TSchema>
   const auth = createAuth(
     db,
     withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
+    dialect,
   )
   // Internal routers consume the narrow AuthSessionResolver contract, not the
   // raw better-auth instance. app.auth still exposes `auth` unchanged.
@@ -308,6 +312,8 @@ export function createBunderstack<
     schema: mergedSchema,
     databaseUrl: config.database.url,
     migrationsFolder: config.database.migrations,
+    dialect,
+    driver,
   }
 
   return app
@@ -358,16 +364,3 @@ export type {
 } from './storage/buckets'
 // StorageFacade is declared+exported inline above.
 export type { TransformSpec } from './storage/thumbnails'
-
-// Re-export drizzle builders so consumers share bunderstack's drizzle-orm instance
-// and avoid type incompatibilities from duplicate installs.
-export {
-  sqliteTable,
-  integer,
-  text,
-  real,
-  blob,
-  numeric,
-  foreignKey,
-} from 'drizzle-orm/sqlite-core'
-export { eq, and, or, not, gt, gte, lt, lte, desc, asc, sql } from 'drizzle-orm'

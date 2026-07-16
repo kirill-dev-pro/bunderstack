@@ -10,11 +10,15 @@ const posts = sqliteTable('posts', {
   userId: text('userId').notNull(),
 })
 
-test('createAuth returns an object with a handler function', () => {
-  const db = createDb({ posts }, { url: ':memory:' })
-  const auth = createAuth(db, {
-    emailAndPassword: { enabled: true },
-    secret: 'test-secret-at-least-32-chars-long-x',
-  })
+test('createAuth returns an object with a handler function', async () => {
+  const { db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' })
+  const auth = createAuth(
+    db,
+    {
+      emailAndPassword: { enabled: true },
+      secret: 'test-secret-at-least-32-chars-long-x',
+    },
+    'sqlite',
+  )
   expect(typeof auth.handler).toBe('function')
 })

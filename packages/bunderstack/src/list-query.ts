@@ -1,5 +1,3 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 import {
   and,
   asc,
@@ -15,6 +13,7 @@ import {
   type SQL,
 } from 'drizzle-orm'
 
+import type { AnyDb } from './dialect'
 import type { ResolvedTableAccess, SortOrder } from './access'
 
 import { ErrorCode, ListQueryError } from './errors'
@@ -325,7 +324,7 @@ function buildOrderBy(
 }
 
 export async function executeList<T extends Record<string, unknown>>(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   table: Parameters<typeof getTableColumns>[0],
   access: ResolvedTableAccess,
   params: ParsedListParams,

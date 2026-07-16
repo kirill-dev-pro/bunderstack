@@ -12,7 +12,7 @@ afterAll(async () => {
 })
 
 async function buildApp() {
-  const app = createBunderstack({
+  const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:' },
     storage: {

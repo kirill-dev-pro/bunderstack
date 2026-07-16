@@ -1,6 +1,5 @@
 // src/storage/sweep.ts
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
+import type { AnyDb } from '../dialect'
 import type { BucketStorageRegistry } from './registry'
 
 import { deleteFileMetaRow, listStalePendingFiles } from './file-meta'
@@ -12,7 +11,7 @@ import { deleteFileMetaRow, listStalePendingFiles } from './file-meta'
  */
 export async function sweepOrphans(
   registry: BucketStorageRegistry,
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   olderThanMs: number,
 ): Promise<number> {
   const cutoff = Date.now() - olderThanMs
