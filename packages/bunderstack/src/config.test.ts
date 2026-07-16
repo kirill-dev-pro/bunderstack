@@ -89,3 +89,25 @@ test('resolveConfig auth secret comes from validated env', () => {
   const cfg = resolveConfig({ schema: {} }, env)
   expect(cfg.auth.secret).toBe('from-env')
 })
+
+test('BUNDERSTACK_DATABASE_URL overrides code-level database config', () => {
+  const cfg = resolveConfig(
+    { schema, database: { url: 'file:./hardcoded.db', authToken: 'code-token' } },
+    undefined,
+    {
+      BUNDERSTACK_DATABASE_URL: 'libsql://prod-app.turso.io',
+      BUNDERSTACK_DATABASE_AUTH_TOKEN: 'platform-token',
+    },
+  )
+  expect(cfg.database.url).toBe('libsql://prod-app.turso.io')
+  expect(cfg.database.authToken).toBe('platform-token')
+})
+
+test('without platform vars, code-level database config still wins over env', () => {
+  const cfg = resolveConfig(
+    { schema, database: { url: 'file:./hardcoded.db' } },
+    undefined,
+    {},
+  )
+  expect(cfg.database.url).toBe('file:./hardcoded.db')
+})

@@ -154,3 +154,22 @@ test('createClientEnv falls back to process.env', () => {
   expect(env.PUBLIC_FROM_PROCESS).toBe('yes')
   delete process.env.PUBLIC_FROM_PROCESS
 })
+
+test('BUNDERSTACK_INTROSPECT=1 returns instead of throwing on invalid env', () => {
+  const env = validateEnv(
+    { server: { STRIPE_KEY: z.string() } },
+    { source: { BUNDERSTACK_INTROSPECT: '1', NODE_ENV: 'production' } },
+  )
+  // Missing STRIPE_KEY and missing production AUTH_SECRET are both tolerated.
+  expect(env.DATABASE_URL).toBe('file:./data.db')
+  expect((env as Record<string, unknown>).STRIPE_KEY).toBeUndefined()
+})
+
+test('without the introspect flag the same env still throws', () => {
+  expect(() =>
+    validateEnv(
+      { server: { STRIPE_KEY: z.string() } },
+      { source: { NODE_ENV: 'production' } },
+    ),
+  ).toThrow(BunderstackEnvError)
+})

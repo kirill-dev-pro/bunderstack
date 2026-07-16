@@ -33,3 +33,45 @@ test('createBunderstack refuses to boot on invalid env', async () => {
     }),
   ).rejects.toThrow(BunderstackEnvError)
 })
+
+test('app.manifest describes the declaration', async () => {
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:' },
+    env: { server: { WEBHOOK_SECRET: z.string().optional() } },
+    storage: {
+      local: './tmp-manifest-uploads',
+      buckets: { avatars: { visibility: 'public' } },
+    },
+  })
+  expect(app.manifest.dialect).toBe('sqlite')
+  expect(app.manifest.buckets).toEqual([
+    { name: 'avatars', visibility: 'public' },
+  ])
+  expect(app.manifest.realtime).toBe(false)
+  expect(app.manifest.env.server).toEqual([
+    { key: 'WEBHOOK_SECRET', required: false },
+  ])
+})
+
+test('BUNDERSTACK_INTROSPECT=1 boots offline despite remote url and missing env', async () => {
+  process.env.BUNDERSTACK_INTROSPECT = '1'
+  try {
+    const app = await createBunderstack({
+      schema: { notes },
+      // Hardcoded remote URL must NOT be contacted during introspection.
+      database: {
+        url: 'libsql://nonexistent-introspect.turso.io',
+        authToken: 'x',
+      },
+      env: { server: { STRIPE_KEY: z.string() } }, // required and missing
+      realtime: true, // must not require Redis
+    })
+    expect(app.manifest.env.server).toEqual([
+      { key: 'STRIPE_KEY', required: true },
+    ])
+    expect(app.manifest.realtime).toBe(true)
+  } finally {
+    delete process.env.BUNDERSTACK_INTROSPECT
+  }
+})

@@ -118,6 +118,12 @@ export type ResolvedConfig = {
 export function resolveConfig<TSchema extends Record<string, unknown>>(
   options: BunderstackConfig<TSchema>,
   env?: BaseEnv,
+  // Platform-injected overrides (Bunderhost & co.) beat code-level config so
+  // apps with hardcoded local urls deploy unchanged.
+  platformSource: Record<string, string | undefined> = process.env as Record<
+    string,
+    string | undefined
+  >,
 ): ResolvedConfig {
   const parsed = BunderstackOptionsSchema.parse(options)
   // Self-validate when the caller didn't pass a pre-validated env, so
@@ -127,8 +133,14 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
 
   return {
     database: {
-      url: parsed.database?.url ?? resolvedEnv.DATABASE_URL,
-      authToken: parsed.database?.authToken ?? resolvedEnv.DATABASE_AUTH_TOKEN,
+      url:
+        platformSource['BUNDERSTACK_DATABASE_URL'] ??
+        parsed.database?.url ??
+        resolvedEnv.DATABASE_URL,
+      authToken:
+        platformSource['BUNDERSTACK_DATABASE_AUTH_TOKEN'] ??
+        parsed.database?.authToken ??
+        resolvedEnv.DATABASE_AUTH_TOKEN,
       migrations: parsed.database?.migrations ?? './migrations',
     },
     auth: (() => {
@@ -138,7 +150,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
         secret: authInput.secret ?? resolvedEnv.AUTH_SECRET,
       }
     })(),
-    storage: resolveBuckets(options.storage),
+    storage: resolveBuckets(options.storage, platformSource),
     realtime: parsed.realtime,
   }
 }

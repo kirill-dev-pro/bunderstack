@@ -386,3 +386,50 @@ describe('resolveBuckets — explicit access override', () => {
     expect(b.access.delete).toBe('owner')
   })
 })
+
+describe('resolveBuckets — BUNDERSTACK_S3_* platform override', () => {
+  const PLATFORM_ENV = {
+    BUNDERSTACK_S3_ENDPOINT: 'https://t3.storage.dev',
+    BUNDERSTACK_S3_BUCKET: 'bunderhost-myproj-prod',
+    BUNDERSTACK_S3_ACCESS_KEY_ID: 'tid_platform',
+    BUNDERSTACK_S3_SECRET_ACCESS_KEY: 'tsec_platform',
+    BUNDERSTACK_S3_PUBLIC_URL: 'https://bunderhost-myproj-prod.fly.storage.tigris.dev',
+  }
+
+  test('forces local storage onto the platform backend', () => {
+    const resolved = resolveBuckets(
+      { local: './uploads', buckets: { avatars: { visibility: 'public' } } },
+      PLATFORM_ENV,
+    )
+    const backend = resolved.buckets.get('avatars')?.backend
+    expect(backend?.type).toBe('s3')
+    if (backend?.type === 's3') {
+      expect(backend.bucket).toBe('bunderhost-myproj-prod')
+      expect(backend.endpoint).toBe('https://t3.storage.dev')
+      expect(backend.accessKeyId).toBe('tid_platform')
+      expect(backend.publicUrl).toBe(
+        'https://bunderhost-myproj-prod.fly.storage.tigris.dev',
+      )
+    }
+    // Code-level bucket settings survive the backend override.
+    expect(resolved.buckets.get('avatars')?.visibility).toBe('public')
+  })
+
+  test('beats per-bucket s3 blocks', () => {
+    const resolved = resolveBuckets(
+      { s3: true, buckets: { docs: { s3: { bucket: 'my-own-bucket' } } } },
+      PLATFORM_ENV,
+    )
+    const backend = resolved.buckets.get('docs')?.backend
+    expect(backend?.type).toBe('s3')
+    if (backend?.type === 's3') {
+      expect(backend.bucket).toBe('bunderhost-myproj-prod')
+    }
+  })
+
+  test('applies to the synthesized default bucket', () => {
+    const resolved = resolveBuckets(undefined, PLATFORM_ENV)
+    const backend = resolved.buckets.get('default')?.backend
+    expect(backend?.type).toBe('s3')
+  })
+})
