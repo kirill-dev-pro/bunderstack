@@ -20,7 +20,8 @@ export type DbFor<TSchema extends Record<string, unknown>> = [
 const PG_SERVER_RE = /^postgres(ql)?:\/\//
 const LIBSQL_REMOTE_RE = /^(libsql|wss?|https?):\/\//
 
-async function importDriver<T>(specifier: string, hint: string): Promise<T> {
+/** Exported for testing the missing-package error wrapping in isolation. */
+export async function importDriver<T>(specifier: string, hint: string): Promise<T> {
   try {
     return (await import(
       /* @vite-ignore */ /* webpackIgnore: true */ specifier

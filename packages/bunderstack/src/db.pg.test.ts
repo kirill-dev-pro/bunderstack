@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test'
 import { pgTable, serial, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { createDb } from './db'
+import { createDb, importDriver } from './db'
 
 const pgPosts = pgTable('posts', {
   id: serial('id').primaryKey(),
@@ -49,4 +49,15 @@ test('pg schema + libsql URL throws a dialect-contradiction error', async () => 
   await expect(
     createDb({ posts: pgPosts }, { url: 'libsql://foo.turso.io', dialect: 'pg' }),
   ).rejects.toThrow(/libsql.*pgTable/s)
+})
+
+// createDb's three optional-driver branches (libsql, postgres-js, pglite) all
+// go through importDriver with a fixed hint string when the underlying
+// package is missing. All three drivers happen to be installed in this repo
+// (needed for the tests above), so this exercises the same wrapping logic
+// against a specifier that's guaranteed absent instead.
+test('importDriver wraps a failed dynamic import with the bunderstack-prefixed hint', async () => {
+  await expect(
+    importDriver('definitely-not-a-real-bunderstack-driver-xyz', 'install X'),
+  ).rejects.toThrow('[bunderstack] install X')
 })
