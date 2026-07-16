@@ -16,6 +16,7 @@ import { resolveRealtimeRedisUrl } from './config'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import { buildManifest, type BunderstackManifest } from './manifest'
 import { createTRPC, type BunderstackTRPC } from './trpc'
 import { buildCrudRouter } from './crud'
 import { createDb } from './db'
@@ -84,6 +85,8 @@ export type BunderstackApp<
   env: ValidatedEnv<TEnv>
   /** Email facade; always present — send() throws when email isn't configured. */
   email: EmailFacade
+  /** Deploy-time introspection: what this app needs provisioned. */
+  manifest: BunderstackManifest
   /**
    * Type-only carrier for client inference (`createClient<typeof app>()`).
    * Never assigned at runtime.
@@ -150,6 +153,15 @@ export async function createBunderstack<
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
   })
   const config = resolveConfig(options, env)
+  // Introspection mode (BUNDERSTACK_INTROSPECT=1): deployment platforms import
+  // the app declaration only to read `app.manifest`. The boot must never touch
+  // the outside world — force an in-memory db (':memory:' is valid for both
+  // dialects) and skip Redis below. Env validation is already lenient (env.ts).
+  const introspect = process.env.BUNDERSTACK_INTROSPECT === '1'
+  if (introspect) {
+    config.database.url = ':memory:'
+    config.database.authToken = undefined
+  }
   const email = createEmail(options.email, { env })
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
@@ -180,9 +192,10 @@ export async function createBunderstack<
   )
   const realtimeBufferSize =
     typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
-  const redisUrl = config.realtime
-    ? resolveRealtimeRedisUrl(config.realtime, env)
-    : undefined
+  const redisUrl =
+    config.realtime && !introspect
+      ? resolveRealtimeRedisUrl(config.realtime, env)
+      : undefined
   const broker = config.realtime
     ? redisUrl
       ? createRedisRealtimeBroker({
@@ -302,6 +315,13 @@ export async function createBunderstack<
     env,
     email,
     trpcRouter,
+    manifest: buildManifest({
+      schema: options.schema,
+      dialect,
+      storage: config.storage,
+      envConfig: options.env as EnvConfigInput | undefined,
+      realtime: Boolean(config.realtime),
+    }),
   }
 
   // Hidden handle for the optional `bunderstack/provision` entry. Kept off the
@@ -328,6 +348,8 @@ export type {
 } from './config'
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
+export { buildManifest } from './manifest'
+export type { BunderstackManifest, ManifestEnvVar } from './manifest'
 export { createEmail } from './email'
 export type {
   EmailMessage,
