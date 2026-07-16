@@ -27,21 +27,20 @@
  * See docs/plans/2026-06-28-multi-bucket-storage-design.md §6 for full rationale.
  */
 
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 import { eq, and, lt, sql } from 'drizzle-orm'
 
+import type { AnyDb } from '../dialect'
 import type { ScopeMap } from '../access'
 
 import { rowMatchesScope } from '../access'
-import { bunderstackFiles } from '../internal-tables'
+import { bunderstackFiles, filesTableFor } from '../internal-tables'
 
 export type FileMetaRow = typeof bunderstackFiles.$inferSelect
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function insertPendingFile(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   input: {
     fileId: string
     bucket: string
@@ -51,7 +50,8 @@ export async function insertPendingFile(
     contentType: string | null
   },
 ): Promise<void> {
-  await db.insert(bunderstackFiles).values({
+  const files = filesTableFor(db)
+  await db.insert(files).values({
     fileId: input.fileId,
     bucket: input.bucket,
     ownerId: input.ownerId,
@@ -66,7 +66,7 @@ export async function insertPendingFile(
 }
 
 export async function insertReadyFile(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   input: {
     fileId: string
     bucket: string
@@ -77,8 +77,9 @@ export async function insertReadyFile(
     size: number | null
   },
 ): Promise<void> {
+  const files = filesTableFor(db)
   const now = Date.now()
-  await db.insert(bunderstackFiles).values({
+  await db.insert(files).values({
     fileId: input.fileId,
     bucket: input.bucket,
     ownerId: input.ownerId,
@@ -93,79 +94,76 @@ export async function insertReadyFile(
 }
 
 export async function markFileReady(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   fileId: string,
   patch: { size: number | null; contentType: string | null },
 ): Promise<void> {
+  const files = filesTableFor(db)
   await db
-    .update(bunderstackFiles)
+    .update(files)
     .set({
       status: 'ready',
       confirmedAt: Date.now(),
       size: patch.size,
       contentType: patch.contentType,
     })
-    .where(eq(bunderstackFiles.fileId, fileId))
+    .where(eq(files.fileId, fileId))
 }
 
 export async function getFileMeta(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   fileId: string,
 ): Promise<FileMetaRow | null> {
+  const files = filesTableFor(db)
   const rows = await db
     .select()
-    .from(bunderstackFiles)
-    .where(eq(bunderstackFiles.fileId, fileId))
+    .from(files)
+    .where(eq(files.fileId, fileId))
     .limit(1)
-  return rows[0] ?? null
+  return (rows[0] as FileMetaRow | undefined) ?? null
 }
 
 export async function deleteFileMetaRow(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   fileId: string,
 ): Promise<void> {
-  await db.delete(bunderstackFiles).where(eq(bunderstackFiles.fileId, fileId))
+  const files = filesTableFor(db)
+  await db.delete(files).where(eq(files.fileId, fileId))
 }
 
 // ─── Sweep ────────────────────────────────────────────────────────────────────
 
 export async function listStalePendingFiles(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   olderThanMs: number,
 ): Promise<FileMetaRow[]> {
+  const files = filesTableFor(db)
   return db
     .select()
-    .from(bunderstackFiles)
-    .where(
-      and(
-        eq(bunderstackFiles.status, 'pending'),
-        lt(bunderstackFiles.createdAt, olderThanMs),
-      ),
-    )
+    .from(files)
+    .where(and(eq(files.status, 'pending'), lt(files.createdAt, olderThanMs)))
 }
 
 // ─── Quota ────────────────────────────────────────────────────────────────────
 
 export async function sumReadySize(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   q: { bucket: string; ownerId?: string; scopeJson?: string },
 ): Promise<number> {
-  const conditions = [
-    eq(bunderstackFiles.status, 'ready'),
-    eq(bunderstackFiles.bucket, q.bucket),
-  ]
+  const files = filesTableFor(db)
+  const conditions = [eq(files.status, 'ready'), eq(files.bucket, q.bucket)]
   if (q.ownerId !== undefined) {
-    conditions.push(eq(bunderstackFiles.ownerId, q.ownerId))
+    conditions.push(eq(files.ownerId, q.ownerId))
   }
   if (q.scopeJson !== undefined) {
-    conditions.push(eq(bunderstackFiles.scopeJson, q.scopeJson))
+    conditions.push(eq(files.scopeJson, q.scopeJson))
   }
 
   const rows = await db
     .select({
-      total: sql<number>`coalesce(sum(${bunderstackFiles.size}), 0)`,
+      total: sql<number>`coalesce(sum(${files.size}), 0)`,
     })
-    .from(bunderstackFiles)
+    .from(files)
     .where(and(...conditions))
 
   const raw = rows[0]?.total ?? 0

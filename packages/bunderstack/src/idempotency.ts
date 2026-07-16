@@ -1,9 +1,9 @@
-import type { LibSQLDatabase } from 'drizzle-orm/libsql'
-
 import { and, eq, lt } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 
-import { bunderstackIdempotency } from './internal-tables'
+import type { AnyDb } from './dialect'
+
+import { idempotencyTableFor } from './internal-tables'
 
 export type IdempotencyConfig = {
   ttlMs?: number
@@ -21,34 +21,28 @@ export type IdempotencyLookup =
   | { type: 'proceed' }
 
 export async function lookupIdempotency(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   tableName: string,
   key: string,
   body: string,
   config: IdempotencyConfig,
 ): Promise<IdempotencyLookup> {
+  const t = idempotencyTableFor(db)
   const now = Date.now()
 
   // TTL sweep: drop expired rows before reading.
-  await db
-    .delete(bunderstackIdempotency)
-    .where(lt(bunderstackIdempotency.expiresAt, now))
+  await db.delete(t).where(lt(t.expiresAt, now))
 
   const bodyHash = hashBody(body)
   const rows = await db
     .select({
-      bodyHash: bunderstackIdempotency.bodyHash,
-      status: bunderstackIdempotency.status,
-      response: bunderstackIdempotency.response,
-      expiresAt: bunderstackIdempotency.expiresAt,
+      bodyHash: t.bodyHash,
+      status: t.status,
+      response: t.response,
+      expiresAt: t.expiresAt,
     })
-    .from(bunderstackIdempotency)
-    .where(
-      and(
-        eq(bunderstackIdempotency.key, key),
-        eq(bunderstackIdempotency.tableName, tableName),
-      ),
-    )
+    .from(t)
+    .where(and(eq(t.key, key), eq(t.tableName, tableName)))
     .limit(1)
 
   const row = rows[0]
@@ -64,7 +58,7 @@ export async function lookupIdempotency(
 }
 
 export async function storeIdempotency(
-  db: LibSQLDatabase<Record<string, unknown>>,
+  db: AnyDb,
   tableName: string,
   key: string,
   body: string,
@@ -72,13 +66,14 @@ export async function storeIdempotency(
   response: unknown,
   config: IdempotencyConfig,
 ): Promise<void> {
+  const t = idempotencyTableFor(db)
   const ttlMs = config.ttlMs ?? DEFAULT_TTL_MS
   const expiresAt = Date.now() + ttlMs
   const bodyHash = hashBody(body)
   const responseText = JSON.stringify(response)
 
   await db
-    .insert(bunderstackIdempotency)
+    .insert(t)
     .values({
       key,
       tableName,
@@ -88,7 +83,7 @@ export async function storeIdempotency(
       expiresAt,
     })
     .onConflictDoUpdate({
-      target: [bunderstackIdempotency.key, bunderstackIdempotency.tableName],
+      target: [t.key, t.tableName],
       set: { bodyHash, status, response: responseText, expiresAt },
     })
 }
