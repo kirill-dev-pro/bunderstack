@@ -4,6 +4,7 @@ A batteries-included backend framework for Bun. Point it at a Drizzle schema and
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 const app = createBunderstack({
@@ -14,9 +15,7 @@ const app = createBunderstack({
   },
 })
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 
 Bun.serve({ fetch: app.handler })
 ```
@@ -260,26 +259,25 @@ database: { url: process.env.DATABASE_URL, authToken: process.env.DATABASE_AUTH_
 
 ### Schema provisioning & migrations
 
-Bunderstack follows Drizzle's lifecycle: **push** (dev), **generate** (author migrations), **migrate** (production).
-
-1. Add internal tables to your schema: `export * from 'bunderstack/schema'`
-2. **Development** — push on startup:
+One line covers the whole lifecycle — the `migrations/` folder is the mode switch, no NODE_ENV checks:
 
 ```ts
+import { provision } from 'bunderstack/provision'
+
 const app = createBunderstack({ schema, ... })
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()  // drizzle-kit push via drizzle-kit/api
-}
+await provision(app)
 ```
 
-3. **Production** — versioned migrations:
+- **No `migrations/` folder** (prototyping) — pushes the schema straight to the database on boot. Requires drizzle-kit as a dev dependency (`bun add -d drizzle-kit`). Refuses pushes that would drop data unless you pass `provision(app, { force: true })`.
+- **`migrations/` committed** (stabilized & production) — applies pending migrations via drizzle-orm's built-in migrator. drizzle-kit is never imported, so a fresh clone deploys with `bun install --production`.
+
+When you're done prototyping, generate the initial migration and commit it; from then on every schema change is an explicit step:
 
 ```bash
 bunx drizzle-kit generate   # writes migrations/
-bunx drizzle-kit migrate    # apply before starting the server
 ```
 
-`app.provision()` always pushes when called (no NODE_ENV gating). Use `app.provision({ force: true })` if the push would cause data loss.
+Add internal tables to your schema first (`export * from 'bunderstack/schema'`) so migrations include them. The folder location comes from `database: { migrations: './migrations' }` (that's the default — match `out` in `drizzle.config.ts`). Provisioning is opt-in: skip the import entirely and apply migrations from CI if you prefer the framework never touch your database.
 
 ---
 
@@ -357,6 +355,7 @@ Browser side, `createClientEnv` from the server-code-free `bunderstack/env` subp
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 const app = createBunderstack({
@@ -364,9 +363,7 @@ const app = createBunderstack({
   auth: { emailAndPassword: { enabled: true } },
 })
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 
 Bun.serve({ port: 3001, fetch: app.handler })
 ```

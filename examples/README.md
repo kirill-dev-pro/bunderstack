@@ -11,22 +11,19 @@ bun install
 
 ## Quick start
 
-Each example calls `app.provision()` in development to push the schema (including Bunderstack internal tables). In production, apply committed migrations instead.
-
-**Development** — start the dev server; provisioning runs when `NODE_ENV !== 'production'`:
+Each example calls `provision(app)` on boot. With no `migrations/` folder it pushes the schema (including Bunderstack internal tables) — that's the dev loop. Once migrations are generated and committed, the same line applies them instead, without drizzle-kit:
 
 ```ts
+import { provision } from 'bunderstack/provision'
+
 export const app = createBunderstack({ schema, ... })
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 ```
 
-**Production** — generate and commit migrations, then apply before starting:
+**Moving to versioned migrations** — generate and commit; provision applies them from then on:
 
 ```bash
 bun run db:generate   # drizzle-kit generate → migrations/
-bun run db:migrate    # drizzle-kit migrate
 ```
 
 Or per example:
@@ -206,4 +203,4 @@ TanStack Start apps can skip even that: `bunderstack-start`'s
 | -------------- | ---------------- | ------------------------------------------------------------------------------- |
 | `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                                   |
 | `AUTH_SECRET`  | dev default      | BetterAuth secret                                                               |
-| `NODE_ENV`     | —                | Set `production` in deploy; omit `app.provision()` and run `db:migrate` instead |
+| `NODE_ENV`     | —                | Set `production` in deploy; `provision(app)` applies committed migrations       |

@@ -67,12 +67,6 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  ssr: {
-    external: [
-      'drizzle-kit',
-      'drizzle-kit/api',
-    ],
-  },
   plugins: [
     bunderstackApiDevMiddleware(),
     devtools(),

@@ -55,6 +55,7 @@ export const posts = sqliteTable('posts', {
 ```ts
 // bunderstack.ts
 import { createBunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 export const app = createBunderstack({
@@ -65,22 +66,34 @@ export const app = createBunderstack({
 /** Type-only handle for client inference — see "Talk to it from the client". */
 export type App = typeof app
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 ```
 
-`app.provision()` pushes your schema to the database (drizzle-kit push). Call it explicitly in development; omit it in production and use migrations instead.
+`provision(app)` keeps the database in sync with your schema. The same line works in development and production — what it does depends on whether a migrations folder exists (see below). Don't want the framework touching your database at all? Skip the import and apply migrations yourself.
 
-## Database lifecycle
+## Development vs production
 
-| Phase    | Command                     | When                 |
-| -------- | --------------------------- | -------------------- |
-| Dev push | `await app.provision()`     | Local development    |
-| Generate | `bunx drizzle-kit generate` | After schema changes |
-| Migrate  | `bunx drizzle-kit migrate`  | Production deploy    |
+The `migrations/` folder is the mode switch — you never change code or set env vars to move between phases:
 
-Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`.
+| Phase         | State                            | What `provision(app)` does                                               |
+| ------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| Prototyping   | No `migrations/` folder          | Pushes the schema straight to the database on boot (needs `drizzle-kit`) |
+| Stabilized    | `migrations/` committed          | Applies pending migrations on boot — `drizzle-kit` is never loaded       |
+| Deploy        | Fresh clone + `migrations/`      | Creates the database file and all tables from the committed migrations   |
+
+**Prototyping.** Right after `bun add -d drizzle-kit`, just edit your schema and restart — the database follows. If a change would drop data, provision refuses and tells you to pass `provision(app, { force: true })`.
+
+**Stabilizing.** When you're done playing with the schema, generate the initial migration:
+
+```bash
+bunx drizzle-kit generate
+```
+
+From this point on provision stops pushing and only applies the committed files. Every further schema change is an explicit `bunx drizzle-kit generate`, reviewed and committed like any other code.
+
+**Deploying.** Clone, `bun install --production`, start. Applying migrations uses drizzle-orm's built-in migrator, so `drizzle-kit` stays a dev-only dependency — it is never installed on, or shipped to, the server. If you deploy without a migrations folder *and* without drizzle-kit, provision fails with instructions rather than guessing.
+
+Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`. If your migrations live elsewhere, point Bunderstack at them with `database: { migrations: './path' }`.
 
 ## Serve it
 
@@ -133,9 +146,7 @@ export const app = createBunderstack({
   auth: { emailAndPassword: { enabled: true } },
 })
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 ```
 
 ## Talk to it from the client

@@ -3,6 +3,7 @@ import { test, expect, afterAll } from 'bun:test'
 import { rm } from 'node:fs/promises'
 
 import { createBunderstack } from '../index'
+import { provision } from '../provision'
 
 const TMP_DIR = './.tmp-uploads-test'
 
@@ -25,7 +26,7 @@ async function buildApp() {
       },
     },
   })
-  await app.provision({ force: true })
+  await provision(app, { force: true })
   return app
 }
 

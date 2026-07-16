@@ -2,6 +2,7 @@ import { test, expect, beforeAll } from 'bun:test'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 import { createBunderstack } from './index'
+import { provision } from './provision'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -49,7 +50,7 @@ beforeAll(async () => {
     database: { url: ':memory:' },
     auth: {},
   })
-  await app.provision({ force: true })
+  await provision(app, { force: true })
 })
 
 test('auth tables are not exposed via auto-CRUD', async () => {

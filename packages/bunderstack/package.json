@@ -33,6 +33,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./access": "./src/access.ts",
+    "./provision": "./src/provision.ts",
     "./schema": "./src/schema-export.ts",
     "./typeid": "./src/typeid.ts",
     "./env": "./src/env.ts",

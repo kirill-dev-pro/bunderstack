@@ -20,7 +20,10 @@ import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
-import { provisionSchema } from './provision'
+import {
+  PROVISION_INTERNALS,
+  type WithProvisionInternals,
+} from './provision-internals'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
 import { deleteFileWithDerivatives } from './storage/delete'
@@ -80,8 +83,6 @@ export type BunderstackApp<
   env: ValidatedEnv<TEnv>
   /** Email facade; always present — send() throws when email isn't configured. */
   email: EmailFacade
-  /** Push the merged schema (user + internal tables) to the database. */
-  provision: (options?: { force?: boolean }) => Promise<void>
   /**
    * Type-only carrier for client inference (`createClient<typeof app>()`).
    * Never assigned at runtime.
@@ -297,11 +298,16 @@ export function createBunderstack<
     env,
     email,
     trpcRouter,
-    provision: (opts) =>
-      provisionSchema(db, mergedSchema, {
-        force: opts?.force,
-        databaseUrl: config.database.url,
-      }),
+  }
+
+  // Hidden handle for the optional `bunderstack/provision` entry. Kept off the
+  // public type so provisioning stays opt-in (and drizzle-kit out of this
+  // module graph).
+  ;(app as WithProvisionInternals)[PROVISION_INTERNALS] = {
+    db,
+    schema: mergedSchema,
+    databaseUrl: config.database.url,
+    migrationsFolder: config.database.migrations,
   }
 
   return app
@@ -314,7 +320,6 @@ export type {
   BunderstackConfig,
   ResolvedConfig,
 } from './config'
-export { provisionSchema } from './provision'
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
 export { createEmail } from './email'

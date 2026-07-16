@@ -24,7 +24,11 @@ export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.string(), z.unknown()),
   access: z.record(z.string(), z.any()).optional(),
   database: z
-    .object({ url: z.string().optional(), authToken: z.string().optional() })
+    .object({
+      url: z.string().optional(),
+      authToken: z.string().optional(),
+      migrations: z.string().optional(),
+    })
     .optional(),
   auth: z.record(z.string(), z.unknown()).optional(),
   // Loose: bucket access/scope hold functions that can't survive strict zod
@@ -99,7 +103,7 @@ export type BunderstackConfig<
 }
 
 export type ResolvedConfig = {
-  database: { url: string; authToken?: string }
+  database: { url: string; authToken?: string; migrations: string }
   auth: BetterAuthConfig
   storage: ResolvedStorageBuckets
   realtime?:
@@ -125,6 +129,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     database: {
       url: parsed.database?.url ?? resolvedEnv.DATABASE_URL,
       authToken: parsed.database?.authToken ?? resolvedEnv.DATABASE_AUTH_TOKEN,
+      migrations: parsed.database?.migrations ?? './migrations',
     },
     auth: (() => {
       const authInput = options.auth ?? {}

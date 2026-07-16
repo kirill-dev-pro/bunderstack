@@ -1,5 +1,6 @@
 import { organization } from 'better-auth/plugins'
 import { createBunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 
 import { access } from './access.ts'
 import * as schema from './schema.ts'
@@ -17,8 +18,7 @@ export const app = createBunderstack({
   realtime: true,
 })
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+// No migrations/ folder → dev push; committed migrations → applied on boot.
+await provision(app)
 
 export const { db, auth } = app

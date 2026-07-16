@@ -59,7 +59,6 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
   email: EmailFacade
   /** Raw tRPC router when the config declared one — escape hatch. */
   trpcRouter?: AnyRouter
-  provision: (options?: { force?: boolean }) => Promise<void>
   /** Type-only carrier for client inference — never assigned at runtime. */
   readonly $inferClient?: {
     schema: TSchema
@@ -72,6 +71,20 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
 
 Export `type App = typeof app` and the client packages infer everything from
 it.
+
+## bunderstack/provision
+
+```ts
+function provision(app: object, options?: { force?: boolean }): Promise<void>
+```
+
+Optional entry point — import it only if you want Bunderstack to manage the
+database on boot. When `<migrations>/meta/_journal.json` exists (folder set by
+`database.migrations`, default `./migrations`), applies pending migrations via
+drizzle-orm's migrator. Otherwise pushes the schema via drizzle-kit (dev-only
+dependency; `bun add -d drizzle-kit`). `force` allows a push that would drop
+data. The low-level `provisionSchema(db, schema, options?)` (push only) is
+exported from the same entry.
 
 ## Client packages
 

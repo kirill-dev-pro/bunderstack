@@ -32,6 +32,7 @@ export const DELETE = GET
 ```ts
 // bunderstack.ts — lazy singleton for Next.js
 import { createBunderstack, type BunderstackApp } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 let _app: BunderstackApp<typeof schema> | null = null
@@ -42,9 +43,7 @@ export async function getApp() {
       schema,
       auth: { emailAndPassword: { enabled: true } },
     })
-    if (process.env.NODE_ENV !== 'production') {
-      await _app.provision()
-    }
+    await provision(_app)
   }
   return _app
 }
@@ -65,6 +64,7 @@ directly, plus the type handle for client inference:
 ```ts
 // src/bunderstack.ts
 import { createBunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 import { access } from './access'
 
@@ -76,9 +76,7 @@ export const app = createBunderstack({
 
 export type App = typeof app
 
-if (process.env.NODE_ENV !== 'production') {
-  await app.provision()
-}
+await provision(app)
 ```
 
 Mount the API and set up the whole client:

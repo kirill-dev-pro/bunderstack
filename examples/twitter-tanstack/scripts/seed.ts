@@ -94,8 +94,8 @@ const EDUCATIONAL_POSTS: Array<{
   },
   {
     author: 'carol@example.com',
-    title: 'Explicit provision in dev',
-    body: 'Call await app.provision() in development to push schema. Production: drizzle-kit generate → commit migrations → drizzle-kit migrate.',
+    title: 'One-line provisioning',
+    body: 'Call await provision(app) from bunderstack/provision. No migrations folder → dev push; committed migrations → applied on boot, no drizzle-kit needed.',
   },
   {
     author: 'alice@example.com',

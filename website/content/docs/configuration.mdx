@@ -10,7 +10,7 @@ description: All createBunderstack options and environment variables
 ```ts
 createBunderstack({
   schema,
-  database: { url?: string, authToken?: string },
+  database: { url?: string, authToken?: string, migrations?: string }, // migrations folder, default './migrations'
   access?: Record<string, {
     crud?: boolean,
     ownerColumn?: string,
