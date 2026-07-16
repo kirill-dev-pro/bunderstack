@@ -1,15 +1,25 @@
 // src/provision.ts
-import type { AnyDb } from './dialect'
-
 import { access, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
+import type { AnyDb, Dialect } from './dialect'
+
+import { detectDialect } from './dialect'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
 } from './provision-internals'
 
-async function ensureSqliteFileParent(url: string): Promise<void> {
+/** Create the local backing directory for file-based urls, per dialect. */
+async function ensureLocalDataDir(url: string, dialect: Dialect): Promise<void> {
+  if (dialect === 'pg') {
+    // PGlite data dir: `file:<dir>` or a bare path; server/memory urls need nothing.
+    if (/^postgres(ql)?:\/\//.test(url)) return
+    const raw = url.startsWith('file:') ? url.slice('file:'.length) : url
+    if (raw === ':memory:' || raw.startsWith('memory://')) return
+    await mkdir(raw, { recursive: true })
+    return
+  }
   const match = /^file:(.+)$/.exec(url)
   if (!match) return
   const filePath = match[1]!
@@ -26,33 +36,37 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+const DRIZZLE_KIT_HINT =
+  '[bunderstack] Schema push requires drizzle-kit, which is not installed.\n' +
+  '  Development: run `bun add -d drizzle-kit` — provision() will push schema changes to the database on startup.\n' +
+  '  Production: generate migrations locally with `bunx drizzle-kit generate` and commit the folder — provision() applies them without drizzle-kit.'
+
 /** Push the merged schema to the database via drizzle-kit/api. */
 export async function provisionSchema<TSchema extends Record<string, unknown>>(
   db: AnyDb,
   schema: TSchema,
   options?: { force?: boolean; databaseUrl?: string },
 ): Promise<void> {
+  const dialect = detectDialect(schema)
   if (options?.databaseUrl) {
-    await ensureSqliteFileParent(options.databaseUrl)
+    await ensureLocalDataDir(options.databaseUrl, dialect)
   }
 
-  let pushSQLiteSchema: (typeof import('drizzle-kit/api'))['pushSQLiteSchema']
+  let kit: typeof import('drizzle-kit/api')
   try {
     // Ignore comments keep bundlers (vite/nitro, webpack) from resolving
     // drizzle-kit at build time — this branch only runs in development.
-    ;({ pushSQLiteSchema } = await import(
+    kit = await import(
       /* @vite-ignore */ /* webpackIgnore: true */ 'drizzle-kit/api'
-    ))
-  } catch (cause) {
-    throw new Error(
-      '[bunderstack] Schema push requires drizzle-kit, which is not installed.\n' +
-        '  Development: run `bun add -d drizzle-kit` — provision() will push schema changes to the database on startup.\n' +
-        '  Production: generate migrations locally with `bunx drizzle-kit generate` and commit the folder — provision() applies them without drizzle-kit.',
-      { cause },
     )
+  } catch (cause) {
+    throw new Error(DRIZZLE_KIT_HINT, { cause })
   }
 
-  const result = await pushSQLiteSchema(schema, db as never)
+  const result =
+    dialect === 'pg'
+      ? await kit.pushSchema(schema, db as never)
+      : await kit.pushSQLiteSchema(schema, db as never)
 
   if (result.hasDataLoss && !options?.force) {
     throw new Error(
@@ -74,6 +88,13 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
     `[bunderstack] provisioned ${result.statementsToExecute.length} schema change(s)`,
   )
 }
+
+const MIGRATOR_MODULES = {
+  libsql: 'drizzle-orm/libsql/migrator',
+  pglite: 'drizzle-orm/pglite/migrator',
+  'bun-sql': 'drizzle-orm/bun-sql/migrator',
+  'postgres-js': 'drizzle-orm/postgres-js/migrator',
+} as const
 
 /**
  * Provision the database for a Bunderstack app.
@@ -99,12 +120,15 @@ export async function provision(
     )
   }
 
-  const { db, schema, databaseUrl, migrationsFolder } = internals
+  const { db, schema, databaseUrl, migrationsFolder, dialect, driver } =
+    internals
   const journal = join(migrationsFolder, 'meta', '_journal.json')
 
   if (await exists(journal)) {
-    await ensureSqliteFileParent(databaseUrl)
-    const { migrate } = await import('drizzle-orm/libsql/migrator')
+    await ensureLocalDataDir(databaseUrl, dialect)
+    const { migrate } = (await import(
+      /* @vite-ignore */ /* webpackIgnore: true */ MIGRATOR_MODULES[driver]
+    )) as { migrate: (db: never, cfg: { migrationsFolder: string }) => Promise<void> }
     await migrate(db as never, { migrationsFolder })
     return
   }
