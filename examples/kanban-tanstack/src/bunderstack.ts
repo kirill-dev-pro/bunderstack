@@ -11,7 +11,7 @@ const orgScope = (ctx: {
   organizationId: ctx.session?.activeOrganizationId ?? '__none__',
 })
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
   auth: {

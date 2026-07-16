@@ -9,16 +9,17 @@
  *   5. File storage + transforms → `storage` key + `api.files`
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
  */
-import { createBunderstack, desc, eq } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { anonymous } from 'better-auth/plugins'
+import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access,
 

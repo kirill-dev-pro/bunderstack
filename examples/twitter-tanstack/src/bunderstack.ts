@@ -1,10 +1,11 @@
-import { createBunderstack, desc, eq, sql } from 'bunderstack'
+import { createBunderstack } from 'bunderstack'
+import { desc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },

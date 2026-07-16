@@ -6,7 +6,8 @@
  * Run: bun run stress-seed
  *   or: bun scripts/stress-seed.ts --users=2000 --posts=20000 --replies=5000 --follows=10000 --likes=40000 --retweets=10000
  */
-import { eq, generateTypeId, type TypeId } from 'bunderstack'
+import { generateTypeId, type TypeId } from 'bunderstack'
+import { eq } from 'drizzle-orm'
 
 import { app } from '~/bunderstack'
 

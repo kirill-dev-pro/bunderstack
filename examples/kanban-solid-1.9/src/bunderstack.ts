@@ -5,7 +5,7 @@ import { provision } from 'bunderstack/provision'
 import { access } from './access.ts'
 import * as schema from './schema.ts'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
   auth: {

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@knadh/oat": "^0.6.2",
+    "@libsql/client": "^0.14.0",
     "@solidjs/router": "^0.15.4",
     "@tanstack/solid-query": "^5.101.1",
     "@thisbeyond/solid-dnd": "^0.7.5",

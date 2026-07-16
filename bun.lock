@@ -15,6 +15,7 @@
       "name": "bunderstack-example-kanban",
       "dependencies": {
         "@knadh/oat": "^0.6.2",
+        "@libsql/client": "^0.14.0",
         "@solidjs/router": "^0.15.4",
         "@tanstack/solid-query": "^5.101.1",
         "@thisbeyond/solid-dnd": "^0.7.5",
@@ -70,6 +71,7 @@
     "examples/tldraw": {
       "name": "tanstack-start-example-basic",
       "dependencies": {
+        "@libsql/client": "^0.14.0",
         "@tanstack/query-db-collection": "^1.0.45",
         "@tanstack/react-db": "^0.1.91",
         "@tanstack/react-query": "^5.101.2",
@@ -106,6 +108,7 @@
     "examples/todo": {
       "name": "bunderstack-example-todo",
       "dependencies": {
+        "@libsql/client": "^0.14.0",
         "@tanstack/react-query": "^5.101.1",
         "@tanstack/react-router": "^1.170.16",
         "@tanstack/react-router-ssr-query": "^1.167.1",

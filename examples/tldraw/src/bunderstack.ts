@@ -3,7 +3,7 @@ import { createBunderstack } from 'bunderstack'
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = createBunderstack({
+export const app = await createBunderstack({
   schema,
   access,
   database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },

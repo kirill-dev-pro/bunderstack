@@ -2,7 +2,8 @@
  * Seed demo users, educational posts, follows, likes, and threaded replies.
  * Run: bun run seed
  */
-import { asTypeId, eq, type TypeId } from 'bunderstack'
+import { asTypeId, type TypeId } from 'bunderstack'
+import { eq } from 'drizzle-orm'
 
 import { app } from '~/bunderstack'
 
