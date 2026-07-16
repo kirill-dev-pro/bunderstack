@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
   "keywords": [
     "backend",
@@ -54,6 +54,12 @@
     "superjson": "^2.2.0",
     "zod": "^4.4.3"
   },
+  "devDependencies": {
+    "@electric-sql/pglite": ">=0.3.0",
+    "@libsql/client": ">=0.14.0",
+    "drizzle-kit": "^0.30.0",
+    "drizzle-orm": "^0.45.0"
+  },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
@@ -79,11 +85,5 @@
     "postgres": {
       "optional": true
     }
-  },
-  "devDependencies": {
-    "@electric-sql/pglite": ">=0.3.0",
-    "@libsql/client": ">=0.14.0",
-    "drizzle-kit": "^0.30.0",
-    "drizzle-orm": "^0.45.0"
   }
 }
