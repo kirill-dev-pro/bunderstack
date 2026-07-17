@@ -6,9 +6,11 @@ import type { ZodType } from 'zod'
 
 import type { Dialect } from './dialect'
 import type { EnvConfigInput } from './env'
+import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
 export type ManifestEnvVar = { key: string; required: boolean }
+export type ManifestJob = { name: string; cron?: string }
 
 export type BunderstackManifest = {
   dialect: Dialect
@@ -17,6 +19,7 @@ export type BunderstackManifest = {
   buckets: { name: string; visibility: ResolvedBucket['visibility'] }[]
   realtime: boolean
   env: { server: ManifestEnvVar[]; client: ManifestEnvVar[] }
+  jobs: ManifestJob[]
 }
 
 function describeSection(
@@ -34,6 +37,7 @@ export function buildManifest(args: {
   storage: ResolvedStorageBuckets
   envConfig: EnvConfigInput | undefined
   realtime: boolean
+  jobs: JobsDefs | undefined
 }): BunderstackManifest {
   return {
     dialect: args.dialect,
@@ -48,5 +52,8 @@ export function buildManifest(args: {
       server: describeSection(args.envConfig?.server),
       client: describeSection(args.envConfig?.client),
     },
+    jobs: Object.entries(args.jobs ?? {}).map(([name, def]) =>
+      def.cron !== undefined ? { name, cron: def.cron } : { name },
+    ),
   }
 }

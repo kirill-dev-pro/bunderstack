@@ -31,6 +31,7 @@ test('buildManifest describes tables, buckets, env requirements', () => {
       client: { PUBLIC_APP_NAME: z.string() },
     },
     realtime: true,
+    jobs: undefined,
   })
 
   expect(manifest.dialect).toBe('sqlite')
@@ -57,7 +58,39 @@ test('buildManifest handles the zero-config app', () => {
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
     realtime: false,
+    jobs: undefined,
   })
   expect(manifest.buckets).toEqual([{ name: 'default', visibility: 'private' }])
   expect(manifest.env).toEqual({ server: [], client: [] })
+  expect(manifest.jobs).toEqual([])
+})
+
+test('manifest lists declared jobs with their cron schedules', () => {
+  const manifest = buildManifest({
+    schema,
+    dialect: 'sqlite',
+    storage: resolveBuckets(undefined, {}),
+    envConfig: undefined,
+    realtime: false,
+    jobs: {
+      generateLook: { handler: async () => {} },
+      nightly: { cron: '0 3 * * *', handler: async () => {} },
+    },
+  })
+  expect(manifest.jobs).toEqual([
+    { name: 'generateLook' },
+    { name: 'nightly', cron: '0 3 * * *' },
+  ])
+})
+
+test('manifest jobs is empty when no jobs are configured', () => {
+  const manifest = buildManifest({
+    schema,
+    dialect: 'sqlite',
+    storage: resolveBuckets(undefined, {}),
+    envConfig: undefined,
+    realtime: false,
+    jobs: undefined,
+  })
+  expect(manifest.jobs).toEqual([])
 })
