@@ -23,6 +23,18 @@ import { createDb } from './db'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
 import {
+  createJobsBuilder,
+  createJobRunner,
+  enqueueJob,
+  validateJobsDefs,
+} from './jobs/index'
+import type {
+  BunderstackJobsBuilder,
+  EnqueueOptions,
+  JobsDefs,
+  JobsFacade,
+} from './jobs/index'
+import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
 } from './provision-internals'
@@ -40,6 +52,8 @@ type AuthInstance = ReturnType<typeof createAuth>
 const DEFAULT_PENDING_TTL_MS = 30 * 60_000
 /** How often the auto-started orphan sweep runs. */
 const SWEEP_INTERVAL_MS = 10 * 60_000
+/** How often the in-process job worker polls for claimable jobs. */
+const JOBS_POLL_INTERVAL_MS = 1000
 
 /**
  * Public storage facade exposed as `app.storage`. Object-level operations live
@@ -73,6 +87,7 @@ export type BunderstackApp<
   TBuckets extends string = string,
   TEnv extends EnvConfigInput | undefined = undefined,
   TRouter = undefined,
+  TJobsDefs extends JobsDefs | undefined = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
@@ -85,6 +100,8 @@ export type BunderstackApp<
   env: ValidatedEnv<TEnv>
   /** Email facade; always present — send() throws when email isn't configured. */
   email: EmailFacade
+  /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
+  jobs: JobsFacade<TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>>
   /** Deploy-time introspection: what this app needs provisioned. */
   manifest: BunderstackManifest
   /**
@@ -102,7 +119,11 @@ export type BunderstackApp<
 // Overloads: the builder-callback form and the prebuilt-router/none form are
 // separate signatures so the callback's `t` parameter gets contextual typing
 // and the router type lands on `$inferClient` without conditional-type
-// inference (which breaks under contextual return types).
+// inference (which breaks under contextual return types). `jobs` needs the
+// same split against BOTH trpc forms — a union parameter type (`TJobsDefs |
+// (callback => TJobsDefs)`) defeats inference (TS widens TJobsDefs to its
+// constraint when a function literal could match either union arm) — hence
+// four overloads covering the trpc × jobs option cross product.
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -110,12 +131,31 @@ export function createBunderstack<
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter = AnyRouter,
+  const TJobsDefs extends JobsDefs | undefined = undefined,
 >(
   options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
     /** Builder callback receiving the pre-wired `t` instance. */
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
+    /** Builder callback receiving the pre-wired `j` instance. */
+    jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
   },
-): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
+export function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter extends AnyRouter = AnyRouter,
+  const TJobsDefs extends JobsDefs | undefined = undefined,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    /** Builder callback receiving the pre-wired `t` instance. */
+    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
+    /** Prebuilt job definitions (escape hatch for multi-file setups). */
+    jobs?: TJobsDefs
+  },
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -123,12 +163,31 @@ export function createBunderstack<
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter | undefined = undefined,
+  const TJobsDefs extends JobsDefs | undefined = undefined,
 >(
   options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
     /** Prebuilt tRPC router (escape hatch for multi-file setups). */
     trpc?: TRouter
+    /** Builder callback receiving the pre-wired `j` instance. */
+    jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
   },
-): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
+export function createBunderstack<
+  TSchema extends Record<string, unknown>,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
+  const TStorage extends StorageConfigInput | undefined = undefined,
+  const TEnv extends EnvConfigInput | undefined = undefined,
+  TRouter extends AnyRouter | undefined = undefined,
+  const TJobsDefs extends JobsDefs | undefined = undefined,
+>(
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+    /** Prebuilt tRPC router (escape hatch for multi-file setups). */
+    trpc?: TRouter
+    /** Prebuilt job definitions (escape hatch for multi-file setups). */
+    jobs?: TJobsDefs
+  },
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -140,9 +199,19 @@ export async function createBunderstack<
     trpc?:
       | AnyRouter
       | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)
+    jobs?:
+      | JobsDefs
+      | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => JobsDefs)
   },
 ): Promise<
-  BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, AnyRouter | undefined>
+  BunderstackApp<
+    TSchema,
+    TAccess,
+    BucketNamesOf<TStorage>,
+    TEnv,
+    AnyRouter | undefined,
+    JobsDefs | undefined
+  >
 > {
   const dialect = detectDialect(options.schema)
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
@@ -271,6 +340,42 @@ export async function createBunderstack<
     void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
   }, SWEEP_INTERVAL_MS)
   sweepTimer.unref?.()
+  const jobsDefs: JobsDefs | undefined = options.jobs
+    ? typeof options.jobs === 'function'
+      ? options.jobs(createJobsBuilder<TSchema, ValidatedEnv<TEnv>>())
+      : (options.jobs as JobsDefs)
+    : undefined
+  if (jobsDefs) validateJobsDefs(jobsDefs)
+  const jobRunner = jobsDefs
+    ? createJobRunner({
+        db,
+        defs: jobsDefs,
+        ctx: { db: userDb, env, email, storage },
+      })
+    : undefined
+  const jobs = {
+    async enqueue(name: string, input?: unknown, opts?: EnqueueOptions) {
+      if (!jobsDefs) {
+        throw new Error(
+          '[bunderstack] no jobs configured — add a `jobs` key to createBunderstack',
+        )
+      }
+      const result = await enqueueJob(db, jobsDefs, name, input, opts)
+      // Wake the local worker so same-process jobs start without poll latency.
+      if (jobRunner && !introspect) void jobRunner.tick().catch(() => {})
+      return result
+    },
+    tick(now?: number) {
+      return jobRunner ? jobRunner.tick(now) : Promise.resolve()
+    },
+  }
+  if (jobRunner) jobRunner.setJobsFacade(jobs)
+  if (jobRunner && !introspect) {
+    const jobsTimer = setInterval(() => {
+      void jobRunner.tick().catch(() => {})
+    }, JOBS_POLL_INTERVAL_MS)
+    jobsTimer.unref?.()
+  }
   const trpcRouter: AnyRouter | undefined =
     typeof options.trpc === 'function'
       ? options.trpc(createTRPC<TSchema, ValidatedEnv<TEnv>>())
@@ -286,6 +391,7 @@ export async function createBunderstack<
             user: await resolveAccessUser(authResolver, req.headers),
             env,
             email,
+            jobs,
             req,
           }),
         })
@@ -304,7 +410,8 @@ export async function createBunderstack<
     TAccess,
     BucketNamesOf<TStorage>,
     TEnv,
-    AnyRouter | undefined
+    AnyRouter | undefined,
+    JobsDefs | undefined
   > = {
     handler,
     // Internal tables live on the runtime db but stay out of the public type.
@@ -314,6 +421,10 @@ export async function createBunderstack<
     router,
     env,
     email,
+    // Runtime facade is untyped (JobsRuntimeFacade); the generic-typed field
+    // narrows `enqueue` per-app from the declared job defs — same relationship
+    // as `userDb` above.
+    jobs: jobs as never,
     trpcRouter,
     manifest: buildManifest({
       schema: options.schema,
@@ -359,6 +470,16 @@ export type {
 } from './email'
 export { createTRPC } from './trpc'
 export type { BunderstackTRPC, TRPCContext } from './trpc'
+export { createJobsBuilder } from './jobs/index'
+export type {
+  BunderstackJobsBuilder,
+  EnqueueOptions,
+  JobContext,
+  JobDefinition,
+  JobsDefs,
+  JobsFacade,
+  JobsRuntimeFacade,
+} from './jobs/index'
 export {
   defineAccess,
   validateAndResolveAccess,

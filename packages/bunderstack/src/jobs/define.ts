@@ -143,10 +143,25 @@ export type BunderstackJobsBuilder<
   TEnvResult = Record<string, unknown>,
 > = ReturnType<typeof createJobsBuilder<TSchema, TEnvResult>>
 
-type JobInputOf<TDef> = TDef extends { input: ZodType<infer I> } ? I : undefined
+// Infers TInput from the JobDefinition's own type argument rather than
+// pattern-matching the (optional, so union-with-undefined) `input` property —
+// `TDef extends { input: ZodType<infer I> }` fails structurally because
+// `input?: ZodType<TInput>` desugars to `ZodType<TInput> | undefined`, which
+// can never satisfy a required-property pattern.
+type JobInputOf<TDef> = TDef extends JobDefinition<infer TInput, any, any>
+  ? TInput
+  : undefined
 
-/** `app.jobs`: `enqueue` narrowed to declared names + payloads. */
-export type JobsFacade<TDefs extends JobsDefs> = JobsRuntimeFacade & {
+/**
+ * `app.jobs`: `enqueue` narrowed to declared names + payloads. `Omit`s the
+ * runtime facade's loose `enqueue` first — intersecting two same-named
+ * methods instead would make TS treat them as overloaded, so the loose
+ * `(name: string, ...)` signature would still accept any name.
+ */
+export type JobsFacade<TDefs extends JobsDefs> = Omit<
+  JobsRuntimeFacade,
+  'enqueue'
+> & {
   enqueue<K extends keyof TDefs & string>(
     name: K,
     ...rest: JobInputOf<TDefs[K]> extends undefined

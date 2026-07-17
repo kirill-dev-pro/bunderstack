@@ -5,6 +5,7 @@ import superjson from 'superjson'
 import type { AccessUser } from './access'
 import type { DbFor } from './db'
 import type { EmailFacade } from './email'
+import type { JobsRuntimeFacade } from './jobs/index'
 
 export type TRPCContext<
   TSchema extends Record<string, unknown>,
@@ -14,6 +15,7 @@ export type TRPCContext<
   user: AccessUser | null
   env: TEnvResult
   email: EmailFacade
+  jobs: JobsRuntimeFacade
   req: Request
 }
 

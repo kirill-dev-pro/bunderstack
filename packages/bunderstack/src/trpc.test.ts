@@ -22,6 +22,7 @@ function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
     user,
     env: {},
     email: fakeEmail,
+    jobs: { enqueue: async () => ({ id: '' }), tick: async () => {} },
     req: new Request('http://test/'),
   }
 }

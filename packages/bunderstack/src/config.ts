@@ -40,6 +40,8 @@ export const BunderstackOptionsSchema = z.object({
   email: z.unknown().optional(),
   // Loose: a tRPC router or builder callback. Resolved in createBunderstack.
   trpc: z.unknown().optional(),
+  // Loose: holds handler functions and zod schemas. Resolved in createBunderstack.
+  jobs: z.unknown().optional(),
   rateLimit: z
     .union([
       z.boolean(),
@@ -80,7 +82,7 @@ export type BunderstackConfig<
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
 > = Omit<
   z.input<typeof BunderstackOptionsSchema>,
-  'schema' | 'access' | 'auth' | 'storage' | 'env' | 'email' | 'trpc'
+  'schema' | 'access' | 'auth' | 'storage' | 'env' | 'email' | 'trpc' | 'jobs'
 > & {
   schema: TSchema
   access?: TAccess
@@ -90,7 +92,8 @@ export type BunderstackConfig<
   email?: EmailConfigInput
   // `trpc` is intentionally NOT declared here: createBunderstack intersects
   // its own inference-friendly `trpc` declaration (router | builder callback)
-  // so the callback's `t` parameter gets contextual typing.
+  // so the callback's `t` parameter gets contextual typing. `jobs` follows the
+  // same pattern (defs map | builder callback receiving `j`).
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:
