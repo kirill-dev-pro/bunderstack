@@ -8,6 +8,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 export const bunderstackFilesPg = pgTable(
@@ -42,4 +43,26 @@ export const bunderstackIdempotencyPg = pgTable(
     expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.key, t.tableName] })],
+)
+
+export const bunderstackJobsPg = pgTable(
+  '_bunderstack_jobs',
+  {
+    id: text('id').primaryKey(),
+    type: text('type').notNull(),
+    payloadJson: text('payload_json').notNull(),
+    status: text('status').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    runAt: bigint('run_at', { mode: 'number' }).notNull(),
+    lockedUntil: bigint('locked_until', { mode: 'number' }),
+    dedupeKey: text('dedupe_key'),
+    lastError: text('last_error'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    finishedAt: bigint('finished_at', { mode: 'number' }),
+  },
+  (t) => [
+    index('bjq_claim').on(t.status, t.runAt),
+    index('bjq_type_status').on(t.type, t.status),
+    uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
+  ],
 )

@@ -3,4 +3,5 @@
 export {
   bunderstackFilesPg as bunderstackFiles,
   bunderstackIdempotencyPg as bunderstackIdempotency,
+  bunderstackJobsPg as bunderstackJobs,
 } from './internal-tables-pg'

@@ -8,11 +8,17 @@ import { createDb } from './db'
 import {
   bunderstackFiles,
   bunderstackIdempotency,
+  bunderstackJobs,
   INTERNAL_TABLES,
   INTERNAL_TABLE_NAMES,
+  jobsTableFor,
   withInternalTables,
 } from './internal-tables'
-import { bunderstackFilesPg, bunderstackIdempotencyPg } from './internal-tables-pg'
+import {
+  bunderstackFilesPg,
+  bunderstackIdempotencyPg,
+  bunderstackJobsPg,
+} from './internal-tables-pg'
 import { provisionSchema } from './provision'
 
 // --- table name resolution ---
@@ -27,10 +33,11 @@ test('bunderstackIdempotency has table name _bunderstack_idempotency', () => {
 
 // --- INTERNAL_TABLE_NAMES ---
 
-test('INTERNAL_TABLE_NAMES contains exactly the two internal table names', () => {
+test('INTERNAL_TABLE_NAMES contains exactly the three internal table names', () => {
   expect(INTERNAL_TABLE_NAMES.has('bunderstack_file_meta')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_idempotency')).toBe(true)
-  expect(INTERNAL_TABLE_NAMES.size).toBe(2)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.size).toBe(3)
 })
 
 // --- INTERNAL_TABLES ---
@@ -171,4 +178,43 @@ test('provision round-trip: insert+select bunderstackIdempotency', async () => {
   expect(inserted!.status).toBe(201)
   expect(inserted!.response).toBe('{"id":1}')
   expect(inserted!.expiresAt).toBe(expiresAt)
+})
+
+// --- jobs table ---
+
+test('jobs table is registered as an internal table in both dialects', () => {
+  expect(getTableName(bunderstackJobs)).toBe('_bunderstack_jobs')
+  expect(getTableName(bunderstackJobsPg)).toBe('_bunderstack_jobs')
+  expect(isTable(bunderstackJobs)).toBe(true)
+  expect(is(bunderstackJobsPg, PgTable)).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
+})
+
+test('withInternalTables merges the jobs table', () => {
+  const merged = withInternalTables({})
+  expect(isTable(merged.bunderstackJobs)).toBe(true)
+})
+
+test('jobsTableFor picks the sqlite twin for a non-pg db', () => {
+  expect(jobsTableFor({})).toBe(bunderstackJobs)
+})
+
+test('provision round-trip: insert+select bunderstackJobs', async () => {
+  const now = Date.now()
+  await db.insert(bunderstackJobs).values({
+    id: 'job_test1',
+    type: 'greet',
+    payloadJson: '{}',
+    status: 'pending',
+    attempts: 0,
+    runAt: now,
+    createdAt: now,
+  })
+
+  const allRows = await db.select().from(bunderstackJobs)
+  const inserted = allRows.find((r) => r.id === 'job_test1')
+  expect(inserted).toBeDefined()
+  expect(inserted!.type).toBe('greet')
+  expect(inserted!.status).toBe('pending')
+  expect(inserted!.attempts).toBe(0)
 })

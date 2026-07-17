@@ -6,12 +6,14 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
 import { detectDialect } from './dialect'
 import {
   bunderstackFilesPg,
   bunderstackIdempotencyPg,
+  bunderstackJobsPg,
 } from './internal-tables-pg'
 
 export const bunderstackFiles = sqliteTable(
@@ -48,19 +50,45 @@ export const bunderstackIdempotency = sqliteTable(
   (t) => [primaryKey({ columns: [t.key, t.tableName] })],
 )
 
+export const bunderstackJobs = sqliteTable(
+  '_bunderstack_jobs',
+  {
+    id: text('id').primaryKey(),
+    type: text('type').notNull(),
+    payloadJson: text('payload_json').notNull(),
+    status: text('status').notNull(), // pending | running | succeeded | failed
+    attempts: integer('attempts').notNull().default(0),
+    runAt: integer('run_at').notNull(),
+    lockedUntil: integer('locked_until'),
+    dedupeKey: text('dedupe_key'),
+    lastError: text('last_error'),
+    createdAt: integer('created_at').notNull(),
+    finishedAt: integer('finished_at'),
+  },
+  (t) => [
+    index('bjq_claim').on(t.status, t.runAt),
+    index('bjq_type_status').on(t.type, t.status),
+    // NULL dedupe keys are distinct in both dialects, so keyless jobs never collide.
+    uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
+  ],
+)
+
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
+  bunderstackJobs,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   'bunderstack_file_meta',
   '_bunderstack_idempotency',
+  '_bunderstack_jobs',
 ])
 
 export const INTERNAL_TABLES_PG = {
   bunderstackFiles: bunderstackFilesPg,
   bunderstackIdempotency: bunderstackIdempotencyPg,
+  bunderstackJobs: bunderstackJobsPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -70,6 +98,7 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
     getTableName(bunderstackIdempotency),
     [bunderstackIdempotency, bunderstackIdempotencyPg],
   ],
+  [getTableName(bunderstackJobs), [bunderstackJobs, bunderstackJobsPg]],
 ])
 
 /** Internal file-meta table matching the db's dialect. */
@@ -80,6 +109,11 @@ export function filesTableFor(db: unknown) {
 /** Internal idempotency table matching the db's dialect. */
 export function idempotencyTableFor(db: unknown) {
   return is(db, PgDatabase) ? bunderstackIdempotencyPg : bunderstackIdempotency
+}
+
+/** Internal jobs table matching the db's dialect. */
+export function jobsTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackJobsPg : bunderstackJobs
 }
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(
