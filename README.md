@@ -1,6 +1,6 @@
 # bunderstack
 
-A batteries-included backend framework for Bun. Point it at a Drizzle schema and get CRUD APIs, auth, file storage, realtime, typed custom endpoints (tRPC), email, and validated env — all from a single config object and a single `Request → Response` handler you can drop into any runtime.
+A batteries-included backend framework for Bun. Point it at a Drizzle schema and get CRUD APIs, auth, file storage, realtime, typed custom endpoints (tRPC), email, background jobs + cron, and validated env — all from a single config object and a single `Request → Response` handler you can drop into any runtime.
 
 ```ts
 import { createBunderstack } from 'bunderstack'
@@ -42,6 +42,7 @@ That's it. You now have:
 | Storage          | Local disk or S3-compatible  |
 | Image transforms | sharp                        |
 | Email            | Resend / SMTP / custom       |
+| Background jobs  | DB-backed queue + cron       |
 | Env validation   | zod (t3-env style)           |
 | Runtime          | Bun                          |
 
