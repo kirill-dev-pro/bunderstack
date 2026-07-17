@@ -25,6 +25,8 @@ at all.
 | **tRPC** | `trpc` key in `src/bunderstack.ts` | `myBoards`/`createBoard` keep board ownership server-side, `stats` aggregates per board, `complete` mixes DB + email. All inferred on the client; superjson preserves Dates. |
 | **File storage** | `storage` key | The 📎 button uploads to the `images` bucket (local disk in dev, S3 in prod). Thumbnails are resized on the fly by sharp via `?w=80&format=webp`. |
 | **Realtime SSE** | [`src/router.tsx`](src/router.tsx) | `createRealtimeClient` patches the query cache on every write. Open the same board in two windows — todos stay in sync as collaborators add and toggle them. |
+| **Background jobs** | `jobs` key in [`src/bunderstack.ts`](src/bunderstack.ts) | Finishing a board's last todo (via **✅ Done**) enqueues `celebrateBoardComplete` — a retried, offloaded celebration email — instead of sending it inline. Watch the terminal. |
+| **Cron** | `jobs` key in [`src/bunderstack.ts`](src/bunderstack.ts) | `archiveDoneTodos` runs every minute and deletes todos done for more than 2 minutes (tuned short for the demo — a real app would use days, not minutes). |
 
 ## Notes
 
@@ -33,4 +35,11 @@ at all.
   them, and the same call applies them instead (no drizzle-kit at runtime).
 - **Anonymous emails**: anonymous users get a generated `temp-…` address, so
   the completion email is only meaningful with the console provider (or once
-  you switch to real auth).
+  you switch to real auth). Same caveat applies to the board-complete
+  celebration email.
+- **Cron writes aren't realtime**: `archiveDoneTodos` deletes rows with a raw
+  `ctx.db.delete`, which bypasses the CRUD router — only CRUD-router writes
+  broadcast over realtime. Archived todos vanish on the next reload, not
+  live. Any write that needs to show up instantly should go through
+  auto-CRUD or a tRPC procedure that touches the same tables the client
+  subscribes to.

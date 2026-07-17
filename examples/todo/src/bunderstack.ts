@@ -8,16 +8,21 @@
  *   4. tRPC endpoints            → `trpc` builder + `api.trpc`
  *   5. File storage + transforms → `storage` key + `api.files`
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
+ *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
 import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { anonymous } from 'better-auth/plugins'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, lt } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { access } from './access'
 import * as schema from './schema'
+
+/** Demo-tuned retention for the archive cron — short so the effect is
+ *  visible in a live demo. A real app would use something like 30 days. */
+const ARCHIVE_DONE_TODOS_AFTER_MS = 2 * 60_000
 
 export const app = await createBunderstack({
   schema,
@@ -71,6 +76,62 @@ export const app = await createBunderstack({
   // Realtime: SSE endpoint + broadcast-on-write for every CRUD change.
   // The client subscribes via createRealtimeClient (see router.tsx).
   realtime: true,
+
+  // Background jobs + cron: a DB-backed queue with an in-process worker.
+  // `app.jobs` / `ctx.jobs` enqueue; both definitions below run on the same
+  // poll loop bunderstack starts automatically when the app boots.
+  jobs: (j) =>
+    j.define({
+      /** Enqueued from `trpc.complete` below once a board has no pending
+       *  todos left. Offloaded (instead of sent inline like the per-todo
+       *  NOTIFY_COMPLETED email) so the mutation returns immediately and
+       *  a flaky email provider gets retried instead of failing the request.
+       *  Deduped per board so rapidly toggling the last todo can't queue
+       *  more than one celebration while one is in flight. */
+      celebrateBoardComplete: j.job({
+        input: z.object({ boardId: z.string() }),
+        retries: 3,
+        handler: async (input, ctx) => {
+          const boardId = asTypeId('board', input.boardId)
+          const board = await ctx.db
+            .select()
+            .from(schema.boards)
+            .where(eq(schema.boards.id, boardId))
+            .get()
+          if (!board) return
+
+          const owner = await ctx.db
+            .select()
+            .from(schema.user)
+            .where(eq(schema.user.id, board.ownerId))
+            .get()
+          if (!owner) return
+
+          await ctx.email.send({
+            to: owner.email,
+            subject: `🎉 Board complete: ${board.name}`,
+            text: `Hi ${owner.name},\n\nEvery todo on "${board.name}" is done!\n\n— ${ctx.env.PUBLIC_APP_NAME}`,
+          })
+        },
+      }),
+
+      /** Cron: sweeps todos that have been done for a while. Every app
+       *  instance evaluates this on its poll loop; a shared dedupe key per
+       *  minute-slot means it still fires exactly once even with multiple
+       *  replicas. Note: this runs a raw `ctx.db.delete`, which bypasses
+       *  the CRUD router — unlike every other write in this app, it does
+       *  NOT broadcast over realtime, so archived todos disappear on next
+       *  reload rather than live. */
+      archiveDoneTodos: j.job({
+        cron: '* * * * *',
+        handler: async (_input, ctx) => {
+          const cutoff = new Date(Date.now() - ARCHIVE_DONE_TODOS_AFTER_MS)
+          await ctx.db
+            .delete(schema.todos)
+            .where(and(eq(schema.todos.done, true), lt(schema.todos.completedAt, cutoff)))
+        },
+      }),
+    }),
 
   // tRPC: pre-wired with superjson, protectedProcedure, and a typed
   // context carrying db, user, env, and email.
@@ -140,6 +201,24 @@ export const app = await createBunderstack({
               subject: `✅ Completed: ${todo.title}`,
               text: `Hi ${ctx.user.name},\n\nYou completed "${todo.title}".\n\n— ${ctx.env.PUBLIC_APP_NAME}`,
             })
+          }
+
+          // Jobs: if that was the last pending todo on the board, offload a
+          // celebration email to the background queue instead of sending it
+          // inline here (see `celebrateBoardComplete` above).
+          const stillPending = await ctx.db
+            .select()
+            .from(schema.todos)
+            .where(
+              and(eq(schema.todos.boardId, todo.boardId), eq(schema.todos.done, false)),
+            )
+            .all()
+          if (stillPending.length === 0) {
+            await ctx.jobs.enqueue(
+              'celebrateBoardComplete',
+              { boardId: todo.boardId },
+              { dedupeKey: `board-complete:${todo.boardId}` },
+            )
           }
 
           return { ok: true }
