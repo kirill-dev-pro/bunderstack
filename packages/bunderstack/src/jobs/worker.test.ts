@@ -47,6 +47,7 @@ test('tick claims and runs a pending job to succeeded', async () => {
   const seen: unknown[] = []
   const defs: JobsDefs = {
     greet: {
+      kind: 'job',
       input: z.object({ name: z.string() }),
       handler: async (input) => {
         seen.push(input)
@@ -67,12 +68,14 @@ test('handler ctx includes the jobs facade (jobs can enqueue jobs)', async () =>
   const ran: string[] = []
   const defs: JobsDefs = {
     first: {
+      kind: 'job',
       handler: async (_input, ctx) => {
         ran.push('first')
         await ctx.jobs.enqueue('second')
       },
     },
     second: {
+      kind: 'job',
       handler: async () => {
         ran.push('second')
       },
@@ -90,6 +93,7 @@ test('failure retries with backoff, then fails and fires onFailed', async () => 
   let failed: { error: Error } | undefined
   const defs: JobsDefs = {
     flaky: {
+      kind: 'job',
       retries: 2,
       backoff: { baseMs: 1000, factor: 2 },
       handler: async () => {
@@ -124,8 +128,8 @@ test('failure retries with backoff, then fails and fires onFailed', async () => 
   expect(failed?.error.message).toContain('boom 3')
 })
 
-test('non-cron jobs clear dedupeKey on terminal status; re-enqueue works', async () => {
-  const defs: JobsDefs = { ok: { handler: async () => {} } }
+test('jobs clear dedupeKey on terminal status; re-enqueue works', async () => {
+  const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const r = runner(defs)
   const a = await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'd' })
   await r.tick()
@@ -136,7 +140,7 @@ test('non-cron jobs clear dedupeKey on terminal status; re-enqueue works', async
 
 test('expired lease recovers to pending and burns the attempt', async () => {
   const defs: JobsDefs = {
-    stuck: { retries: 3, timeout: 60_000, handler: async () => {} },
+    stuck: { kind: 'job', retries: 3, timeout: 60_000, handler: async () => {} },
   }
   const r = runner(defs)
   const t0 = Date.now()
@@ -163,6 +167,7 @@ test('expired lease with exhausted attempts goes to failed and fires onFailed', 
   let failed = false
   const defs: JobsDefs = {
     stuck: {
+      kind: 'job',
       retries: 0,
       handler: async () => {},
       onFailed: async () => {
@@ -189,6 +194,7 @@ test('concurrency limits simultaneous claims of one type', async () => {
   let maxRunning = 0
   const defs: JobsDefs = {
     limited: {
+      kind: 'job',
       concurrency: 1,
       handler: async () => {
         running++
@@ -213,6 +219,7 @@ test('concurrency limits simultaneous claims of one type', async () => {
 test('malformed stored payload fails immediately without retries', async () => {
   const defs: JobsDefs = {
     typed: {
+      kind: 'job',
       input: z.object({ n: z.number() }),
       retries: 5,
       handler: async () => {},
@@ -231,31 +238,25 @@ test('malformed stored payload fails immediately without retries', async () => {
   expect(row?.attempts).toBe(1)
 })
 
-test('cron enqueues one slot per minute, dedupe collapses repeat ticks', async () => {
-  let runs = 0
+test('queue runner ignores cron definitions', async () => {
+  let cronRuns = 0
   const defs: JobsDefs = {
-    every: {
-      cron: '* * * * *',
+    scheduled: {
+      kind: 'cron',
+      schedule: '* * * * *',
       handler: async () => {
-        runs++
+        cronRuns++
       },
     },
   }
   const r = runner(defs)
-  const minute = Math.floor(Date.now() / 60_000) * 60_000
-  await r.tick(minute)
-  await r.tick(minute + 10_000) // same minute: dedupe, no second row
-  expect(runs).toBe(1)
-  const rows = await db.select().from(bunderstackJobs)
-  expect(rows).toHaveLength(1)
-  expect(rows[0]?.dedupeKey).toBe(`cron:every:${minute}`)
-  expect(rows[0]?.status).toBe('succeeded') // cron rows KEEP their dedupe key
-  await r.tick(minute + 60_000) // next minute: new slot
-  expect(runs).toBe(2)
+  await r.tick(Date.now())
+  expect(cronRuns).toBe(0)
+  expect(await db.select().from(bunderstackJobs)).toEqual([])
 })
 
 test('succeeded rows are reaped after the retention window', async () => {
-  const defs: JobsDefs = { ok: { handler: async () => {} } }
+  const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const r = runner(defs)
   const t0 = Date.now()
   await enqueueJob(db, defs, 'ok', undefined)

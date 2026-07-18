@@ -1,8 +1,5 @@
-// src/jobs/worker.ts — the in-process worker. One `tick()` is a full cycle:
-// recover expired leases → schedule cron slots → reap old succeeded rows →
-// claim and run claimable jobs (awaiting handlers, so tests drive `tick()`
-// deterministically with an injected `now`). Multiple replicas run the same
-// loop safely: claims are atomic and cron slots dedupe on a unique index.
+// src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
+// recover expired leases → reap old succeeded rows → claim and run queue jobs.
 import { and, eq, inArray, is, isNotNull, lt, lte, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
@@ -12,12 +9,9 @@ import type {
   JobsDefs,
   JobsRuntimeFacade,
 } from './define'
-import type { ParsedCron } from './cron'
 
 import { jobsTableFor } from '../internal-tables'
-import { cronMatches, parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
-import { enqueueJob } from './queue'
 
 const CLAIM_BATCH = 10
 const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
@@ -37,9 +31,9 @@ function maxAttempts(def: AnyJobDefinition): number {
   return 1 + (def.retries ?? DEFAULT_RETRIES)
 }
 
-/** Terminal-status column patch: non-cron jobs release their dedupe key. */
-function terminalPatch(def: AnyJobDefinition | undefined) {
-  return def?.cron ? {} : { dedupeKey: null }
+/** Terminal queue rows release their dedupe key. */
+function terminalPatch() {
+  return { dedupeKey: null }
 }
 
 export function createJobRunner(deps: {
@@ -51,11 +45,6 @@ export function createJobRunner(deps: {
   const { db, defs } = deps
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
-  const crons = new Map<string, ParsedCron>()
-  for (const [name, def] of Object.entries(defs)) {
-    if (def.cron) crons.set(name, parseCron(def.cron))
-  }
-
   async function fireOnFailed(
     def: AnyJobDefinition,
     payloadJson: string,
@@ -93,7 +82,7 @@ export function createJobRunner(deps: {
     for (const row of expired) {
       const def = defs[row.type]
       const error = new Error('lease expired (worker crashed or timed out)')
-      if (!def) {
+      if (!def || def.kind !== 'job') {
         await db
           .update(t)
           .set({
@@ -114,7 +103,7 @@ export function createJobRunner(deps: {
             finishedAt: now,
             lockedUntil: null,
             lastError: error.message,
-            ...terminalPatch(def),
+            ...terminalPatch(),
           })
           .where(eq(t.id, row.id))
         await fireOnFailed(def, row.payloadJson, error)
@@ -129,20 +118,6 @@ export function createJobRunner(deps: {
           })
           .where(eq(t.id, row.id))
       }
-    }
-  }
-
-  /** Enqueue the current minute's slot for every cron definition. */
-  async function scheduleCronSlots(now: number) {
-    const minute = Math.floor(now / 60_000) * 60_000
-    for (const [name, cron] of crons) {
-      if (!cronMatches(cron, minute)) continue
-      // The unique (type, dedupe_key) index collapses concurrent replicas'
-      // enqueues of the same slot into one row.
-      await enqueueJob(db, defs, name, undefined, {
-        dedupeKey: `cron:${name}:${minute}`,
-        runAt: minute,
-      })
     }
   }
 
@@ -211,7 +186,7 @@ export function createJobRunner(deps: {
           finishedAt: Date.now(),
           lockedUntil: null,
           lastError: e.message,
-          ...terminalPatch(def),
+          ...terminalPatch(),
         })
         .where(eq(t.id, row.id))
       await fireOnFailed(def, row.payloadJson, e)
@@ -225,7 +200,7 @@ export function createJobRunner(deps: {
           status: 'succeeded',
           finishedAt: Date.now(),
           lockedUntil: null,
-          ...terminalPatch(def),
+          ...terminalPatch(),
         })
         .where(eq(t.id, row.id))
     } catch (err) {
@@ -248,7 +223,7 @@ export function createJobRunner(deps: {
             finishedAt: Date.now(),
             lockedUntil: null,
             lastError: e.message,
-            ...terminalPatch(def),
+            ...terminalPatch(),
           })
           .where(eq(t.id, row.id))
         await fireOnFailed(def, row.payloadJson, e)
@@ -258,7 +233,9 @@ export function createJobRunner(deps: {
 
   async function runClaimable(now: number) {
     const work: Promise<void>[] = []
-    for (const [type, def] of Object.entries(defs)) {
+    for (const [type, candidate] of Object.entries(defs)) {
+      if (candidate.kind !== 'job') continue
+      const def = candidate
       let limit = CLAIM_BATCH
       if (def.concurrency !== undefined) {
         const runningRows = await db
@@ -279,7 +256,6 @@ export function createJobRunner(deps: {
   return {
     async tick(now: number = Date.now()) {
       await recoverExpiredLeases(now)
-      await scheduleCronSlots(now)
       await reapSucceeded(now)
       await runClaimable(now)
     },

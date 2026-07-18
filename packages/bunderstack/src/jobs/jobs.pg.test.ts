@@ -42,6 +42,7 @@ test('pg: enqueue, claim, run to succeeded', async () => {
   const seen: unknown[] = []
   const defs: JobsDefs = {
     greet: {
+      kind: 'job',
       input: z.object({ name: z.string() }),
       handler: async (input) => {
         seen.push(input)
@@ -61,7 +62,7 @@ test('pg: enqueue, claim, run to succeeded', async () => {
 })
 
 test('pg: dedupe key collapses duplicate enqueues', async () => {
-  const defs: JobsDefs = { ok: { handler: async () => {} } }
+  const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const a = await enqueueJob(db as never, defs, 'ok', undefined, {
     dedupeKey: 'pg-once',
   })
@@ -75,6 +76,7 @@ test('pg: failure retries then fails with onFailed', async () => {
   let failed = false
   const defs: JobsDefs = {
     flaky: {
+      kind: 'job',
       retries: 1,
       backoff: { baseMs: 10, factor: 1 },
       handler: async () => {
