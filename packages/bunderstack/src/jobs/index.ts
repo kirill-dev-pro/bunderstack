@@ -30,4 +30,9 @@ export { buildCronRouter } from './cron-router'
 export { signScheduleRequest, verifyScheduleRequest } from './cron-auth'
 export { startJobWorker } from './runtime'
 export type { StartWorkerOptions, RunWorkerOptions, WorkerHandle } from './runtime'
+export { startLocalCronScheduler } from './local-cron'
+export type {
+  LocalCronScheduler,
+  LocalCronSchedulerOptions,
+} from './local-cron'
 export { parseCron, cronMatches } from './cron'

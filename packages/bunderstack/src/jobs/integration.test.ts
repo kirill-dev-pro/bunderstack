@@ -75,6 +75,47 @@ test('tRPC ctx exposes the jobs facade', async () => {
   expect(res.status).toBe(200)
 })
 
+test('explicit local cron scheduler runs declared cron handlers', async () => {
+  const runs: Date[] = []
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:' },
+    jobs: (j) =>
+      j.define({
+        everyMinute: j.cron({
+          schedule: '* * * * *',
+          handler: ({ scheduledFor }) => {
+            runs.push(scheduledFor)
+          },
+        }),
+      }),
+  })
+  await provision(app, { force: true })
+
+  const scheduler = await app.startCronScheduler()
+  expect(runs).toHaveLength(1)
+  expect(runs[0]!.getTime() % 60_000).toBe(0)
+
+  await scheduler.close()
+  await app.close()
+})
+
+test('runWorker owns the application lifecycle until its signal aborts', async () => {
+  const controller = new AbortController()
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:' },
+    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+  })
+  await provision(app, { force: true })
+
+  const running = app.runWorker({ signal: controller.signal, pollIntervalMs: 1 })
+  controller.abort()
+
+  await running
+  expect(app.status).toBe('closed')
+})
+
 test('an app without jobs still has a facade; enqueue throws', async () => {
   const app = await createBunderstack({
     schema: { notes },

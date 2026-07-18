@@ -414,6 +414,87 @@ functions, and `createStartAuthClient()` is the browser auth SDK.
 
 ---
 
+## Background work: jobs, workers, and cron
+
+`createBunderstack()` only constructs the application. It never starts a
+worker, scheduler, or maintenance timer implicitly. This keeps the web process
+safe to scale to zero and makes background ownership explicit.
+
+Declare durable queue jobs and platform-delivered cron tasks together:
+
+```ts
+import { z } from 'zod'
+
+const app = await createBunderstack({
+  schema,
+  jobs: (j) =>
+    j.define({
+      sendReceipt: j.job({
+        input: z.object({ orderId: z.string() }),
+        retries: 5,
+        handler: async ({ orderId }, ctx) => {
+          // durable work: use ctx.db, ctx.email, ctx.storage, ctx.jobs
+        },
+      }),
+      removeExpiredSessions: j.cron({
+        schedule: '0 * * * *', // five-field UTC cron
+        handler: async ({ scheduledFor }, ctx) => {
+          // scheduled work; it is not a queue job and cannot be enqueued
+        },
+      }),
+    }),
+})
+
+await app.jobs.enqueue('sendReceipt', { orderId: 'ord_123' })
+```
+
+`j.job()` names are the only names accepted by `app.jobs.enqueue()`. Queue
+delivery is at-least-once, so handlers should be idempotent. `j.cron()` is a
+separate contract: the hosting platform delivers matching schedule slots to
+the web application over authenticated HTTP.
+
+Run the web server and the worker as distinct processes in production:
+
+```ts
+// server.ts
+import { app } from './bunderstack'
+
+Bun.serve({ fetch: app.handler })
+```
+
+```ts
+// worker.ts
+import { app } from './bunderstack'
+
+await app.runWorker() // handles SIGINT/SIGTERM, then closes app resources
+```
+
+For embedded development, use a closeable handle instead:
+
+```ts
+const worker = await app.startWorker({ pollIntervalMs: 250 })
+// ...
+await worker.close()
+```
+
+For local standalone development only, Bunderstack can act as the clock:
+
+```ts
+const scheduler = await app.startCronScheduler()
+// ...
+await scheduler.close()
+```
+
+Production cron delivery is mounted at
+`POST /api/_bunderstack/cron/:name`. When cron tasks are declared, production
+requires `BUNDERSTACK_CRON_SECRET`; the platform signs each task name and UTC
+minute slot. Do not expose or call this endpoint from browser code. Bunderhost
+reads `app.manifest.background`: queue jobs cause a separate always-on worker
+deployment, while cron-only applications remain web-only and can still scale to
+zero between requests.
+
+---
+
 ## Client: bunderstack-query
 
 A companion TanStack Query client with full type inference from your server

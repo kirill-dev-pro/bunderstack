@@ -28,6 +28,8 @@ import {
   createJobRunner,
   buildCronRouter,
   enqueueJob,
+  runCronSlot,
+  startLocalCronScheduler,
   startJobWorker,
   validateJobsDefs,
 } from './jobs/index'
@@ -36,6 +38,8 @@ import type {
   EnqueueOptions,
   JobsDefs,
   JobsFacade,
+  LocalCronScheduler,
+  LocalCronSchedulerOptions,
   StartWorkerOptions,
   WorkerHandle,
 } from './jobs/index'
@@ -52,6 +56,29 @@ import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
 
 type AuthInstance = ReturnType<typeof createAuth>
+
+function waitForWorkerShutdown(
+  signal: AbortSignal,
+  installProcessListeners: boolean,
+): Promise<void> {
+  if (signal.aborted) return Promise.resolve()
+
+  return new Promise((resolve) => {
+    const done = () => {
+      signal.removeEventListener('abort', done)
+      if (installProcessListeners) {
+        process.removeListener('SIGINT', done)
+        process.removeListener('SIGTERM', done)
+      }
+      resolve()
+    }
+    signal.addEventListener('abort', done, { once: true })
+    if (installProcessListeners) {
+      process.once('SIGINT', done)
+      process.once('SIGTERM', done)
+    }
+  })
+}
 
 /** Default age before an unconfirmed `pending` file is treated as an orphan. */
 const DEFAULT_PENDING_TTL_MS = 30 * 60_000
@@ -74,6 +101,11 @@ export interface StorageFacade {
 }
 
 export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
+export type AppRunWorkerOptions = AppStartWorkerOptions
+export type AppStartCronSchedulerOptions = Pick<
+  LocalCronSchedulerOptions,
+  'onError'
+>
 
 /** Bucket names declared in a storage config; `string` when unknowable. */
 export type BucketNamesOf<TStorage> = TStorage extends {
@@ -105,6 +137,12 @@ export type BunderstackApp<
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>>
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
+  /** Run a queue worker until aborted, then close the application. */
+  runWorker(options?: AppRunWorkerOptions): Promise<void>
+  /** Start local delivery for declared cron tasks (for development only). */
+  startCronScheduler(
+    options?: AppStartCronSchedulerOptions,
+  ): Promise<LocalCronScheduler>
   close(): Promise<void>
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
@@ -394,6 +432,58 @@ export async function createBunderstack<
     void handle.closed.finally(unregister)
     return handle
   }
+  const startCronScheduler = async (
+    options: AppStartCronSchedulerOptions = {},
+  ): Promise<LocalCronScheduler> => {
+    const cron = Object.entries(jobsDefs ?? {}).flatMap(([name, definition]) =>
+      definition.kind === 'cron'
+        ? [{ name, schedule: definition.schedule }]
+        : [],
+    )
+    if (cron.length === 0) {
+      throw new Error('[bunderstack] no cron tasks configured')
+    }
+    if (lifecycle.status !== 'ready') {
+      throw new Error('[bunderstack] application lifecycle is closed')
+    }
+    const scheduler = startLocalCronScheduler({
+      cron,
+      onError: options.onError,
+      runSlot: async (name, slot) => {
+        await runCronSlot({
+          db,
+          defs: jobsDefs!,
+          ctx: { db: userDb, env, email, storage },
+          name,
+          slot,
+          now: Date.now(),
+        })
+      },
+    })
+    const unregister = lifecycle.add(() => scheduler.close())
+    try {
+      await scheduler.tick()
+    } catch (error) {
+      unregister()
+      await scheduler.close()
+      throw error
+    }
+    return scheduler
+  }
+  const runWorker = async (
+    options: AppRunWorkerOptions = {},
+  ): Promise<void> => {
+    const handle = await startWorker(options)
+    try {
+      const signal = options.signal
+        ? AbortSignal.any([lifecycle.signal, options.signal])
+        : lifecycle.signal
+      await waitForWorkerShutdown(signal, !options.signal)
+    } finally {
+      await handle.close()
+      await lifecycle.close()
+    }
+  }
   const trpcRouter: AnyRouter | undefined =
     typeof options.trpc === 'function'
       ? options.trpc(createTRPC<TSchema, ValidatedEnv<TEnv>>())
@@ -455,6 +545,8 @@ export async function createBunderstack<
     // as `userDb` above.
     jobs: jobs as never,
     startWorker,
+    runWorker,
+    startCronScheduler,
     close: () => lifecycle.close(),
     get status() {
       return lifecycle.status
@@ -525,6 +617,8 @@ export type {
   JobsRuntimeFacade,
   QueueJobDefinition,
   QueueJobKeys,
+  LocalCronScheduler,
+  LocalCronSchedulerOptions,
   RunWorkerOptions,
   StartWorkerOptions,
   WorkerHandle,

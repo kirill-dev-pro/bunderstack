@@ -13,7 +13,7 @@ bun add bunderstack
 import { createBunderstack } from 'bunderstack'
 import * as schema from './schema'
 
-const app = createBunderstack({
+const app = await createBunderstack({
   schema,
   auth: { emailAndPassword: { enabled: true } },
   access: {
@@ -57,8 +57,25 @@ don't throw. Then read `app.manifest`:
 process.env.BUNDERSTACK_INTROSPECT = '1'
 const { app } = await import('./src/bunderstack')
 console.log(JSON.stringify(app.manifest))
-// { dialect, tables, defaultBucket, buckets, realtime, env: { server, client } }
+// { version: 2, dialect, tables, tableMap, systemTables, background, ... }
 ```
+
+### Background runtime
+
+Declaring jobs does not start a worker. Queue jobs (`j.job()`) are processed by
+an explicit worker process:
+
+```ts
+import { app } from './bunderstack'
+
+await app.runWorker()
+```
+
+Cron tasks (`j.cron()`) are delivered by the host to
+`POST /api/_bunderstack/cron/:name`; production cron requires the injected
+`BUNDERSTACK_CRON_SECRET`. Use `await app.startCronScheduler()` only for local
+standalone development. `app.manifest.background` tells Bunderhost whether to
+deploy an always-on worker (queue jobs) or only HTTP-delivered cron (cron-only).
 
 ## Shipping TypeScript source
 
