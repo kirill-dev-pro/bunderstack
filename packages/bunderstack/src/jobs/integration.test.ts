@@ -11,7 +11,7 @@ const notes = sqliteTable('notes', {
   body: text('body').notNull(),
 })
 
-test('app.jobs enqueues, tick runs the handler with full ctx', async () => {
+test('app.jobs enqueues without implicit execution and explicit worker runs the handler', async () => {
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:' },
@@ -28,16 +28,18 @@ test('app.jobs enqueues, tick runs the handler with full ctx', async () => {
   await provision(app, { force: true })
 
   await app.jobs.enqueue('writeNote', { id: 'n1', body: 'from a job' })
-  await app.jobs.tick()
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  expect(await app.db.select().from(notes).where(eq(notes.id, 'n1'))).toEqual([])
 
-  // The wake-on-enqueue background tick races the explicit tick above: either
-  // may have claimed the job, so poll briefly instead of reading once.
+  const worker = await app.startWorker({ pollIntervalMs: 1 })
   let rows: { body: string }[] = []
   for (let i = 0; i < 50 && rows.length === 0; i++) {
     rows = await app.db.select().from(notes).where(eq(notes.id, 'n1'))
     if (rows.length === 0) await new Promise((resolve) => setTimeout(resolve, 10))
   }
+  await worker.close()
   expect(rows[0]?.body).toBe('from a job')
+  await app.close()
 
   // Type-level checks (compile-time; the expressions are never executed).
   // @ts-expect-error unknown job name

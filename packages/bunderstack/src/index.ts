@@ -22,11 +22,13 @@ import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
+import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import {
   createJobsBuilder,
   createJobRunner,
   buildCronRouter,
   enqueueJob,
+  startJobWorker,
   validateJobsDefs,
 } from './jobs/index'
 import type {
@@ -34,6 +36,8 @@ import type {
   EnqueueOptions,
   JobsDefs,
   JobsFacade,
+  StartWorkerOptions,
+  WorkerHandle,
 } from './jobs/index'
 import {
   PROVISION_INTERNALS,
@@ -51,11 +55,6 @@ type AuthInstance = ReturnType<typeof createAuth>
 
 /** Default age before an unconfirmed `pending` file is treated as an orphan. */
 const DEFAULT_PENDING_TTL_MS = 30 * 60_000
-/** How often the auto-started orphan sweep runs. */
-const SWEEP_INTERVAL_MS = 10 * 60_000
-/** How often the in-process job worker polls for claimable jobs. */
-const JOBS_POLL_INTERVAL_MS = 1000
-
 /**
  * Public storage facade exposed as `app.storage`. Object-level operations live
  * on the per-bucket adapters; this surface offers the app-wide deletes that
@@ -68,11 +67,13 @@ export interface StorageFacade {
   bucket(name: string): StorageAdapter | undefined
   /**
    * Reap stale `pending` uploads older than `olderThanMs` (default 30m). Runs
-   * automatically on an interval; exposed for manual/test invocation. Returns
+   * only when explicitly invoked by the host or local scheduler. Returns
    * the count reaped.
    */
   sweep(olderThanMs?: number): Promise<number>
 }
+
+export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
 
 /** Bucket names declared in a storage config; `string` when unknowable. */
 export type BucketNamesOf<TStorage> = TStorage extends {
@@ -103,6 +104,10 @@ export type BunderstackApp<
   email: EmailFacade
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>>
+  startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
+  close(): Promise<void>
+  readonly status: LifecycleStatus
+  readonly signal: AbortSignal
   /** Deploy-time introspection: what this app needs provisioned. */
   manifest: BunderstackManifest
   /**
@@ -322,6 +327,7 @@ export async function createBunderstack<
       })
     : undefined
   const registry = createBucketStorages(config.storage)
+  const lifecycle = new Lifecycle()
   const storageRouter = buildBucketStorageRouter({
     registry,
     db,
@@ -345,12 +351,6 @@ export async function createBunderstack<
       return sweepOrphans(registry, db, olderThanMs)
     },
   }
-  // Auto-reap orphaned `pending` uploads. `unref()` keeps this from holding the
-  // process (and test runners) open.
-  const sweepTimer = setInterval(() => {
-    void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
-  }, SWEEP_INTERVAL_MS)
-  sweepTimer.unref?.()
   const jobRunner = jobsDefs
     ? createJobRunner({
         db,
@@ -366,8 +366,6 @@ export async function createBunderstack<
         )
       }
       const result = await enqueueJob(db, jobsDefs, name, input, opts)
-      // Wake the local worker so same-process jobs start without poll latency.
-      if (jobRunner && !introspect) void jobRunner.tick().catch(() => {})
       return result
     },
     tick(now?: number) {
@@ -375,11 +373,26 @@ export async function createBunderstack<
     },
   }
   if (jobRunner) jobRunner.setJobsFacade(jobs)
-  if (jobRunner && !introspect) {
-    const jobsTimer = setInterval(() => {
-      void jobRunner.tick().catch(() => {})
-    }, JOBS_POLL_INTERVAL_MS)
-    jobsTimer.unref?.()
+  const startWorker = async (
+    options: AppStartWorkerOptions = {},
+  ): Promise<WorkerHandle> => {
+    if (!jobRunner) {
+      throw new Error('[bunderstack] no queue jobs configured')
+    }
+    if (lifecycle.status !== 'ready') {
+      throw new Error('[bunderstack] application lifecycle is closed')
+    }
+    const signal = options.signal
+      ? AbortSignal.any([lifecycle.signal, options.signal])
+      : lifecycle.signal
+    const handle = startJobWorker({
+      ...options,
+      signal,
+      tick: (now) => jobRunner.tick(now),
+    })
+    const unregister = lifecycle.add(() => handle.close())
+    void handle.closed.finally(unregister)
+    return handle
   }
   const trpcRouter: AnyRouter | undefined =
     typeof options.trpc === 'function'
@@ -441,6 +454,12 @@ export async function createBunderstack<
     // narrows `enqueue` per-app from the declared job defs — same relationship
     // as `userDb` above.
     jobs: jobs as never,
+    startWorker,
+    close: () => lifecycle.close(),
+    get status() {
+      return lifecycle.status
+    },
+    signal: lifecycle.signal,
     trpcRouter,
     manifest: buildManifest({
       schema: options.schema,
@@ -506,6 +525,9 @@ export type {
   JobsRuntimeFacade,
   QueueJobDefinition,
   QueueJobKeys,
+  RunWorkerOptions,
+  StartWorkerOptions,
+  WorkerHandle,
 } from './jobs/index'
 export {
   defineAccess,
