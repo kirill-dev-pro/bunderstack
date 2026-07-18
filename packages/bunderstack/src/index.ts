@@ -496,7 +496,7 @@ export type {
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
 export { buildManifest } from './manifest'
-export type { BunderstackManifest, ManifestEnvVar, ManifestJob } from './manifest'
+export type { BunderstackManifest, ManifestEnvVar } from './manifest'
 export { createEmail } from './email'
 export type {
   EmailMessage,

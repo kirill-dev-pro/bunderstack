@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { buildManifest } from './manifest'
 import { resolveBuckets } from './storage/buckets'
 
-const posts = sqliteTable('posts', {
+const posts = sqliteTable('app_posts', {
   id: text('id').primaryKey(),
 })
 const schema = { posts }
@@ -36,6 +36,13 @@ test('buildManifest describes tables, buckets, env requirements', () => {
 
   expect(manifest.dialect).toBe('sqlite')
   expect(manifest.tables).toEqual(['posts'])
+  expect(manifest.version).toBe(2)
+  expect(manifest.tableMap).toEqual({ posts: 'app_posts' })
+  expect(manifest.systemTables).toEqual({
+    jobs: '_bunderstack_jobs',
+    files: 'bunderstack_file_meta',
+    scheduledRuns: '_bunderstack_cron_runs',
+  })
   expect(manifest.defaultBucket).toBe('attachments')
   expect(manifest.buckets).toEqual([
     { name: 'avatars', visibility: 'public' },
@@ -62,10 +69,14 @@ test('buildManifest handles the zero-config app', () => {
   })
   expect(manifest.buckets).toEqual([{ name: 'default', visibility: 'private' }])
   expect(manifest.env).toEqual({ server: [], client: [] })
-  expect(manifest.jobs).toEqual([])
+  expect(manifest.background).toEqual({
+    jobs: [],
+    cron: [],
+    maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *' }],
+  })
 })
 
-test('manifest lists declared jobs with their cron schedules', () => {
+test('manifest separates queue jobs from cron schedules', () => {
   const manifest = buildManifest({
     schema,
     dialect: 'sqlite',
@@ -81,13 +92,14 @@ test('manifest lists declared jobs with their cron schedules', () => {
       },
     },
   })
-  expect(manifest.jobs).toEqual([
-    { name: 'generateLook' },
-    { name: 'nightly', cron: '0 3 * * *' },
-  ])
+  expect(manifest.background).toEqual({
+    jobs: [{ name: 'generateLook' }],
+    cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
+    maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *' }],
+  })
 })
 
-test('manifest jobs is empty when no jobs are configured', () => {
+test('manifest background is empty except maintenance when no jobs are configured', () => {
   const manifest = buildManifest({
     schema,
     dialect: 'sqlite',
@@ -96,5 +108,6 @@ test('manifest jobs is empty when no jobs are configured', () => {
     realtime: false,
     jobs: undefined,
   })
-  expect(manifest.jobs).toEqual([])
+  expect(manifest.background.jobs).toEqual([])
+  expect(manifest.background.cron).toEqual([])
 })
