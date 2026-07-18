@@ -80,6 +80,37 @@ function sub(
 }
 
 describe('redis realtime broker', () => {
+  it('does not subscribe until realtime is explicitly started', async () => {
+    const redis = makeFakeRedis()
+    let subscriptions = 0
+    const subscribe = redis.subscribe.bind(redis)
+    redis.subscribe = async (channel, listener) => {
+      subscriptions++
+      return subscribe(channel, listener)
+    }
+
+    const broker = createRedisRealtimeBroker({ access, redis })
+    expect(subscriptions).toBe(0)
+
+    await broker.start()
+    expect(subscriptions).toBe(1)
+  })
+
+  it('does not construct a Redis client until realtime starts', async () => {
+    let created = 0
+    const broker = createRedisRealtimeBroker({
+      access,
+      redis: () => {
+        created++
+        return makeFakeRedis()
+      },
+    })
+
+    expect(created).toBe(0)
+    await broker.start()
+    expect(created).toBe(1)
+  })
+
   it('publish() resolves (never rejects) when redis incr/lpush throws', async () => {
     // Regression guard for Fix A: a redis network blip must not produce an
     // unhandledRejection that can crash the process. The broker is called with
@@ -101,7 +132,7 @@ describe('redis realtime broker', () => {
       },
     }
     const broker = createRedisRealtimeBroker({ access, redis: failingRedis })
-    await broker.ready
+    await broker.start()
     // Must resolve, not reject — even though incr() throws.
     await expect(
       broker.publish('boards', 'create', {
@@ -114,7 +145,7 @@ describe('redis realtime broker', () => {
 
   it('fans out a published event to a same-org subscriber with a monotonic eventId', async () => {
     const broker = createRedisRealtimeBroker({ access, redis: makeFakeRedis() })
-    await broker.ready
+    await broker.start()
     const a = sub(broker, 'org_1', ['boards'])
     await broker.publish('boards', 'create', {
       id: 'b1',
@@ -133,7 +164,7 @@ describe('redis realtime broker', () => {
 
   it('does NOT fan out cross-org events', async () => {
     const broker = createRedisRealtimeBroker({ access, redis: makeFakeRedis() })
-    await broker.ready
+    await broker.start()
     const a = sub(broker, 'org_1', ['boards'])
     await broker.publish('boards', 'create', {
       id: 'b2',
@@ -146,7 +177,7 @@ describe('redis realtime broker', () => {
   it('replays buffered events from the redis log on reconnect (since)', async () => {
     const redis = makeFakeRedis()
     const broker = createRedisRealtimeBroker({ access, redis, bufferSize: 10 })
-    await broker.ready
+    await broker.start()
     await broker.publish('boards', 'create', {
       id: 'b1',
       organizationId: 'org_1',

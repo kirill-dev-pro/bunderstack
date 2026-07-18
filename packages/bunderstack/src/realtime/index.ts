@@ -35,6 +35,8 @@ type RealtimeContextBody = {
 }
 
 export type RealtimeBroker = {
+  start(): Promise<void>
+  close(): Promise<void>
   register(send: (data: string) => void): { id: string }
   setContext(
     id: string,
@@ -101,7 +103,8 @@ export function buildRealtimeRouter(
     let keepalive: ReturnType<typeof setInterval>
 
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
+        await broker.start()
         const send = (data: string) =>
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
         handle = broker.register(send)
@@ -183,6 +186,8 @@ export function createRealtimeBroker(opts: {
   }
 
   return {
+    async start() {},
+    async close() {},
     register(send) {
       const id = crypto.randomUUID()
       subscribers.set(id, {

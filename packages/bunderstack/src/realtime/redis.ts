@@ -27,6 +27,7 @@ export type RedisLike = {
   lpush(key: string, value: string): Promise<unknown>
   ltrim(key: string, start: number, stop: number): Promise<unknown>
   lrange(key: string, start: number, stop: number): Promise<string[]>
+  close?(): void | Promise<void>
 }
 
 type Subscriber = {
@@ -86,15 +87,22 @@ function parseWireEvent(raw: string): WireEvent | null {
 
 export function createRedisRealtimeBroker(opts: {
   access: ResolvedAccess
-  redis: RedisLike
+  /** A factory keeps Redis completely cold until SSE or a publish needs it. */
+  redis: RedisLike | (() => RedisLike)
   bufferSize?: number
   channel?: string
-}): RealtimeBroker & { ready: Promise<void> } {
+}): RealtimeBroker {
   const subscribers = new Map<string, Subscriber>()
   const bufferSize = opts.bufferSize ?? 1000
   const channel = opts.channel ?? 'bunderstack:realtime'
   const logKey = `${channel}:log`
   const counterKey = `${channel}:seq`
+  let redis: RedisLike | undefined
+
+  const getRedis = () => {
+    redis ??= typeof opts.redis === 'function' ? opts.redis() : opts.redis
+    return redis
+  }
 
   function deliverable(
     s: Subscriber,
@@ -128,16 +136,27 @@ export function createRedisRealtimeBroker(opts: {
     }
   }
 
-  // Subscribe once; all local delivery happens here.
-  const ready = opts.redis
-    .subscribe(channel, (message) => {
-      const evt = parseWireEvent(message)
-      if (evt) fanOut(evt)
-    })
-    .then(() => undefined)
+  let started: Promise<void> | undefined
+  let closed = false
+
+  const start = () => {
+    if (closed) return Promise.reject(new Error('[bunderstack] realtime broker is closed'))
+    started ??= getRedis()
+      .subscribe(channel, (message) => {
+        const evt = parseWireEvent(message)
+        if (evt) fanOut(evt)
+      })
+      .then(() => undefined)
+    return started
+  }
 
   return {
-    ready,
+    start,
+    async close() {
+      closed = true
+      subscribers.clear()
+      await redis?.close?.()
+    },
     register(send) {
       const id = crypto.randomUUID()
       subscribers.set(id, {
@@ -164,7 +183,7 @@ export function createRedisRealtimeBroker(opts: {
       // to a full refetch rather than 500-ing the POST handler.
       let raw: string[]
       try {
-        raw = await opts.redis.lrange(logKey, 0, bufferSize - 1)
+        raw = await getRedis().lrange(logKey, 0, bufferSize - 1)
       } catch {
         return { gap: true }
       }
@@ -187,12 +206,13 @@ export function createRedisRealtimeBroker(opts: {
     async publish(table, action, record) {
       if (!tableEntry(opts.access, table)) return
       try {
-        const eventId = await opts.redis.incr(counterKey)
+        const client = getRedis()
+        const eventId = await client.incr(counterKey)
         const evt: WireEvent = { eventId, table, action, record }
         const msg = JSON.stringify(evt)
-        await opts.redis.lpush(logKey, msg)
-        await opts.redis.ltrim(logKey, 0, bufferSize - 1)
-        await opts.redis.publish(channel, msg)
+        await client.lpush(logKey, msg)
+        await client.ltrim(logKey, 0, bufferSize - 1)
+        await client.publish(channel, msg)
       } catch {
         // Broadcast is best-effort: a redis blip must not reject the floating
         // promise (callers use `void broker?.publish(...)` with no .catch).

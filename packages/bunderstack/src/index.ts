@@ -322,7 +322,7 @@ export async function createBunderstack<
     ? redisUrl
       ? createRedisRealtimeBroker({
           access: resolvedAccess,
-          redis: (() => {
+          redis: () => {
             // Redis pub/sub requires a dedicated connection (subscribe puts the client into
             // a restricted state). We use one client for commands and a second for subscribe.
             const cmdClient = new Bun.RedisClient(redisUrl)
@@ -339,8 +339,12 @@ export async function createBunderstack<
                 cmdClient.ltrim(key, start, stop),
               lrange: (key: string, start: number, stop: number) =>
                 cmdClient.lrange(key, start, stop),
+              close: () => {
+                cmdClient.close()
+                subClient.close()
+              },
             }
-          })(),
+          },
           bufferSize: realtimeBufferSize,
         })
       : createRealtimeBroker({
@@ -365,6 +369,7 @@ export async function createBunderstack<
     : undefined
   const registry = createBucketStorages(config.storage)
   const lifecycle = new Lifecycle()
+  if (broker) lifecycle.add(() => broker.close())
   const storageRouter = buildBucketStorageRouter({
     registry,
     db,
