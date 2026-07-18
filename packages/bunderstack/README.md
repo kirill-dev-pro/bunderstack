@@ -72,10 +72,12 @@ await app.runWorker()
 ```
 
 Cron tasks (`j.cron()`) are delivered by the host to
-`POST /api/_bunderstack/cron/:name`; production cron requires the injected
-`BUNDERSTACK_CRON_SECRET`. Use `await app.startCronScheduler()` only for local
-standalone development. `app.manifest.background` tells Bunderhost whether to
-deploy an always-on worker (queue jobs) or only HTTP-delivered cron (cron-only).
+`POST /api/_bunderstack/cron/:name`; storage maintenance uses
+`POST /api/_bunderstack/maintenance/storage-sweep`. Production requires the
+injected `BUNDERSTACK_CRON_SECRET`. Use `await app.startCronScheduler()` only
+for local standalone development. `app.manifest.background` tells Bunderhost
+whether to deploy an always-on worker (queue jobs) or only HTTP-delivered cron
+(cron-only).
 
 ## Shipping TypeScript source
 

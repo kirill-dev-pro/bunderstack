@@ -27,7 +27,7 @@ export function buildHandler(parts: HandlerParts): {
   app.route('/api', parts.crudRouter)
 
   if (parts.cronRouter) {
-    app.route('/api/_bunderstack/cron', parts.cronRouter)
+    app.route('/api/_bunderstack', parts.cronRouter)
   }
 
   if (parts.authHandler) {

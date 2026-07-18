@@ -264,16 +264,15 @@ export async function createBunderstack<
       : (options.jobs as JobsDefs)
     : undefined
   if (jobsDefs) validateJobsDefs(jobsDefs)
-  const cronConfigured = Object.values(jobsDefs ?? {}).some(
-    (definition) => definition.kind === 'cron',
-  )
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream (config, email, trpc ctx) consumes the result.
   const env = validateEnv(options.env, {
     emailProvider: emailProviderTag(options.email),
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-    cronConfigured,
+    // Storage orphan cleanup is also a signed platform schedule, so every
+    // production app has scheduled delivery even without user-defined cron.
+    cronConfigured: true,
   })
   const config = resolveConfig(options, env)
   // Introspection mode (BUNDERSTACK_INTROSPECT=1): deployment platforms import
@@ -505,10 +504,10 @@ export async function createBunderstack<
         })
     : undefined
   const cronRouter =
-    jobsDefs && env.BUNDERSTACK_CRON_SECRET
+    env.BUNDERSTACK_CRON_SECRET
       ? buildCronRouter({
           db,
-          defs: jobsDefs,
+          defs: jobsDefs ?? {},
           ctx: { db: userDb, env, email, storage },
           secret: env.BUNDERSTACK_CRON_SECRET,
           storage,

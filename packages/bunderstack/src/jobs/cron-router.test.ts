@@ -35,7 +35,7 @@ function router(defs: BackgroundDefs, now: number) {
 
 test('rejects a request without a schedule signature', async () => {
   const app = router({}, Date.UTC(2026, 6, 18, 12, 0))
-  const response = await app.request('http://localhost/hourly', { method: 'POST' })
+  const response = await app.request('http://localhost/cron/hourly', { method: 'POST' })
   expect(response.status).toBe(401)
 })
 
@@ -63,18 +63,52 @@ test('runs a signed cron slot once and returns duplicate on repeat delivery', as
     ),
   }
 
-  const first = await app.request('http://localhost/hourly', {
+  const first = await app.request('http://localhost/cron/hourly', {
     method: 'POST',
     headers,
   })
   expect(first.status).toBe(200)
   await expect(first.json()).resolves.toEqual({ status: 'succeeded' })
 
-  const second = await app.request('http://localhost/hourly', {
+  const second = await app.request('http://localhost/cron/hourly', {
     method: 'POST',
     headers,
   })
   expect(second.status).toBe(200)
   await expect(second.json()).resolves.toEqual({ status: 'duplicate' })
   expect(calls).toBe(1)
+})
+
+test('runs signed storage maintenance once per schedule slot', async () => {
+  const slot = Date.UTC(2026, 6, 18, 4, 0)
+  let sweeps = 0
+  const app = buildCronRouter({
+    db,
+    defs: {},
+    ctx: {},
+    secret: 'secret',
+    storage: { sweep: async () => { sweeps++ } },
+    now: () => slot,
+  })
+  const headers = {
+    'X-Bunderstack-Cron-Slot': String(slot),
+    'X-Bunderstack-Cron-Signature': signScheduleRequest(
+      'secret',
+      'maintenance:storage-sweep',
+      slot,
+    ),
+  }
+
+  const first = await app.request('http://localhost/maintenance/storage-sweep', {
+    method: 'POST',
+    headers,
+  })
+  const second = await app.request('http://localhost/maintenance/storage-sweep', {
+    method: 'POST',
+    headers,
+  })
+
+  expect(first.status).toBe(200)
+  expect(second.status).toBe(200)
+  expect(sweeps).toBe(1)
 })

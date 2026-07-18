@@ -486,9 +486,10 @@ await scheduler.close()
 ```
 
 Production cron delivery is mounted at
-`POST /api/_bunderstack/cron/:name`. When cron tasks are declared, production
-requires `BUNDERSTACK_CRON_SECRET`; the platform signs each task name and UTC
-minute slot. Do not expose or call this endpoint from browser code. Bunderhost
+`POST /api/_bunderstack/cron/:name`; storage maintenance is at
+`POST /api/_bunderstack/maintenance/storage-sweep`. Production requires
+`BUNDERSTACK_CRON_SECRET`; the platform signs each task name and UTC minute
+slot. Do not expose or call these endpoints from browser code. Bunderhost
 reads `app.manifest.background`: queue jobs cause a separate always-on worker
 deployment, while cron-only applications remain web-only and can still scale to
 zero between requests.

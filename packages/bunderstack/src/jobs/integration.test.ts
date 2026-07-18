@@ -116,6 +116,33 @@ test('runWorker owns the application lifecycle until its signal aborts', async (
   expect(app.status).toBe('closed')
 })
 
+test('storage maintenance endpoint is mounted without user job declarations', async () => {
+  const previous = process.env.BUNDERSTACK_CRON_SECRET
+  process.env.BUNDERSTACK_CRON_SECRET = 'test-secret'
+  try {
+    const app = await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:' },
+    })
+    await provision(app, { force: true })
+    const slot = Math.floor(Date.now() / 60_000) * 60_000
+    const response = await app.handler(
+      new Request('http://localhost/api/_bunderstack/maintenance/storage-sweep', {
+        method: 'POST',
+        headers: {
+          'X-Bunderstack-Cron-Slot': String(slot),
+          'X-Bunderstack-Cron-Signature': 'sha256=invalid',
+        },
+      }),
+    )
+    expect(response.status).toBe(401)
+    await app.close()
+  } finally {
+    if (previous === undefined) delete process.env.BUNDERSTACK_CRON_SECRET
+    else process.env.BUNDERSTACK_CRON_SECRET = previous
+  }
+})
+
 test('an app without jobs still has a facade; enqueue throws', async () => {
   const app = await createBunderstack({
     schema: { notes },
