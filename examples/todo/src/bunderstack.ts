@@ -77,9 +77,8 @@ export const app = await createBunderstack({
   // The client subscribes via createRealtimeClient (see router.tsx).
   realtime: true,
 
-  // Background jobs + cron: a DB-backed queue with an in-process worker.
-  // `app.jobs` / `ctx.jobs` enqueue; both definitions below run on the same
-  // poll loop bunderstack starts automatically when the app boots.
+  // Background work is declarative. Queue jobs run in an explicit worker
+  // process; production cron is delivered by Bunderhost over signed HTTP.
   jobs: (j) =>
     j.define({
       /** Enqueued from `trpc.complete` below once a board has no pending
@@ -115,17 +114,17 @@ export const app = await createBunderstack({
         },
       }),
 
-      /** Cron: sweeps todos that have been done for a while. Every app
-       *  instance evaluates this on its poll loop; a shared dedupe key per
-       *  minute-slot means it still fires exactly once even with multiple
-       *  replicas. Note: this runs a raw `ctx.db.delete`, which bypasses
+      /** Cron: sweeps todos that have been done for a while. Bunderhost
+       *  delivers the UTC schedule slot to the web process. Note: this runs a raw `ctx.db.delete`, which bypasses
        *  the CRUD router — unlike every other write in this app, it does
        *  NOT broadcast over realtime, so archived todos disappear on next
        *  reload rather than live. */
-      archiveDoneTodos: j.job({
-        cron: '* * * * *',
-        handler: async (_input, ctx) => {
-          const cutoff = new Date(Date.now() - ARCHIVE_DONE_TODOS_AFTER_MS)
+      archiveDoneTodos: j.cron({
+        schedule: '* * * * *',
+        handler: async ({ scheduledFor }, ctx) => {
+          const cutoff = new Date(
+            scheduledFor.getTime() - ARCHIVE_DONE_TODOS_AFTER_MS,
+          )
           await ctx.db
             .delete(schema.todos)
             .where(and(eq(schema.todos.done, true), lt(schema.todos.completedAt, cutoff)))

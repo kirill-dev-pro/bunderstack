@@ -1,0 +1,67 @@
+---
+title: Background jobs and cron
+description: Explicit queue workers and platform-delivered schedules
+---
+
+# Background jobs and cron
+
+Background execution is declared with the app but never starts as a side effect
+of `createBunderstack()`. This is intentional: the web server can scale to
+zero, while durable work has a clearly owned process.
+
+```ts
+const app = await createBunderstack({
+  schema,
+  jobs: (j) => j.define({
+    sendEmail: j.job({
+      input: z.object({ userId: z.string() }),
+      retries: 3,
+      handler: async ({ userId }, ctx) => {
+        // ctx.db, ctx.email, ctx.storage, ctx.jobs, and ctx.env
+      },
+    }),
+    dailyReport: j.cron({
+      schedule: '0 9 * * 1-5',
+      handler: async ({ scheduledFor }, ctx) => {},
+    }),
+  }),
+})
+
+await app.jobs.enqueue('sendEmail', { userId: 'usr_123' })
+```
+
+`j.job()` is durable queue work and is the only declaration accepted by
+`app.jobs.enqueue()`. Delivery is at-least-once: make handlers idempotent.
+
+Run queue work as its own process:
+
+```ts
+// worker.ts
+import { app } from './bunderstack'
+
+await app.runWorker()
+```
+
+`runWorker()` handles `SIGINT` and `SIGTERM` then closes app resources. For an
+embedded dev process, use `const worker = await app.startWorker()` and later
+`await worker.close()`.
+
+## Cron is not a worker
+
+`j.cron()` uses a five-field UTC schedule. In production Bunderhost owns the
+clock and sends a signed request to
+`POST /api/_bunderstack/cron/:name`, waking a scale-to-zero web application as
+needed. It does not create an always-on worker.
+
+For local standalone development only:
+
+```ts
+const scheduler = await app.startCronScheduler()
+// await scheduler.close() during shutdown
+```
+
+Long cron work should enqueue a queue job and return quickly. Bunderhost reads
+`app.manifest.background`: any queue job creates one always-on worker Machine;
+cron-only applications remain web-only. Preview background delivery is disabled
+by default. `BUNDERSTACK_CRON_SECRET` is injected by the platform in production
+and must never be exposed to clients.

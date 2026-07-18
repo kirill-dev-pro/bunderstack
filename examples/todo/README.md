@@ -6,6 +6,7 @@ your boards, and a board page whose URL doubles as the invite link.
 ```sh
 bun install
 bun run dev   # http://localhost:3005
+bun run worker # a second terminal: processes queued jobs
 ```
 
 Pick a username, create a board, and share its link — the board's typeid is
@@ -25,8 +26,8 @@ at all.
 | **tRPC** | `trpc` key in `src/bunderstack.ts` | `myBoards`/`createBoard` keep board ownership server-side, `stats` aggregates per board, `complete` mixes DB + email. All inferred on the client; superjson preserves Dates. |
 | **File storage** | `storage` key | The 📎 button uploads to the `images` bucket (local disk in dev, S3 in prod). Thumbnails are resized on the fly by sharp via `?w=80&format=webp`. |
 | **Realtime SSE** | [`src/router.tsx`](src/router.tsx) | `createRealtimeClient` patches the query cache on every write. Open the same board in two windows — todos stay in sync as collaborators add and toggle them. |
-| **Background jobs** | `jobs` key in [`src/bunderstack.ts`](src/bunderstack.ts) | Finishing a board's last todo (via **✅ Done**) enqueues `celebrateBoardComplete` — a retried, offloaded celebration email — instead of sending it inline. Watch the terminal. |
-| **Cron** | `jobs` key in [`src/bunderstack.ts`](src/bunderstack.ts) | `archiveDoneTodos` runs every minute and deletes todos done for more than 2 minutes (tuned short for the demo — a real app would use days, not minutes). |
+| **Background jobs** | `jobs` key + [`src/worker.ts`](src/worker.ts) | Finishing a board's last todo (via **✅ Done**) enqueues `celebrateBoardComplete` — a retried, offloaded celebration email. Run `bun run worker` in a second terminal to process it. |
+| **Cron** | `j.cron()` in [`src/bunderstack.ts`](src/bunderstack.ts) | `archiveDoneTodos` runs every minute and deletes todos done for more than 2 minutes (tuned short for the demo — a real app would use days, not minutes). In production Bunderhost invokes it by signed HTTP. |
 
 ## Notes
 
@@ -43,3 +44,8 @@ at all.
   live. Any write that needs to show up instantly should go through
   auto-CRUD or a tRPC procedure that touches the same tables the client
   subscribes to.
+- **Local cron**: Bunderhost owns the production clock. To see this example's
+  cron locally, start the application and run
+  `await app.startCronScheduler()` from a development-only entry point. Queue
+  jobs and cron are deliberately separate: long scheduled work should enqueue
+  a queue job instead of blocking the signed HTTP request.

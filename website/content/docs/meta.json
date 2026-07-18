@@ -9,6 +9,7 @@
     "trpc",
     "email",
     "env",
+    "background-jobs",
     "storage",
     "thumbnails",
     "query-client",

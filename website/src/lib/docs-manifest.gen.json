@@ -75,6 +75,14 @@
           "$ref": "env.mdx"
         },
         {
+          "$id": "background-jobs.mdx",
+          "type": "page",
+          "name": "Background jobs and cron",
+          "description": "Explicit queue workers and platform-delivered schedules",
+          "url": "/docs/background-jobs",
+          "$ref": "background-jobs.mdx"
+        },
+        {
           "$id": "storage.mdx",
           "type": "page",
           "name": "Storage",
@@ -128,6 +136,7 @@
   "paths": {
     "api-reference": "api-reference.mdx",
     "auth": "auth.mdx",
+    "background-jobs": "background-jobs.mdx",
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
     "email": "email.mdx",

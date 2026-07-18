@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --bun vite dev --port 3005",
+    "worker": "bun src/worker.ts",
     "build": "vite build"
   },
   "dependencies": {

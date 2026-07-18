@@ -23,10 +23,15 @@ await createBunderstack({
     readonlyColumns?: string[],
   }>,
   auth?: BetterAuthConfig, // native BetterAuth options (except database) — see better-auth.com/docs
-  storage?: { local: string | true } | { s3: true | { endpoint?: string } },
-  storageOptions?: {
-    uploadRules?: { allowedMimeTypes?: string[], maxSizeBytes?: number },
-    access?: { create?: string, get?: string, delete?: string },
+  storage?: {
+    local?: string | true,
+    s3?: true | { endpoint?: string },
+    defaultBucket?: string,
+    buckets?: Record<string, {
+      upload?: { maxSize?: string | number, accept?: string[] },
+      transforms?: boolean,
+      access?: { create?: OperationRule, get?: OperationRule, delete?: OperationRule },
+    }>,
   },
   email?: {
     from: string,
@@ -42,6 +47,7 @@ await createBunderstack({
   rateLimit?: boolean | RateLimitConfig,
   idempotency?: boolean | IdempotencyConfig,
   realtime?: boolean | { keepaliveMs?: number; bufferSize?: number; redis?: … },
+  jobs?: (j: BunderstackJobsBuilder) => JobsDefs,
 })
 ```
 
@@ -78,3 +84,4 @@ A URL that contradicts the schema's dialect throws a clear error at startup.
 | `S3_ACCESS_KEY_ID`     | —                | S3 access key                              |
 | `S3_SECRET_ACCESS_KEY` | —                | S3 secret                                  |
 | `S3_ENDPOINT`          | —                | Custom endpoint for R2 / MinIO             |
+| `BUNDERSTACK_CRON_SECRET` | —              | Required in production for signed scheduled delivery |
