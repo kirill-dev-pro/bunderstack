@@ -19,6 +19,9 @@
 - Cron handlers are at-least-once and must be documented as idempotent.
 - Preview policy belongs to Bunderhost; the library exposes capabilities without detecting preview environments.
 - Manifest v2 is intentionally breaking; no manifest-v1 compatibility layer is required.
+- Manifest v2 is also the Bunderhost Project Explorer allow-list: it must expose
+  logical application keys through `tableMap` and all platform physical names
+  through `systemTables`; the manifest never contains values or credentials.
 
 ---
 
@@ -792,6 +795,12 @@ Assert this exact background structure:
 ```ts
 expect(manifest).toMatchObject({
   version: 2,
+  tableMap: { todos: 'app_todos' },
+  systemTables: {
+    jobs: '_bunderstack_jobs',
+    files: 'bunderstack_file_meta',
+    scheduledRuns: '_bunderstack_cron_runs',
+  },
   background: {
     jobs: [{ name: 'generateLook' }],
     cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
@@ -823,6 +832,12 @@ export type BunderstackManifest = {
   version: 2
   dialect: Dialect
   tables: string[]
+  tableMap: Record<string, string>
+  systemTables: {
+    jobs: string
+    files: string
+    scheduledRuns: string
+  }
   defaultBucket: string
   buckets: { name: string; visibility: ResolvedBucket['visibility'] }[]
   realtime: boolean
@@ -835,8 +850,14 @@ export type BunderstackManifest = {
 }
 ```
 
-Partition definitions by `kind`. Include daily storage sweep only when storage
-has at least one resolved bucket. Export the new manifest member types.
+Create `tableMap` with `isTable` and `getTableName` from `drizzle-orm`: only
+schema entries satisfying `isTable(value)` become `[logicalKey, physicalName]`.
+Keep `tables` as the schema-key list. Resolve `systemTables.jobs` and
+`systemTables.files` from the SQLite internal table definitions with
+`getTableName`; resolve `systemTables.scheduledRuns` from the cron-run table
+added in Task 4. Partition definitions by `kind`. Include daily storage sweep
+only when storage has at least one resolved bucket. Export the new manifest
+member types.
 
 - [ ] **Step 5: Implement local scheduling**
 

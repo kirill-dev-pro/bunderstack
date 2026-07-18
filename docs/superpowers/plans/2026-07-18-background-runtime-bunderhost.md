@@ -20,6 +20,8 @@
 - Five-field cron is evaluated by Bunderhost in UTC; Fly's fuzzy native schedule is not used.
 - Every Fly Machine must carry `metadata['bunderhost.role']` equal to `web` or `worker`.
 - Reject unsupported manifest versions before provisioning or deploying runtime resources.
+- Treat `manifest.tableMap` and `manifest.systemTables` as the sole allow-list
+  for the later Project Explorer; never reconstruct physical table names.
 
 ---
 
@@ -46,7 +48,8 @@ records the exact version.
 - [ ] **Step 2: Write manifest validation tests**
 
 Cover valid v2, missing background fields, unknown version, duplicate job/cron
-names, and invalid cron schedules. The unsupported-version assertion is:
+names, missing `tableMap`/`systemTables`, and invalid cron schedules. The
+unsupported-version assertion is:
 
 ```ts
 test('rejects a manifest version the platform does not understand', () => {
@@ -102,6 +105,21 @@ background: z.object({
 
 After Zod parsing, reject duplicate names within each collection. Call
 `parseManifest(JSON.parse(payload))` from `DockerBuilder.introspect()`.
+
+The same Zod object must require:
+
+```ts
+tableMap: z.record(z.string().min(1), z.string().min(1)),
+systemTables: z.object({
+  jobs: z.string().min(1),
+  files: z.string().min(1),
+  scheduledRuns: z.string().min(1),
+}),
+```
+
+Keep `tables` as logical schema keys. A stored manifest that lacks these fields
+is not deployable under manifest v2 and must be redeployed before Explorer
+resource routes can use it.
 
 - [ ] **Step 5: Change build result naming**
 

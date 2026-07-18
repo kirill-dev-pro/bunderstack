@@ -157,7 +157,21 @@ The manifest becomes explicitly versioned:
 ```ts
 type BunderstackManifest = {
   version: 2
-  // existing database, storage, realtime, and env fields
+  dialect: Dialect
+  // Logical schema keys retained for display and compatibility.
+  tables: string[]
+  // Only this mapping may be used to form SQL identifiers for app tables.
+  tableMap: Record<string, string>
+  // Platform-owned physical tables; no consumer may infer these names.
+  systemTables: {
+    jobs: string
+    files: string
+    scheduledRuns: string
+  }
+  defaultBucket: string
+  buckets: Array<{ name: string; visibility: 'public' | 'private' }>
+  realtime: boolean
+  env: { server: ManifestEnvVar[]; client: ManifestEnvVar[] }
   background: {
     jobs: Array<{ name: string }>
     cron: Array<{
@@ -175,7 +189,11 @@ type BunderstackManifest = {
 
 `background.jobs.length > 0` means production needs a worker Machine.
 `background.cron` drives Bunderhost HTTP schedules. Bunderhost rejects manifest
-versions it does not understand instead of guessing deployment behavior.
+versions it does not understand instead of guessing deployment behavior. The
+same manifest is the Explorer's allow-list: `tableMap` maps a logical table key
+to its physical SQL name, while `systemTables` exposes the physical queue,
+storage-metadata, and scheduled-run tables without leaking credentials or
+requiring Bunderhost to duplicate library internals.
 
 ## Bunderhost build contract
 
@@ -229,7 +247,8 @@ not create an always-on Machine per cron-only customer.
 Bunderstack tests cover type-level job/cron separation, no background work after
 application construction, worker lifecycle and shutdown, cron authentication,
 slot claiming/retry, SQLite/Postgres internal tables, manifest v2, and local
-scheduling.
+scheduling. Manifest tests additionally cover logical-to-physical table mapping
+and all three advertised system table names.
 
 Bunderhost tests cover companion worker builds, role-specific Fly Machine
 configuration, blue-green web/worker orchestration, production-only background
