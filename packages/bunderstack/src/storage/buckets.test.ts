@@ -87,7 +87,8 @@ describe('resolveBuckets — no input', () => {
     expect(bucket.transforms).toBe(false)
     expect(bucket.upload).toBeUndefined()
     expect(bucket.quota).toBeUndefined()
-    expect(bucket.scope).toBeUndefined()
+    expect(bucket.readScope).toBeUndefined()
+    expect(bucket.writeScope).toBeUndefined()
   })
 })
 
