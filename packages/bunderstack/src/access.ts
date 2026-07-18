@@ -75,7 +75,10 @@ export type TableAccessInput = {
   sortableColumns?: string[]
   /** Default list ordering when `?sort` is omitted. Defaults to `{ column: 'id', order: 'desc' }`. */
   defaultSort?: DefaultSort
-  scope?: ScopeResolver
+  scope?: {
+    read?: ScopeResolver
+    write?: ScopeResolver
+  }
 }
 
 export type ResolvedTableAccess = {
@@ -94,7 +97,8 @@ export type ResolvedTableAccess = {
   filterableColumns: string[]
   sortableColumns: string[]
   defaultSort: DefaultSort
-  scope?: ScopeResolver
+  readScope?: ScopeResolver
+  writeScope?: ScopeResolver
 }
 
 export type ResolvedAccess = Map<string, ResolvedTableAccess>
@@ -200,7 +204,8 @@ function resolveDefaults(
       ...(ownerColumn ? [ownerColumn] : []),
     ],
     searchableColumns: input.searchableColumns,
-    scope: input.scope,
+    readScope: input.scope?.read,
+    writeScope: input.scope?.write,
     ...listAccess,
   }
 }
@@ -306,7 +311,7 @@ export function validateAndResolveAccess<
       columns.includes('userId')
 
     if (!hasExplicitRules && !hasConventionOwner) continue
-    if (!ownerColumn && input?.crud !== true && !input?.scope) continue
+    if (!ownerColumn && input?.crud !== true && !input?.scope?.read && !input?.scope?.write) continue
 
     if (input?.ownerColumn && !columns.includes(input.ownerColumn)) {
       throw new Error(

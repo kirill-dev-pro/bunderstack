@@ -12,9 +12,14 @@ describe('resolveConfig with function access rules', () => {
         access: {
           boards: {
             list: () => true,
-            scope: (ctx: AccessContext) => ({
-              organizationId: ctx.session?.activeOrganizationId ?? '',
-            }),
+            scope: {
+              read: (ctx: AccessContext) => ({
+                organizationId: ctx.session?.activeOrganizationId ?? '',
+              }),
+              write: (ctx: AccessContext) => ({
+                organizationId: ctx.session?.activeOrganizationId ?? '',
+              }),
+            },
           },
         },
         realtime: true,

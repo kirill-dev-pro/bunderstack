@@ -357,7 +357,10 @@ test('scope: file in org A not visible to org B (404); same org visible', async 
   const reg: BucketStorageRegistry = new Map([
     [
       'files',
-      localBucket('files', local, { scope: scope as ResolvedBucket['scope'] }),
+      localBucket('files', local, {
+        readScope: scope as ResolvedBucket['readScope'],
+        writeScope: scope as ResolvedBucket['writeScope'],
+      }),
     ],
   ])
   await makeApp(reg)

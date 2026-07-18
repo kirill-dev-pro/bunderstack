@@ -25,7 +25,10 @@ export type BucketConfigInput = {
   }
   upload?: { maxSize?: string | number; accept?: string[] }
   transforms?: boolean
-  scope?: ScopeResolver
+  scope?: {
+    read?: ScopeResolver
+    write?: ScopeResolver
+  }
   quota?: { perUser?: string | number; perScope?: string | number }
 } & Partial<BucketBackendInput>
 
@@ -59,7 +62,8 @@ export type ResolvedBucket = {
   access: { create: OperationRule; get: OperationRule; delete: OperationRule }
   upload?: { maxSizeBytes?: number; accept?: string[] }
   transforms: boolean
-  scope?: ScopeResolver
+  readScope?: ScopeResolver
+  writeScope?: ScopeResolver
   quota?: { perUserBytes?: number; perScopeBytes?: number }
 }
 
@@ -248,7 +252,8 @@ function resolveSingleBucket(
     access,
     upload,
     transforms: input.transforms ?? false,
-    scope: input.scope,
+    readScope: input.scope?.read,
+    writeScope: input.scope?.write,
     quota,
   }
 }

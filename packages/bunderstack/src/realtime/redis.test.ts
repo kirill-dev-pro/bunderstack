@@ -18,7 +18,10 @@ const access = validateAndResolveAccess(
       create: 'authenticated',
       update: 'authenticated',
       delete: 'authenticated',
-      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      scope: {
+        read: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+        write: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      },
     },
   },
 )

@@ -12,7 +12,7 @@ const orgTable = {
   create: 'authenticated',
   update: 'authenticated',
   delete: 'authenticated',
-  scope: orgScope,
+  scope: { read: orgScope, write: orgScope },
 } as const
 
 export const access = defineAccess(schema, {

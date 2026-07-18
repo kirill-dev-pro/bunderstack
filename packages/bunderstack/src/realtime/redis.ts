@@ -117,7 +117,7 @@ export function createRedisRealtimeBroker(opts: {
     if (typeof entry.get === 'function') return false
     if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
       return false
-    if (entry.scope && !rowMatchesScope(record, entry.scope(ctx))) return false
+    if (entry.readScope && !rowMatchesScope(record, entry.readScope(ctx))) return false
     return true
   }
 

@@ -165,7 +165,7 @@ export function buildBucketStorageRouter(
     const contentType =
       typeof body.contentType === 'string' ? body.contentType : undefined
 
-    const requesterScope = bucket.scope?.(ctx)
+    const requesterScope = bucket.writeScope?.(ctx)
     const scopeJson = scopeToJson(requesterScope)
 
     // Quota pre-check: reserve the configured max upload size.
@@ -252,7 +252,7 @@ export function buildBucketStorageRouter(
       return apiError(c, ErrorCode.VALIDATION_ERROR, 'File too large', 422)
     }
 
-    const requesterScope = bucket.scope?.(ctx)
+    const requesterScope = bucket.readScope?.(ctx)
     const scopeJson = scopeToJson(requesterScope)
 
     if (bucket.quota) {
@@ -395,7 +395,7 @@ export function buildBucketStorageRouter(
     const denied = await gate(bucket.access.get, ctx, c)
     if (denied) return denied
 
-    const requesterScope = bucket.scope?.(ctx)
+    const requesterScope = bucket.readScope?.(ctx)
     if (!fileMatchesScope(row, requesterScope)) {
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }
@@ -491,7 +491,7 @@ export function buildBucketStorageRouter(
     const denied = await gate(bucket.access.delete, ctx, c)
     if (denied) return denied
 
-    const requesterScope = bucket.scope?.(ctx)
+    const requesterScope = bucket.readScope?.(ctx)
     if (!fileMatchesScope(row, requesterScope)) {
       return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
     }

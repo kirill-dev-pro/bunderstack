@@ -42,7 +42,7 @@ export const app = await createBunderstack({
           get: 'authenticated',
           delete: 'owner',
         },
-        scope: orgScope,
+        scope: { read: orgScope, write: orgScope },
         upload: {
           maxSize: '10mb',
           accept: [

@@ -34,7 +34,10 @@ it('publishes a create event after insert', async () => {
       create: 'authenticated',
       list: 'authenticated',
       get: 'authenticated',
-      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      scope: {
+        read: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+        write: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      },
     },
   })
   const broker = createRealtimeBroker({ access })

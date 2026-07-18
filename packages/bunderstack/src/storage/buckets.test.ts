@@ -185,7 +185,7 @@ describe('resolveBuckets — two declared buckets', () => {
         visibility: 'public' as const,
         upload: { maxSize: '5mb', accept: ['image/png', 'image/jpeg'] },
         transforms: true,
-        scope: scopeFn,
+        scope: { read: scopeFn, write: scopeFn },
         quota: { perUser: '100mb', perScope: '10gb' },
       },
       documents: {
@@ -231,7 +231,8 @@ describe('resolveBuckets — two declared buckets', () => {
 
   test('avatars bucket — scope passed through', () => {
     const result = resolveBuckets(input, fakeEnv)
-    expect(result.buckets.get('avatars')!.scope).toBe(scopeFn)
+    expect(result.buckets.get('avatars')!.readScope).toBe(scopeFn)
+    expect(result.buckets.get('avatars')!.writeScope).toBe(scopeFn)
   })
 
   test('documents bucket — private visibility, get defaults to owner', () => {

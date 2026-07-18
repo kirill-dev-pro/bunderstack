@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
   "keywords": [
     "backend",

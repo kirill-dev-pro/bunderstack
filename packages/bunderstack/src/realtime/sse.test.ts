@@ -16,7 +16,10 @@ const access = validateAndResolveAccess(
     boards: {
       list: 'authenticated',
       get: 'authenticated',
-      scope: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      scope: {
+        read: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+        write: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+      },
     },
   },
 )

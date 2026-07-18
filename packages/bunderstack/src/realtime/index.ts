@@ -84,8 +84,8 @@ function scopeOk(
   ctx: Parameters<typeof checkAccessSync>[1],
   record: Record<string, unknown>,
 ): boolean {
-  if (!entry.scope) return true
-  return rowMatchesScope(record, entry.scope(ctx))
+  if (!entry.readScope) return true
+  return rowMatchesScope(record, entry.readScope(ctx))
 }
 
 export function buildRealtimeRouter(
