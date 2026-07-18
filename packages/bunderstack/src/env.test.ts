@@ -37,6 +37,26 @@ test('AUTH_SECRET is required in production', () => {
   }
 })
 
+test('BUNDERSTACK_CRON_SECRET is required for production cron', () => {
+  expect(() =>
+    validateEnv(undefined, {
+      cronConfigured: true,
+      source: { NODE_ENV: 'production', AUTH_SECRET: 'auth-secret' },
+    }),
+  ).toThrow(/BUNDERSTACK_CRON_SECRET/)
+
+  expect(() =>
+    validateEnv(undefined, {
+      cronConfigured: true,
+      source: {
+        NODE_ENV: 'production',
+        AUTH_SECRET: 'auth-secret',
+        BUNDERSTACK_CRON_SECRET: 'cron-secret',
+      },
+    }),
+  ).not.toThrow()
+})
+
 test('RESEND_API_KEY required only when email provider is resend', () => {
   // not required without provider
   expect(() => validateEnv(undefined, { source: {} })).not.toThrow()

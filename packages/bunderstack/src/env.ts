@@ -19,6 +19,7 @@ export type BaseEnv = {
   REDIS_URL?: string
   RESEND_API_KEY?: string
   SMTP_URL?: string
+  BUNDERSTACK_CRON_SECRET?: string
 }
 
 type InferVars<T> = T extends Record<string, ZodType>
@@ -51,6 +52,8 @@ export type ValidateEnvOptions = {
   source?: Record<string, string | undefined>
   /** Dialect-aware DATABASE_URL fallback; createBunderstack passes it. */
   defaultDatabaseUrl?: string
+  /** Require the platform schedule secret for an application with cron work. */
+  cronConfigured?: boolean
 }
 
 const DEV_AUTH_SECRET = 'dev-secret-change-in-prod'
@@ -105,9 +108,13 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     REDIS_URL: source.REDIS_URL,
     RESEND_API_KEY: source.RESEND_API_KEY,
     SMTP_URL: source.SMTP_URL,
+    BUNDERSTACK_CRON_SECRET: source.BUNDERSTACK_CRON_SECRET,
   }
   if (isProduction && !source.AUTH_SECRET) {
     issues.push('AUTH_SECRET: required in production')
+  }
+  if (isProduction && options.cronConfigured && !source.BUNDERSTACK_CRON_SECRET) {
+    issues.push('BUNDERSTACK_CRON_SECRET: required when cron is configured in production')
   }
   if (options.emailProvider === 'resend' && !source.RESEND_API_KEY) {
     issues.push("RESEND_API_KEY: required when email provider is 'resend'")

@@ -25,6 +25,7 @@ import { withInternalTables } from './internal-tables'
 import {
   createJobsBuilder,
   createJobRunner,
+  buildCronRouter,
   enqueueJob,
   validateJobsDefs,
 } from './jobs/index'
@@ -214,12 +215,22 @@ export async function createBunderstack<
   >
 > {
   const dialect = detectDialect(options.schema)
+  const jobsDefs: JobsDefs | undefined = options.jobs
+    ? typeof options.jobs === 'function'
+      ? options.jobs(createJobsBuilder<TSchema, ValidatedEnv<TEnv>>())
+      : (options.jobs as JobsDefs)
+    : undefined
+  if (jobsDefs) validateJobsDefs(jobsDefs)
+  const cronConfigured = Object.values(jobsDefs ?? {}).some(
+    (definition) => definition.kind === 'cron',
+  )
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream (config, email, trpc ctx) consumes the result.
   const env = validateEnv(options.env, {
     emailProvider: emailProviderTag(options.email),
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
+    cronConfigured,
   })
   const config = resolveConfig(options, env)
   // Introspection mode (BUNDERSTACK_INTROSPECT=1): deployment platforms import
@@ -340,12 +351,6 @@ export async function createBunderstack<
     void sweepOrphans(registry, db, DEFAULT_PENDING_TTL_MS).catch(() => {})
   }, SWEEP_INTERVAL_MS)
   sweepTimer.unref?.()
-  const jobsDefs: JobsDefs | undefined = options.jobs
-    ? typeof options.jobs === 'function'
-      ? options.jobs(createJobsBuilder<TSchema, ValidatedEnv<TEnv>>())
-      : (options.jobs as JobsDefs)
-    : undefined
-  if (jobsDefs) validateJobsDefs(jobsDefs)
   const jobRunner = jobsDefs
     ? createJobRunner({
         db,
@@ -396,12 +401,23 @@ export async function createBunderstack<
           }),
         })
     : undefined
+  const cronRouter =
+    jobsDefs && env.BUNDERSTACK_CRON_SECRET
+      ? buildCronRouter({
+          db,
+          defs: jobsDefs,
+          ctx: { db: userDb, env, email, storage },
+          secret: env.BUNDERSTACK_CRON_SECRET,
+          storage,
+        })
+      : undefined
   const { handler, router } = buildHandler({
     crudRouter,
     authHandler: (req) => auth.handler(req),
     storageRouter,
     realtimeRouter,
     trpcHandler,
+    cronRouter,
     rateLimit: options.rateLimit,
   })
 
@@ -471,7 +487,11 @@ export type {
 } from './email'
 export { createTRPC } from './trpc'
 export type { BunderstackTRPC, TRPCContext } from './trpc'
-export { createJobsBuilder } from './jobs/index'
+export {
+  createJobsBuilder,
+  signScheduleRequest,
+  verifyScheduleRequest,
+} from './jobs/index'
 export type {
   BunderstackJobsBuilder,
   BackgroundDefinition,

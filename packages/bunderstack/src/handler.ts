@@ -8,6 +8,7 @@ interface HandlerParts {
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
   realtimeRouter?: Hono
+  cronRouter?: Hono
   trpcHandler?: (req: Request) => Promise<Response>
   rateLimit?: boolean | RateLimitConfig
 }
@@ -24,6 +25,10 @@ export function buildHandler(parts: HandlerParts): {
   app.get('/health', health)
   app.get('/api/health', health)
   app.route('/api', parts.crudRouter)
+
+  if (parts.cronRouter) {
+    app.route('/api/_bunderstack/cron', parts.cronRouter)
+  }
 
   if (parts.authHandler) {
     app.all('/api/auth/*', (c) => parts.authHandler!(c.req.raw))
