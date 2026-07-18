@@ -15,10 +15,11 @@ let db: LibSQLDatabase<Record<string, never>>
 
 const defs: JobsDefs = {
   greet: {
+    kind: 'job',
     input: z.object({ name: z.string() }),
     handler: async () => {},
   },
-  bare: { handler: async () => {} },
+  bare: { kind: 'job', handler: async () => {} },
 }
 
 beforeAll(async () => {
@@ -45,8 +46,21 @@ test('enqueue inserts a pending row with parsed payload', async () => {
   expect(rows[0]!.attempts).toBe(0)
 })
 
-test('unknown job name throws', async () => {
-  await expect(enqueueJob(db, defs, 'nope', {})).rejects.toThrow(/unknown job/)
+test('unknown queue job name throws', async () => {
+  await expect(enqueueJob(db, defs, 'nope', {})).rejects.toThrow(/unknown queue job/)
+})
+
+test('cron declarations cannot be enqueued', async () => {
+  const cronDefs: JobsDefs = {
+    hourly: {
+      kind: 'cron',
+      schedule: '0 * * * *',
+      handler: async () => {},
+    },
+  }
+  await expect(enqueueJob(db, cronDefs, 'hourly', undefined)).rejects.toThrow(
+    /unknown queue job/,
+  )
 })
 
 test('payload failing zod parse throws at the enqueue site', async () => {

@@ -54,6 +54,14 @@ describe('client type inference carriers', () => {
         defaultBucket: 'images',
         buckets: { images: {}, docs: {} },
       },
+      jobs: (j) =>
+        j.define({
+          sendPost: j.job({ handler: async () => {} }),
+          hourly: j.cron({
+            schedule: '0 * * * *',
+            handler: async () => {},
+          }),
+        }),
     })
     type Carrier = NonNullable<(typeof app)['$inferClient']>
     type _schema = Expect<Equal<Carrier['schema'], typeof schema>>
@@ -61,6 +69,9 @@ describe('client type inference carriers', () => {
     type _accessUser = Expect<
       Equal<Carrier['access']['user']['exposeAuthTable'], true>
     >
+    // @ts-expect-error cron declarations cannot be enqueued
+    const cronEnqueue = () => app.jobs.enqueue('hourly')
+    void cronEnqueue
     // runtime: phantom prop is never assigned
     expect('$inferClient' in app).toBe(false)
   })

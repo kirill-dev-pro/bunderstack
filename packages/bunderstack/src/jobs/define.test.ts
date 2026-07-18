@@ -19,35 +19,40 @@ test('j.define returns the defs object unchanged and validated', () => {
   expect(Object.keys(defs)).toEqual(['hello'])
 })
 
-test('cron definitions cannot declare input', () => {
-  expect(() =>
-    validateJobsDefs({
-      bad: {
-        cron: '* * * * *',
-        input: z.object({}),
-        handler: async () => {},
-      },
+test('j.job and j.cron produce discriminated definitions', () => {
+  const defs = j.define({
+    email: j.job({
+      input: z.object({ to: z.string() }),
+      handler: async () => {},
     }),
-  ).toThrow(/cron/)
+    hourly: j.cron({
+      schedule: '0 * * * *',
+      handler: async () => {},
+    }),
+  })
+
+  expect(defs.email.kind).toBe('job')
+  expect(defs.hourly.kind).toBe('cron')
+  expect(defs.hourly.schedule).toBe('0 * * * *')
 })
 
-test('invalid cron expression throws at define time', () => {
+test('cron rejects invalid expressions', () => {
   expect(() =>
-    j.define({ bad: j.job({ cron: 'not a cron', handler: async () => {} }) }),
+    j.cron({ schedule: 'not cron', handler: async () => {} }),
   ).toThrow(/invalid cron/)
 })
 
 test('negative retries and zero concurrency throw', () => {
   expect(() =>
-    validateJobsDefs({ bad: { retries: -1, handler: async () => {} } }),
+    validateJobsDefs({ bad: { kind: 'job', retries: -1, handler: async () => {} } }),
   ).toThrow(/retries/)
   expect(() =>
-    validateJobsDefs({ bad: { concurrency: 0, handler: async () => {} } }),
+    validateJobsDefs({ bad: { kind: 'job', concurrency: 0, handler: async () => {} } }),
   ).toThrow(/concurrency/)
 })
 
 test('backoffMs: default exponential, object form, function form', () => {
-  const base = { handler: async () => {} }
+  const base = { kind: 'job' as const, handler: async () => {} }
   expect(backoffMs(base, 1)).toBe(1000)
   expect(backoffMs(base, 2)).toBe(2000)
   expect(backoffMs(base, 3)).toBe(4000)

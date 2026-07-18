@@ -15,7 +15,9 @@ export async function enqueueJob(
   opts: EnqueueOptions = {},
 ): Promise<{ id: string }> {
   const def = defs[name]
-  if (!def) throw new Error(`[bunderstack] unknown job type "${name}"`)
+  if (!def || def.kind !== 'job') {
+    throw new Error(`[bunderstack] unknown queue job "${name}"`)
+  }
   // Fail fast: a bad payload should throw at the call site, not in the worker.
   const parsed = def.input ? def.input.parse(input) : null
   const t = jobsTableFor(db)

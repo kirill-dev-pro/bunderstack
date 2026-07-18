@@ -13,7 +13,7 @@ export const DEFAULT_RETRIES = 3
 export const DEFAULT_TIMEOUT_MS = 60_000
 
 export type EnqueueOptions = {
-  /** Collapse duplicate enqueues; see spec for cron vs non-cron lifetime. */
+  /** Collapse duplicate enqueues while the queue row is non-terminal. */
   dedupeKey?: string
   /** Milliseconds from now until the job becomes claimable. */
   delay?: number
@@ -46,11 +46,12 @@ export type JobContext<
   jobs: JobsRuntimeFacade
 }
 
-export type JobDefinition<
+export type QueueJobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
 > = {
+  kind: 'job'
   /** zod schema for the payload; parsed at enqueue AND before the handler runs. */
   input?: ZodType<TInput>
   /** Attempts after the first failure. Default 3 (so 4 total attempts). */
@@ -61,8 +62,6 @@ export type JobDefinition<
   concurrency?: number
   /** Lease duration in ms; an expired lease sends the job back to pending. */
   timeout?: number
-  /** 5-field UTC cron expression. Cron jobs cannot declare `input`. */
-  cron?: string
   handler: (
     input: TInput,
     ctx: JobContext<TSchema, TEnvResult>,
@@ -75,23 +74,51 @@ export type JobDefinition<
   ) => Promise<void> | void
 }
 
+export type CronInvocation = { scheduledFor: Date }
+
+export type CronDefinition<
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+> = {
+  kind: 'cron'
+  schedule: string
+  handler: (
+    invocation: CronInvocation,
+    ctx: JobContext<TSchema, TEnvResult>,
+  ) => Promise<void> | void
+}
+
+export type BackgroundDefinition =
+  | QueueJobDefinition<any, any, any>
+  | CronDefinition<any, any>
+export type BackgroundDefs = Record<string, BackgroundDefinition>
+
+/** @deprecated Use QueueJobDefinition. */
+export type JobDefinition<TInput, TSchema extends Record<string, unknown> = Record<string, unknown>, TEnvResult = Record<string, unknown>> = QueueJobDefinition<
+  TInput,
+  TSchema,
+  TEnvResult
+>
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyJobDefinition = JobDefinition<any, any, any>
-export type JobsDefs = Record<string, AnyJobDefinition>
+export type AnyJobDefinition = QueueJobDefinition<any, any, any>
+export type JobsDefs = BackgroundDefs
+
+export type QueueJobKeys<TDefs extends BackgroundDefs> = {
+  [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<any, any, any>
+    ? K
+    : never
+}[keyof TDefs & string]
 
 /** Throws when a definition is unusable. Safe to call more than once. */
-export function validateJobsDefs(defs: JobsDefs): void {
+export function validateBackgroundDefs(defs: BackgroundDefs): void {
   for (const [name, def] of Object.entries(defs)) {
     if (typeof def.handler !== 'function') {
-      throw new Error(`[bunderstack] job "${name}" has no handler`)
+      throw new Error(`[bunderstack] background task "${name}" has no handler`)
     }
-    if (def.cron !== undefined) {
-      parseCron(def.cron) // throws with a clear message on invalid expressions
-      if (def.input !== undefined) {
-        throw new Error(
-          `[bunderstack] job "${name}": cron jobs cannot declare input (nothing enqueues a payload for a schedule)`,
-        )
-      }
+    if (def.kind === 'cron') {
+      parseCron(def.schedule)
+      continue
     }
     if (def.retries !== undefined && (def.retries < 0 || !Number.isInteger(def.retries))) {
       throw new Error(`[bunderstack] job "${name}": retries must be a non-negative integer`)
@@ -104,6 +131,9 @@ export function validateJobsDefs(defs: JobsDefs): void {
     }
   }
 }
+
+/** @deprecated Use validateBackgroundDefs. */
+export const validateJobsDefs = validateBackgroundDefs
 
 /** Delay in ms before retry `attempt` (1-based = the attempt that just failed). */
 export function backoffMs(def: AnyJobDefinition, attempt: number): number {
@@ -125,13 +155,19 @@ export function createJobsBuilder<
   return {
     /** Identity with inference: pins TInput from the zod schema. */
     job<TInput = undefined>(
-      def: JobDefinition<TInput, TSchema, TEnvResult>,
-    ): JobDefinition<TInput, TSchema, TEnvResult> {
-      return def
+      def: Omit<QueueJobDefinition<TInput, TSchema, TEnvResult>, 'kind'>,
+    ): QueueJobDefinition<TInput, TSchema, TEnvResult> {
+      return { kind: 'job', ...def }
+    },
+    cron(
+      def: Omit<CronDefinition<TSchema, TEnvResult>, 'kind'>,
+    ): CronDefinition<TSchema, TEnvResult> {
+      parseCron(def.schedule)
+      return { kind: 'cron', ...def }
     },
     /** Identity with validation: returns the defs map, typed. */
-    define<TDefs extends JobsDefs>(defs: TDefs): TDefs {
-      validateJobsDefs(defs)
+    define<TDefs extends BackgroundDefs>(defs: TDefs): TDefs {
+      validateBackgroundDefs(defs)
       return defs
     },
   }
@@ -148,7 +184,7 @@ export type BunderstackJobsBuilder<
 // `TDef extends { input: ZodType<infer I> }` fails structurally because
 // `input?: ZodType<TInput>` desugars to `ZodType<TInput> | undefined`, which
 // can never satisfy a required-property pattern.
-type JobInputOf<TDef> = TDef extends JobDefinition<infer TInput, any, any>
+type JobInputOf<TDef> = TDef extends QueueJobDefinition<infer TInput, any, any>
   ? TInput
   : undefined
 
@@ -162,7 +198,7 @@ export type JobsFacade<TDefs extends JobsDefs> = Omit<
   JobsRuntimeFacade,
   'enqueue'
 > & {
-  enqueue<K extends keyof TDefs & string>(
+  enqueue<K extends QueueJobKeys<TDefs>>(
     name: K,
     ...rest: JobInputOf<TDefs[K]> extends undefined
       ? [input?: undefined, opts?: EnqueueOptions]

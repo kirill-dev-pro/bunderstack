@@ -474,12 +474,18 @@ export type { BunderstackTRPC, TRPCContext } from './trpc'
 export { createJobsBuilder } from './jobs/index'
 export type {
   BunderstackJobsBuilder,
+  BackgroundDefinition,
+  BackgroundDefs,
+  CronDefinition,
+  CronInvocation,
   EnqueueOptions,
   JobContext,
   JobDefinition,
   JobsDefs,
   JobsFacade,
   JobsRuntimeFacade,
+  QueueJobDefinition,
+  QueueJobKeys,
 } from './jobs/index'
 export {
   defineAccess,

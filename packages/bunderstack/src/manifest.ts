@@ -53,7 +53,7 @@ export function buildManifest(args: {
       client: describeSection(args.envConfig?.client),
     },
     jobs: Object.entries(args.jobs ?? {}).map(([name, def]) =>
-      def.cron !== undefined ? { name, cron: def.cron } : { name },
+      def.kind === 'cron' ? { name, cron: def.schedule } : { name },
     ),
   }
 }

@@ -73,8 +73,12 @@ test('manifest lists declared jobs with their cron schedules', () => {
     envConfig: undefined,
     realtime: false,
     jobs: {
-      generateLook: { handler: async () => {} },
-      nightly: { cron: '0 3 * * *', handler: async () => {} },
+      generateLook: { kind: 'job', handler: async () => {} },
+      nightly: {
+        kind: 'cron',
+        schedule: '0 3 * * *',
+        handler: async () => {},
+      },
     },
   })
   expect(manifest.jobs).toEqual([
