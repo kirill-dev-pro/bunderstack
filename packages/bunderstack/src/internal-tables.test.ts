@@ -7,15 +7,18 @@ import { validateAndResolveAccess } from './access'
 import { createDb } from './db'
 import {
   bunderstackFiles,
+  bunderstackCronRuns,
   bunderstackIdempotency,
   bunderstackJobs,
   INTERNAL_TABLES,
   INTERNAL_TABLE_NAMES,
+  cronRunsTableFor,
   jobsTableFor,
   withInternalTables,
 } from './internal-tables'
 import {
   bunderstackFilesPg,
+  bunderstackCronRunsPg,
   bunderstackIdempotencyPg,
   bunderstackJobsPg,
 } from './internal-tables-pg'
@@ -33,11 +36,12 @@ test('bunderstackIdempotency has table name _bunderstack_idempotency', () => {
 
 // --- INTERNAL_TABLE_NAMES ---
 
-test('INTERNAL_TABLE_NAMES contains exactly the three internal table names', () => {
+test('INTERNAL_TABLE_NAMES contains every internal table name', () => {
   expect(INTERNAL_TABLE_NAMES.has('bunderstack_file_meta')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_idempotency')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
-  expect(INTERNAL_TABLE_NAMES.size).toBe(3)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_cron_runs')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.size).toBe(4)
 })
 
 // --- INTERNAL_TABLES ---
@@ -188,6 +192,14 @@ test('jobs table is registered as an internal table in both dialects', () => {
   expect(isTable(bunderstackJobs)).toBe(true)
   expect(is(bunderstackJobsPg, PgTable)).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
+})
+
+test('cron-run table is registered as an internal table in both dialects', () => {
+  expect(getTableName(bunderstackCronRuns)).toBe('_bunderstack_cron_runs')
+  expect(getTableName(bunderstackCronRunsPg)).toBe('_bunderstack_cron_runs')
+  expect(isTable(bunderstackCronRuns)).toBe(true)
+  expect(is(bunderstackCronRunsPg, PgTable)).toBe(true)
+  expect(cronRunsTableFor({})).toBe(bunderstackCronRuns)
 })
 
 test('withInternalTables merges the jobs table', () => {

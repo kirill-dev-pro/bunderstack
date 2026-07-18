@@ -24,4 +24,6 @@ export type {
 } from './define'
 export { enqueueJob } from './queue'
 export { createJobRunner } from './worker'
+export { runCronSlot, runScheduledSlot } from './cron-runner'
+export type { CronRunResult } from './cron-runner'
 export { parseCron, cronMatches } from './cron'

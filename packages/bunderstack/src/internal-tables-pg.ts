@@ -66,3 +66,21 @@ export const bunderstackJobsPg = pgTable(
     uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
   ],
 )
+
+export const bunderstackCronRunsPg = pgTable(
+  '_bunderstack_cron_runs',
+  {
+    taskId: text('task_id').notNull(),
+    scheduledAt: bigint('scheduled_at', { mode: 'number' }).notNull(),
+    status: text('status').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    lockedUntil: bigint('locked_until', { mode: 'number' }),
+    lastError: text('last_error'),
+    startedAt: bigint('started_at', { mode: 'number' }),
+    finishedAt: bigint('finished_at', { mode: 'number' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.scheduledAt] }),
+    index('bcr_claim').on(t.status, t.lockedUntil),
+  ],
+)
