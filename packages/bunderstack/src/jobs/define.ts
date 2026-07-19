@@ -35,6 +35,8 @@ export type JobsRuntimeFacade = {
   tick(now?: number): Promise<void>
 }
 
+import type { RealtimeFacade } from '../realtime/facade'
+
 export type JobContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
@@ -44,6 +46,7 @@ export type JobContext<
   email: EmailFacade
   storage: StorageFacade
   jobs: JobsRuntimeFacade
+  realtime: RealtimeFacade<TSchema>
 }
 
 export type QueueJobDefinition<

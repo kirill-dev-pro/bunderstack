@@ -49,6 +49,7 @@ import {
 } from './provision-internals'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
+import { createRealtimeFacade, type RealtimeFacade } from './realtime/facade'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
@@ -136,6 +137,8 @@ export type BunderstackApp<
   email: EmailFacade
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>>
+  /** Typed custom row publication; enabled=false/no-op when realtime is off. */
+  realtime: RealtimeFacade<TSchema>
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
   /** Run a queue worker until aborted, then close the application. */
   runWorker(options?: AppRunWorkerOptions): Promise<void>
@@ -352,6 +355,7 @@ export async function createBunderstack<
           bufferSize: realtimeBufferSize,
         })
     : undefined
+  const realtime = createRealtimeFacade<TSchema>(broker)
   const crudRouter = buildCrudRouter(options.schema, userDb, {
     auth: authResolver,
     access: resolvedAccess,
@@ -397,7 +401,7 @@ export async function createBunderstack<
     ? createJobRunner({
         db,
         defs: jobsDefs,
-        ctx: { db: userDb, env, email, storage },
+        ctx: { db: userDb, env, email, storage, realtime },
       })
     : undefined
   const jobs = {
@@ -457,7 +461,7 @@ export async function createBunderstack<
         await runCronSlot({
           db,
           defs: jobsDefs!,
-          ctx: { db: userDb, env, email, storage },
+          ctx: { db: userDb, env, email, storage, realtime },
           name,
           slot,
           now: Date.now(),
@@ -504,6 +508,7 @@ export async function createBunderstack<
             env,
             email,
             jobs,
+            realtime,
             req,
           }),
         })
@@ -513,7 +518,7 @@ export async function createBunderstack<
       ? buildCronRouter({
           db,
           defs: jobsDefs ?? {},
-          ctx: { db: userDb, env, email, storage },
+          ctx: { db: userDb, env, email, storage, realtime },
           secret: env.BUNDERSTACK_CRON_SECRET,
           storage,
         })
@@ -544,6 +549,7 @@ export async function createBunderstack<
     router,
     env,
     email,
+    realtime,
     // Runtime facade is untyped (JobsRuntimeFacade); the generic-typed field
     // narrows `enqueue` per-app from the declared job defs — same relationship
     // as `userDb` above.
