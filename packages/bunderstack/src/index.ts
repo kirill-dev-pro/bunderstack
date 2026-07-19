@@ -660,3 +660,6 @@ export type {
 } from './storage/buckets'
 // StorageFacade is declared+exported inline above.
 export type { TransformSpec } from './storage/thumbnails'
+
+export type { RealtimeAction } from './realtime/index'
+export type { RealtimeFacade, SchemaTable } from './realtime/facade'

@@ -289,6 +289,18 @@ type BunderstackTRPC<TSchema, TEnvResult> = {
 }
 ```
 
+## RealtimeFacade
+
+```ts
+import { type RealtimeFacade } from 'bunderstack'
+```
+
+Exposed as `app.realtime` and `ctx.realtime` (in tRPC, jobs, and cron). Used to publish custom write operations to clients subscribed to realtime tables.
+
+- `publish(table, action, record)`: Takes a Drizzle `table` object (which guarantees the physical table exists in `schema`), an `action` string (like `'create' | 'update' | 'delete'`), and the full `record` (which TypeScript constrains to the table's `InferSelectModel`).
+
+If server realtime is disabled or no broker is available, `realtime.enabled` is `false` and `publish` is a no-op. Publishing is async and fire-and-forget: failure to publish into Redis does not crash the caller.
+
 ## Server exports
 
 ```ts
