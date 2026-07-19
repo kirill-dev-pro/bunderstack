@@ -30,13 +30,18 @@ export class Lifecycle {
     this.#closePromise = (async () => {
       const cleanups = [...this.#cleanups].reverse()
       this.#cleanups.clear()
-      const results = await Promise.allSettled(cleanups.map((cleanup) => cleanup()))
+      const results = await Promise.allSettled(
+        cleanups.map((cleanup) => cleanup()),
+      )
       this.#status = 'closed'
       const errors = results.flatMap((result) =>
         result.status === 'rejected' ? [result.reason] : [],
       )
       if (errors.length > 0) {
-        throw new AggregateError(errors, '[bunderstack] lifecycle cleanup failed')
+        throw new AggregateError(
+          errors,
+          '[bunderstack] lifecycle cleanup failed',
+        )
       }
     })()
     return this.#closePromise

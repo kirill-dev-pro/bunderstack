@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 
+import pkg from '../package.json'
+import { createStartAuthClient } from './auth-client'
 import {
   bunderstackStart,
   createApiHandlers,
@@ -89,5 +91,14 @@ describe('getSessionUser', () => {
 
     const anon = { auth: { api: { getSession: async () => null } } }
     expect(await getSessionUser(anon, new Request('http://x/'))).toBeNull()
+  })
+})
+
+describe('auth isolation', () => {
+  it('exports auth subpath', () => {
+    expect((pkg.exports as any)['./auth']).toBe('./src/auth-client.ts')
+  })
+  it('exposes createStartAuthClient from the subpath', () => {
+    expect(typeof createStartAuthClient).toBe('function')
   })
 })

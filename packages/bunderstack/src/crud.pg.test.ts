@@ -6,6 +6,7 @@ import { Hono } from 'hono'
 
 import { validateAndResolveAccess } from './access'
 import { buildCrudRouter } from './crud'
+import { pglite } from './database/pglite'
 import { createDb } from './db'
 import { withInternalTables } from './internal-tables'
 import { provisionSchema } from './provision'
@@ -33,7 +34,10 @@ const testAuth = {
 let app: Hono
 
 beforeAll(async () => {
-  const { db } = await createDb({ posts }, { url: 'memory://', dialect: 'pg' })
+  const { db } = await createDb(
+    { posts },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
+  )
   const merged = withInternalTables({ posts })
   await provisionSchema(db, merged, { force: true })
   const access = validateAndResolveAccess(

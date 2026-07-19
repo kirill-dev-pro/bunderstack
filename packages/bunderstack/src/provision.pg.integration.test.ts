@@ -1,10 +1,10 @@
 import { test, expect } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { bigint, pgTable, serial, text } from 'drizzle-orm/pg-core'
-
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { pglite } from './database/pglite'
 import { createBunderstack } from './index'
 import { provision } from './provision'
 
@@ -17,7 +17,11 @@ const widgets = pgTable('provision_pg_widgets', {
 test('provision pushes a pg schema to PGlite when no migrations exist', async () => {
   const app = await createBunderstack({
     schema: { widgets },
-    database: { url: 'memory://', migrations: './does-not-exist-migrations' },
+    database: {
+      url: 'memory://',
+      migrations: './does-not-exist-migrations',
+      adapter: pglite(),
+    },
   })
 
   await provision(app, { force: true })
@@ -42,7 +46,13 @@ test('provision applies committed pg migrations instead of pushing', async () =>
       version: '7',
       dialect: 'postgresql',
       entries: [
-        { idx: 0, version: '7', when: Date.now(), tag: '0000_init', breakpoints: true },
+        {
+          idx: 0,
+          version: '7',
+          when: Date.now(),
+          tag: '0000_init',
+          breakpoints: true,
+        },
       ],
     }),
   )
@@ -50,7 +60,7 @@ test('provision applies committed pg migrations instead of pushing', async () =>
   try {
     const app = await createBunderstack({
       schema: { widgets },
-      database: { url: 'memory://', migrations: dir },
+      database: { url: 'memory://', migrations: dir, adapter: pglite() },
     })
 
     await provision(app)

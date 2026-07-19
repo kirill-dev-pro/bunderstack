@@ -1,13 +1,14 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import * as React from 'react'
 import { generate as generateTypeId, type TypeId } from 'bunderstack/typeid'
+import * as React from 'react'
+
+import type { Post } from '~/utils/posts'
 
 import {
   fileIdFromUrl,
   thumbnailUrl,
   type UploadedFile,
 } from '~/components/ImageUpload'
-import { UserAvatar } from '~/components/UserAvatar'
 import { Button } from '~/components/ui/button'
 import {
   Dialog,
@@ -16,8 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
+import { UserAvatar } from '~/components/UserAvatar'
 import { toast } from '~/lib/toast'
-import type { Post } from '~/utils/posts'
 
 type ComposePostDialogProps = {
   open: boolean

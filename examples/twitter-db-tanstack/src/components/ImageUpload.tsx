@@ -1,7 +1,7 @@
+import type { UploadedFile } from 'bunderstack-sync'
+
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-
-import type { UploadedFile } from 'bunderstack-sync'
 
 export const ATTACHMENTS_BUCKET = 'attachments'
 export const AVATARS_BUCKET = 'avatars'

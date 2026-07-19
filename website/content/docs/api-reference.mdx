@@ -19,7 +19,9 @@ async function createBunderstack<
   options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
   },
-): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
+): Promise<
+  BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
+>
 ```
 
 Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
@@ -87,14 +89,14 @@ it.
 The dialect is inferred from your schema — `sqliteTable` → SQLite, `pgTable`
 → Postgres — and `DATABASE_URL` picks the engine within it:
 
-| Schema        | `DATABASE_URL`  | Engine                                   |
-| ------------- | --------------- | ----------------------------------------- |
-| `sqliteTable` | unset           | local SQLite file `./data.db`             |
-| `sqliteTable` | `file:./app.db` | local SQLite file                         |
-| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)    |
-| `pgTable`     | unset           | PGlite in `./data.pglite`                 |
-| `pgTable`     | `file:./pgdata` | PGlite in that directory                  |
-| `pgTable`     | `memory://`     | PGlite in-memory (tests)                  |
+| Schema        | `DATABASE_URL`  | Engine                                      |
+| ------------- | --------------- | ------------------------------------------- |
+| `sqliteTable` | unset           | local SQLite file `./data.db`               |
+| `sqliteTable` | `file:./app.db` | local SQLite file                           |
+| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)      |
+| `pgTable`     | unset           | PGlite in `./data.pglite`                   |
+| `pgTable`     | `file:./pgdata` | PGlite in that directory                    |
+| `pgTable`     | `memory://`     | PGlite in-memory (tests)                    |
 | `pgTable`     | `postgres://…`  | Postgres server (`Bun.sql` / `postgres.js`) |
 
 A URL that contradicts the schema's dialect (e.g. `postgres://` with a

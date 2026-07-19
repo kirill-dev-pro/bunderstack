@@ -29,7 +29,11 @@ export type { CronRunResult } from './cron-runner'
 export { buildCronRouter } from './cron-router'
 export { signScheduleRequest, verifyScheduleRequest } from './cron-auth'
 export { startJobWorker } from './runtime'
-export type { StartWorkerOptions, RunWorkerOptions, WorkerHandle } from './runtime'
+export type {
+  StartWorkerOptions,
+  RunWorkerOptions,
+  WorkerHandle,
+} from './runtime'
 export { startLocalCronScheduler } from './local-cron'
 export type {
   LocalCronScheduler,

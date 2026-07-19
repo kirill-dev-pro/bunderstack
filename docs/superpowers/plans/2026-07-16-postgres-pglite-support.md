@@ -14,7 +14,7 @@
 
 - Run everything with Bun (`bun test`, `bun add`, `bunx`); never npm/npx/vitest.
 - Package tests baseline: all green as of 2026-07-13. Every task ends with `bun test` green in `packages/bunderstack` (repo-level known failures: Start-example vite build, 8 tldraw tsc errors — pre-existing, not ours).
-- Error messages start with `[bunderstack] ` and include the exact fix command (e.g. `` bun add -d @electric-sql/pglite ``).
+- Error messages start with `[bunderstack] ` and include the exact fix command (e.g. `bun add -d @electric-sql/pglite`).
 - Every dynamic import of an optional module carries `/* @vite-ignore */ /* webpackIgnore: true */` comments (bundler safety — same pattern as drizzle-kit in provision.ts).
 - Peer ranges: `drizzle-orm ^0.45.0` (required), `@libsql/client ^0.14.0`, `@electric-sql/pglite` (pin `^<installed major.minor>` after install), `postgres ^3.4.0`, `drizzle-kit ^0.30.0` — all but drizzle-orm optional.
 - `createBunderstack` returns `Promise<BunderstackApp<…>>`; all three overloads.
@@ -28,9 +28,11 @@
 Move drizzle-orm and @libsql/client out of `dependencies`, add the new optional drivers, keep the package's own tests running via devDependencies. No source changes — the suite must stay green.
 
 **Files:**
+
 - Modify: `packages/bunderstack/package.json`
 
 **Interfaces:**
+
 - Produces: installed devDeps `@electric-sql/pglite`, `drizzle-orm`, `@libsql/client`, `drizzle-kit` (later tasks import `drizzle-orm/pglite` in tests); package `exports` entries `./schema/pg` → `./src/schema-export-pg.ts`, `./typeid/pg` → `./src/typeid-pg.ts` (files created in Task 9).
 
 - [ ] **Step 1: Rewrite the dependency blocks in `package.json`**
@@ -108,10 +110,12 @@ git commit -m "chore(bunderstack): drizzle-orm to peer deps; optional driver pee
 ### Task 2: Dialect detection module
 
 **Files:**
+
 - Create: `packages/bunderstack/src/dialect.ts`
 - Test: `packages/bunderstack/src/dialect.test.ts`
 
 **Interfaces:**
+
 - Produces: `type Dialect = 'sqlite' | 'pg'`; `detectDialect(schema: Record<string, unknown>): Dialect` (throws on mixed); `type AnyDb = { select/insert/update/delete: (...args: any[]) => any }` — the db param type every internal module adopts in later tasks.
 
 - [ ] **Step 1: Write the failing test**
@@ -215,11 +219,13 @@ git commit -m "feat(bunderstack): schema-driven dialect detection"
 ### Task 3: Postgres twins of the internal tables
 
 **Files:**
+
 - Create: `packages/bunderstack/src/internal-tables-pg.ts`
 - Modify: `packages/bunderstack/src/internal-tables.ts`
 - Test: `packages/bunderstack/src/internal-tables.test.ts` (append)
 
 **Interfaces:**
+
 - Consumes: `detectDialect` from Task 2.
 - Produces: `bunderstackFilesPg`, `bunderstackIdempotencyPg` (pg twins, same table/column names, `$inferSelect`-compatible shapes); `filesTableFor(db: unknown)` and `idempotencyTableFor(db: unknown)` — runtime dispatch by `is(db, PgDatabase)`, used by Task 4; `withInternalTables(schema)` now merges the dialect-matching twin set.
 
@@ -229,7 +235,10 @@ git commit -m "feat(bunderstack): schema-driven dialect detection"
 import { is } from 'drizzle-orm'
 import { PgTable, pgTable, text as pgText } from 'drizzle-orm/pg-core'
 
-import { bunderstackFilesPg, bunderstackIdempotencyPg } from './internal-tables-pg'
+import {
+  bunderstackFilesPg,
+  bunderstackIdempotencyPg,
+} from './internal-tables-pg'
 
 const pgPosts = pgTable('pg_posts', { id: pgText('id').primaryKey() })
 
@@ -249,7 +258,9 @@ test('withInternalTables accepts the pg twins re-exported into the schema', () =
 })
 
 test('withInternalTables still rejects foreign pg tables using reserved names', () => {
-  const impostor = pgTable('bunderstack_file_meta', { id: pgText('id').primaryKey() })
+  const impostor = pgTable('bunderstack_file_meta', {
+    id: pgText('id').primaryKey(),
+  })
   expect(() => withInternalTables({ impostor })).toThrow(/reserved/)
 })
 ```
@@ -364,23 +375,23 @@ export function idempotencyTableFor(db: unknown) {
 In `withInternalTables`: replace the `INTERNAL_TABLE_BY_NAME.get(name)` / `internal === value` check with
 
 ```ts
-    const candidates = INTERNAL_TABLE_CANDIDATES.get(name)
-    if (candidates?.includes(value)) {
-      // Re-exported from bunderstack/schema(-pg) — already in user schema.
-      continue
-    }
+const candidates = INTERNAL_TABLE_CANDIDATES.get(name)
+if (candidates?.includes(value)) {
+  // Re-exported from bunderstack/schema(-pg) — already in user schema.
+  continue
+}
 ```
 
 and pick the merge set by dialect (the return type keeps the sqlite `typeof INTERNAL_TABLES` shape — a knowing simplification; internal consumers use the runtime dispatch helpers, never this static type):
 
 ```ts
-  const internal =
-    detectDialect(schema) === 'pg' ? INTERNAL_TABLES_PG : INTERNAL_TABLES
-  for (const [key, table] of Object.entries(internal)) {
-    if (!(key in merged)) {
-      ;(merged as Record<string, unknown>)[key] = table
-    }
+const internal =
+  detectDialect(schema) === 'pg' ? INTERNAL_TABLES_PG : INTERNAL_TABLES
+for (const [key, table] of Object.entries(internal)) {
+  if (!(key in merged)) {
+    ;(merged as Record<string, unknown>)[key] = table
   }
+}
 ```
 
 - [ ] **Step 5: Run tests**
@@ -399,11 +410,13 @@ git commit -m "feat(bunderstack): pg twins of internal tables with runtime dispa
 ### Task 4: Dialect dispatch in file-meta and idempotency
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/storage/file-meta.ts`
 - Modify: `packages/bunderstack/src/idempotency.ts`
 - Test: `packages/bunderstack/src/storage/file-meta.pg.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `AnyDb` (Task 2), `filesTableFor`/`idempotencyTableFor` (Task 3).
 - Produces: every exported function keeps its exact current name and signature except the `db` parameter type changes `LibSQLDatabase<Record<string, unknown>>` → `AnyDb` (callers compile unchanged — `LibSQLDatabase` is assignable to `AnyDb`).
 
@@ -539,6 +552,7 @@ git commit -m "feat(bunderstack): file-meta and idempotency dispatch internal ta
 The atomic core: db factory, env default, auth provider, type sweep, and every caller updated together so the suite lands green.
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/db.ts` (rewrite)
 - Modify: `packages/bunderstack/src/index.ts`
 - Modify: `packages/bunderstack/src/env.ts`
@@ -550,6 +564,7 @@ The atomic core: db factory, env default, auth provider, type sweep, and every c
 - Test: `packages/bunderstack/src/db.pg.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `Dialect`, `AnyDb`, `detectDialect` (Task 2).
 - Produces:
   - `type Driver = 'libsql' | 'pglite' | 'bun-sql' | 'postgres-js'`
@@ -607,13 +622,19 @@ test('pg schema + postgres:// picks bun-sql under Bun without connecting', async
 
 test('sqlite schema + postgres:// URL throws a dialect-contradiction error', async () => {
   await expect(
-    createDb({ posts: sqlitePosts }, { url: 'postgres://x/y', dialect: 'sqlite' }),
+    createDb(
+      { posts: sqlitePosts },
+      { url: 'postgres://x/y', dialect: 'sqlite' },
+    ),
   ).rejects.toThrow(/Postgres URL.*sqliteTable/s)
 })
 
 test('pg schema + libsql URL throws a dialect-contradiction error', async () => {
   await expect(
-    createDb({ posts: pgPosts }, { url: 'libsql://foo.turso.io', dialect: 'pg' }),
+    createDb(
+      { posts: pgPosts },
+      { url: 'libsql://foo.turso.io', dialect: 'pg' },
+    ),
   ).rejects.toThrow(/libsql.*pgTable/s)
 })
 ```
@@ -693,7 +714,10 @@ export async function createDb<TSchema extends Record<string, unknown>>(
       const { drizzle } = await import(
         /* @vite-ignore */ /* webpackIgnore: true */ 'drizzle-orm/bun-sql'
       )
-      return { db: drizzle(cfg.url, { schema }) as DbFor<TSchema>, driver: 'bun-sql' }
+      return {
+        db: drizzle(cfg.url, { schema }) as DbFor<TSchema>,
+        driver: 'bun-sql',
+      }
     }
     const { drizzle } = await importDriver<
       typeof import('drizzle-orm/postgres-js')
@@ -709,7 +733,9 @@ export async function createDb<TSchema extends Record<string, unknown>>(
   }
 
   // Local PGlite: `file:<dir>`, a bare path, `:memory:`, or `memory://`.
-  const raw = cfg.url.startsWith('file:') ? cfg.url.slice('file:'.length) : cfg.url
+  const raw = cfg.url.startsWith('file:')
+    ? cfg.url.slice('file:'.length)
+    : cfg.url
   const dataDir = raw === ':memory:' ? 'memory://' : raw
   if (!dataDir.startsWith('memory://')) {
     await mkdir(dataDir, { recursive: true })
@@ -720,7 +746,10 @@ export async function createDb<TSchema extends Record<string, unknown>>(
       '  Run `bun add -d @electric-sql/pglite` — bunderstack runs an embedded Postgres in ./data.pglite.\n' +
       '  In production set DATABASE_URL=postgres://… (PGlite is not needed there).',
   )
-  return { db: drizzle(dataDir, { schema }) as DbFor<TSchema>, driver: 'pglite' }
+  return {
+    db: drizzle(dataDir, { schema }) as DbFor<TSchema>,
+    driver: 'pglite',
+  }
 }
 ```
 
@@ -793,28 +822,28 @@ export interface ProvisionInternals {
 4. Implementation top:
 
 ```ts
-  const dialect = detectDialect(options.schema)
-  const env = validateEnv(options.env, {
-    emailProvider: emailProviderTag(options.email),
-    defaultDatabaseUrl:
-      dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-  })
+const dialect = detectDialect(options.schema)
+const env = validateEnv(options.env, {
+  emailProvider: emailProviderTag(options.email),
+  defaultDatabaseUrl:
+    dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
+})
 ```
 
 5. Db + auth construction:
 
 ```ts
-  const mergedSchema = withInternalTables(options.schema)
-  const { db, driver } = await createDb(mergedSchema, {
-    ...config.database,
-    dialect,
-  })
-  const userDb = db as unknown as DbFor<TSchema>
-  const auth = createAuth(
-    db,
-    withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
-    dialect,
-  )
+const mergedSchema = withInternalTables(options.schema)
+const { db, driver } = await createDb(mergedSchema, {
+  ...config.database,
+  dialect,
+})
+const userDb = db as unknown as DbFor<TSchema>
+const auth = createAuth(
+  db,
+  withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
+  dialect,
+)
 ```
 
 (Update the comment above `userDb`: it now explains the cast produces the per-dialect user-facing type.)
@@ -822,14 +851,14 @@ export interface ProvisionInternals {
 6. Provision internals gains the new fields:
 
 ```ts
-  ;(app as WithProvisionInternals)[PROVISION_INTERNALS] = {
-    db,
-    schema: mergedSchema,
-    databaseUrl: config.database.url,
-    migrationsFolder: config.database.migrations,
-    dialect,
-    driver,
-  }
+;(app as WithProvisionInternals)[PROVISION_INTERNALS] = {
+  db,
+  schema: mergedSchema,
+  databaseUrl: config.database.url,
+  migrationsFolder: config.database.migrations,
+  dialect,
+  driver,
+}
 ```
 
 7. **Delete** the bottom re-export block:
@@ -837,14 +866,20 @@ export interface ProvisionInternals {
 ```ts
 // DELETE these lines entirely:
 export {
-  sqliteTable, integer, text, real, blob, numeric, foreignKey,
+  sqliteTable,
+  integer,
+  text,
+  real,
+  blob,
+  numeric,
+  foreignKey,
 } from 'drizzle-orm/sqlite-core'
 export { eq, and, or, not, gt, gte, lt, lte, desc, asc, sql } from 'drizzle-orm'
 ```
 
 - [ ] **Step 8: Update every caller in tests**
 
-- `src/db.test.ts`: `createDb({ posts }, { url: ':memory:' })` → `const { db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' })`; `db.$client.execute` — `$client` is no longer statically typed on the union return; change to `await db.run(...)`? No — keep it simple: `await (db as { $client: { execute(sql: string): Promise<unknown> } }).$client.execute(...)` or replace the manual DDL with `db.run(sql\`CREATE TABLE ...\`)` using `import { sql } from 'drizzle-orm'`. Use the `db.run(sql\`…\`)` form (LibSQLDatabase has `.run`).
+- `src/db.test.ts`: `createDb({ posts }, { url: ':memory:' })` → `const { db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' })`; `db.$client.execute` — `$client` is no longer statically typed on the union return; change to `await db.run(...)`? No — keep it simple: `await (db as { $client: { execute(sql: string): Promise<unknown> } }).$client.execute(...)` or replace the manual DDL with `db.run(sql\`CREATE TABLE ...\`)`using`import { sql } from 'drizzle-orm'`. Use the `db.run(sql\`…\`)`form (LibSQLDatabase has`.run`).
 - `src/crud.test.ts:41`: `db = createDb(...)` → `;({ db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' }))`. The `db` variable's declared type `LibSQLDatabase<{ posts: typeof posts }>` stays valid (`DbFor` resolves to it for a sqlite schema).
 - Every `createBunderstack(` call in: `index.test.ts`, `access.integration.test.ts`, `app-env.test.ts`, `auth-email.test.ts`, `infer-client.test.ts`, `trpc-mount.test.ts`, `provision.integration.test.ts`, `storage/multibucket.integration.test.ts`, `packages/bunderstack-query/src/trpc-client.test.ts` — prefix with `await` (make enclosing test callbacks/`beforeAll` async where they aren't). Find them all: `grep -rn "createBunderstack(" src ../bunderstack-query/src`.
 - `infer-client.test.ts`: where the value is only used for types, `const app = await createBunderstack({...})` inside an async test still works; if any usage is `ReturnType<typeof createBunderstack>`, wrap in `Awaited<…>`.
@@ -868,10 +903,12 @@ git commit -m "feat(bunderstack): async multi-driver createDb; async createBunde
 ### Task 6: Provision on Postgres (push + per-driver migrators)
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/provision.ts`
 - Test: `packages/bunderstack/src/provision.pg.integration.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `ProvisionInternals.dialect`/`.driver` (Task 5), `detectDialect` (Task 2), `AnyDb`.
 - Produces: `provisionSchema(db: AnyDb, schema, options?: { force?: boolean; databaseUrl?: string })` — signature unchanged from Task 5 state; self-detects dialect from `schema`. `provision(app, options?)` unchanged signature.
 
@@ -923,7 +960,13 @@ test('provision applies committed pg migrations instead of pushing', async () =>
       version: '7',
       dialect: 'postgresql',
       entries: [
-        { idx: 0, version: '7', when: Date.now(), tag: '0000_init', breakpoints: true },
+        {
+          idx: 0,
+          version: '7',
+          when: Date.now(),
+          tag: '0000_init',
+          breakpoints: true,
+        },
       ],
     }),
   )
@@ -973,7 +1016,10 @@ import {
 } from './provision-internals'
 
 /** Create the local backing directory for file-based urls, per dialect. */
-async function ensureLocalDataDir(url: string, dialect: Dialect): Promise<void> {
+async function ensureLocalDataDir(
+  url: string,
+  dialect: Dialect,
+): Promise<void> {
   if (dialect === 'pg') {
     // PGlite data dir: `file:<dir>` or a bare path; server/memory urls need nothing.
     if (/^postgres(ql)?:\/\//.test(url)) return
@@ -1081,7 +1127,9 @@ export async function provision(
     await ensureLocalDataDir(databaseUrl, dialect)
     const { migrate } = (await import(
       /* @vite-ignore */ /* webpackIgnore: true */ MIGRATOR_MODULES[driver]
-    )) as { migrate: (db: never, cfg: { migrationsFolder: string }) => Promise<void> }
+    )) as {
+      migrate: (db: never, cfg: { migrationsFolder: string }) => Promise<void>
+    }
     await migrate(db as never, { migrationsFolder })
     return
   }
@@ -1107,10 +1155,12 @@ git commit -m "feat(bunderstack): provision pushes and migrates on Postgres"
 ### Task 7: Case-insensitive search on pg (`ilike`) + CRUD parity suite
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/list-query.ts` (buildSearchWhere)
 - Test: `packages/bunderstack/src/crud.pg.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `createDb`, `provisionSchema`, `buildCrudRouter`, `withInternalTables`, `validateAndResolveAccess` — all existing signatures.
 - Produces: no API change; `?q=` search is case-insensitive on both dialects.
 
@@ -1244,8 +1294,16 @@ test('PATCH updates and DELETE removes on Postgres', async () => {
 test('idempotency replays the original response on Postgres', async () => {
   const headers = asUser({ 'Idempotency-Key': 'pg-key-1' })
   const body = JSON.stringify({ title: 'Idem' })
-  const first = await app.request('/api/posts', { method: 'POST', headers, body })
-  const second = await app.request('/api/posts', { method: 'POST', headers, body })
+  const first = await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body,
+  })
+  const second = await app.request('/api/posts', {
+    method: 'POST',
+    headers,
+    body,
+  })
   expect(second.status).toBe(first.status)
   expect(await second.json()).toEqual(await first.json())
 })
@@ -1263,10 +1321,10 @@ Expected: the case-insensitive search test FAILS (pg `LIKE` is case-sensitive); 
 In `list-query.ts`: add `ilike` and `is` to the `drizzle-orm` import, add `import { PgTable } from 'drizzle-orm/pg-core'`, and change the map line:
 
 ```ts
-  const likeOp = is(table, PgTable) ? ilike : like
-  const conditions = searchableColumns
-    .filter((name) => name in columns)
-    .map((name) => likeOp(columns[name]!, pattern))
+const likeOp = is(table, PgTable) ? ilike : like
+const conditions = searchableColumns
+  .filter((name) => name in columns)
+  .map((name) => likeOp(columns[name]!, pattern))
 ```
 
 - [ ] **Step 4: Run tests**
@@ -1286,9 +1344,11 @@ git commit -m "feat(bunderstack): CRUD parity on Postgres; case-insensitive sear
 ### Task 8: Real-Postgres (Bun.sql) gated integration test
 
 **Files:**
+
 - Test: `packages/bunderstack/src/bunsql.integration.test.ts` (new)
 
 **Interfaces:**
+
 - Consumes: `createBunderstack`, `provision` — existing signatures. Env var `TEST_POSTGRES_URL` gates execution.
 
 - [ ] **Step 1: Write the gated test**
@@ -1350,6 +1410,7 @@ git commit -m "test(bunderstack): gated real-Postgres integration test via Bun.s
 ### Task 9: `bunderstack/typeid/pg` and `bunderstack/schema/pg` subpaths
 
 **Files:**
+
 - Create: `packages/bunderstack/src/typeid-pg.ts`
 - Create: `packages/bunderstack/src/schema-export-pg.ts`
 - Modify: `packages/bunderstack/src/typeid.ts` (export `isValidPrefix`)
@@ -1358,6 +1419,7 @@ git commit -m "test(bunderstack): gated real-Postgres integration test via Bun.s
 (The `exports` map entries were added in Task 1.)
 
 **Interfaces:**
+
 - Consumes: `isValidPrefix`, `TypeId`, `generate`, `parse`, `asTypeId`, `encode`, `decode` from `./typeid` (all but `isValidPrefix` already exported; check `encode`/`decode` exports — they are).
 - Produces: `typeid<P>(prefix)` pg column builder; `bunderstack/schema/pg` exporting `bunderstackFiles`/`bunderstackIdempotency` (pg twins under the sqlite names, mirroring `bunderstack/schema`).
 
@@ -1374,7 +1436,9 @@ import { generate } from './typeid'
 
 test('pg typeid column builds into a pgTable and generates branded ids', () => {
   const table = pgTable('tid_things', {
-    id: typeidPg('thing').primaryKey().$defaultFn(() => generate('thing')),
+    id: typeidPg('thing')
+      .primaryKey()
+      .$defaultFn(() => generate('thing')),
   })
   expect(is(table, PgTable)).toBe(true)
   const id = generate('thing')
@@ -1457,10 +1521,12 @@ git commit -m "feat(bunderstack): typeid/pg and schema/pg subpath exports"
 Every example must compile against the new surface: `await createBunderstack`, drizzle imports from drizzle-orm, explicit `drizzle-orm` + `@libsql/client` deps.
 
 **Files:**
+
 - Modify: `examples/{todo,kanban-tanstack,kanban-solid-1.9,twitter-tanstack,twitter-db-tanstack,tldraw,nextjs,standalone}/src/bunderstack.ts` (or equivalent entry; check each exists), `*/src/schema.ts`, `*/package.json`; `examples/twitter-tanstack/scripts/seed.ts`, `examples/twitter-db-tanstack/scripts/seed.ts`
 - Modify: `packages/bunderstack-query/package.json`, `packages/bunderstack-start/package.json`, `packages/bunderstack-sync/package.json` (only if they reference drizzle-orm or construct apps — check first)
 
 **Interfaces:**
+
 - Consumes: async `createBunderstack` (Task 5), removed root re-exports.
 
 - [ ] **Step 1: Enumerate all affected sites**
@@ -1517,6 +1583,7 @@ git commit -m "refactor(examples): await createBunderstack; import drizzle build
 ### Task 11: Documentation
 
 **Files:**
+
 - Modify: `website/content/docs/getting-started.mdx`
 - Modify: `website/content/docs/configuration.mdx`
 - Modify: `website/content/docs/framework-portability.mdx`
@@ -1535,7 +1602,7 @@ Update each snippet (Next.js lazy-singleton snippets: `_app = createBunderstack(
 
 Insert after the existing database/getting-started material:
 
-```mdx
+````mdx
 ## Using PostgreSQL
 
 Bunderstack infers the database dialect from your schema: define tables with
@@ -1579,18 +1646,19 @@ Node runtimes (e.g. Next.js), install the driver: `npm install postgres`.
 The dialect comes from your schema (`sqliteTable` → SQLite, `pgTable` →
 Postgres). `DATABASE_URL` selects the engine within the dialect:
 
-| Schema        | `DATABASE_URL`      | Engine                                  |
-| ------------- | ------------------- | --------------------------------------- |
-| `sqliteTable` | unset               | local SQLite file `./data.db`           |
-| `sqliteTable` | `file:./app.db`     | local SQLite file                       |
-| `sqliteTable` | `libsql://…`        | Turso (`DATABASE_AUTH_TOKEN` for auth)  |
-| `pgTable`     | unset               | PGlite in `./data.pglite`               |
-| `pgTable`     | `file:./pgdata`     | PGlite in that directory                |
-| `pgTable`     | `memory://`         | PGlite in-memory (tests)                |
-| `pgTable`     | `postgres://…`      | Postgres server (Bun.sql / postgres.js) |
+| Schema        | `DATABASE_URL`  | Engine                                  |
+| ------------- | --------------- | --------------------------------------- |
+| `sqliteTable` | unset           | local SQLite file `./data.db`           |
+| `sqliteTable` | `file:./app.db` | local SQLite file                       |
+| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)  |
+| `pgTable`     | unset           | PGlite in `./data.pglite`               |
+| `pgTable`     | `file:./pgdata` | PGlite in that directory                |
+| `pgTable`     | `memory://`     | PGlite in-memory (tests)                |
+| `pgTable`     | `postgres://…`  | Postgres server (Bun.sql / postgres.js) |
 
 A URL that contradicts the schema dialect fails at startup with a clear error.
 ```
+````
 
 Also document the peer-dependency model here (drizzle-orm required; `@libsql/client`, `@electric-sql/pglite`, `postgres` optional — install the one your setup needs; the startup error names the exact command otherwise).
 
@@ -1637,7 +1705,10 @@ import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 
-const todos = pgTable('todos', { id: serial('id').primaryKey(), title: text('title').notNull() })
+const todos = pgTable('todos', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+})
 const app = await createBunderstack({ schema: { todos } })
 await provision(app)
 const [row] = await app.db.insert(todos).values({ title: 'works' }).returning()
@@ -1651,4 +1722,5 @@ Run: `bun index.ts` → prints `smoke: { id: 1, title: 'works' }` and creates `.
 ```bash
 git add -A && git commit -m "fix(bunderstack): post-verification fixes for postgres support"
 ```
+
 (Skip if nothing changed.)

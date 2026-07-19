@@ -3,12 +3,14 @@
 // Deployment platforms (Bunderhost) import the app declaration with
 // BUNDERSTACK_INTROSPECT=1 and read `app.manifest` to learn what to provision.
 import type { ZodType } from 'zod'
+
 import { getTableName, isTable } from 'drizzle-orm'
 
 import type { Dialect } from './dialect'
 import type { EnvConfigInput } from './env'
 import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
+
 import {
   bunderstackCronRuns,
   bunderstackFiles,
@@ -37,7 +39,9 @@ export type BunderstackManifest = {
   }
 }
 
-function describeTables(schema: Record<string, unknown>): Record<string, string> {
+function describeTables(
+  schema: Record<string, unknown>,
+): Record<string, string> {
   return Object.fromEntries(
     Object.entries(schema).flatMap(([key, value]) =>
       isTable(value) ? [[key, getTableName(value)]] : [],

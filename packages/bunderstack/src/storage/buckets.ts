@@ -266,7 +266,8 @@ export function resolveBuckets(
   input: StorageConfigInput | undefined,
   env: Record<string, string | undefined> = process.env,
 ): ResolvedStorageBuckets {
-  const sharedBackend = platformS3Backend(env) ?? resolveSharedBackend(input, env)
+  const sharedBackend =
+    platformS3Backend(env) ?? resolveSharedBackend(input, env)
   const bucketsInput = input?.buckets
 
   const declaredNames = bucketsInput ? Object.keys(bucketsInput) : []

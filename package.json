@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync && bun test --cwd packages/bunderstack-start && bun test scripts/",
+    "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "typecheck": "bunx tsc --noEmit -p packages/bunderstack/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-sync/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-start/tsconfig.json",
     "dev": "bun run --cwd examples/standalone dev",
     "dev:standalone": "bun run --cwd examples/standalone dev",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
+    "nodemailer": "^9.0.3",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
     "typescript": "^7.0.1-rc"
@@ -35,6 +37,7 @@
     "@tanstack/query-db-collection": "1.1.0",
     "@tanstack/react-db": "0.1.94",
     "@tanstack/react-query": "^5.101.1",
+    "drizzle-orm": "^0.45.0",
     "zod": "^4.4.3"
   },
   "packageManager": "pnpm@10.22.0+sha512.bf049efe995b28f527fd2b41ae0474ce29186f7edcb3bf545087bd61fbbebb2bf75362d1307fda09c2d288e1e499787ac12d4fcb617a974718a6051f2eee741c"

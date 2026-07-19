@@ -35,7 +35,6 @@
     "test": "bun test"
   },
   "dependencies": {
-    "bunderstack": "workspace:*",
     "bunderstack-query": "workspace:*"
   },
   "devDependencies": {
@@ -50,6 +49,11 @@
     "@tanstack/db": "0.6.16",
     "@tanstack/query-db-collection": "1.1.0",
     "@tanstack/react-query": "^5.101.0",
-    "typescript": "^5"
+    "typescript": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   }
 }

@@ -3,12 +3,12 @@ import { betterAuth } from 'better-auth'
 import { z } from 'zod'
 
 import type { TableAccessInput } from './access'
+import type { DatabaseAdapter } from './database/adapter'
+import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
 import { validateEnv, type BaseEnv, type EnvConfigInput } from './env'
-import type { EmailConfigInput } from './email'
-
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,
@@ -25,6 +25,7 @@ export const BunderstackOptionsSchema = z.object({
   access: z.record(z.string(), z.any()).optional(),
   database: z
     .object({
+      adapter: z.any(),
       url: z.string().optional(),
       authToken: z.string().optional(),
       migrations: z.string().optional(),
@@ -82,10 +83,24 @@ export type BunderstackConfig<
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
 > = Omit<
   z.input<typeof BunderstackOptionsSchema>,
-  'schema' | 'access' | 'auth' | 'storage' | 'env' | 'email' | 'trpc' | 'jobs'
+  | 'schema'
+  | 'access'
+  | 'auth'
+  | 'storage'
+  | 'env'
+  | 'email'
+  | 'trpc'
+  | 'jobs'
+  | 'database'
 > & {
   schema: TSchema
   access?: TAccess
+  database?: {
+    adapter: DatabaseAdapter
+    url?: string
+    authToken?: string
+    migrations?: string
+  }
   auth?: BetterAuthConfig
   storage?: TStorage
   env?: TEnv
@@ -106,7 +121,12 @@ export type BunderstackConfig<
 }
 
 export type ResolvedConfig = {
-  database: { url: string; authToken?: string; migrations: string }
+  database: {
+    adapter: DatabaseAdapter
+    url: string
+    authToken?: string
+    migrations: string
+  }
   auth: BetterAuthConfig
   storage: ResolvedStorageBuckets
   realtime?:
@@ -134,12 +154,22 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
   const resolvedEnv =
     env ?? validateEnv(options.env as EnvConfigInput | undefined)
 
+  const adapter = options.database?.adapter
+  if (!adapter) {
+    throw new Error('[bunderstack] database.adapter is required')
+  }
+
+  const defaultUrl =
+    adapter.dialect === 'sqlite' ? 'file:./data.db' : 'file:./data.pglite'
+
   return {
     database: {
+      adapter,
       url:
         platformSource['BUNDERSTACK_DATABASE_URL'] ??
         parsed.database?.url ??
-        resolvedEnv.DATABASE_URL,
+        resolvedEnv.DATABASE_URL ??
+        defaultUrl,
       authToken:
         platformSource['BUNDERSTACK_DATABASE_AUTH_TOKEN'] ??
         parsed.database?.authToken ??

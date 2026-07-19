@@ -28,10 +28,12 @@
 ### Task 1: Restore a clean static baseline
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/storage/buckets.test.ts:75`
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Consumes: current `ResolvedBucket.readScope` and `ResolvedBucket.writeScope`.
 - Produces: root `typecheck` script used by every later task.
 
@@ -72,12 +74,14 @@ git commit -m "chore: restore workspace typecheck gate"
 ### Task 2: Split queue-job and cron declarations
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/define.ts`
 - Modify: `packages/bunderstack/src/jobs/index.ts`
 - Modify: `packages/bunderstack/src/jobs/define.test.ts`
 - Modify: `packages/bunderstack/src/infer-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: `parseCron()`, `JobContext`, Zod input schemas.
 - Produces: `QueueJobDefinition`, `CronDefinition`, `BackgroundDefinition`, `BackgroundDefs`, `QueueJobKeys`, and a builder with `job()`, `cron()`, and `define()`.
 
@@ -181,7 +185,11 @@ export type BackgroundDefinition =
 export type BackgroundDefs = Record<string, BackgroundDefinition>
 
 export type QueueJobKeys<TDefs extends BackgroundDefs> = {
-  [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<any, any, any>
+  [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<
+    any,
+    any,
+    any
+  >
     ? K
     : never
 }[keyof TDefs & string]
@@ -240,11 +248,13 @@ git commit -m "feat(jobs)!: separate queue jobs from cron declarations"
 ### Task 3: Make the queue runner queue-only
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Modify: `packages/bunderstack/src/jobs/worker.test.ts`
 - Modify: `packages/bunderstack/src/jobs/jobs.pg.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BackgroundDefs`, `QueueJobDefinition`, and `enqueueJob()`.
 - Produces: `createJobRunner()` that never parses schedules or creates cron queue rows.
 
@@ -315,6 +325,7 @@ git commit -m "refactor(jobs): make worker consume queue jobs only"
 ### Task 4: Add leased cron-run persistence
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/internal-tables.ts`
 - Modify: `packages/bunderstack/src/internal-tables-pg.ts`
 - Modify: `packages/bunderstack/src/internal-tables.test.ts`
@@ -324,6 +335,7 @@ git commit -m "refactor(jobs): make worker consume queue jobs only"
 - Modify: `packages/bunderstack/src/jobs/index.ts`
 
 **Interfaces:**
+
 - Consumes: `BackgroundDefs`, `AnyDb`, `JobContext`, and the existing cron parser.
 - Produces: generic `runScheduledSlot()` leasing plus the user-facing
   `runCronSlot(deps, name, slot): Promise<CronRunResult>` wrapper.
@@ -450,6 +462,7 @@ git commit -m "feat(cron): persist leased schedule slots"
 ### Task 5: Add the signed cron HTTP endpoint
 
 **Files:**
+
 - Create: `packages/bunderstack/src/jobs/cron-auth.ts`
 - Create: `packages/bunderstack/src/jobs/cron-auth.test.ts`
 - Create: `packages/bunderstack/src/jobs/cron-router.ts`
@@ -462,6 +475,7 @@ git commit -m "feat(cron): persist leased schedule slots"
 - Modify: `packages/bunderstack/package.json`
 
 **Interfaces:**
+
 - Consumes: `runCronSlot`, `BackgroundDefs`, validated environment, and Hono.
 - Produces: `signScheduleRequest(secret, taskId, slot)`, public
   `bunderstack/cron` helpers, and mounted cron and maintenance endpoints.
@@ -560,6 +574,7 @@ git commit -m "feat(cron): expose signed schedule delivery endpoint"
 ### Task 6: Introduce explicit lifecycle and worker handles
 
 **Files:**
+
 - Create: `packages/bunderstack/src/lifecycle.ts`
 - Create: `packages/bunderstack/src/lifecycle.test.ts`
 - Create: `packages/bunderstack/src/jobs/runtime.ts`
@@ -568,6 +583,7 @@ git commit -m "feat(cron): expose signed schedule delivery endpoint"
 - Modify: `packages/bunderstack/src/jobs/index.ts`
 
 **Interfaces:**
+
 - Consumes: queue-only `createJobRunner()` and the application cleanup signal.
 - Produces: `Lifecycle`, `WorkerHandle`, `startJobWorker()`, and blocking signal-aware `runJobWorker()`.
 
@@ -668,6 +684,7 @@ git commit -m "feat(runtime): add explicit worker lifecycle"
 ### Task 7: Make `createBunderstack()` construction-only
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/index.ts`
 - Modify: `packages/bunderstack/src/jobs/integration.test.ts`
 - Modify: `packages/bunderstack/src/crud-broadcast.test.ts`
@@ -677,6 +694,7 @@ git commit -m "feat(runtime): add explicit worker lifecycle"
 - Create: `packages/bunderstack/src/app-lifecycle.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Lifecycle`, queue runner, worker runtime, cron router, storage facade, and realtime brokers.
 - Produces: public `app.startWorker()`, `app.runWorker()`, `app.close()`, `app.status`, and `app.signal`.
 
@@ -778,6 +796,7 @@ git commit -m "feat(app)!: make background runtime explicit"
 ### Task 8: Add manifest v2 and the local cron scheduler
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/manifest.ts`
 - Modify: `packages/bunderstack/src/manifest.test.ts`
 - Create: `packages/bunderstack/src/jobs/local-cron.ts`
@@ -785,6 +804,7 @@ git commit -m "feat(app)!: make background runtime explicit"
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: discriminated definitions, `runCronSlot()`, lifecycle registry, storage config.
 - Produces: manifest v2 and `app.startCronScheduler()` for standalone development.
 
@@ -804,9 +824,7 @@ expect(manifest).toMatchObject({
   background: {
     jobs: [{ name: 'generateLook' }],
     cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
-    maintenance: [
-      { name: 'storage-sweep', schedule: '0 4 * * *' },
-    ],
+    maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *' }],
   },
 })
 ```
@@ -882,6 +900,7 @@ git commit -m "feat(manifest)!: describe explicit background roles"
 ### Task 9: Migrate examples and documentation
 
 **Files:**
+
 - Modify: `examples/todo/src/bunderstack.ts`
 - Create: `examples/todo/src/worker.ts`
 - Modify: `examples/todo/README.md`
@@ -893,6 +912,7 @@ git commit -m "feat(manifest)!: describe explicit background roles"
 - Modify: `website/content/docs/meta.json`
 
 **Interfaces:**
+
 - Consumes: final public worker, cron, handler, and lifecycle APIs.
 - Produces: copy-pasteable TanStack Start, standalone Bun, local worker, and Bunderhost examples.
 
@@ -964,9 +984,11 @@ git commit -m "docs: explain workers cron and application lifecycle"
 ### Task 10: Final library verification
 
 **Files:**
+
 - Verify only.
 
 **Interfaces:**
+
 - Consumes: all preceding tasks.
 - Produces: evidence that the library half of manifest v2 is ready for Bunderhost integration.
 

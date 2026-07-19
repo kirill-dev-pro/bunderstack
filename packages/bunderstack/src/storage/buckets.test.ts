@@ -395,7 +395,8 @@ describe('resolveBuckets — BUNDERSTACK_S3_* platform override', () => {
     BUNDERSTACK_S3_BUCKET: 'bunderhost-myproj-prod',
     BUNDERSTACK_S3_ACCESS_KEY_ID: 'tid_platform',
     BUNDERSTACK_S3_SECRET_ACCESS_KEY: 'tsec_platform',
-    BUNDERSTACK_S3_PUBLIC_URL: 'https://bunderhost-myproj-prod.fly.storage.tigris.dev',
+    BUNDERSTACK_S3_PUBLIC_URL:
+      'https://bunderhost-myproj-prod.fly.storage.tigris.dev',
   }
 
   test('forces local storage onto the platform backend', () => {

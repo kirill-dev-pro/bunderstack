@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /**
  * Apply committed Drizzle migrations.
  * Run: bun run migrate

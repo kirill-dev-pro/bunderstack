@@ -1,11 +1,12 @@
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 // src/trpc.test.ts
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { z } from 'zod'
 
-import type { TRPCContext } from './trpc'
 import type { EmailFacade } from './email'
+import type { TRPCContext } from './trpc'
+
 import { createTRPC } from './trpc'
 
 const notes = sqliteTable('notes', {

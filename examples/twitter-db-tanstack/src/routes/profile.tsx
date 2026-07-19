@@ -1,7 +1,8 @@
-import { ClientOnly, createFileRoute, redirect } from '@tanstack/react-router'
-import { useLiveQuery } from '@tanstack/react-db'
-import * as React from 'react'
 import type { TypeId } from 'bunderstack/typeid'
+
+import { useLiveQuery } from '@tanstack/react-db'
+import { ClientOnly, createFileRoute, redirect } from '@tanstack/react-router'
+import * as React from 'react'
 
 import { AppShell } from '~/components/AppShell'
 import {
@@ -148,10 +149,7 @@ function ProfileSettings({ userId }: { userId: TypeId<'user'> }) {
 
       <Card>
         <CardContent>
-          <form
-            className="space-y-3"
-            onSubmit={(e) => void handleSaveAbout(e)}
-          >
+          <form className="space-y-3" onSubmit={(e) => void handleSaveAbout(e)}>
             <div className="space-y-1.5">
               <label htmlFor="about" className="text-sm font-medium">
                 Bio (searchable)

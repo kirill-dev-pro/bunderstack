@@ -1,10 +1,11 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
+import type { Post } from '~/utils/posts'
+
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
-import type { Post } from '~/utils/posts'
 
 type ReplyComposerProps = {
   user: { id: string; name: string; image?: string | null } | null

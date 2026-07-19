@@ -4,11 +4,7 @@ import { and, eq, inArray, is, isNotNull, lt, lte, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
-import type {
-  AnyJobDefinition,
-  JobsDefs,
-  JobsRuntimeFacade,
-} from './define'
+import type { AnyJobDefinition, JobsDefs, JobsRuntimeFacade } from './define'
 
 import { jobsTableFor } from '../internal-tables'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
@@ -77,7 +73,11 @@ export function createJobRunner(deps: {
       })
       .from(t)
       .where(
-        and(eq(t.status, 'running'), isNotNull(t.lockedUntil), lt(t.lockedUntil, now)),
+        and(
+          eq(t.status, 'running'),
+          isNotNull(t.lockedUntil),
+          lt(t.lockedUntil, now),
+        ),
       )
     for (const row of expired) {
       const def = defs[row.type]
@@ -148,8 +148,11 @@ export function createJobRunner(deps: {
     // PG: lock the selected rows so concurrent replicas skip them. SQLite's
     // single-writer model makes the one-statement UPDATE atomic on its own.
     const sub = is(db, PgDatabase)
-      ? (pendingIds as unknown as { for: (m: string, o: object) => typeof pendingIds })
-          .for('update', { skipLocked: true })
+      ? (
+          pendingIds as unknown as {
+            for: (m: string, o: object) => typeof pendingIds
+          }
+        ).for('update', { skipLocked: true })
       : pendingIds
     const rows: JobRow[] = await db
       .update(t)

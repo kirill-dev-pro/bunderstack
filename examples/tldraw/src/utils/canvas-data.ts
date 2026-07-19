@@ -1,5 +1,5 @@
-import type { TypeId } from 'bunderstack/typeid'
 import type { InferSelect } from 'bunderstack-sync'
+import type { TypeId } from 'bunderstack/typeid'
 
 import type * as schema from '~/schema'
 
@@ -33,7 +33,9 @@ export const shapeListParams = (canvasId: TypeId<'canvas'> | string) =>
     limit: 200,
   }) as const
 
-export function formatCanvasDate(value: Date | string | number | null | undefined) {
+export function formatCanvasDate(
+  value: Date | string | number | null | undefined,
+) {
   if (!value) return 'Recently'
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -62,9 +64,10 @@ export function createShapeDraft(
     height: size.height,
     rotation: 0,
     color,
-    text: type === 'text' ? options.text?.trim() || 'Double-click to edit' : null,
-    imageFileId: type === 'image' ? options.imageFileId ?? null : null,
-    imageName: type === 'image' ? options.imageName ?? null : null,
+    text:
+      type === 'text' ? options.text?.trim() || 'Double-click to edit' : null,
+    imageFileId: type === 'image' ? (options.imageFileId ?? null) : null,
+    imageName: type === 'image' ? (options.imageName ?? null) : null,
   }
 }
 

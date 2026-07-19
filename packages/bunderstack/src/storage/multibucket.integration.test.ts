@@ -2,6 +2,7 @@
 import { test, expect, afterAll } from 'bun:test'
 import { rm } from 'node:fs/promises'
 
+import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
 import { provision } from '../provision'
 
@@ -14,7 +15,7 @@ afterAll(async () => {
 async function buildApp() {
   const app = await createBunderstack({
     schema: {},
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     storage: {
       local: TMP_DIR,
       defaultBucket: 'docs',

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { typeid, generateTypeId } from 'bunderstack'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createTRPCClient } from 'bunderstack-query/trpc'
 
 import type { App } from './bunderstack' // type-only — zero server bytes
 

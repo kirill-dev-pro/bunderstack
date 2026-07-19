@@ -1,3 +1,4 @@
+import { transformerTwoslash } from '@shikijs/twoslash'
 /**
  * Pre-renders the landing page code snippets with shiki + twoslash: syntax
  * highlighting plus real TypeScript hover info, computed at build time
@@ -7,8 +8,6 @@
  * Wired as predev/prebuild alongside gen-docs-manifest.ts.
  */
 import { dirname, join } from 'node:path'
-
-import { transformerTwoslash } from '@shikijs/twoslash'
 import { createHighlighter } from 'shiki'
 import ts from 'typescript'
 
@@ -304,4 +303,6 @@ for (const [name, code] of Object.entries(snippets)) {
 }
 
 await Bun.write(outFile, JSON.stringify(out, null, 2))
-console.log(`code-snippets: ${Object.keys(out).length} → src/lib/code-snippets.gen.json`)
+console.log(
+  `code-snippets: ${Object.keys(out).length} → src/lib/code-snippets.gen.json`,
+)

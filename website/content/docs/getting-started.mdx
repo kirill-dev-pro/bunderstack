@@ -75,11 +75,11 @@ await provision(app)
 
 The `migrations/` folder is the mode switch — you never change code or set env vars to move between phases:
 
-| Phase         | State                            | What `provision(app)` does                                               |
-| ------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| Prototyping   | No `migrations/` folder          | Pushes the schema straight to the database on boot (needs `drizzle-kit`) |
-| Stabilized    | `migrations/` committed          | Applies pending migrations on boot — `drizzle-kit` is never loaded       |
-| Deploy        | Fresh clone + `migrations/`      | Creates the database file and all tables from the committed migrations   |
+| Phase       | State                       | What `provision(app)` does                                               |
+| ----------- | --------------------------- | ------------------------------------------------------------------------ |
+| Prototyping | No `migrations/` folder     | Pushes the schema straight to the database on boot (needs `drizzle-kit`) |
+| Stabilized  | `migrations/` committed     | Applies pending migrations on boot — `drizzle-kit` is never loaded       |
+| Deploy      | Fresh clone + `migrations/` | Creates the database file and all tables from the committed migrations   |
 
 **Prototyping.** Right after `bun add -d drizzle-kit`, just edit your schema and restart — the database follows. If a change would drop data, provision refuses and tells you to pass `provision(app, { force: true })`.
 
@@ -91,7 +91,7 @@ bunx drizzle-kit generate
 
 From this point on provision stops pushing and only applies the committed files. Every further schema change is an explicit `bunx drizzle-kit generate`, reviewed and committed like any other code.
 
-**Deploying.** Clone, `bun install --production`, start. Applying migrations uses drizzle-orm's built-in migrator, so `drizzle-kit` stays a dev-only dependency — it is never installed on, or shipped to, the server. If you deploy without a migrations folder *and* without drizzle-kit, provision fails with instructions rather than guessing.
+**Deploying.** Clone, `bun install --production`, start. Applying migrations uses drizzle-orm's built-in migrator, so `drizzle-kit` stays a dev-only dependency — it is never installed on, or shipped to, the server. If you deploy without a migrations folder _and_ without drizzle-kit, provision fails with instructions rather than guessing.
 
 Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`. If your migrations live elsewhere, point Bunderstack at them with `database: { migrations: './path' }`.
 

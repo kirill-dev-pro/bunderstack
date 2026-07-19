@@ -33,7 +33,7 @@ bun run --cwd examples/twitter-tanstack db:generate
 bun run --cwd examples/twitter-tanstack db:migrate
 ```
 
-Add `export * from 'bunderstack/schema'` to your `schema.ts` so migrations include internal tables (`bunderstack_file_meta`, `_bunderstack_idempotency`).
+Add `import { bunderstackFiles, bunderstackIdempotency, bunderstackJobs } from 'bunderstack/schema'` to your `schema.ts` and re-export them so migrations include internal tables.
 
 ## Run examples
 
@@ -199,8 +199,8 @@ TanStack Start apps can skip even that: `bunderstack-start`'s
 
 ## Environment variables
 
-| Variable       | Default          | Description                                                                     |
-| -------------- | ---------------- | ------------------------------------------------------------------------------- |
-| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                                   |
-| `AUTH_SECRET`  | dev default      | BetterAuth secret                                                               |
-| `NODE_ENV`     | —                | Set `production` in deploy; `provision(app)` applies committed migrations       |
+| Variable       | Default          | Description                                                               |
+| -------------- | ---------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                             |
+| `AUTH_SECRET`  | dev default      | BetterAuth secret                                                         |
+| `NODE_ENV`     | —                | Set `production` in deploy; `provision(app)` applies committed migrations |

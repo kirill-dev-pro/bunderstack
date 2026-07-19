@@ -1,10 +1,11 @@
 // src/app-env.test.ts
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { z } from 'zod'
 
-import { createBunderstack } from './index'
+import { libsql } from './database/libsql'
 import { BunderstackEnvError } from './env'
+import { createBunderstack } from './index'
 
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
@@ -15,7 +16,7 @@ test('createBunderstack exposes typed app.env', async () => {
   process.env.MY_API_KEY = 'k-1'
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     env: { server: { MY_API_KEY: z.string() } },
   })
   const key: string = app.env.MY_API_KEY
@@ -28,7 +29,7 @@ test('createBunderstack refuses to boot on invalid env', async () => {
   await expect(
     createBunderstack({
       schema: { notes },
-      database: { url: ':memory:' },
+      database: { url: ':memory:', adapter: libsql() },
       env: { server: { MISSING_REQUIRED: z.string() } },
     }),
   ).rejects.toThrow(BunderstackEnvError)
@@ -37,7 +38,7 @@ test('createBunderstack refuses to boot on invalid env', async () => {
 test('app.manifest describes the declaration', async () => {
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     env: { server: { WEBHOOK_SECRET: z.string().optional() } },
     storage: {
       local: './tmp-manifest-uploads',
@@ -63,6 +64,7 @@ test('BUNDERSTACK_INTROSPECT=1 boots offline despite remote url and missing env'
       database: {
         url: 'libsql://nonexistent-introspect.turso.io',
         authToken: 'x',
+        adapter: libsql(),
       },
       env: { server: { STRIPE_KEY: z.string() } }, // required and missing
       realtime: true, // must not require Redis

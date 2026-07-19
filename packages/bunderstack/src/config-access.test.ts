@@ -9,6 +9,7 @@ describe('resolveConfig with function access rules', () => {
     expect(() =>
       resolveConfig({
         schema: {},
+        database: { url: ':memory:', adapter: {} },
         access: {
           boards: {
             list: () => true,

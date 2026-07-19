@@ -65,14 +65,14 @@ export `bunderstack/env`.
 Always validated inside `createBunderstack()`, even when the user passes no
 `env` key:
 
-| Var | Rule |
-|---|---|
-| `DATABASE_URL` | optional, default `file:./data.db` |
-| `DATABASE_AUTH_TOKEN` | optional |
-| `AUTH_SECRET` | required when `NODE_ENV=production`; dev default otherwise |
-| `REDIS_URL` | optional |
-| `RESEND_API_KEY` | required only when email provider is `'resend'` |
-| `SMTP_URL` | required only when email provider is `'smtp'` |
+| Var                   | Rule                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| `DATABASE_URL`        | optional, default `file:./data.db`                         |
+| `DATABASE_AUTH_TOKEN` | optional                                                   |
+| `AUTH_SECRET`         | required when `NODE_ENV=production`; dev default otherwise |
+| `REDIS_URL`           | optional                                                   |
+| `RESEND_API_KEY`      | required only when email provider is `'resend'`            |
+| `SMTP_URL`            | required only when email provider is `'smtp'`              |
 
 ### User extension
 
@@ -143,11 +143,13 @@ const app = createBunderstack({
         .input(z.object({ cursor: z.string().optional() }))
         .query(async ({ ctx, input }) => {
           // one query joining posts + likes + users
-          return { posts, nextCursor }   // Date columns fine — superjson
+          return { posts, nextCursor } // Date columns fine — superjson
         }),
-      sendReport: t.protectedProcedure   // UNAUTHORIZED without session
+      sendReport: t.protectedProcedure // UNAUTHORIZED without session
         .input(z.object({ postId: z.string() }))
-        .mutation(async ({ ctx, input }) => { /* ... */ }),
+        .mutation(async ({ ctx, input }) => {
+          /* ... */
+        }),
     }),
 })
 ```
@@ -200,8 +202,8 @@ parameter. The callback is the blessed inline path; nothing seals.
   already uses:
 
 ```ts
-api.trpc.feed.queryOptions({ cursor })       // useQuery
-api.trpc.sendReport.mutationOptions()        // useMutation
+api.trpc.feed.queryOptions({ cursor }) // useQuery
+api.trpc.sendReport.mutationOptions() // useMutation
 ```
 
 - The underlying tRPC client uses `httpBatchLink` pointed at
@@ -225,11 +227,11 @@ email: {
 ### Message and adapter
 
 - `EmailMessage`: `{ to: string | string[], subject: string, html?: string,
-  text?: string, from?: string, replyTo?: string, cc?: string | string[],
-  bcc?: string | string[] }`. At least one of `html`/`text` required
+text?: string, from?: string, replyTo?: string, cc?: string | string[],
+bcc?: string | string[] }`. At least one of `html`/`text` required
   (runtime error). `from` defaults from config.
 - `EmailAdapter`: `{ send(msg: EmailMessage & { from: string }): Promise<{
-  id?: string }> }` — adapters receive the message with `from` already
+id?: string }> }` — adapters receive the message with `from` already
   resolved. A custom provider is this object or a bare function — the escape
   hatch, and the contract future built-in adapters implement.
 

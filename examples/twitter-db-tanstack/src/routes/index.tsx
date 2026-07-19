@@ -1,6 +1,8 @@
-import * as React from 'react'
-import { ClientOnly, Link, createFileRoute } from '@tanstack/react-router'
 import { useLiveQuery } from '@tanstack/react-db'
+import { ClientOnly, Link, createFileRoute } from '@tanstack/react-router'
+import * as React from 'react'
+
+import type { RouterContext } from '~/router'
 
 import { AppShell } from '~/components/AppShell'
 import {
@@ -12,7 +14,6 @@ import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { UserAvatar } from '~/components/UserAvatar'
-import type { RouterContext } from '~/router'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -243,7 +244,10 @@ function SuggestionsAside({ user }: { user: RouterContext['user'] }) {
         <h3 className="mb-3 font-semibold">Who to follow</h3>
         <ul className="space-y-3">
           {suggestions.map((person) => (
-            <li key={person.id} className="flex items-center justify-between gap-2">
+            <li
+              key={person.id}
+              className="flex items-center justify-between gap-2"
+            >
               <Link
                 to="/users/$userId"
                 params={{ userId: person.id }}

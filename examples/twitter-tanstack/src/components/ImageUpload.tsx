@@ -1,6 +1,6 @@
-import * as React from 'react'
-
 import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack-query'
+
+import * as React from 'react'
 
 import { filesApi } from '~/api-client'
 

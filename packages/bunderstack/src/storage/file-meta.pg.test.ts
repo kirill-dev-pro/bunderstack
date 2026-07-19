@@ -4,13 +4,13 @@ import { sql } from 'drizzle-orm'
 
 import type { AnyDb } from '../dialect'
 
+import { lookupIdempotency, storeIdempotency } from '../idempotency'
 import {
   getFileMeta,
   insertPendingFile,
   markFileReady,
   sumReadySize,
 } from './file-meta'
-import { lookupIdempotency, storeIdempotency } from '../idempotency'
 
 let db: AnyDb & { execute: (q: unknown) => Promise<unknown> }
 

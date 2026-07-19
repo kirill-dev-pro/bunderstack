@@ -1,6 +1,7 @@
+import type { QueryClient } from '@tanstack/react-query'
+
 import { createCollection } from '@tanstack/db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
-import type { QueryClient } from '@tanstack/react-query'
 import {
   createTableClient,
   MAX_LIST_LIMIT,

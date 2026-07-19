@@ -11,11 +11,15 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "target": "ES2024",
+    "types": ["bun"],
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "drizzle-orm": ["../../node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["../../node_modules/drizzle-orm/*"]
     },
+    "preserveSymlinks": true,
     "noEmit": true
   }
 }
