@@ -27,11 +27,7 @@ import {
   sumReadySize,
   type FileMetaRow,
 } from './file-meta'
-import {
-  parseTransformSpec,
-  transformHash,
-  transformImage,
-} from './thumbnails'
+import { parseTransformSpec, transformHash, transformImage } from './thumbnails'
 
 export interface BucketStorageRouterOptions {
   registry: BucketStorageRegistry

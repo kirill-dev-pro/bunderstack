@@ -2,19 +2,19 @@ import type { PgDatabase } from 'drizzle-orm/pg-core'
 
 import { test, expect, beforeAll } from 'bun:test'
 import { eq } from 'drizzle-orm'
+// A pg-dialect user table so withInternalTables/detectDialect pick the pg twins.
+import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { z } from 'zod'
 
 import type { JobsDefs } from './define'
 
+import { pglite } from '../database/pglite'
 import { createDb } from '../db'
-import { bunderstackJobsPg } from '../internal-tables-pg'
 import { withInternalTables } from '../internal-tables'
+import { bunderstackJobsPg } from '../internal-tables-pg'
 import { provisionSchema } from '../provision'
 import { enqueueJob } from './queue'
 import { createJobRunner } from './worker'
-
-// A pg-dialect user table so withInternalTables/detectDialect pick the pg twins.
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 const marker = pgTable('jobs_pg_marker', { id: pgText('id').primaryKey() })
 
 let db: Awaited<ReturnType<typeof createDb>>['db']
@@ -22,7 +22,7 @@ let db: Awaited<ReturnType<typeof createDb>>['db']
 beforeAll(async () => {
   ;({ db } = await createDb(
     { marker },
-    { url: 'memory://', dialect: 'pg' },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
   ))
   const merged = withInternalTables({ marker })
   await provisionSchema(db as never, merged, { force: true })

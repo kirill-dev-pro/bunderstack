@@ -1,5 +1,6 @@
 import { test, expect, beforeAll } from 'bun:test'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -19,7 +20,11 @@ import {
 let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 
 beforeAll(async () => {
-  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(INTERNAL_TABLES, {
+    url: ':memory:',
+    dialect: 'sqlite',
+    adapter: libsql(),
+  }))
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
 })
 

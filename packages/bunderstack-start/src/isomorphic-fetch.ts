@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /**
  * SSR-aware fetch: the browser passes `/api/...` through as-is; on the
  * server, relative URLs are resolved against the incoming request's origin

@@ -121,7 +121,10 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
     [bunderstackIdempotency, bunderstackIdempotencyPg],
   ],
   [getTableName(bunderstackJobs), [bunderstackJobs, bunderstackJobsPg]],
-  [getTableName(bunderstackCronRuns), [bunderstackCronRuns, bunderstackCronRunsPg]],
+  [
+    getTableName(bunderstackCronRuns),
+    [bunderstackCronRuns, bunderstackCronRunsPg],
+  ],
 ])
 
 /** Internal file-meta table matching the db's dialect. */

@@ -2,11 +2,7 @@
 import { test, expect } from 'bun:test'
 import { deflateSync } from 'node:zlib'
 
-import {
-  transformImage,
-  transformHash,
-  parseTransformSpec,
-} from './thumbnails'
+import { transformImage, transformHash, parseTransformSpec } from './thumbnails'
 
 function crc32(buf: Buffer): number {
   let crc = 0xffffffff

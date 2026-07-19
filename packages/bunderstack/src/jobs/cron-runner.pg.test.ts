@@ -3,6 +3,7 @@ import { pgTable, text } from 'drizzle-orm/pg-core'
 
 import type { BackgroundDefs } from './define'
 
+import { pglite } from '../database/pglite'
 import { createDb } from '../db'
 import { withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -12,7 +13,10 @@ const marker = pgTable('cron_pg_marker', { id: text('id').primaryKey() })
 let db: Awaited<ReturnType<typeof createDb>>['db']
 
 beforeAll(async () => {
-  ;({ db } = await createDb({ marker }, { url: 'memory://', dialect: 'pg' }))
+  ;({ db } = await createDb(
+    { marker },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
+  ))
   await provisionSchema(db as never, withInternalTables({ marker }), {
     force: true,
   })
@@ -30,7 +34,14 @@ test('pg: successful slot is persisted and deduplicated', async () => {
       },
     },
   }
-  const args = { db: db as never, defs, ctx: {}, name: 'hourly', slot, now: slot }
+  const args = {
+    db: db as never,
+    defs,
+    ctx: {},
+    name: 'hourly',
+    slot,
+    now: slot,
+  }
 
   await expect(runCronSlot(args)).resolves.toEqual({ status: 'succeeded' })
   await expect(runCronSlot(args)).resolves.toEqual({ status: 'duplicate' })

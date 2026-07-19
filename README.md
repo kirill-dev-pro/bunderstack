@@ -48,10 +48,28 @@ That's it. You now have:
 
 ---
 
+## Static Dependency Boundaries
+
+Bunderstack is a "batteries-included" framework, but it does not bundle those batteries into a monolithic black box. Instead, it uses **static dependency boundaries** through explicit peer dependencies.
+
+When you install Bunderstack, you also install the underlying tools directly:
+
+```sh
+bun add bunderstack drizzle-orm better-auth hono @trpc/server zod
+```
+
+This guarantees that:
+
+1. **No bundler escape hatches**: The codebase uses strictly static imports (no `@vite-ignore` or `import(expression)`), making it 100% compatible with advanced bundlers like Vite, Next.js, and Rolldown without warnings or deoptimizations.
+2. **Direct access**: You import `drizzle-orm` or `better-auth` directly in your code without going through Bunderstack wrappers, and you are guaranteed to get the exact same instance and types that Bunderstack uses internally.
+3. **Seamless inference**: Type inference works perfectly from your database schema all the way to the frontend React hooks because there are no duplicated or mismatched dependency versions.
+
+---
+
 ## Install
 
 ```sh
-bun add bunderstack drizzle-orm @libsql/client
+bun add bunderstack drizzle-orm @libsql/client better-auth hono @trpc/server zod
 ```
 
 ## Define your schema
@@ -90,8 +108,6 @@ export const posts = sqliteTable('posts', {
     .$defaultFn(() => new Date()),
 })
 ```
-
-> Import `sqliteTable` and column builders from `bunderstack` (not `drizzle-orm/sqlite-core`) to share the same Drizzle instance and avoid type incompatibilities.
 
 ---
 
@@ -312,7 +328,9 @@ const app = await createBunderstack({
             .limit(input.limit),
         ),
       deleteAccount: t.protectedProcedure // UNAUTHORIZED without a session; ctx.user is non-null
-        .mutation(({ ctx }) => { /* ... */ }),
+        .mutation(({ ctx }) => {
+          /* ... */
+        }),
     }),
 })
 ```
@@ -390,7 +408,12 @@ fetch, the API file route, session lookup, and the auth client:
 
 ```ts
 // src/bunderstack.ts (server)
-export const app = await createBunderstack({ schema, access, storage, realtime: true })
+export const app = await createBunderstack({
+  schema,
+  access,
+  storage,
+  realtime: true,
+})
 export type App = typeof app
 
 // src/api.ts — the entire client setup

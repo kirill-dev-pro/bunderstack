@@ -125,7 +125,8 @@ export function createRedisRealtimeBroker(opts: {
     if (typeof entry.get === 'function') return false
     if (!checkAccessSync(entry.get, ctx, entry.ownerColumn).allowed)
       return false
-    if (entry.readScope && !rowMatchesScope(record, entry.readScope(ctx))) return false
+    if (entry.readScope && !rowMatchesScope(record, entry.readScope(ctx)))
+      return false
     return true
   }
 
@@ -140,7 +141,10 @@ export function createRedisRealtimeBroker(opts: {
   let closed = false
 
   const start = () => {
-    if (closed) return Promise.reject(new Error('[bunderstack] realtime broker is closed'))
+    if (closed)
+      return Promise.reject(
+        new Error('[bunderstack] realtime broker is closed'),
+      )
     started ??= getRedis()
       .subscribe(channel, (message) => {
         const evt = parseWireEvent(message)

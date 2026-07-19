@@ -45,7 +45,9 @@ export function startLocalCronScheduler(
     timer = setTimer(() => {
       timer = undefined
       void tick().catch((error: unknown) => {
-        options.onError?.(error instanceof Error ? error : new Error(String(error)))
+        options.onError?.(
+          error instanceof Error ? error : new Error(String(error)),
+        )
       })
     }, delay)
   }

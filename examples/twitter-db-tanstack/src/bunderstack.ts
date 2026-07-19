@@ -1,4 +1,5 @@
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 
 import { access } from './access'
 import * as schema from './schema'
@@ -6,7 +7,10 @@ import * as schema from './schema'
 export const app = await createBunderstack({
   schema,
   access,
-  database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
   auth: {
     baseURL: process.env.APP_URL ?? 'http://localhost:3003',
     emailAndPassword: { enabled: true },

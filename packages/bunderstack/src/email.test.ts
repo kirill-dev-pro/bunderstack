@@ -102,22 +102,18 @@ test('bare function provider works', async () => {
   expect(result.id).toBe('fn-1')
 })
 
-test('smtp provider without nodemailer installed is a boot error', () => {
+test('string provider smtp throws a migration error', () => {
   expect(() =>
     createEmail(
+      // @ts-expect-error smtp was removed from the type
       { from: 'app@example.com', provider: 'smtp' },
-      {
-        env: { ...devEnv, SMTP_URL: 'smtp://localhost' },
-        canResolveModule: () => false,
-      },
+      { env: devEnv },
     ),
-  ).toThrow(/nodemailer/)
+  ).toThrow(/was removed/)
 })
 
 test('emailProviderTag extracts string providers only', () => {
-  expect(emailProviderTag({ from: 'a@b.c', provider: 'resend' })).toBe(
-    'resend',
-  )
+  expect(emailProviderTag({ from: 'a@b.c', provider: 'resend' })).toBe('resend')
   expect(
     emailProviderTag({ from: 'a@b.c', provider: async () => ({}) }),
   ).toBeUndefined()

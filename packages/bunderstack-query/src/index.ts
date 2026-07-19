@@ -1,7 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
 
-
-
 import type {
   BunderstackQueryClient,
   FilesQueryClient,
@@ -22,8 +20,6 @@ type BaseOptions = {
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   queryClient?: QueryClient
 }
-
-
 
 export function createBunderstackQueryClient<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -58,8 +54,6 @@ export function createBunderstackQueryClient<
       }
       return client
     },
-
-
 
     withFiles<const TBuckets extends readonly string[]>(
       options: BaseOptions & { buckets: TBuckets },

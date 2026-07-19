@@ -33,14 +33,16 @@ export const Route = createFileRoute('/')({
     const postIds = posts.map((p) => p.id)
 
     await Promise.all([
-      queryClient.ensureQueryData(api.user.listQuery(byColumnIn('id', authorIds))),
-      queryClient.ensureQueryData(api.likes.listQuery(byColumnIn('postId', postIds))),
+      queryClient.ensureQueryData(
+        api.user.listQuery(byColumnIn('id', authorIds)),
+      ),
+      queryClient.ensureQueryData(
+        api.likes.listQuery(byColumnIn('postId', postIds)),
+      ),
       queryClient.ensureQueryData(
         api.retweets.listQuery(byColumnIn('postId', postIds)),
       ),
-      queryClient.ensureQueryData(
-        api.user.listQuery({ limit: 20 }),
-      ),
+      queryClient.ensureQueryData(api.user.listQuery({ limit: 20 })),
       ...(user
         ? [
             queryClient.ensureQueryData(

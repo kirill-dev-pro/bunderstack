@@ -61,7 +61,7 @@ createBunderstackSyncClient<TSchema>()
 - No Zod `schema` validation in `queryCollectionOptions` for the `.withTables`
   path (type-only schema, matches `bunderstack-query`'s client-bundle-safety
   invariant — the Drizzle schema is never imported as a value there).
-  `.withSchema` *could* auto-derive Zod via `drizzle-zod` later; out of scope
+  `.withSchema` _could_ auto-derive Zod via `drizzle-zod` later; out of scope
   for v1.
 
 ### Realtime sync: surgical writes, not invalidate-everything
@@ -105,7 +105,7 @@ synced store" case. No refetch, no over-fetching, one record patched per event.
 ### UI layer
 
 - Tailwind v4 (CSS-first config, `@tailwindcss/vite`) + `bunx shadcn@latest
-  init` (Vite preset), components in `src/components/ui/`.
+init` (Vite preset), components in `src/components/ui/`.
 - Components: `Button`, `Card`, `Avatar`, `Dialog`, `AlertDialog` (replaces
   the native `confirm()` currently used for post delete), `Input`,
   `Textarea`, `Tabs` (For You / Following), `Skeleton`, `Separator`, `sonner`

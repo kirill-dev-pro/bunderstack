@@ -1,3 +1,4 @@
+import { loader, type VirtualFile } from 'fumadocs-core/source'
 /**
  * Generates src/lib/docs-manifest.gen.json: the serialized page tree and the
  * slug→file mapping for the docs route. Runs before dev/build (see package
@@ -11,8 +12,6 @@
  */
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
-
-import { loader, type VirtualFile } from 'fumadocs-core/source'
 
 const root = join(import.meta.dir, '..')
 const contentDir = join(root, 'content/docs')

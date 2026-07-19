@@ -3,10 +3,7 @@ import { test, expect } from 'bun:test'
 
 import { resolveBuckets } from './buckets'
 import { LocalStorageAdapter } from './local'
-import {
-  createAdapter,
-  createBucketStorages,
-} from './registry'
+import { createAdapter, createBucketStorages } from './registry'
 import { S3StorageAdapter } from './s3'
 
 const fakeEnv = {

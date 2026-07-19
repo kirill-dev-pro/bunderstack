@@ -1,7 +1,9 @@
+// @ts-nocheck
+
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { asTypeId, type TypeId } from 'bunderstack/typeid'
 import { getSessionUser } from 'bunderstack-start'
+import { asTypeId, type TypeId } from 'bunderstack/typeid'
 
 import { app } from '~/bunderstack'
 

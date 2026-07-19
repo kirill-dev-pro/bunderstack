@@ -1,8 +1,9 @@
 // src/trpc-mount.test.ts
 import { test, expect, beforeAll } from 'bun:test'
-import { z } from 'zod'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { z } from 'zod'
 
+import { libsql } from './database/libsql'
 import { createBunderstack } from './index'
 
 const notes = sqliteTable('notes', {
@@ -16,7 +17,7 @@ let app: Awaited<ReturnType<typeof buildApp>>
 function buildApp() {
   return createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     env: { server: { GREETING: z.string().optional() } },
     trpc: (t) =>
       t.router({
@@ -76,7 +77,7 @@ test('prebuilt router escape hatch works', async () => {
   const router = t.router({ ping: t.procedure.query(() => 'pong') })
   const prebuilt = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     trpc: router,
   })
   const res = await prebuilt.handler(new Request(trpcUrl('ping')))

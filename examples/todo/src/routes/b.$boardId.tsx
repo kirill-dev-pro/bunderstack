@@ -207,7 +207,10 @@ function BoardTodos({
                 ✅ Done
               </button>
             )}
-            <button className="remove" onClick={() => deleteTodo.mutate(todo.id)}>
+            <button
+              className="remove"
+              onClick={() => deleteTodo.mutate(todo.id)}
+            >
               ×
             </button>
           </li>

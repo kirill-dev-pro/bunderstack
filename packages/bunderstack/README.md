@@ -6,7 +6,7 @@ and get CRUD APIs, auth, file storage, realtime, typed custom endpoints
 single `Request → Response` handler.
 
 ```sh
-bun add bunderstack
+bun add bunderstack drizzle-orm better-auth hono @trpc/server zod @libsql/client
 ```
 
 ```ts
@@ -34,15 +34,15 @@ through env vars alone — no code changes required.
 
 ### Overrides (beat code-level config)
 
-| Var | Effect |
-| --- | --- |
-| `BUNDERSTACK_DATABASE_URL` | Database URL; wins over `database.url` in code |
-| `BUNDERSTACK_DATABASE_AUTH_TOKEN` | Auth token for the database |
-| `BUNDERSTACK_S3_ENDPOINT` | Forces ALL buckets onto this S3 backend (code-level `local`/per-bucket `s3` blocks are ignored) |
-| `BUNDERSTACK_S3_BUCKET` | Physical bucket name (logical buckets become key prefixes) |
-| `BUNDERSTACK_S3_ACCESS_KEY_ID` / `BUNDERSTACK_S3_SECRET_ACCESS_KEY` | Credentials |
-| `BUNDERSTACK_S3_REGION` | Region (default `auto`) |
-| `BUNDERSTACK_S3_PUBLIC_URL` | Public base URL for `visibility: 'public'` buckets |
+| Var                                                                 | Effect                                                                                          |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `BUNDERSTACK_DATABASE_URL`                                          | Database URL; wins over `database.url` in code                                                  |
+| `BUNDERSTACK_DATABASE_AUTH_TOKEN`                                   | Auth token for the database                                                                     |
+| `BUNDERSTACK_S3_ENDPOINT`                                           | Forces ALL buckets onto this S3 backend (code-level `local`/per-bucket `s3` blocks are ignored) |
+| `BUNDERSTACK_S3_BUCKET`                                             | Physical bucket name (logical buckets become key prefixes)                                      |
+| `BUNDERSTACK_S3_ACCESS_KEY_ID` / `BUNDERSTACK_S3_SECRET_ACCESS_KEY` | Credentials                                                                                     |
+| `BUNDERSTACK_S3_REGION`                                             | Region (default `auto`)                                                                         |
+| `BUNDERSTACK_S3_PUBLIC_URL`                                         | Public base URL for `visibility: 'public'` buckets                                              |
 
 Plain `DATABASE_URL` / `S3_*` vars keep their usual role: fallbacks that
 code-level config wins over.

@@ -1,3 +1,4 @@
+import { anonymous } from 'better-auth/plugins'
 /**
  * bunderstack.ts — app entry point, showcasing every feature:
  *
@@ -11,9 +12,9 @@
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
-import { anonymous } from 'better-auth/plugins'
 import { and, desc, eq, lt } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -28,7 +29,10 @@ export const app = await createBunderstack({
   schema,
   access,
 
-  database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
 
   // Username-only auth: the anonymous plugin creates a real session
   // without passwords or signup. See routes/index.tsx for the client side.
@@ -127,7 +131,12 @@ export const app = await createBunderstack({
           )
           await ctx.db
             .delete(schema.todos)
-            .where(and(eq(schema.todos.done, true), lt(schema.todos.completedAt, cutoff)))
+            .where(
+              and(
+                eq(schema.todos.done, true),
+                lt(schema.todos.completedAt, cutoff),
+              ),
+            )
         },
       }),
     }),
@@ -154,7 +163,10 @@ export const app = await createBunderstack({
         .mutation(async ({ ctx, input }) => {
           const [board] = await ctx.db
             .insert(schema.boards)
-            .values({ name: input.name, ownerId: asTypeId('user', ctx.user.id) })
+            .values({
+              name: input.name,
+              ownerId: asTypeId('user', ctx.user.id),
+            })
             .returning()
           return board!
         }),
@@ -209,7 +221,10 @@ export const app = await createBunderstack({
             .select()
             .from(schema.todos)
             .where(
-              and(eq(schema.todos.boardId, todo.boardId), eq(schema.todos.done, false)),
+              and(
+                eq(schema.todos.boardId, todo.boardId),
+                eq(schema.todos.done, false),
+              ),
             )
             .all()
           if (stillPending.length === 0) {

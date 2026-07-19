@@ -1,10 +1,12 @@
+import type { InferSelect } from 'bunderstack-query'
+
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-import type { InferSelect } from 'bunderstack-query'
+
+import type { follows, user } from '~/schema'
 
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
-import type { follows, user } from '~/schema'
 
 type Follow = InferSelect<typeof follows>
 type User = InferSelect<typeof user>

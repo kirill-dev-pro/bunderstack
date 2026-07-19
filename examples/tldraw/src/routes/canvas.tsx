@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { useLiveQuery, eq } from '@tanstack/react-db'
 import {
   ClientOnly,

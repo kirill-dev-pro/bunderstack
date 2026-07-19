@@ -83,7 +83,12 @@ export async function runScheduledSlot(args: {
     const message = error instanceof Error ? error.message : String(error)
     await db
       .update(t)
-      .set({ status: 'failed', lockedUntil: null, lastError: message, finishedAt: Date.now() })
+      .set({
+        status: 'failed',
+        lockedUntil: null,
+        lastError: message,
+        finishedAt: Date.now(),
+      })
       .where(and(eq(t.taskId, taskId), eq(t.scheduledAt, slot)))
     throw error
   }
@@ -107,6 +112,7 @@ export async function runCronSlot(args: {
     schedule: definition.schedule,
     slot: args.slot,
     now: args.now,
-    run: (scheduledFor) => definition.handler({ scheduledFor }, args.ctx as never),
+    run: (scheduledFor) =>
+      definition.handler({ scheduledFor }, args.ctx as never),
   })
 }

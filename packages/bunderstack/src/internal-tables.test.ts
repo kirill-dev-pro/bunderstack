@@ -4,6 +4,7 @@ import { PgTable, pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
+import { libsql } from './database/libsql'
 import { createDb } from './db'
 import {
   bunderstackFiles,
@@ -119,7 +120,9 @@ test('withInternalTables accepts the pg twins re-exported into the schema', () =
 })
 
 test('withInternalTables still rejects foreign pg tables using reserved names', () => {
-  const impostor = pgTable('bunderstack_file_meta', { id: pgText('id').primaryKey() })
+  const impostor = pgTable('bunderstack_file_meta', {
+    id: pgText('id').primaryKey(),
+  })
   expect(() => withInternalTables({ impostor })).toThrow(/reserved/)
 })
 
@@ -137,7 +140,11 @@ test('validateAndResolveAccess excludes internal tables from CRUD', () => {
 let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 
 beforeAll(async () => {
-  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(INTERNAL_TABLES, {
+    url: ':memory:',
+    dialect: 'sqlite',
+    adapter: libsql(),
+  }))
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
 })
 

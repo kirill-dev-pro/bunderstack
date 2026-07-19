@@ -1,11 +1,13 @@
-import { useRouteContext } from '@tanstack/react-router'
-import * as React from 'react'
 import type { InferSelect } from 'bunderstack-sync'
-import { generate as generateTypeId } from 'bunderstack/typeid'
 
-import { toast } from '~/lib/toast'
-import { Button } from '~/components/ui/button'
+import { useRouteContext } from '@tanstack/react-router'
+import { generate as generateTypeId } from 'bunderstack/typeid'
+import * as React from 'react'
+
 import type { follows, user } from '~/schema'
+
+import { Button } from '~/components/ui/button'
+import { toast } from '~/lib/toast'
 
 type Follow = InferSelect<typeof follows>
 type User = InferSelect<typeof user>

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
+import { describe, it, expect } from 'bun:test'
 
 import {
   createBunderstackSyncClient,
@@ -40,10 +40,16 @@ function fetchMockFactory() {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.includes('/posts')) {
-      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+      return new Response(
+        JSON.stringify({ items: [], limit: 100, hasMore: false }),
+        { status: 200 },
+      )
     }
     if (url.includes('/user')) {
-      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+      return new Response(
+        JSON.stringify({ items: [], limit: 100, hasMore: false }),
+        { status: 200 },
+      )
     }
     throw new Error(`unhandled request: ${url}`)
   }) as unknown as typeof fetch

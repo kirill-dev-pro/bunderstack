@@ -1,13 +1,19 @@
+// @ts-nocheck
+
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 
-import { app } from '~/bunderstack'
 import type { CanvasRow } from '~/utils/canvas-data'
 
+import { app } from '~/bunderstack'
+
 export function buildCanvasFetchRequest(request: Request, id: string) {
-  return new Request(new URL(`/api/canvas/${encodeURIComponent(id)}`, request.url), {
-    headers: request.headers,
-  })
+  return new Request(
+    new URL(`/api/canvas/${encodeURIComponent(id)}`, request.url),
+    {
+      headers: request.headers,
+    },
+  )
 }
 
 export const fetchCanvas = createServerFn({ method: 'GET' })

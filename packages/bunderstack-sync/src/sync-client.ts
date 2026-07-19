@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+
 import {
   attachBucketMutationOptions,
   createBucketClient,
@@ -24,8 +25,8 @@ export type RowFor<
 > = [InferSelect<TSchema[K]>] extends [never]
   ? { id: string | number }
   : InferSelect<TSchema[K]> extends { id: string | number }
-  ? InferSelect<TSchema[K]>
-  : { id: string | number }
+    ? InferSelect<TSchema[K]>
+    : { id: string | number }
 
 export type CreateFor<
   TSchema extends Record<string, unknown>,

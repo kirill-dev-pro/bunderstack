@@ -1,8 +1,8 @@
 import type { InferSelect } from 'bunderstack-query'
 
 import { useQuery } from '@tanstack/react-query'
-import { marked } from 'marked'
 import { asTypeId } from 'bunderstack'
+import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
 
 import type * as schema from '~/schema'
@@ -398,9 +398,7 @@ export function CardDialog({
                     value={card.assigneeId ?? ''}
                     onChange={(e) => {
                       const raw = e.target.value
-                      const assigneeId = raw
-                        ? asTypeId('user', raw)
-                        : null
+                      const assigneeId = raw ? asTypeId('user', raw) : null
                       updateCard.mutate(
                         { id: card.id, data: { assigneeId } },
                         {

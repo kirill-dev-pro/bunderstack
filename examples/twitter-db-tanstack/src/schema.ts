@@ -1,10 +1,5 @@
 import { typeid, generateTypeId } from 'bunderstack'
-import {
-  sqliteTable,
-  integer,
-  text,
-  foreignKey,
-} from 'drizzle-orm/sqlite-core'
+import { sqliteTable, integer, text, foreignKey } from 'drizzle-orm/sqlite-core'
 
 export * from 'bunderstack/schema'
 

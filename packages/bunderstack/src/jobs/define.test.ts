@@ -44,10 +44,14 @@ test('cron rejects invalid expressions', () => {
 
 test('negative retries and zero concurrency throw', () => {
   expect(() =>
-    validateJobsDefs({ bad: { kind: 'job', retries: -1, handler: async () => {} } }),
+    validateJobsDefs({
+      bad: { kind: 'job', retries: -1, handler: async () => {} },
+    }),
   ).toThrow(/retries/)
   expect(() =>
-    validateJobsDefs({ bad: { kind: 'job', concurrency: 0, handler: async () => {} } }),
+    validateJobsDefs({
+      bad: { kind: 'job', concurrency: 0, handler: async () => {} },
+    }),
   ).toThrow(/concurrency/)
 })
 
@@ -56,6 +60,8 @@ test('backoffMs: default exponential, object form, function form', () => {
   expect(backoffMs(base, 1)).toBe(1000)
   expect(backoffMs(base, 2)).toBe(2000)
   expect(backoffMs(base, 3)).toBe(4000)
-  expect(backoffMs({ ...base, backoff: { baseMs: 100, factor: 3 } }, 2)).toBe(300)
+  expect(backoffMs({ ...base, backoff: { baseMs: 100, factor: 3 } }, 2)).toBe(
+    300,
+  )
   expect(backoffMs({ ...base, backoff: (a) => a * 7 }, 3)).toBe(21)
 })

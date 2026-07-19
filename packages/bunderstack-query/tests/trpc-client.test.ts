@@ -1,10 +1,10 @@
+import { QueryClient } from '@tanstack/react-query'
 // src/trpc-client.test.ts — full round trip against a real bunderstack app.
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
-import { QueryClient } from '@tanstack/react-query'
 import { createBunderstack } from 'bunderstack'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { libsql } from 'bunderstack/database/libsql'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { z } from 'zod'
 
 import { createTRPCClient } from '../src/trpc'
 

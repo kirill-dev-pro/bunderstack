@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'bun:test'
 
+import pkg from '../package.json'
+import { createStartAuthClient } from './auth-client'
 import {
   bunderstackStart,
   createApiHandlers,
   createIsomorphicFetch,
   getSessionUser,
 } from './index'
-import { createStartAuthClient } from './auth-client'
-import pkg from '../package.json'
 
 describe('createApiHandlers', () => {
   it('forwards every method to app.handler', async () => {

@@ -97,18 +97,22 @@ export type BackgroundDefinition =
 export type BackgroundDefs = Record<string, BackgroundDefinition>
 
 /** @deprecated Use QueueJobDefinition. */
-export type JobDefinition<TInput, TSchema extends Record<string, unknown> = Record<string, unknown>, TEnvResult = Record<string, unknown>> = QueueJobDefinition<
+export type JobDefinition<
   TInput,
-  TSchema,
-  TEnvResult
->
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+> = QueueJobDefinition<TInput, TSchema, TEnvResult>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyJobDefinition = QueueJobDefinition<any, any, any>
 export type JobsDefs = BackgroundDefs
 
 export type QueueJobKeys<TDefs extends BackgroundDefs> = {
-  [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<any, any, any>
+  [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<
+    any,
+    any,
+    any
+  >
     ? K
     : never
 }[keyof TDefs & string]
@@ -123,11 +127,21 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
       parseCron(def.schedule)
       continue
     }
-    if (def.retries !== undefined && (def.retries < 0 || !Number.isInteger(def.retries))) {
-      throw new Error(`[bunderstack] job "${name}": retries must be a non-negative integer`)
+    if (
+      def.retries !== undefined &&
+      (def.retries < 0 || !Number.isInteger(def.retries))
+    ) {
+      throw new Error(
+        `[bunderstack] job "${name}": retries must be a non-negative integer`,
+      )
     }
-    if (def.concurrency !== undefined && (def.concurrency < 1 || !Number.isInteger(def.concurrency))) {
-      throw new Error(`[bunderstack] job "${name}": concurrency must be a positive integer`)
+    if (
+      def.concurrency !== undefined &&
+      (def.concurrency < 1 || !Number.isInteger(def.concurrency))
+    ) {
+      throw new Error(
+        `[bunderstack] job "${name}": concurrency must be a positive integer`,
+      )
     }
     if (def.timeout !== undefined && def.timeout <= 0) {
       throw new Error(`[bunderstack] job "${name}": timeout must be positive`)
@@ -187,9 +201,8 @@ export type BunderstackJobsBuilder<
 // `TDef extends { input: ZodType<infer I> }` fails structurally because
 // `input?: ZodType<TInput>` desugars to `ZodType<TInput> | undefined`, which
 // can never satisfy a required-property pattern.
-type JobInputOf<TDef> = TDef extends QueueJobDefinition<infer TInput, any, any>
-  ? TInput
-  : undefined
+type JobInputOf<TDef> =
+  TDef extends QueueJobDefinition<infer TInput, any, any> ? TInput : undefined
 
 /**
  * `app.jobs`: `enqueue` narrowed to declared names + payloads. `Omit`s the

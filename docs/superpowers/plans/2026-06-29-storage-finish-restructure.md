@@ -29,9 +29,11 @@ nominally incompatible (the 2 errors at `tests/db.test.ts:20,23`). Fix: define a
 local `posts` fixture using the package's own drizzle-orm.
 
 **Files:**
+
 - Modify: `packages/bunderstack/tests/db.test.ts` (full rewrite)
 
 **Interfaces:**
+
 - Consumes: `createDb(schema, config)` from `../src/db` (existing).
 - Produces: nothing other tasks depend on.
 
@@ -101,11 +103,13 @@ errors at `src/index.ts:116,124,135`). Fix: add `toAuthSessionResolver(auth)` in
 it into the three routers in `index.ts`.
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/auth.ts`
 - Create: `packages/bunderstack/src/auth-resolver.test.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `AuthSessionResolver` (from `./access.ts`), `createAuth` return type.
 - Produces: `toAuthSessionResolver(auth: ReturnType<typeof createAuth>): AuthSessionResolver`.
 
@@ -223,9 +227,9 @@ Immediately after the `const auth = createAuth(...)` block (currently ending nea
 line 72), add:
 
 ```ts
-  // Internal routers consume the narrow AuthSessionResolver contract, not the
-  // raw better-auth instance. app.auth still exposes `auth` unchanged.
-  const authResolver = toAuthSessionResolver(auth)
+// Internal routers consume the narrow AuthSessionResolver contract, not the
+// raw better-auth instance. app.auth still exposes `auth` unchanged.
+const authResolver = toAuthSessionResolver(auth)
 ```
 
 Then replace the three router `auth` arguments to use `authResolver`:
@@ -265,6 +269,7 @@ Move the two realtime source files into a `realtime/` folder (`index.ts` +
 source-structure change; `crud` stays a flat `crud.ts`.
 
 **Files:**
+
 - Move: `src/realtime.ts` → `src/realtime/index.ts`
 - Move: `src/realtime-redis.ts` → `src/realtime/redis.ts`
 - Move: `src/realtime.test.ts` → `src/realtime/index.test.ts`
@@ -273,6 +278,7 @@ source-structure change; `crud` stays a flat `crud.ts`.
 - Modify imports: the five moved files + `src/index.ts`
 
 **Interfaces:**
+
 - Produces new paths: `./realtime/index.ts` (was `./realtime.ts`) exporting
   `createRealtimeBroker`, `buildRealtimeRouter`, `createMemoryRealtimeBroker`,
   and types `RealtimeAction`, `RealtimeBroker`; `./realtime/redis.ts` (was
@@ -347,10 +353,12 @@ Move the 9 `tests/storage/*.test.ts` files into `src/storage/` and rewrite their
 import paths.
 
 **Files:**
+
 - Move: all of `tests/storage/*.test.ts` → `src/storage/`
 - Modify imports: the moved files
 
 **Interfaces:**
+
 - Consumes: existing `src/storage/*` modules and sibling `src/*` modules.
 
 - [ ] **Step 1: Move the test files**
@@ -405,6 +413,7 @@ the now-empty `tests/` directory, and trim the dead `tests/**` glob from
 `tsconfig.json`.
 
 **Files:**
+
 - Move: `tests/access.test.ts`, `tests/access.integration.test.ts`,
   `tests/auth.test.ts`, `tests/config.test.ts`, `tests/db.test.ts`,
   `tests/internal-tables.test.ts`, `tests/provision.test.ts`,
@@ -415,6 +424,7 @@ the now-empty `tests/` directory, and trim the dead `tests/**` glob from
 - Delete: `packages/bunderstack/tests/` (directory)
 
 **Interfaces:**
+
 - Consumes: sibling `src/*` modules; `../../../examples/standalone/schema` for
   the tests that build a full app (depth is identical from `src/`, so those
   imports are unchanged).
@@ -500,6 +510,7 @@ git commit -m "refactor(tests): co-locate all tests under src, drop tests/ dir"
 ## Self-Review
 
 **Spec coverage:**
+
 - Section 1 (restructure): Tasks 3 (realtime folder), 4 (storage tests), 5 (flat
   tests + `tests/` removal + tsconfig). `crud` stays flat — matches the revised
   spec; its tests are already in `src/` (`crud-broadcast`, `crud-scope`) or move

@@ -2,8 +2,17 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+import type { DatabaseAdapter } from './database/adapter'
+
 import { resolveConfig } from './config'
 import { validateEnv } from './env'
+
+const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
+  dialect,
+  driver: 'libsql',
+  connect: async () => ({}) as never,
+  migrate: async () => {},
+})
 
 const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
@@ -12,19 +21,25 @@ const posts = sqliteTable('posts', {
 const schema = { posts }
 
 test('resolveConfig applies SQLite default url', () => {
-  const cfg = resolveConfig({ schema })
+  const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
   expect(cfg.database.url).toBe('file:./data.db')
+})
+
+test('missing database.adapter rejects', () => {
+  expect(() => resolveConfig({ schema } as any)).toThrow(
+    '[bunderstack] database.adapter is required',
+  )
 })
 
 test('resolveConfig picks up DATABASE_URL env', () => {
   process.env.DATABASE_URL = 'libsql://test.turso.io'
-  const cfg = resolveConfig({ schema })
+  const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
   expect(cfg.database.url).toBe('libsql://test.turso.io')
   delete process.env.DATABASE_URL
 })
 
 test('resolveConfig defaults to a local default bucket', () => {
-  const cfg = resolveConfig({ schema })
+  const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
   expect(cfg.storage.defaultBucket).toBe('default')
   const backend = cfg.storage.buckets.get('default')?.backend
   expect(backend?.type).toBe('local')
@@ -34,7 +49,11 @@ test('resolveConfig defaults to a local default bucket', () => {
 })
 
 test('resolveConfig accepts custom local path', () => {
-  const cfg = resolveConfig({ schema, storage: { local: './my-uploads' } })
+  const cfg = resolveConfig({
+    schema,
+    database: { adapter: fakeAdapter() },
+    storage: { local: './my-uploads' },
+  })
   const backend = cfg.storage.buckets.get('default')?.backend
   expect(backend?.type).toBe('local')
   if (backend?.type === 'local') {
@@ -47,7 +66,11 @@ test('resolveConfig s3 true reads env vars', () => {
   process.env.S3_REGION = 'eu-west-1'
   process.env.S3_ACCESS_KEY_ID = 'key'
   process.env.S3_SECRET_ACCESS_KEY = 'secret'
-  const cfg = resolveConfig({ schema, storage: { s3: true } })
+  const cfg = resolveConfig({
+    schema,
+    database: { adapter: fakeAdapter() },
+    storage: { s3: true },
+  })
   const backend = cfg.storage.buckets.get('default')?.backend
   expect(backend?.type).toBe('s3')
   if (backend?.type === 's3') {
@@ -61,7 +84,7 @@ test('resolveConfig s3 true reads env vars', () => {
 })
 
 test('resolveConfig auth defaults', () => {
-  const cfg = resolveConfig({ schema })
+  const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
   expect(typeof cfg.auth.secret).toBe('string')
 })
 
@@ -69,7 +92,10 @@ test('resolveConfig consumes a validated env for database url', () => {
   const env = validateEnv(undefined, {
     source: { DATABASE_URL: 'libsql://from-env.turso.io' },
   })
-  const cfg = resolveConfig({ schema: {} }, env)
+  const cfg = resolveConfig(
+    { schema: {}, database: { adapter: fakeAdapter() } },
+    env,
+  )
   expect(cfg.database.url).toBe('libsql://from-env.turso.io')
 })
 
@@ -78,7 +104,10 @@ test('explicit config wins over env', () => {
     source: { DATABASE_URL: 'libsql://from-env.turso.io' },
   })
   const cfg = resolveConfig(
-    { schema: {}, database: { url: 'file:./explicit.db' } },
+    {
+      schema: {},
+      database: { adapter: fakeAdapter(), url: 'file:./explicit.db' },
+    },
     env,
   )
   expect(cfg.database.url).toBe('file:./explicit.db')
@@ -86,13 +115,23 @@ test('explicit config wins over env', () => {
 
 test('resolveConfig auth secret comes from validated env', () => {
   const env = validateEnv(undefined, { source: { AUTH_SECRET: 'from-env' } })
-  const cfg = resolveConfig({ schema: {} }, env)
+  const cfg = resolveConfig(
+    { schema: {}, database: { adapter: fakeAdapter() } },
+    env,
+  )
   expect(cfg.auth.secret).toBe('from-env')
 })
 
 test('BUNDERSTACK_DATABASE_URL overrides code-level database config', () => {
   const cfg = resolveConfig(
-    { schema, database: { url: 'file:./hardcoded.db', authToken: 'code-token' } },
+    {
+      schema,
+      database: {
+        adapter: fakeAdapter(),
+        url: 'file:./hardcoded.db',
+        authToken: 'code-token',
+      },
+    },
     undefined,
     {
       BUNDERSTACK_DATABASE_URL: 'libsql://prod-app.turso.io',
@@ -105,7 +144,10 @@ test('BUNDERSTACK_DATABASE_URL overrides code-level database config', () => {
 
 test('without platform vars, code-level database config still wins over env', () => {
   const cfg = resolveConfig(
-    { schema, database: { url: 'file:./hardcoded.db' } },
+    {
+      schema,
+      database: { adapter: fakeAdapter(), url: 'file:./hardcoded.db' },
+    },
     undefined,
     {},
   )

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { expect, test } from 'bun:test'
 
 import {

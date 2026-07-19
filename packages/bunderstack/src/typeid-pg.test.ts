@@ -2,12 +2,14 @@ import { test, expect } from 'bun:test'
 import { is } from 'drizzle-orm'
 import { PgTable, pgTable } from 'drizzle-orm/pg-core'
 
-import { typeid as typeidPg } from './typeid-pg'
 import { generate } from './typeid'
+import { typeid as typeidPg } from './typeid-pg'
 
 test('pg typeid column builds into a pgTable and generates branded ids', () => {
   const table = pgTable('tid_things', {
-    id: typeidPg('thing').primaryKey().$defaultFn(() => generate('thing')),
+    id: typeidPg('thing')
+      .primaryKey()
+      .$defaultFn(() => generate('thing')),
   })
   expect(is(table, PgTable)).toBe(true)
   const id = generate('thing')
