@@ -4,8 +4,9 @@ import { z } from 'zod'
 import { QueryClient } from '@tanstack/react-query'
 import { createBunderstack } from 'bunderstack'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { libsql } from 'bunderstack/database/libsql'
 
-import { createClient } from './lazy-client'
+import { createTRPCClient } from '../src/trpc'
 
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
@@ -14,7 +15,7 @@ const notes = sqliteTable('notes', {
 
 const app = await createBunderstack({
   schema: { notes },
-  database: { url: ':memory:' },
+  database: { adapter: libsql(), url: ':memory:' },
   trpc: (t) =>
     t.router({
       hello: t.procedure
@@ -35,7 +36,7 @@ const fetchViaApp = (async (input: RequestInfo | URL, init?: RequestInit) =>
     new Request(input instanceof Request ? input : String(input), init),
   )) as unknown as typeof fetch
 
-const api = createClient<typeof app>({
+const api = createTRPCClient<typeof app>({
   baseUrl: 'http://test/api',
   fetch: fetchViaApp,
   queryClient: new QueryClient(),

@@ -30,6 +30,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./trpc": "./src/trpc.ts",
     "./react": "./src/react.tsx"
   },
   "scripts": {
