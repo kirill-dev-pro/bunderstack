@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-sync",
-  "version": "0.1.1",
+  "version": "0.7.0",
   "description": "TanStack DB collections synced live to a bunderstack backend: optimistic mutations with SSE-driven realtime sync.",
   "keywords": [
     "bun",

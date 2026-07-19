@@ -6,6 +6,7 @@ import type { AccessUser } from './access'
 import type { DbFor } from './db'
 import type { EmailFacade } from './email'
 import type { JobsRuntimeFacade } from './jobs/index'
+import type { RealtimeFacade } from './realtime/facade'
 
 export type TRPCContext<
   TSchema extends Record<string, unknown>,
@@ -16,6 +17,7 @@ export type TRPCContext<
   env: TEnvResult
   email: EmailFacade
   jobs: JobsRuntimeFacade
+  realtime: RealtimeFacade<TSchema>
   req: Request
 }
 

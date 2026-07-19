@@ -16,6 +16,8 @@ type Schema = { notes: typeof notes }
 
 const fakeEmail: EmailFacade = { send: async () => ({}) }
 
+import { createRealtimeFacade } from './realtime/facade'
+
 function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
   return {
     db: null as never,
@@ -23,6 +25,7 @@ function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
     env: {},
     email: fakeEmail,
     jobs: { enqueue: async () => ({ id: '' }), tick: async () => {} },
+    realtime: createRealtimeFacade<Schema>(),
     req: new Request('http://test/'),
   }
 }

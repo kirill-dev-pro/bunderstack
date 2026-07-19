@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-start",
-  "version": "0.1.1",
+  "version": "0.7.0",
   "description": "TanStack Start integration for bunderstack: isomorphic fetch wiring, auth client, and query/sync setup for SSR apps.",
   "keywords": [
     "auth",

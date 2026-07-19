@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-query",
-  "version": "0.1.0",
+  "version": "0.7.0",
   "description": "Typed client for bunderstack backends: tRPC client, TanStack Query option factories, realtime subscriptions, and React hooks.",
   "keywords": [
     "bun",

@@ -2,7 +2,7 @@ import { eq, getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import { Hono } from 'hono'
 
 import type { AnyDb } from './dialect'
-import type { RealtimeBroker } from './realtime/index'
+import type { RealtimeFacade } from './realtime/facade'
 
 import {
   checkAccess,
@@ -29,11 +29,13 @@ import {
 import { executeList, parseListParams } from './list-query'
 import { buildScopeWhere } from './scope'
 
-export type CrudRouterOptions = {
+export type CrudRouterOptions<
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+> = {
   auth?: AuthSessionResolver
   access: ResolvedAccess
   idempotency?: boolean | IdempotencyConfig
-  broker?: RealtimeBroker
+  realtime?: RealtimeFacade<TSchema>
 }
 
 function tableEntryForName(
@@ -63,10 +65,10 @@ async function enforce(
 export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   schema: TSchema,
   db: AnyDb,
-  options: CrudRouterOptions,
+  options: CrudRouterOptions<TSchema>,
 ): Hono {
   const router = new Hono()
-  const { auth, access, broker } = options
+  const { auth, access, realtime } = options
   const idempotency = resolveIdempotencyConfig(options.idempotency)
 
   const scopeFor = (
@@ -243,7 +245,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await (db as any).insert(table).values(stamped).returning()
       const created = rows[0]
-      void broker?.publish(name, 'create', created as Record<string, unknown>)
+      void realtime?.publish(table as never, 'create', created as never)
 
       if (idempotency && idempotencyKey) {
         await storeIdempotency(
@@ -329,7 +331,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       if (!rows[0]) {
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
-      void broker?.publish(name, 'update', rows[0] as Record<string, unknown>)
+      void realtime?.publish(table as never, 'update', rows[0] as never)
       return c.json(rows[0])
     })
 
@@ -375,11 +377,7 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (db as any).delete(table).where(eq(idCol as any, id))
-      void broker?.publish(
-        name,
-        'delete',
-        existing[0] as Record<string, unknown>,
-      )
+      void realtime?.publish(table as never, 'delete', existing[0] as never)
       return new Response(null, { status: 204 })
     })
   }

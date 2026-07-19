@@ -77,15 +77,18 @@ test('tRPC ctx exposes the jobs facade', async () => {
 
 test('explicit local cron scheduler runs declared cron handlers', async () => {
   const runs: Date[] = []
+  const realtimeStates: boolean[] = []
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:' },
+    realtime: true,
     jobs: (j) =>
       j.define({
         everyMinute: j.cron({
           schedule: '* * * * *',
-          handler: ({ scheduledFor }) => {
+          handler: ({ scheduledFor }, ctx) => {
             runs.push(scheduledFor)
+            realtimeStates.push(ctx.realtime.enabled)
           },
         }),
       }),
@@ -95,6 +98,7 @@ test('explicit local cron scheduler runs declared cron handlers', async () => {
   const scheduler = await app.startCronScheduler()
   expect(runs).toHaveLength(1)
   expect(runs[0]!.getTime() % 60_000).toBe(0)
+  expect(realtimeStates).toEqual([true])
 
   await scheduler.close()
   await app.close()

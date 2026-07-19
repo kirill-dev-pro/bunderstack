@@ -639,6 +639,32 @@ await createBunderstack({
 
 ---
 
+### Publishing custom writes to realtime
+
+Generated CRUD publishes automatically. Writes made directly through `app.db`
+or `ctx.db` are explicit: publish the complete row returned by Drizzle after the
+write commits.
+
+```ts
+const [avatar] = await ctx.db
+  .update(schema.avatars)
+  .set({ status: 'completed' })
+  .where(eq(schema.avatars.id, avatarId))
+  .returning()
+
+await ctx.realtime.publish(schema.avatars, 'update', avatar)
+```
+
+The same typed facade is available as `app.realtime`, in tRPC context, and in
+queue-job and cron context. Passing the Drizzle table makes a table-name typo a
+type error and constrains the record to that table's select model.
+
+Publish after an enclosing transaction resolves, not from inside it. The full
+row is required because realtime access filtering may inspect its `id`, owner,
+or read-scope columns. Subscriber access checks, Redis fan-out, and replay are
+applied automatically by the existing broker. When server realtime is not
+configured, `realtime.enabled` is `false` and `publish()` is a no-op.
+
 ## Development
 
 ```sh
