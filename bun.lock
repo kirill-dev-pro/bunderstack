@@ -6,6 +6,7 @@
       "name": "bunderstack",
       "devDependencies": {
         "@types/bun": "^1.3.14",
+        "nodemailer": "^9.0.3",
         "oxfmt": "^0.56.0",
         "oxlint": "^1.71.0",
         "typescript": "^7.0.1-rc",
@@ -218,28 +219,33 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "dependencies": {
-        "@trpc/server": "^11.0.0",
-        "better-auth": "^1.0.0",
-        "hono": "^4.0.0",
         "superjson": "^2.2.0",
-        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
+        "@trpc/server": "^11.0.0",
+        "@types/nodemailer": "^6",
+        "better-auth": "^1.0.0",
         "drizzle-kit": "^0.30.0",
         "drizzle-orm": "^0.45.0",
+        "hono": "^4.0.0",
+        "zod": "^4.4.3",
       },
       "peerDependencies": {
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
+        "@trpc/server": "^11.0.0",
+        "better-auth": "^1.0.0",
         "drizzle-kit": "^0.30.0",
         "drizzle-orm": "^0.45.0",
-        "nodemailer": "^6",
+        "hono": "^4.0.0",
+        "nodemailer": "",
         "postgres": ">=3.4.0",
-        "typescript": "^5",
+        "typescript": ">=5",
+        "zod": "^4.4.3",
       },
       "optionalPeers": [
         "@electric-sql/pglite",
@@ -247,35 +253,46 @@
         "drizzle-kit",
         "nodemailer",
         "postgres",
+        "typescript",
       ],
     },
     "packages/bunderstack-query": {
       "name": "bunderstack-query",
-      "version": "0.1.0",
-      "dependencies": {
+      "version": "0.7.0",
+      "devDependencies": {
+        "@tanstack/query-core": "^5.101.1",
+        "@tanstack/react-query": "^5.101.1",
+        "@trpc/client": "^11.0.0",
+        "@trpc/server": "^11.0.0",
+        "@trpc/tanstack-react-query": "^11.0.0",
+        "@types/bun": "^1.3.14",
+        "bunderstack": "workspace:*",
+        "drizzle-orm": "^0.45.0",
+        "superjson": "^2.2.0",
+        "zod": "^4.4.3",
+      },
+      "peerDependencies": {
+        "@tanstack/react-query": "^5.101.0",
         "@trpc/client": "^11.0.0",
         "@trpc/server": "^11.0.0",
         "@trpc/tanstack-react-query": "^11.0.0",
         "bunderstack": "workspace:*",
         "superjson": "^2.2.0",
+        "typescript": ">=5",
       },
-      "devDependencies": {
-        "@tanstack/query-core": "^5.101.1",
-        "@tanstack/react-query": "^5.101.1",
-        "@types/bun": "^1.3.14",
-        "drizzle-orm": "^0.45.0",
-        "zod": "^4.4.3",
-      },
-      "peerDependencies": {
-        "@tanstack/react-query": "^5.101.0",
-        "typescript": "^5",
-      },
+      "optionalPeers": [
+        "@trpc/client",
+        "@trpc/server",
+        "@trpc/tanstack-react-query",
+        "bunderstack",
+        "superjson",
+        "typescript",
+      ],
     },
     "packages/bunderstack-start": {
       "name": "bunderstack-start",
-      "version": "0.1.1",
+      "version": "0.7.0",
       "dependencies": {
-        "bunderstack-query": "workspace:*",
         "bunderstack-sync": "workspace:*",
       },
       "devDependencies": {
@@ -289,17 +306,17 @@
         "@tanstack/react-query": "^5.101.0",
         "@tanstack/react-start": ">=1.0.0",
         "better-auth": "^1.0.0",
-        "typescript": "^5",
+        "typescript": ">=5",
       },
       "optionalPeers": [
         "better-auth",
+        "typescript",
       ],
     },
     "packages/bunderstack-sync": {
       "name": "bunderstack-sync",
-      "version": "0.1.1",
+      "version": "0.7.0",
       "dependencies": {
-        "bunderstack": "workspace:*",
         "bunderstack-query": "workspace:*",
       },
       "devDependencies": {
@@ -314,8 +331,11 @@
         "@tanstack/db": "0.6.16",
         "@tanstack/query-db-collection": "1.1.0",
         "@tanstack/react-query": "^5.101.0",
-        "typescript": "^5",
+        "typescript": ">=5",
       },
+      "optionalPeers": [
+        "typescript",
+      ],
     },
   },
   "overrides": {
@@ -975,6 +995,8 @@
 
     "@types/node": ["@types/node@22.20.0", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-QWlFW2wf3nTjC13/DqRnBpR4ZO36VJH/JVBkA/vcnmbTBNQIlnObqyqZE1tUR7+Ni23Lda8R1BxMfbXRpCUx5g=="],
 
+    "@types/nodemailer": ["@types/nodemailer@6.4.24", "", { "dependencies": { "@types/node": "*" } }, "sha512-Ww4u0rT9wQNXh4JiQaIwx3QWdcOFXzOjQA2zc+jtFYNmQiT4mIUqcDin51bDFdkzKubFnQCZNK7FIHlPKQ/q9w=="],
+
     "@types/react": ["@types/react@19.2.17", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=="],
 
     "@types/react-dom": ["@types/react-dom@19.2.3", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="],
@@ -1261,6 +1283,8 @@
 
     "node-releases": ["node-releases@2.0.48", "", {}, "sha512-1uz8041X6LoI6ZSdZacM9lVY28vuzDlSKitnpbSNK0RfKoIJkX29NBPVEFXhnuSuEOA9Ww0xnPJ+ILWbGAv8DA=="],
 
+    "nodemailer": ["nodemailer@9.0.3", "", {}, "sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw=="],
+
     "ocache": ["ocache@0.1.5", "", { "dependencies": { "ohash": "^2.0.11" } }, "sha512-kNNnkkVQup/QDvmTz8Q84wc2ntiyoVHDxa6eHWKt5qdGAmFRBIxy83rxgCYEjW0x06UJ9E3P6VgM2yY4rOBH4w=="],
 
     "ofetch": ["ofetch@2.0.0-alpha.3", "", {}, "sha512-zpYTCs2byOuft65vI3z43Dd6iSdFbOZZLb9/d21aCpx2rGastVU9dOCv0lu4ykc1Ur1anAYjDi3SUvR0vq50JA=="],
@@ -1421,6 +1445,8 @@
 
     "@tanstack/start-plugin-core/@babel/code-frame": ["@babel/code-frame@7.27.1", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.27.1", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-cjQ7ZlQ0Mv3b47hABuTevyTuYN4i+loJKGeV9flcCgIK37cCXRh+L1bd3iBHlynerhQ7BhCkn2BPbQUL+rGqFg=="],
 
+    "@types/nodemailer/@types/node": ["@types/node@26.0.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-vf2YFi1iY9lHGwNJMs01biZFbKJkrZR1T6/MlzjhJLPdntOHLhTrDSnSVcdtvjihi4VQNlrFRIxLsDBlQpAipA=="],
+
     "@types/ws/@types/node": ["@types/node@26.0.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-vf2YFi1iY9lHGwNJMs01biZFbKJkrZR1T6/MlzjhJLPdntOHLhTrDSnSVcdtvjihi4VQNlrFRIxLsDBlQpAipA=="],
 
     "babel-plugin-jsx-dom-expressions/@babel/helper-module-imports": ["@babel/helper-module-imports@7.18.6", "", { "dependencies": { "@babel/types": "^7.18.6" } }, "sha512-0NFvs3VkuSYbFi1x2Vd6tKrywq+z/cLeYC/RJNFrIX/30Bf5aiGYbtvGXolEktzJH8o5E5KJ3tT+nkxuuZFVlA=="],
@@ -1526,6 +1552,8 @@
     "@esbuild-kit/core-utils/esbuild/@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.18.20", "", { "os": "win32", "cpu": "ia32" }, "sha512-Wv7QBi3ID/rROT08SABTS7eV4hX26sVduqDOTe1MvGMjNd3EjOz4b7zeexIR62GTIEKrfJXKL9LFxTYgkyeu7g=="],
 
     "@esbuild-kit/core-utils/esbuild/@esbuild/win32-x64": ["@esbuild/win32-x64@0.18.20", "", { "os": "win32", "cpu": "x64" }, "sha512-kTdfRcSiDfQca/y9QIkng02avJ+NCaQvrMejlsB3RRv5sE9rRoeBPISaZpKxHELzRxZyLvNts1P27W3wV+8geQ=="],
+
+    "@types/nodemailer/@types/node/undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
 
     "@types/ws/@types/node/undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
 
