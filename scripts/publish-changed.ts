@@ -5,10 +5,9 @@
  *
  * Usage: bun scripts/publish-changed.ts [--dry-run]
  *
- * Publishing goes through `npm publish` because the npm CLI is the client
- * that supports OIDC trusted publishing — but unlike `bun publish` it does
- * not rewrite `workspace:*` deps, so this script rewrites them in place
- * first. In CI the mutation is discarded with the runner.
+ * Publishing goes through `npm publish` from the root workspace so that the
+ * npm CLI natively resolves `workspace:*` deps without dirtying the git tree
+ * (which would break `--provenance`).
  */
 
 // Dependency order: a package must be published before its dependents so the
@@ -39,40 +38,7 @@ export function shouldPublish(
   return Bun.semver.order(localVersion, registryVersion) === 1
 }
 
-const DEP_FIELDS = [
-  'dependencies',
-  'devDependencies',
-  'peerDependencies',
-  'optionalDependencies',
-] as const
 
-/**
- * Replaces `workspace:` protocol deps with concrete ranges pointing at the
- * sibling packages' current versions: `workspace:*` -> `^x.y.z`,
- * `workspace:~` -> `~x.y.z`, `workspace:^` -> `^x.y.z`.
- */
-export function rewriteWorkspaceDeps<T extends PackageJson>(
-  pkg: T,
-  localVersions: Record<string, string>,
-): T {
-  const out = structuredClone(pkg)
-  for (const field of DEP_FIELDS) {
-    const deps = out[field]
-    if (!deps) continue
-    for (const [dep, range] of Object.entries(deps)) {
-      if (!range.startsWith('workspace:')) continue
-      const version = localVersions[dep]
-      if (!version) {
-        throw new Error(
-          `${pkg.name}: workspace dep "${dep}" has no local version`,
-        )
-      }
-      const operator = range.slice('workspace:'.length)
-      deps[dep] = operator === '~' ? `~${version}` : `^${version}`
-    }
-  }
-  return out
-}
 
 async function registryVersion(name: string): Promise<string | null> {
   const res = await fetch(`${REGISTRY}/${name}`)
@@ -93,9 +59,7 @@ async function main() {
     const pkg = (await Bun.file(`${dir}/package.json`).json()) as PackageJson
     packages.set(name, { dir, pkg })
   }
-  const localVersions = Object.fromEntries(
-    [...packages.values()].map(({ pkg }) => [pkg.name, pkg.version]),
-  )
+
 
   for (const name of PUBLISH_ORDER) {
     const { dir, pkg } = packages.get(name)!
@@ -116,18 +80,10 @@ async function main() {
     }
 
     console.log(`publish ${name}@${pkg.version} (registry has ${published})`)
-    const rewritten = rewriteWorkspaceDeps(pkg, localVersions)
-    if (!dryRun) {
-      await Bun.write(
-        `${dir}/package.json`,
-        JSON.stringify(rewritten, null, 2) + '\n',
-      )
-    }
-
-    const args = ['publish', '--provenance']
+    const args = ['publish', '-w', `packages/${name}`, '--provenance']
     if (dryRun) args.push('--dry-run')
     const proc = Bun.spawn(['npm', ...args], {
-      cwd: dir,
+      cwd: root,
       stdout: 'inherit',
       stderr: 'inherit',
     })
