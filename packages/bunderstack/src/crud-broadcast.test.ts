@@ -7,6 +7,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { validateAndResolveAccess } from './access'
 import { buildCrudRouter } from './crud'
 import { createRealtimeBroker } from './realtime/index'
+import { createRealtimeFacade } from './realtime/facade'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
@@ -52,7 +53,7 @@ it('publishes a create event after insert', async () => {
   const router = buildCrudRouter(schema, db as never, {
     auth: auth as never,
     access,
-    broker,
+    realtime: createRealtimeFacade<typeof schema>(broker),
   })
   await router.fetch(
     new Request('http://x/boards', {

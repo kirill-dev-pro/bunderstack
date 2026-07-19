@@ -360,7 +360,7 @@ export async function createBunderstack<
     auth: authResolver,
     access: resolvedAccess,
     idempotency: options.idempotency,
-    broker,
+    realtime,
   })
   const realtimeRouter = broker
     ? buildRealtimeRouter(broker, {
