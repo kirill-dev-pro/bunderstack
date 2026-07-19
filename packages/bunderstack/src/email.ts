@@ -114,7 +114,7 @@ function createSmtpAdapter(
     sendMail(opts: Record<string, unknown>): Promise<{ messageId?: string }>
   }> | null = null
   const getTransport = () => {
-    transportPromise ??= import(specifier).then((mod) =>
+    transportPromise ??= import(/* @vite-ignore */ specifier).then((mod) =>
       (mod.default ?? mod).createTransport(smtpUrl),
     )
     return transportPromise
