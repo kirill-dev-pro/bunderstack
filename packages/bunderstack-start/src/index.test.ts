@@ -6,6 +6,8 @@ import {
   createIsomorphicFetch,
   getSessionUser,
 } from './index'
+import { createStartAuthClient } from './auth-client'
+import pkg from '../package.json'
 
 describe('createApiHandlers', () => {
   it('forwards every method to app.handler', async () => {
@@ -89,5 +91,14 @@ describe('getSessionUser', () => {
 
     const anon = { auth: { api: { getSession: async () => null } } }
     expect(await getSessionUser(anon, new Request('http://x/'))).toBeNull()
+  })
+})
+
+describe('auth isolation', () => {
+  it('exports auth subpath', () => {
+    expect((pkg.exports as any)['./auth']).toBe('./src/auth-client.ts')
+  })
+  it('exposes createStartAuthClient from the subpath', () => {
+    expect(typeof createStartAuthClient).toBe('function')
   })
 })
