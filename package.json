@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync && bun test --cwd packages/bunderstack-start && bun test scripts/",
+    "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "typecheck": "bunx tsc --noEmit -p packages/bunderstack/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-sync/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-start/tsconfig.json",
     "dev": "bun run --cwd examples/standalone dev",
     "dev:standalone": "bun run --cwd examples/standalone dev",
