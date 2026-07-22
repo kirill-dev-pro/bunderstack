@@ -4,7 +4,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { DatabaseAdapter } from './database/adapter'
 
-import { resolveConfig } from './config'
+import { resolveConfig, type BunderstackConfig } from './config'
 import { validateEnv } from './env'
 
 const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
@@ -29,6 +29,12 @@ test('missing database.adapter rejects', () => {
   expect(() => resolveConfig({ schema } as any)).toThrow(
     '[bunderstack] database.adapter is required',
   )
+})
+
+test('BunderstackConfig requires database', () => {
+  // @ts-expect-error database is required by the public config contract
+  const invalidConfig: BunderstackConfig<typeof schema> = { schema }
+  expect(invalidConfig.schema).toBe(schema)
 })
 
 test('resolveConfig picks up DATABASE_URL env', () => {

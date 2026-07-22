@@ -1,4 +1,5 @@
-// src/email.ts — email sending: resend / smtp / console / custom adapter.
+// src/email.ts — email sending: console / resend / custom adapters.
+// SMTP is provided by the static `bunderstack/email/smtp` factory subpath.
 
 export type EmailMessage = {
   to: string | string[]
@@ -33,7 +34,7 @@ export type CreateEmailOptions = {
   fetchFn?: typeof fetch
 }
 
-/** String provider tag ('resend' | 'smtp' | 'console') or undefined. */
+/** Root string provider tag ('resend' | 'console') or undefined. */
 export function emailProviderTag(
   config: EmailConfigInput | undefined,
 ): string | undefined {

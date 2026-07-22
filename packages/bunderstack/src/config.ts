@@ -95,7 +95,7 @@ export type BunderstackConfig<
 > & {
   schema: TSchema
   access?: TAccess
-  database?: {
+  database: {
     adapter: DatabaseAdapter
     url?: string
     authToken?: string
