@@ -176,11 +176,14 @@ test('server database introspection stays offline', async () => {
       schema: { pgNotes },
       database: {
         adapter: bunSql(),
-        url: 'postgres://example.invalid/app',
+        url: 'postgres://user:pass@127.0.0.1:1/app',
       },
     })
 
     expect(app.manifest).toBeDefined()
+    expect(typeof (app.db as unknown as { $client: unknown }).$client).toBe(
+      'object',
+    )
     await app.close()
   } finally {
     if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT

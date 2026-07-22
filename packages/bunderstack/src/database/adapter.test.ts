@@ -54,8 +54,8 @@ describe('DatabaseAdapter', () => {
   test.each([
     ['libsql', libsql(), 'postgres://must-not-connect'],
     ['pglite', pglite(), 'postgres://must-not-connect'],
-    ['bun-sql', bunSql(), ':memory:'],
-    ['postgres-js', postgresJs(), ':memory:'],
+    ['bun-sql', bunSql(), 'postgres://user:pass@127.0.0.1:1/app'],
+    ['postgres-js', postgresJs(), 'postgres://user:pass@127.0.0.1:1/app'],
   ] as const)(
     '%s adapter uses a mock during introspection',
     async (_name, adapter, url) => {
@@ -64,7 +64,9 @@ describe('DatabaseAdapter', () => {
         { url },
         { introspect: true },
       )
-      expect(result.db).toBeDefined()
+      expect(
+        typeof (result.db as unknown as { $client: unknown }).$client,
+      ).toBe('object')
       expect(result.close).toBeUndefined()
     },
   )
