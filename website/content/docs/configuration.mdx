@@ -62,17 +62,21 @@ await createBunderstack({
 
 Import exactly one adapter from `bunderstack/database/<adapter>`. Its dialect
 must match the schema (`sqliteTable` for libSQL; `pgTable` for the Postgres
-adapters), and the URL defaults are selected from that adapter:
+adapters). The schema dialect, not the adapter, selects the default URL:
+SQLite defaults to `file:./data.db` and Postgres defaults to the local PGlite
+path `file:./data.pglite`.
 
 | Adapter import | Optional peer to install | URLs |
 | --- | --- | --- |
-| `bunderstack/database/libsql` (`libsql()`) | `@libsql/client` | `file:./data.db` by default; `libsql://…` for Turso |
-| `bunderstack/database/pglite` (`pglite()`) | `@electric-sql/pglite` | `file:./data.pglite` by default; `memory://` for tests |
-| `bunderstack/database/bun-sql` (`bunSql()`) | none — Bun provides `Bun.sql` | `postgres://…` |
-| `bunderstack/database/postgres-js` (`postgresJs()`) | `postgres` | `postgres://…` |
+| `bunderstack/database/libsql` (`libsql()`) | `@libsql/client` | SQLite's default `file:./data.db`; `libsql://…` for Turso |
+| `bunderstack/database/pglite` (`pglite()`) | `@electric-sql/pglite` | Postgres's default `file:./data.pglite`; `memory://` for tests |
+| `bunderstack/database/bun-sql` (`bunSql()`) | none — Bun provides `Bun.sql` | explicit `postgres://…` URL required |
+| `bunderstack/database/postgres-js` (`postgresJs()`) | `postgres` | explicit `postgres://…` URL required |
 
 Install only the selected adapter's peer. `DATABASE_URL` (or `database.url`)
-supplies its URL; an incompatible adapter/schema pair or URL fails at startup.
+supplies its URL; Bun SQL and postgres.js require an explicit Postgres URL
+because the Postgres dialect default is a local PGlite path. An incompatible
+adapter/schema pair or URL fails at startup.
 
 ## SMTP
 
