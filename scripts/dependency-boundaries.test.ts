@@ -69,6 +69,19 @@ describe('published dependency boundaries', () => {
     expect(start).not.toContain('export { createStartAuthClient }')
   })
 
+  test('query client keeps QueryClient type-only', async () => {
+    const source = await Bun.file(
+      join(repoRoot, 'packages/bunderstack-query/src/client.ts'),
+    ).text()
+
+    expect(source).toContain(
+      "import type { QueryClient } from '@tanstack/react-query'",
+    )
+    expect(source).not.toMatch(
+      /import\s+\{\s*QueryClient\s*\}\s+from\s+['"]@tanstack\/react-query['"]/,
+    )
+  })
+
   test('manifests declare correct peers and dependencies', async () => {
     for (const name of packages) {
       const manifestPath = join(repoRoot, 'packages', name, 'package.json')
