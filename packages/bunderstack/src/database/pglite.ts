@@ -11,7 +11,9 @@ export function pglite(): DatabaseAdapter {
   return {
     dialect: 'pg',
     driver: 'pglite',
-    async connect(schema, { url }) {
+    async connect(schema, { url }, { introspect }) {
+      if (introspect) return { db: drizzle.mock({ schema }) as never }
+
       if (url.startsWith('postgres://') || url.startsWith('postgresql://')) {
         throw new Error(
           '[bunderstack] pglite adapter cannot connect to a Postgres URL',

@@ -278,7 +278,8 @@ export async function createBunderstack<
     cronConfigured: true,
   })
   const config = resolveConfig(options, env)
-  // Forward deployment introspection mode to the selected database adapter.
+  // Adapters use Drizzle mocks during deployment introspection, so the database
+  // and Redis below never touch external services.
   const introspect = process.env.BUNDERSTACK_INTROSPECT === '1'
   const email = createEmail(options.email, { env })
   // Merge bunderstack's internal tables (file-meta, idempotency) into the

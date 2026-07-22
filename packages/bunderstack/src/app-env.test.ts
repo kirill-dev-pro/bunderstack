@@ -1,11 +1,13 @@
 // src/app-env.test.ts
 import { test, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
+import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
 import type { DatabaseAdapter } from './database/adapter'
 
+import { bunSql } from './database/bun-sql'
 import { libsql } from './database/libsql'
 import { BunderstackEnvError } from './env'
 import { createBunderstack } from './index'
@@ -13,6 +15,10 @@ import { createBunderstack } from './index'
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
+})
+
+const pgNotes = pgTable('notes', {
+  id: pgText('id').primaryKey(),
 })
 
 test('createBunderstack exposes typed app.env', async () => {
@@ -159,4 +165,25 @@ test('app.manifest describes the declaration', async () => {
   expect(app.manifest.env.server).toEqual([
     { key: 'WEBHOOK_SECRET', required: false },
   ])
+})
+
+test('server database introspection stays offline', async () => {
+  const previous = process.env.BUNDERSTACK_INTROSPECT
+  process.env.BUNDERSTACK_INTROSPECT = '1'
+
+  try {
+    const app = await createBunderstack({
+      schema: { pgNotes },
+      database: {
+        adapter: bunSql(),
+        url: 'postgres://example.invalid/app',
+      },
+    })
+
+    expect(app.manifest).toBeDefined()
+    await app.close()
+  } finally {
+    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
+    else process.env.BUNDERSTACK_INTROSPECT = previous
+  }
 })
