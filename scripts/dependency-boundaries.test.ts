@@ -89,10 +89,13 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['@electric-sql/pglite']).toBeDefined()
     expect(core.peerDependencies['@libsql/client']).toBeDefined()
     expect(core.peerDependencies['drizzle-kit']).toBeDefined()
-    expect(core.peerDependencies['nodemailer']).toBeDefined()
+    expect(core.peerDependencies['nodemailer']).toBe('>=6 <10')
     expect(core.peerDependencies['postgres']).toBeDefined()
 
     expect(Object.keys(core.dependencies)).toEqual(['superjson'])
+
+    const rootManifest = await Bun.file(join(repoRoot, 'package.json')).json()
+    expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')
 
     const query = await Bun.file(
       join(repoRoot, 'packages/bunderstack-query/package.json'),

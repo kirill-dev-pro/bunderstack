@@ -72,7 +72,7 @@
     "@libsql/client": ">=0.14.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
-    "nodemailer": "",
+    "nodemailer": ">=6 <10",
     "postgres": ">=3.4.0",
     "typescript": ">=5",
     "@trpc/server": "^11.0.0",
