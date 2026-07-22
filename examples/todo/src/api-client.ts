@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createTRPCClient } from 'bunderstack-query/trpc'
 
 import type { App } from './bunderstack' // type-only — zero server bytes
 
@@ -19,7 +19,7 @@ export function createQueryClient() {
  * Add a table or procedure server-side and the client knows it instantly.
  */
 export function createApi(queryClient: QueryClient) {
-  return createClient<App>({ queryClient })
+  return createTRPCClient<App>({ queryClient })
 }
 
 export type AppApi = ReturnType<typeof createApi>

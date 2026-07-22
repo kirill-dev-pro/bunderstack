@@ -11,6 +11,7 @@
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { anonymous } from 'better-auth/plugins'
@@ -28,7 +29,10 @@ export const app = await createBunderstack({
   schema,
   access,
 
-  database: { url: process.env.DATABASE_URL ?? 'file:./data.db' },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
 
   // Username-only auth: the anonymous plugin creates a real session
   // without passwords or signup. See routes/index.tsx for the client side.
