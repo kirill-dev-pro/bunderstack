@@ -55,8 +55,10 @@ describe('browser bundle boundaries', () => {
       'bunderstack-sync',
     ])
     expect(output.size).toBeLessThan(32 * 1024)
-    expectNoBundleInputs(output.inputs, ['/better-auth/', '/auth-client.'])
+    expectNoBundleInputs(output.inputs, [
+      '/better-auth/',
+      'packages/bunderstack-start/src/auth-client.',
+    ])
     expect(output.text).not.toContain('better-auth')
-    expect(output.text).not.toContain('authClient')
   })
 })

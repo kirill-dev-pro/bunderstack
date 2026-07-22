@@ -47,7 +47,7 @@ describe('published dependency boundaries', () => {
       const source = await Bun.file(join(repoRoot, path)).text()
 
       expect(source, path).toContain('bunderstack/email/smtp')
-      expect(source, path).toContain('smtp(')
+      expect(source, path).toContain('provider: smtp(')
       expect(source, path).not.toContain("email: 'smtp'")
       expect(source, path).not.toContain("provider: 'smtp'")
     }
