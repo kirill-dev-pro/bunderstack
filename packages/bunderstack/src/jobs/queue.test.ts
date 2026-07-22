@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import type { JobsDefs } from './define'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackJobs, withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -23,7 +24,10 @@ const defs: JobsDefs = {
 }
 
 beforeAll(async () => {
-  ;({ db } = await createDb({}, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    {},
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,

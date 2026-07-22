@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import type { ResolvedBucket } from './buckets'
 import type { BucketStorageRegistry } from './registry'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -30,6 +31,7 @@ beforeEach(async () => {
   const { db } = await createDb(INTERNAL_TABLES, {
     url: ':memory:',
     dialect: 'sqlite',
+    adapter: libsql(),
   })
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
   dbAny = db

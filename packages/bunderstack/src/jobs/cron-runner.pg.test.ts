@@ -3,6 +3,7 @@ import { pgTable, text } from 'drizzle-orm/pg-core'
 
 import type { BackgroundDefs } from './define'
 
+import { pglite } from '../database/pglite'
 import { createDb } from '../db'
 import { withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -12,7 +13,10 @@ const marker = pgTable('cron_pg_marker', { id: text('id').primaryKey() })
 let db: Awaited<ReturnType<typeof createDb>>['db']
 
 beforeAll(async () => {
-  ;({ db } = await createDb({ marker }, { url: 'memory://', dialect: 'pg' }))
+  ;({ db } = await createDb(
+    { marker },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
+  ))
   await provisionSchema(db as never, withInternalTables({ marker }), {
     force: true,
   })

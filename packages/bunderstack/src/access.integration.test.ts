@@ -1,6 +1,7 @@
 import { test, expect, beforeAll } from 'bun:test'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
+import { libsql } from './database/libsql'
 import { createBunderstack } from './index'
 import { provision } from './provision'
 
@@ -47,7 +48,7 @@ let app: Awaited<ReturnType<typeof createBunderstack<typeof schema>>>
 beforeAll(async () => {
   app = await createBunderstack({
     schema,
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     auth: {},
   })
   await provision(app, { force: true })

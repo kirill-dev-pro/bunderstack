@@ -7,6 +7,7 @@ import { Hono } from 'hono'
 
 import { validateAndResolveAccess } from './access'
 import { buildCrudRouter } from './crud'
+import { libsql } from './database/libsql'
 import { createDb } from './db'
 import { withInternalTables } from './internal-tables'
 import { provisionSchema } from './provision'
@@ -38,7 +39,10 @@ let app: Hono
 let db: LibSQLDatabase<{ posts: typeof posts }>
 
 beforeAll(async () => {
-  ;({ db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    { posts },
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   // Provision the posts table plus bunderstack's internal tables (the
   // idempotency table is no longer auto-created at runtime). Provisioning the
   // full schema avoids drizzle-kit prompting to drop unknown tables.

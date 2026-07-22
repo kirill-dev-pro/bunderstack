@@ -4,6 +4,7 @@ import { PgTable, pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
+import { libsql } from './database/libsql'
 import { createDb } from './db'
 import {
   bunderstackFiles,
@@ -137,7 +138,11 @@ test('validateAndResolveAccess excludes internal tables from CRUD', () => {
 let db: Awaited<ReturnType<typeof createDb<typeof INTERNAL_TABLES>>>['db']
 
 beforeAll(async () => {
-  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(INTERNAL_TABLES, {
+    url: ':memory:',
+    dialect: 'sqlite',
+    adapter: libsql(),
+  }))
   await provisionSchema(db, INTERNAL_TABLES, { force: true })
 })
 

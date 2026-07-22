@@ -4,6 +4,7 @@ import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { libsql } from './database/libsql'
 import { createBunderstack } from './index'
 import { provision } from './provision'
 
@@ -15,7 +16,11 @@ const widgets = sqliteTable('provision_widgets', {
 test('provision pushes schema when no migrations folder exists', async () => {
   const app = await createBunderstack({
     schema: { widgets },
-    database: { url: ':memory:', migrations: './does-not-exist-migrations' },
+    database: {
+      url: ':memory:',
+      migrations: './does-not-exist-migrations',
+      adapter: libsql(),
+    },
   })
 
   await provision(app, { force: true })
@@ -48,7 +53,7 @@ test('provision applies committed migrations instead of pushing', async () => {
   try {
     const app = await createBunderstack({
       schema: { widgets },
-      database: { url: ':memory:', migrations: dir },
+      database: { url: ':memory:', migrations: dir, adapter: libsql() },
     })
 
     await provision(app)

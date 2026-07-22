@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+import { libsql } from './database/libsql'
 import { createDb } from './db'
 import {
   encode,
@@ -101,7 +102,10 @@ test('typeid() builds a branded text column without an implicit insert default',
     id: typeid('widget').primaryKey(),
     name: text('name').notNull(),
   })
-  const { db } = await createDb({ widgets }, { url: ':memory:', dialect: 'sqlite' })
+  const { db } = await createDb(
+    { widgets },
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
   await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
@@ -125,7 +129,10 @@ test('typeid() can explicitly generate a prefixed id with $defaultFn', async () 
       .$defaultFn(() => generate('widget')),
     name: text('name').notNull(),
   })
-  const { db } = await createDb({ widgets }, { url: ':memory:', dialect: 'sqlite' })
+  const { db } = await createDb(
+    { widgets },
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
   await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(

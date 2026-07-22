@@ -3,6 +3,7 @@ import { test, expect } from 'bun:test'
 import { z } from 'zod'
 import { QueryClient } from '@tanstack/react-query'
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { createTRPCClient } from '../src/trpc'
@@ -14,7 +15,7 @@ const notes = sqliteTable('notes', {
 
 const app = await createBunderstack({
   schema: { notes },
-  database: { url: ':memory:' },
+  database: { url: ':memory:', adapter: libsql() },
   trpc: (t) =>
     t.router({
       hello: t.procedure

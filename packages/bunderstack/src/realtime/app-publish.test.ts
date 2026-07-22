@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
+import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
 import { provision } from '../provision'
 
@@ -29,7 +30,7 @@ async function readData<T>(
 test('app, tRPC, and job publication share the application SSE broker', async () => {
   const app = await createBunderstack({
     schema: { avatars },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     realtime: true,
     access: {
       avatars: {
@@ -124,7 +125,7 @@ test('app, tRPC, and job publication share the application SSE broker', async ()
 test('app exposes an enabled=false no-op when realtime is not configured', async () => {
   const app = await createBunderstack({
     schema: { avatars },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
   })
 
   expect(app.realtime.enabled).toBe(false)

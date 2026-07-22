@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import type { JobsDefs } from './define'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackJobs, withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -15,7 +16,10 @@ import { createJobRunner } from './worker'
 let db: LibSQLDatabase<Record<string, never>>
 
 async function freshDb() {
-  ;({ db } = await createDb({}, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    {},
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,

@@ -4,6 +4,7 @@ import { beforeAll, expect, test } from 'bun:test'
 
 import type { BackgroundDefs } from './define'
 
+import { libsql } from '../database/libsql'
 import { signScheduleRequest } from './cron-auth'
 import { buildCronRouter } from './cron-router'
 import { createDb } from '../db'
@@ -13,7 +14,10 @@ import { provisionSchema } from '../provision'
 let db: LibSQLDatabase<Record<string, never>>
 
 beforeAll(async () => {
-  ;({ db } = await createDb({}, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    {},
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,

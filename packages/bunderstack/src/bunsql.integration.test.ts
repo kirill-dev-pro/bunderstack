@@ -15,6 +15,7 @@ import { pgTable, serial, text } from 'drizzle-orm/pg-core'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { bunSql } from './database/bun-sql'
 import { createBunderstack } from './index'
 import { provision } from './provision'
 
@@ -50,7 +51,7 @@ test.skipIf(!url)(
 
     const app = await createBunderstack({
       schema: { widgets },
-      database: { url: url!, migrations: dir },
+      database: { url: url!, migrations: dir, adapter: bunSql() },
     })
 
     try {

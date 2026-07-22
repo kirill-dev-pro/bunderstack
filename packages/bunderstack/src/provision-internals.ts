@@ -21,6 +21,7 @@ export interface ProvisionInternals {
   migrationsFolder: string
   dialect: Dialect
   driver: Driver
+  adapter: import('./database/adapter').DatabaseAdapter
 }
 
 export interface WithProvisionInternals {

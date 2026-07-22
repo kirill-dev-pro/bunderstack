@@ -3,6 +3,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 
+import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
 import { provision } from '../provision'
 
@@ -14,7 +15,7 @@ const notes = sqliteTable('notes', {
 test('app.jobs enqueues without implicit execution and explicit worker runs the handler', async () => {
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     jobs: (j) =>
       j.define({
         writeNote: j.job({
@@ -53,7 +54,7 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
 test('tRPC ctx exposes the jobs facade', async () => {
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
     trpc: (t) =>
       t.router({
@@ -80,7 +81,7 @@ test('explicit local cron scheduler runs declared cron handlers', async () => {
   const realtimeStates: boolean[] = []
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     realtime: true,
     jobs: (j) =>
       j.define({
@@ -108,7 +109,7 @@ test('runWorker owns the application lifecycle until its signal aborts', async (
   const controller = new AbortController()
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
   })
   await provision(app, { force: true })
@@ -126,7 +127,7 @@ test('storage maintenance endpoint is mounted without user job declarations', as
   try {
     const app = await createBunderstack({
       schema: { notes },
-      database: { url: ':memory:' },
+      database: { url: ':memory:', adapter: libsql() },
     })
     await provision(app, { force: true })
     const slot = Math.floor(Date.now() / 60_000) * 60_000
@@ -150,7 +151,7 @@ test('storage maintenance endpoint is mounted without user job declarations', as
 test('an app without jobs still has a facade; enqueue throws', async () => {
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
   })
   await expect(
     (
@@ -165,7 +166,7 @@ test('introspection mode boots with jobs configured', async () => {
   try {
     const app = await createBunderstack({
       schema: { notes },
-      database: { url: ':memory:' },
+      database: { url: ':memory:', adapter: libsql() },
       jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
     })
     expect(app.manifest).toBeDefined()

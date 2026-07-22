@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import type { JobsDefs } from './define'
 
+import { pglite } from '../database/pglite'
 import { createDb } from '../db'
 import { bunderstackJobsPg } from '../internal-tables-pg'
 import { withInternalTables } from '../internal-tables'
@@ -22,7 +23,7 @@ let db: Awaited<ReturnType<typeof createDb>>['db']
 beforeAll(async () => {
   ;({ db } = await createDb(
     { marker },
-    { url: 'memory://', dialect: 'pg' },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
   ))
   const merged = withInternalTables({ marker })
   await provisionSchema(db as never, merged, { force: true })

@@ -16,6 +16,7 @@ import type {
   BucketStorageRegistry,
 } from './registry'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { INTERNAL_TABLES } from '../internal-tables'
 import { LocalStorageAdapter } from './local'
@@ -185,7 +186,11 @@ async function makeApp(registry: BucketStorageRegistry) {
 }
 
 beforeEach(async () => {
-  ;({ db } = await createDb(INTERNAL_TABLES, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(INTERNAL_TABLES, {
+    url: ':memory:',
+    dialect: 'sqlite',
+    adapter: libsql(),
+  }))
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
   await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(

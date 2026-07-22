@@ -292,10 +292,13 @@ export async function createBunderstack<
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
-  const { db, driver } = await createDb(mergedSchema, {
+  const lifecycle = new Lifecycle()
+  const { db, driver, close: closeDatabase } = await createDb(mergedSchema, {
     ...config.database,
     dialect,
+    introspect,
   })
+  if (closeDatabase) lifecycle.add(closeDatabase)
   // `db` is typed with the merged schema (user tables + internal tables) so the
   // storage/idempotency code can query the internal tables. The public surface
   // and CRUD only expose the USER schema. TS can widen the merged-schema db type
@@ -372,7 +375,6 @@ export async function createBunderstack<
       })
     : undefined
   const registry = createBucketStorages(config.storage)
-  const lifecycle = new Lifecycle()
   if (broker) lifecycle.add(() => broker.close())
   const storageRouter = buildBucketStorageRouter({
     registry,
@@ -583,6 +585,7 @@ export async function createBunderstack<
     migrationsFolder: config.database.migrations,
     dialect,
     driver,
+    adapter: config.database.adapter,
   }
 
   return app
@@ -652,6 +655,7 @@ export {
   asTypeId,
 } from './typeid'
 export type { TypeId } from './typeid'
+export type { DatabaseAdapter } from './database/adapter'
 export type { StorageAdapter } from './storage/index'
 export type {
   StorageConfigInput,
