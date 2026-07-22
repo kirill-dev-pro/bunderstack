@@ -1,9 +1,12 @@
+import type { AnyRouter } from '@trpc/server'
 import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query'
 
 import { QueryClient } from '@tanstack/react-query'
-import { createTRPCClient as _createTRPCClient, httpBatchLink } from '@trpc/client'
+import {
+  createTRPCClient as _createTRPCClient,
+  httpBatchLink,
+} from '@trpc/client'
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query'
-import type { AnyRouter } from '@trpc/server'
 import superjson from 'superjson'
 
 import type { AnyBunderstackApp, InferTrpcRouter } from './infer'
@@ -16,7 +19,11 @@ import {
 
 export type TRPCBunderstackClient<TApp extends AnyBunderstackApp> =
   RestBunderstackClient<TApp> & {
-    trpc: TRPCOptionsProxy<InferTrpcRouter<TApp> extends AnyRouter ? InferTrpcRouter<TApp> : AnyRouter>
+    trpc: TRPCOptionsProxy<
+      InferTrpcRouter<TApp> extends AnyRouter
+        ? InferTrpcRouter<TApp>
+        : AnyRouter
+    >
   }
 
 function createTRPCClientTransport(options: ClientOptions) {

@@ -1,7 +1,6 @@
 import { test, expect } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { bigint, pgTable, serial, text } from 'drizzle-orm/pg-core'
-
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -47,7 +46,13 @@ test('provision applies committed pg migrations instead of pushing', async () =>
       version: '7',
       dialect: 'postgresql',
       entries: [
-        { idx: 0, version: '7', when: Date.now(), tag: '0000_init', breakpoints: true },
+        {
+          idx: 0,
+          version: '7',
+          when: Date.now(),
+          tag: '0000_init',
+          breakpoints: true,
+        },
       ],
     }),
   )

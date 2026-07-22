@@ -34,7 +34,14 @@ test('pg: successful slot is persisted and deduplicated', async () => {
       },
     },
   }
-  const args = { db: db as never, defs, ctx: {}, name: 'hourly', slot, now: slot }
+  const args = {
+    db: db as never,
+    defs,
+    ctx: {},
+    name: 'hourly',
+    slot,
+    now: slot,
+  }
 
   await expect(runCronSlot(args)).resolves.toEqual({ status: 'succeeded' })
   await expect(runCronSlot(args)).resolves.toEqual({ status: 'duplicate' })

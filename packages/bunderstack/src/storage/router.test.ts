@@ -11,10 +11,7 @@ import { deflateSync } from 'node:zlib'
 import type { AuthSessionResolver, ScopeMap } from '../access'
 import type { ResolvedBucket } from './buckets'
 import type { StorageAdapter } from './index'
-import type {
-  BucketStorage,
-  BucketStorageRegistry,
-} from './registry'
+import type { BucketStorage, BucketStorageRegistry } from './registry'
 
 import { libsql } from '../database/libsql'
 import { createDb } from '../db'
@@ -193,7 +190,9 @@ beforeEach(async () => {
   }))
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
-  await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
+  await (
+    db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }
+  ).$client.execute(
     `CREATE TABLE IF NOT EXISTS bunderstack_file_meta (
       file_id TEXT PRIMARY KEY,
       bucket TEXT NOT NULL,

@@ -51,7 +51,9 @@ test('enqueue inserts a pending row with parsed payload', async () => {
 })
 
 test('unknown queue job name throws', async () => {
-  await expect(enqueueJob(db, defs, 'nope', {})).rejects.toThrow(/unknown queue job/)
+  await expect(enqueueJob(db, defs, 'nope', {})).rejects.toThrow(
+    /unknown queue job/,
+  )
 })
 
 test('cron declarations cannot be enqueued', async () => {
@@ -68,14 +70,14 @@ test('cron declarations cannot be enqueued', async () => {
 })
 
 test('payload failing zod parse throws at the enqueue site', async () => {
-  await expect(
-    enqueueJob(db, defs, 'greet', { name: 42 }),
-  ).rejects.toThrow()
+  await expect(enqueueJob(db, defs, 'greet', { name: 42 })).rejects.toThrow()
 })
 
 test('delay and runAt land in run_at', async () => {
   const before = Date.now()
-  const { id } = await enqueueJob(db, defs, 'bare', undefined, { delay: 60_000 })
+  const { id } = await enqueueJob(db, defs, 'bare', undefined, {
+    delay: 60_000,
+  })
   const [row] = await db
     .select()
     .from(bunderstackJobs)
@@ -106,6 +108,12 @@ test('duplicate dedupeKey is a no-op returning the existing id', async () => {
 
 test('same dedupeKey on a different type is a distinct job', async () => {
   const a = await enqueueJob(db, defs, 'bare', undefined, { dedupeKey: 'k' })
-  const b = await enqueueJob(db, defs, 'greet', { name: 'x' }, { dedupeKey: 'k' })
+  const b = await enqueueJob(
+    db,
+    defs,
+    'greet',
+    { name: 'x' },
+    { dedupeKey: 'k' },
+  )
   expect(b.id).not.toBe(a.id)
 })

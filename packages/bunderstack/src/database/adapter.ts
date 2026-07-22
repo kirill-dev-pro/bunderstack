@@ -8,12 +8,11 @@ export type DatabaseConnection = {
 
 export type DatabaseConnectOptions = { introspect: boolean }
 
-export type DatabaseConnectionResult<
-  TSchema extends Record<string, unknown>,
-> = {
-  db: DbFor<TSchema>
-  close?: () => void | Promise<void>
-}
+export type DatabaseConnectionResult<TSchema extends Record<string, unknown>> =
+  {
+    db: DbFor<TSchema>
+    close?: () => void | Promise<void>
+  }
 
 export type DatabaseAdapter = {
   readonly dialect: Dialect

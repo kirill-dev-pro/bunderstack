@@ -108,7 +108,9 @@ test('typeid() builds a branded text column without an implicit insert default',
   )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
-  await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
+  await (
+    db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }
+  ).$client.execute(
     `CREATE TABLE widgets (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)`,
   )
 
@@ -135,7 +137,9 @@ test('typeid() can explicitly generate a prefixed id with $defaultFn', async () 
   )
   // $client is the raw libsql client — not part of the public DbFor surface —
   // so this test-only DDL escape hatch needs an explicit cast.
-  await (db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }).$client.execute(
+  await (
+    db as unknown as { $client: { execute: (sql: string) => Promise<unknown> } }
+  ).$client.execute(
     `CREATE TABLE widgets (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)`,
   )
 

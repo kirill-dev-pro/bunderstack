@@ -1,10 +1,6 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
 
-
-import type {
-  BucketClient,
-  BucketMutationOptions,
-} from './bucket-client'
+import type { BucketClient, BucketMutationOptions } from './bucket-client'
 import type { TableMutationOptions } from './mutation-options'
 import type { TableClient } from './table-client'
 

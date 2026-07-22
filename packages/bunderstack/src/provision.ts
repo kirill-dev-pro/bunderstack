@@ -11,7 +11,10 @@ import {
 } from './provision-internals'
 
 /** Create the local backing directory for file-based urls, per dialect. */
-async function ensureLocalDataDir(url: string, dialect: Dialect): Promise<void> {
+async function ensureLocalDataDir(
+  url: string,
+  dialect: Dialect,
+): Promise<void> {
   if (dialect === 'pg') {
     // PGlite data dir: `file:<dir>` or a bare path; server/memory urls need nothing.
     if (/^postgres(ql)?:\/\//.test(url)) return

@@ -3,6 +3,7 @@ import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { EmailFacade } from './email'
+
 import { withEmailAuthDefaults } from './auth'
 import { libsql } from './database/libsql'
 import { createBunderstack } from './index'

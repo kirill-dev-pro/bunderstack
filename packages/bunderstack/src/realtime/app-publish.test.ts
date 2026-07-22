@@ -18,9 +18,7 @@ type Event = {
   record: Record<string, unknown>
 }
 
-async function readData<T>(
-  reader: any,
-): Promise<T> {
+async function readData<T>(reader: any): Promise<T> {
   const chunk = await reader.read()
   if (chunk.done || !chunk.value) throw new Error('SSE stream ended')
   const frame = new TextDecoder().decode(chunk.value)

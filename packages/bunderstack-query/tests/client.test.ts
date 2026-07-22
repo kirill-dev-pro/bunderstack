@@ -1,5 +1,8 @@
 import { test, expect } from 'bun:test'
+import { MAX_LIST_LIMIT as SERVER_MAX_LIST_LIMIT } from 'bunderstack'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+
+import type { ExposedTables } from '../src/infer'
 
 import {
   createBunderstackQueryClient,
@@ -8,8 +11,6 @@ import {
   BunderstackApiError,
 } from '../src/index'
 import { createBunderstackSchemaClient } from '../src/schema'
-import { MAX_LIST_LIMIT as SERVER_MAX_LIST_LIMIT } from 'bunderstack'
-import type { ExposedTables } from '../src/infer'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -251,11 +252,10 @@ test('listInfiniteQuery uses cursor pagination', async () => {
   expect(opts.getNextPageParam(page2)).toBeUndefined()
 })
 
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
-  ? 1
-  : 2
-  ? true
-  : false
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
 type Expect<T extends true> = T
 
 type Row<T> = { $inferSelect: T; $inferInsert: Partial<T> }

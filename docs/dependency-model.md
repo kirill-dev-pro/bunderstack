@@ -15,12 +15,12 @@ separate TypeScript dependency by the optional peer metadata.
 Choose one database adapter and import it from its public subpath. Its dialect
 must match the Drizzle schema, and only its optional peer needs to be installed.
 
-| Import | Factory | Optional peer | Compatible schema |
-| --- | --- | --- | --- |
-| `bunderstack/database/libsql` | `libsql()` | `@libsql/client` | SQLite (`sqliteTable`) |
-| `bunderstack/database/pglite` | `pglite()` | `@electric-sql/pglite` | Postgres (`pgTable`) |
-| `bunderstack/database/bun-sql` | `bunSql()` | none — Bun provides `Bun.sql` | Postgres (`pgTable`) |
-| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres` | Postgres (`pgTable`) |
+| Import                             | Factory        | Optional peer                 | Compatible schema      |
+| ---------------------------------- | -------------- | ----------------------------- | ---------------------- |
+| `bunderstack/database/libsql`      | `libsql()`     | `@libsql/client`              | SQLite (`sqliteTable`) |
+| `bunderstack/database/pglite`      | `pglite()`     | `@electric-sql/pglite`        | Postgres (`pgTable`)   |
+| `bunderstack/database/bun-sql`     | `bunSql()`     | none — Bun provides `Bun.sql` | Postgres (`pgTable`)   |
+| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres`                    | Postgres (`pgTable`)   |
 
 For example, a SQLite application selects libSQL directly:
 

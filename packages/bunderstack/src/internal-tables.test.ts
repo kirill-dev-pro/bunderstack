@@ -120,7 +120,9 @@ test('withInternalTables accepts the pg twins re-exported into the schema', () =
 })
 
 test('withInternalTables still rejects foreign pg tables using reserved names', () => {
-  const impostor = pgTable('bunderstack_file_meta', { id: pgText('id').primaryKey() })
+  const impostor = pgTable('bunderstack_file_meta', {
+    id: pgText('id').primaryKey(),
+  })
   expect(() => withInternalTables({ impostor })).toThrow(/reserved/)
 })
 

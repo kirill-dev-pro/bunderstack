@@ -144,7 +144,12 @@ test('jobs clear dedupeKey on terminal status; re-enqueue works', async () => {
 
 test('expired lease recovers to pending and burns the attempt', async () => {
   const defs: JobsDefs = {
-    stuck: { kind: 'job', retries: 3, timeout: 60_000, handler: async () => {} },
+    stuck: {
+      kind: 'job',
+      retries: 3,
+      timeout: 60_000,
+      handler: async () => {},
+    },
   }
   const r = runner(defs)
   const t0 = Date.now()

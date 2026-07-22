@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
+
 import { createClient } from './index'
-import { createTRPCClient } from './trpc'
 import { createBunderstackSchemaClient } from './schema'
+import { createTRPCClient } from './trpc'
 
 type MockApp = {
   $inferClient?: {
@@ -16,7 +17,6 @@ test('createClient exposes tables and files but no trpc', () => {
   const client = createClient<MockApp>()
   expect(client.files).toBeDefined()
   expect(client.users).toBeDefined()
-
 })
 
 test('createTRPCClient exposes tables, files, and trpc', () => {

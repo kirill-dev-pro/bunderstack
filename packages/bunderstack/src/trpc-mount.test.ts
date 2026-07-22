@@ -1,7 +1,7 @@
 // src/trpc-mount.test.ts
 import { test, expect, beforeAll } from 'bun:test'
-import { z } from 'zod'
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { z } from 'zod'
 
 import { libsql } from './database/libsql'
 import { createBunderstack } from './index'

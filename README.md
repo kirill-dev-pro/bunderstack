@@ -335,7 +335,9 @@ const app = await createBunderstack({
             .limit(input.limit),
         ),
       deleteAccount: t.protectedProcedure // UNAUTHORIZED without a session; ctx.user is non-null
-        .mutation(({ ctx }) => { /* ... */ }),
+        .mutation(({ ctx }) => {
+          /* ... */
+        }),
     }),
 })
 ```

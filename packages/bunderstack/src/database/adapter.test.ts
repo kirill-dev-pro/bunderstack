@@ -43,11 +43,7 @@ describe('DatabaseAdapter', () => {
     expect(adapter.dialect).toBe('sqlite')
     expect(adapter.driver).toBe('libsql')
     expect(
-      await adapter.connect(
-        {},
-        { url: 'file:test.db' },
-        { introspect: false },
-      ),
+      await adapter.connect({}, { url: 'file:test.db' }, { introspect: false }),
     ).toEqual({ db: { isDb: true } } as any)
   })
 

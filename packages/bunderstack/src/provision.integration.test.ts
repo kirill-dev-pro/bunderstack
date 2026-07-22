@@ -1,6 +1,5 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
-
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -45,7 +44,13 @@ test('provision applies committed migrations instead of pushing', async () => {
       version: '7',
       dialect: 'sqlite',
       entries: [
-        { idx: 0, version: '6', when: Date.now(), tag: '0000_init', breakpoints: true },
+        {
+          idx: 0,
+          version: '6',
+          when: Date.now(),
+          tag: '0000_init',
+          breakpoints: true,
+        },
       ],
     }),
   )

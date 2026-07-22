@@ -1,7 +1,7 @@
-import type { app } from '../bunderstack'
-
 import { useQuery } from '@tanstack/react-query'
 import { createTRPCClient } from 'bunderstack-query/trpc'
+
+import type { app } from '../bunderstack'
 
 import { isomorphicFetch } from '../api-client'
 

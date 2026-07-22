@@ -210,8 +210,8 @@ TanStack Start apps can skip even that: `bunderstack-start`'s
 
 ## Environment variables
 
-| Variable       | Default          | Description                                                                     |
-| -------------- | ---------------- | ------------------------------------------------------------------------------- |
-| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                                   |
-| `AUTH_SECRET`  | dev default      | BetterAuth secret                                                               |
-| `NODE_ENV`     | —                | Set `production` in deploy; `provision(app)` applies committed migrations       |
+| Variable       | Default          | Description                                                               |
+| -------------- | ---------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL` | `file:./data.db` | SQLite path (per example cwd)                                             |
+| `AUTH_SECRET`  | dev default      | BetterAuth secret                                                         |
+| `NODE_ENV`     | —                | Set `production` in deploy; `provision(app)` applies committed migrations |

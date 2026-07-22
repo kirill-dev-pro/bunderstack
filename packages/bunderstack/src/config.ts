@@ -4,11 +4,11 @@ import { z } from 'zod'
 
 import type { TableAccessInput } from './access'
 import type { DatabaseAdapter } from './database/adapter'
+import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
 import { validateEnv, type BaseEnv, type EnvConfigInput } from './env'
-import type { EmailConfigInput } from './email'
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,

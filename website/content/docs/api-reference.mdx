@@ -19,7 +19,9 @@ async function createBunderstack<
   options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
   },
-): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>>
+): Promise<
+  BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
+>
 ```
 
 Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
@@ -101,12 +103,12 @@ The schema selects its dialect (`sqliteTable` → SQLite; `pgTable` → Postgres
 while `database.adapter` selects the client. The adapter dialect must match the
 schema and its URL:
 
-| Subpath | Factory | Optional peer | URL |
-| --- | --- | --- | --- |
-| `bunderstack/database/libsql` | `libsql()` | `@libsql/client` | `file:…` or `libsql://…` |
-| `bunderstack/database/pglite` | `pglite()` | `@electric-sql/pglite` | `file:…` or `memory://` |
-| `bunderstack/database/bun-sql` | `bunSql()` | none (Bun provides `Bun.sql`) | `postgres://…` |
-| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres` | `postgres://…` |
+| Subpath                            | Factory        | Optional peer                 | URL                      |
+| ---------------------------------- | -------------- | ----------------------------- | ------------------------ |
+| `bunderstack/database/libsql`      | `libsql()`     | `@libsql/client`              | `file:…` or `libsql://…` |
+| `bunderstack/database/pglite`      | `pglite()`     | `@electric-sql/pglite`        | `file:…` or `memory://`  |
+| `bunderstack/database/bun-sql`     | `bunSql()`     | none (Bun provides `Bun.sql`) | `postgres://…`           |
+| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres`                    | `postgres://…`           |
 
 Install only the selected optional peer. `drizzle-orm`, `better-auth`, Hono,
 and Zod are required peers because the root entrypoint uses them. Drivers,

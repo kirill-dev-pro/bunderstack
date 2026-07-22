@@ -1,12 +1,11 @@
-// tests/storage/lifecycle.test.ts
-import type { AnyDb } from '../dialect'
-
 import { test, expect, beforeEach, afterEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+// tests/storage/lifecycle.test.ts
+import type { AnyDb } from '../dialect'
 import type { ResolvedBucket } from './buckets'
 import type { BucketStorageRegistry } from './registry'
 
@@ -15,11 +14,7 @@ import { createDb } from '../db'
 import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables'
 import { provisionSchema } from '../provision'
 import { deleteFileWithDerivatives } from './delete'
-import {
-  getFileMeta,
-  insertPendingFile,
-  insertReadyFile,
-} from './file-meta'
+import { getFileMeta, insertPendingFile, insertReadyFile } from './file-meta'
 import { LocalStorageAdapter } from './local'
 import { sweepOrphans } from './sweep'
 

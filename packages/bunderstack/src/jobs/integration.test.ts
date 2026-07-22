@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { eq } from 'drizzle-orm'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
 import { libsql } from '../database/libsql'
@@ -21,7 +21,9 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
         writeNote: j.job({
           input: z.object({ id: z.string(), body: z.string() }),
           handler: async (input, ctx) => {
-            await ctx.db.insert(notes).values({ id: input.id, body: input.body })
+            await ctx.db
+              .insert(notes)
+              .values({ id: input.id, body: input.body })
           },
         }),
       }),
@@ -30,13 +32,16 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
 
   await app.jobs.enqueue('writeNote', { id: 'n1', body: 'from a job' })
   await new Promise((resolve) => setTimeout(resolve, 20))
-  expect(await app.db.select().from(notes).where(eq(notes.id, 'n1'))).toEqual([])
+  expect(await app.db.select().from(notes).where(eq(notes.id, 'n1'))).toEqual(
+    [],
+  )
 
   const worker = await app.startWorker({ pollIntervalMs: 1 })
   let rows: { body: string }[] = []
   for (let i = 0; i < 50 && rows.length === 0; i++) {
     rows = await app.db.select().from(notes).where(eq(notes.id, 'n1'))
-    if (rows.length === 0) await new Promise((resolve) => setTimeout(resolve, 10))
+    if (rows.length === 0)
+      await new Promise((resolve) => setTimeout(resolve, 10))
   }
   await worker.close()
   expect(rows[0]?.body).toBe('from a job')
@@ -114,7 +119,10 @@ test('runWorker owns the application lifecycle until its signal aborts', async (
   })
   await provision(app, { force: true })
 
-  const running = app.runWorker({ signal: controller.signal, pollIntervalMs: 1 })
+  const running = app.runWorker({
+    signal: controller.signal,
+    pollIntervalMs: 1,
+  })
   controller.abort()
 
   await running
@@ -132,13 +140,16 @@ test('storage maintenance endpoint is mounted without user job declarations', as
     await provision(app, { force: true })
     const slot = Math.floor(Date.now() / 60_000) * 60_000
     const response = await app.handler(
-      new Request('http://localhost/api/_bunderstack/maintenance/storage-sweep', {
-        method: 'POST',
-        headers: {
-          'X-Bunderstack-Cron-Slot': String(slot),
-          'X-Bunderstack-Cron-Signature': 'sha256=invalid',
+      new Request(
+        'http://localhost/api/_bunderstack/maintenance/storage-sweep',
+        {
+          method: 'POST',
+          headers: {
+            'X-Bunderstack-Cron-Slot': String(slot),
+            'X-Bunderstack-Cron-Signature': 'sha256=invalid',
+          },
         },
-      }),
+      ),
     )
     expect(response.status).toBe(401)
     await app.close()
