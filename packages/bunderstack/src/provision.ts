@@ -54,7 +54,11 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
 
   let kit: typeof import('drizzle-kit/api')
   try {
-    kit = await import('drizzle-kit/api')
+    // Ignore comments keep bundlers (vite/nitro, webpack) from resolving
+    // drizzle-kit at build time — this branch only runs in development.
+    kit = await import(
+      /* @vite-ignore */ /* webpackIgnore: true */ 'drizzle-kit/api'
+    )
   } catch (cause) {
     throw new Error(DRIZZLE_KIT_HINT, { cause })
   }
@@ -85,7 +89,12 @@ export async function provisionSchema<TSchema extends Record<string, unknown>>(
   )
 }
 
-
+const MIGRATOR_MODULES = {
+  libsql: 'drizzle-orm/libsql/migrator',
+  pglite: 'drizzle-orm/pglite/migrator',
+  'bun-sql': 'drizzle-orm/bun-sql/migrator',
+  'postgres-js': 'drizzle-orm/postgres-js/migrator',
+} as const
 
 /**
  * Provision the database for a Bunderstack app.
@@ -111,13 +120,16 @@ export async function provision(
     )
   }
 
-  const { db, schema, databaseUrl, migrationsFolder, dialect, adapter } =
+  const { db, schema, databaseUrl, migrationsFolder, dialect, driver } =
     internals
   const journal = join(migrationsFolder, 'meta', '_journal.json')
 
   if (await exists(journal)) {
     await ensureLocalDataDir(databaseUrl, dialect)
-    await adapter.migrate(db as never, migrationsFolder)
+    const { migrate } = (await import(
+      /* @vite-ignore */ /* webpackIgnore: true */ MIGRATOR_MODULES[driver]
+    )) as { migrate: (db: never, cfg: { migrationsFolder: string }) => Promise<void> }
+    await migrate(db as never, { migrationsFolder })
     return
   }
 

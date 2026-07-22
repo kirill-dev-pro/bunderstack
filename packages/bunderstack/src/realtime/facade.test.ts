@@ -3,6 +3,7 @@ import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { RealtimeBroker } from './index'
+
 import { createRealtimeFacade } from './facade'
 
 const boards = sqliteTable('workspace_boards', {
@@ -78,9 +79,19 @@ describe('RealtimeFacade', () => {
 
     if (false) {
       // @ts-expect-error users is not part of this application schema
-      void realtime.publish(users, 'create', { id: 'u1', email: 'u@example.com' })
-      // @ts-expect-error a board record requires title and does not accept email
-      void realtime.publish(boards, 'create', { id: 'b1', email: 'u@example.com' })
+      void realtime.publish(users, 'create', {
+        id: 'u1',
+        email: 'u@example.com',
+      })
+      // @ts-expect-error — title is required for a board create payload
+      void realtime.publish(boards, 'create', { id: 'b1' })
+
+      void realtime.publish(boards, 'create', {
+        id: 'b1',
+        title: 'Board',
+        // @ts-expect-error — email is not a column in the boards table
+        email: 'owner@example.com',
+      })
       // @ts-expect-error action is restricted to create, update, or delete
       void realtime.publish(boards, 'replace', { id: 'b1', title: 'Board' })
     }
