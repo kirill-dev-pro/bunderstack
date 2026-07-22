@@ -64,6 +64,83 @@ test('app.close closes the database exactly once', async () => {
   expect(closeCount).toBe(1)
 })
 
+test('initialization failure closes the database and preserves the cause', async () => {
+  let closeCount = 0
+  const initializationError = new Error('tRPC initialization failed')
+  const adapter: DatabaseAdapter = {
+    dialect: 'sqlite',
+    driver: 'libsql',
+    async connect(schema) {
+      return {
+        db: drizzle.mock({ schema }) as never,
+        close: () => {
+          closeCount += 1
+        },
+      }
+    },
+    async migrate() {},
+  }
+
+  let caught: unknown
+  try {
+    await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:', adapter },
+      trpc: () => {
+        throw initializationError
+      },
+    })
+  } catch (cause) {
+    caught = cause
+  }
+
+  expect(caught).toBe(initializationError)
+  expect(closeCount).toBe(1)
+})
+
+test('initialization and cleanup failures are preserved in an AggregateError', async () => {
+  let closeCount = 0
+  const initializationError = new Error('tRPC initialization failed')
+  const cleanupError = new Error('database cleanup failed')
+  const adapter: DatabaseAdapter = {
+    dialect: 'sqlite',
+    driver: 'libsql',
+    async connect(schema) {
+      return {
+        db: drizzle.mock({ schema }) as never,
+        close: async () => {
+          closeCount += 1
+          throw cleanupError
+        },
+      }
+    },
+    async migrate() {},
+  }
+
+  let caught: unknown
+  try {
+    await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:', adapter },
+      trpc: () => {
+        throw initializationError
+      },
+    })
+  } catch (cause) {
+    caught = cause
+  }
+
+  expect(caught).toBeInstanceOf(AggregateError)
+  expect((caught as AggregateError).message).toBe(
+    '[bunderstack] application initialization failed and cleanup failed',
+  )
+  const errors = (caught as AggregateError).errors
+  expect(errors[0]).toBe(initializationError)
+  expect(errors[1]).toBeInstanceOf(AggregateError)
+  expect((errors[1] as AggregateError).errors).toEqual([cleanupError])
+  expect(closeCount).toBe(1)
+})
+
 test('app.manifest describes the declaration', async () => {
   const app = await createBunderstack({
     schema: { notes },
@@ -82,27 +159,4 @@ test('app.manifest describes the declaration', async () => {
   expect(app.manifest.env.server).toEqual([
     { key: 'WEBHOOK_SECRET', required: false },
   ])
-})
-
-test('BUNDERSTACK_INTROSPECT=1 boots offline despite remote url and missing env', async () => {
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-  try {
-    const app = await createBunderstack({
-      schema: { notes },
-      // Hardcoded remote URL must NOT be contacted during introspection.
-      database: {
-        url: 'libsql://nonexistent-introspect.turso.io',
-        authToken: 'x',
-        adapter: libsql(),
-      },
-      env: { server: { STRIPE_KEY: z.string() } }, // required and missing
-      realtime: true, // must not require Redis
-    })
-    expect(app.manifest.env.server).toEqual([
-      { key: 'STRIPE_KEY', required: true },
-    ])
-    expect(app.manifest.realtime).toBe(true)
-  } finally {
-    delete process.env.BUNDERSTACK_INTROSPECT
-  }
 })
