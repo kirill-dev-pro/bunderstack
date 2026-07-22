@@ -4,36 +4,25 @@ import type { Hono as HonoType } from 'hono'
 
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
+import type { StorageAdapter } from './storage/index'
 import type { TableAccessInput } from './access'
 import type { DbFor } from './db'
-import type {
-  BunderstackJobsBuilder,
-  EnqueueOptions,
-  JobsDefs,
-  JobsFacade,
-  LocalCronScheduler,
-  LocalCronSchedulerOptions,
-  StartWorkerOptions,
-  WorkerHandle,
-} from './jobs/index'
 import type { StorageConfigInput } from './storage/buckets'
-import type { StorageAdapter } from './storage/index'
 
 import { resolveAccessUser, validateAndResolveAccess } from './access'
-import {
-  createAuth,
-  toAuthSessionResolver,
-  withEmailAuthDefaults,
-} from './auth'
+import { createAuth, toAuthSessionResolver, withEmailAuthDefaults } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
-import { buildCrudRouter } from './crud'
-import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import { buildManifest, type BunderstackManifest } from './manifest'
+import { createTRPC, type BunderstackTRPC } from './trpc'
+import { buildCrudRouter } from './crud'
+import { createDb } from './db'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
+import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import {
   createJobsBuilder,
   createJobRunner,
@@ -44,21 +33,28 @@ import {
   startJobWorker,
   validateJobsDefs,
 } from './jobs/index'
-import { Lifecycle, type LifecycleStatus } from './lifecycle'
-import { buildManifest, type BunderstackManifest } from './manifest'
+import type {
+  BunderstackJobsBuilder,
+  EnqueueOptions,
+  JobsDefs,
+  JobsFacade,
+  LocalCronScheduler,
+  LocalCronSchedulerOptions,
+  StartWorkerOptions,
+  WorkerHandle,
+} from './jobs/index'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
 } from './provision-internals'
-import { createRealtimeFacade, type RealtimeFacade } from './realtime/facade'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
+import { createRealtimeFacade, type RealtimeFacade } from './realtime/facade'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
 import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
-import { createTRPC, type BunderstackTRPC } from './trpc'
 
 type AuthInstance = ReturnType<typeof createAuth>
 
@@ -119,6 +115,7 @@ export type BucketNamesOf<TStorage> = TStorage extends {
   ? keyof B & string
   : string
 
+
 export type BunderstackApp<
   TSchema extends Record<string, unknown>,
   TAccess extends Record<string, TableAccessInput> | undefined = undefined,
@@ -139,9 +136,7 @@ export type BunderstackApp<
   /** Email facade; always present — send() throws when email isn't configured. */
   email: EmailFacade
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
-  jobs: JobsFacade<
-    TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>
-  >
+  jobs: JobsFacade<TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>>
   /** Typed custom row publication; enabled=false/no-op when realtime is off. */
   realtime: RealtimeFacade<TSchema>
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
@@ -191,16 +186,7 @@ export function createBunderstack<
     /** Builder callback receiving the pre-wired `j` instance. */
     jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
   },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -216,16 +202,7 @@ export function createBunderstack<
     /** Prebuilt job definitions (escape hatch for multi-file setups). */
     jobs?: TJobsDefs
   },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -241,16 +218,7 @@ export function createBunderstack<
     /** Builder callback receiving the pre-wired `j` instance. */
     jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
   },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -266,16 +234,7 @@ export function createBunderstack<
     /** Prebuilt job definitions (escape hatch for multi-file setups). */
     jobs?: TJobsDefs
   },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter, TJobsDefs>>
 export async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -327,11 +286,7 @@ export async function createBunderstack<
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
   const lifecycle = new Lifecycle()
-  const {
-    db,
-    driver,
-    close: closeDatabase,
-  } = await createDb(mergedSchema, {
+  const { db, driver, close: closeDatabase } = await createDb(mergedSchema, {
     ...config.database,
     dialect,
     introspect,
@@ -358,9 +313,7 @@ export async function createBunderstack<
       options.access,
     )
     const realtimeBufferSize =
-      typeof config.realtime === 'object'
-        ? config.realtime.bufferSize
-        : undefined
+      typeof config.realtime === 'object' ? config.realtime.bufferSize : undefined
     const redisUrl =
       config.realtime && !introspect
         ? resolveRealtimeRedisUrl(config.realtime, env)
@@ -486,11 +439,10 @@ export async function createBunderstack<
     const startCronScheduler = async (
       options: AppStartCronSchedulerOptions = {},
     ): Promise<LocalCronScheduler> => {
-      const cron = Object.entries(jobsDefs ?? {}).flatMap(
-        ([name, definition]) =>
-          definition.kind === 'cron'
-            ? [{ name, schedule: definition.schedule }]
-            : [],
+      const cron = Object.entries(jobsDefs ?? {}).flatMap(([name, definition]) =>
+        definition.kind === 'cron'
+          ? [{ name, schedule: definition.schedule }]
+          : [],
       )
       if (cron.length === 0) {
         throw new Error('[bunderstack] no cron tasks configured')
@@ -557,15 +509,16 @@ export async function createBunderstack<
             }),
           })
       : undefined
-    const cronRouter = env.BUNDERSTACK_CRON_SECRET
-      ? buildCronRouter({
-          db,
-          defs: jobsDefs ?? {},
-          ctx: { db: userDb, env, email, storage, realtime },
-          secret: env.BUNDERSTACK_CRON_SECRET,
-          storage,
-        })
-      : undefined
+    const cronRouter =
+      env.BUNDERSTACK_CRON_SECRET
+        ? buildCronRouter({
+            db,
+            defs: jobsDefs ?? {},
+            ctx: { db: userDb, env, email, storage, realtime },
+            secret: env.BUNDERSTACK_CRON_SECRET,
+            storage,
+          })
+        : undefined
     const { handler, router } = buildHandler({
       crudRouter,
       authHandler: (req) => auth.handler(req),
