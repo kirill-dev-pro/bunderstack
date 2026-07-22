@@ -176,7 +176,7 @@ test('server database introspection stays offline', async () => {
       schema: { pgNotes },
       database: {
         adapter: bunSql(),
-        url: 'postgres://user:pass@127.0.0.1:1/app',
+        url: 'postgres://example.invalid/app',
       },
     })
 
