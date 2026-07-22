@@ -26,12 +26,18 @@ Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
 Generics are captured so clients can infer tables, buckets, and the tRPC
 router from `typeof app` (see `$inferClient` below).
 
-`createBunderstack` is `async` — it loads the database driver as a dynamic
-import (optional peer dependencies for SQLite/PGlite/Postgres stay out of
-projects that don't need them), so `await` it:
+`createBunderstack` is `async`. Select a database integration with a static
+subpath import, install only that adapter's optional peer, and then await app
+creation:
 
 ```ts
-export const app = await createBunderstack({ schema })
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+
+export const app = await createBunderstack({
+  schema,
+  database: { adapter: libsql(), url: 'file:./data.db' },
+})
 ```
 
 ### BunderstackConfig
@@ -40,10 +46,15 @@ export const app = await createBunderstack({ schema })
 type BunderstackConfig<TSchema, TAccess, TStorage, TEnv> = {
   schema: TSchema
   access?: TAccess // Record<tableKey, TableAccessInput>
-  database?: { url?: string; authToken?: string }
+  database: {
+    adapter: DatabaseAdapter
+    url?: string
+    authToken?: string
+    migrations?: string
+  }
   auth?: BetterAuthConfig // native BetterAuth options (except database)
   storage?: TStorage // StorageConfigInput: backends, defaultBucket, buckets
-  email?: EmailConfigInput // { from: string; provider?: 'resend' | 'smtp' | 'console' | adapter }
+  email?: EmailConfigInput // { from: string; provider?: 'resend' | 'console' | adapter }
   env?: TEnv // EnvConfigInput: server + client Zod schemas
   // trpc is declared on createBunderstack's overloads for contextual typing
   rateLimit?: boolean | RateLimitConfig
@@ -69,6 +80,8 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
   email: EmailFacade
   /** Raw tRPC router when the config declared one — escape hatch. */
   trpcRouter?: AnyRouter
+  /** Closes real database clients and other app-owned resources. */
+  close(): Promise<void>
   /** Type-only carrier for client inference — never assigned at runtime. */
   readonly $inferClient?: {
     schema: TSchema
@@ -82,29 +95,29 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
 Export `type App = typeof app` and the client packages infer everything from
 it.
 
-## Database dialect
+## Database adapters
 
-The dialect is inferred from your schema — `sqliteTable` → SQLite, `pgTable`
-→ Postgres — and `DATABASE_URL` picks the engine within it:
+The schema selects its dialect (`sqliteTable` → SQLite; `pgTable` → Postgres),
+while `database.adapter` selects the client. The adapter dialect must match the
+schema and its URL:
 
-| Schema        | `DATABASE_URL`  | Engine                                   |
-| ------------- | --------------- | ----------------------------------------- |
-| `sqliteTable` | unset           | local SQLite file `./data.db`             |
-| `sqliteTable` | `file:./app.db` | local SQLite file                         |
-| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)    |
-| `pgTable`     | unset           | PGlite in `./data.pglite`                 |
-| `pgTable`     | `file:./pgdata` | PGlite in that directory                  |
-| `pgTable`     | `memory://`     | PGlite in-memory (tests)                  |
-| `pgTable`     | `postgres://…`  | Postgres server (`Bun.sql` / `postgres.js`) |
+| Subpath | Factory | Optional peer | URL |
+| --- | --- | --- | --- |
+| `bunderstack/database/libsql` | `libsql()` | `@libsql/client` | `file:…` or `libsql://…` |
+| `bunderstack/database/pglite` | `pglite()` | `@electric-sql/pglite` | `file:…` or `memory://` |
+| `bunderstack/database/bun-sql` | `bunSql()` | none (Bun provides `Bun.sql`) | `postgres://…` |
+| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres` | `postgres://…` |
 
-A URL that contradicts the schema's dialect (e.g. `postgres://` with a
-`sqliteTable` schema) throws at `createBunderstack()` time.
+Install only the selected optional peer. `drizzle-orm`, `better-auth`, Hono,
+and Zod are required peers because the root entrypoint uses them. Drivers,
+Nodemailer, drizzle-kit, and TypeScript are optional peers; TypeScript remains
+`>=5` because the package publishes `.ts` source, while optional peer metadata
+does not force it into Bun installations that already transpile that source.
 
-`drizzle-orm` is a required peer dependency — bunderstack compiles against
-your project's own install, so there's no separate copy to keep in sync.
-`@libsql/client`, `@electric-sql/pglite`, and `postgres` are optional peers:
-only the one your setup needs has to be installed, and a missing one throws
-with the exact install command.
+With `BUNDERSTACK_INTROSPECT=1`, the selected adapter returns
+`drizzle.mock({ schema })` and does not create a database connection. Real
+libSQL, PGlite, postgres.js, and Bun SQL clients are app-owned and closed by
+`await app.close()`.
 
 **Import Drizzle builders and operators directly from `drizzle-orm`** —
 `sqliteTable`/`pgTable`/`eq`/`desc`/`sql`/etc. are not re-exported from
@@ -241,13 +254,16 @@ type SentEmail = { id?: string }
 ```ts
 type EmailConfigInput = {
   from: string
-  provider?: 'resend' | 'smtp' | 'console' | EmailAdapter | EmailAdapter['send']
+  provider?: 'resend' | 'console' | EmailAdapter | EmailAdapter['send']
 }
 
 type EmailAdapter = {
   send(msg: EmailMessage & { from: string }): Promise<SentEmail>
 }
 ```
+
+For SMTP, import `smtp` from `bunderstack/email/smtp` and use
+`provider: smtp({ url })`; the old `'smtp'` provider string is not supported.
 
 ## EnvConfigInput
 

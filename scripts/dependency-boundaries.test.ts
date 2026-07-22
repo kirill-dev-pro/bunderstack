@@ -25,6 +25,29 @@ async function sourceFiles(dir: string): Promise<string[]> {
 }
 
 describe('published dependency boundaries', () => {
+  test('canonical docs show an explicit database adapter', async () => {
+    for (const path of [
+      'README.md',
+      'packages/bunderstack/README.md',
+      'website/content/docs/getting-started.mdx',
+      'website/content/docs/configuration.mdx',
+    ]) {
+      const source = await Bun.file(join(repoRoot, path)).text()
+      expect(source, path).toContain('adapter: libsql()')
+      expect(source, path).toContain('bunderstack/database/libsql')
+    }
+  })
+
+  test('configuration docs use the SMTP factory', async () => {
+    const source = await Bun.file(
+      join(repoRoot, 'website/content/docs/configuration.mdx'),
+    ).text()
+
+    expect(source).toContain('bunderstack/email/smtp')
+    expect(source).toContain('email: smtp(')
+    expect(source).not.toContain("email: 'smtp'")
+  })
+
   test('published source has no bundler-ignore escape hatches', async () => {
     for (const name of packages) {
       for (const path of await sourceFiles(

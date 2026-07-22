@@ -4,11 +4,16 @@ A batteries-included backend framework for Bun. Point it at a Drizzle schema and
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 const app = await createBunderstack({
   schema,
+  database: {
+    adapter: libsql(),
+    url: 'file:./data.db',
+  },
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
@@ -102,6 +107,7 @@ Every CRUD operation is gated. Rules apply per-table, per-operation.
 ```ts
 const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   access: {
     posts: {
       ownerColumn: 'userId', // column that stores the creator's user ID
@@ -158,17 +164,21 @@ Auth routes are mounted at `/api/auth/*` automatically.
 
 ## Email
 
-One config key gives you `app.email.send()` and auto-wired auth emails:
+One config key gives you `app.email.send()` and auto-wired auth emails. SMTP is
+an explicit adapter import, so projects that do not use it do not load
+Nodemailer:
 
 ```ts
+import { smtp } from 'bunderstack/email/smtp'
+
 email: {
   from: 'MyApp <hello@myapp.com>',
-  provider: 'resend',   // 'resend' | 'smtp' | 'console' | custom adapter
+  provider: smtp({ url: process.env.SMTP_URL! }),
 },
 ```
 
 - **`resend`** — plain `fetch` to the Resend API, no SDK. Reads `RESEND_API_KEY` (required at boot when this provider is set).
-- **`smtp`** — via `nodemailer` (optional peer dependency). Reads `SMTP_URL`.
+- **`smtp()`** — from `bunderstack/email/smtp`, via `nodemailer` (an optional peer dependency). Pass its `url` explicitly.
 - **`console`** — pretty-prints the mail to the terminal instead of sending. The default in development when no provider is set; in production an unset provider is a boot error.
 - **Custom** — pass `{ send: async (msg) => ({ id }) }` or a bare async function.
 
@@ -252,10 +262,18 @@ await db
   .values({ title: 'Hello', body: '...', userId: '...' })
 ```
 
-Database URL defaults to `file:./data.db`. Set `DATABASE_URL` in env or pass `database: { url: '...' }` to use Turso or any libSQL-compatible remote.
+Choose a database adapter explicitly. `libsql()` defaults to `file:./data.db`
+when no URL is supplied; use `DATABASE_URL` or `url` for Turso and other
+libSQL-compatible remotes.
 
 ```ts
-database: { url: process.env.DATABASE_URL, authToken: process.env.DATABASE_AUTH_TOKEN }
+import { libsql } from 'bunderstack/database/libsql'
+
+database: {
+  adapter: libsql(),
+  url: process.env.DATABASE_URL,
+  authToken: process.env.DATABASE_AUTH_TOKEN,
+}
 ```
 
 ### Schema provisioning & migrations
@@ -265,7 +283,11 @@ One line covers the whole lifecycle — the `migrations/` folder is the mode swi
 ```ts
 import { provision } from 'bunderstack/provision'
 
-const app = await createBunderstack({ schema, ... })
+const app = await createBunderstack({
+  schema,
+  database: { adapter: libsql() },
+  // ...other application options
+})
 await provision(app)
 ```
 
@@ -278,7 +300,7 @@ When you're done prototyping, generate the initial migration and commit it; from
 bunx drizzle-kit generate   # writes migrations/
 ```
 
-Add internal tables to your schema first (`export * from 'bunderstack/schema'`) so migrations include them. The folder location comes from `database: { migrations: './migrations' }` (that's the default — match `out` in `drizzle.config.ts`). Provisioning is opt-in: skip the import entirely and apply migrations from CI if you prefer the framework never touch your database.
+Add internal tables to your schema first (`export * from 'bunderstack/schema'`) so migrations include them. Set `database.migrations` to choose a different folder (the default is `./migrations`; match `out` in `drizzle.config.ts`). Provisioning is opt-in: skip the import entirely and apply migrations from CI if you prefer the framework never touch your database.
 
 ---
 
@@ -292,6 +314,7 @@ import { desc, eq, sql } from 'drizzle-orm'
 
 const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   trpc: (t) =>
     t.router({
       feed: t.procedure
@@ -337,6 +360,7 @@ import { z } from 'zod'
 
 const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   env: {
     server: { OPENAI_API_KEY: z.string() },
     client: { PUBLIC_APP_URL: z.string().url() }, // client keys must be PUBLIC_-prefixed
@@ -356,11 +380,13 @@ Browser side, `createClientEnv` from the server-code-free `bunderstack/env` subp
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
 const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
 })
 
@@ -390,7 +416,13 @@ fetch, the API file route, session lookup, and the auth client:
 
 ```ts
 // src/bunderstack.ts (server)
-export const app = await createBunderstack({ schema, access, storage, realtime: true })
+export const app = await createBunderstack({
+  schema,
+  database: { adapter: libsql() },
+  access,
+  storage,
+  realtime: true,
+})
 export type App = typeof app
 
 // src/api.ts — the entire client setup
@@ -427,6 +459,7 @@ import { z } from 'zod'
 
 const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   jobs: (j) =>
     j.define({
       sendReceipt: j.job({
@@ -587,6 +620,7 @@ await createBunderstack({
   schema,                    // Drizzle schema object (required)
 
   database: {
+    adapter: libsql(),       // import from 'bunderstack/database/libsql'
     url: 'file:./data.db',   // libSQL URL. Defaults to DATABASE_URL env var.
     authToken: '...',        // For Turso. Defaults to DATABASE_AUTH_TOKEN env var.
   },
@@ -609,7 +643,7 @@ await createBunderstack({
 
   email: {
     from: 'MyApp <hello@myapp.com>',
-    provider: 'resend',            // 'resend' | 'smtp' | 'console' | custom adapter
+    provider: 'resend',            // 'resend' | 'console' | custom adapter
   },
 
   trpc: (t) => t.router({ ... }),  // or a prebuilt router; mounted at /api/trpc/*

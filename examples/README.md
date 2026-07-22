@@ -14,11 +14,22 @@ bun install
 Each example calls `provision(app)` on boot. With no `migrations/` folder it pushes the schema (including Bunderstack internal tables) — that's the dev loop. Once migrations are generated and committed, the same line applies them instead, without drizzle-kit:
 
 ```ts
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
 
-export const app = await createBunderstack({ schema, ... })
+export const app = await createBunderstack({
+  schema,
+  database: { adapter: libsql(), url: 'file:./data.db' },
+})
 await provision(app)
 ```
+
+Each example imports its selected database adapter explicitly. Install only the
+corresponding optional peer (`@libsql/client`, `@electric-sql/pglite`, or
+`postgres`; Bun SQL uses Bun itself) and call `await app.close()` in scripts or
+tests that own an app instance.
 
 **Moving to versioned migrations** — generate and commit; provision applies them from then on:
 

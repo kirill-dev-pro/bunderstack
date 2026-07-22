@@ -8,9 +8,17 @@ description: All createBunderstack options and environment variables
 ## Options
 
 ```ts
+import { libsql } from 'bunderstack/database/libsql'
+import { smtp } from 'bunderstack/email/smtp'
+
 await createBunderstack({
   schema,
-  database: { url?: string, authToken?: string, migrations?: string }, // migrations folder, default './migrations'
+  database: {
+    adapter: libsql(),
+    url?: string,
+    authToken?: string,
+    migrations?: string, // migrations folder, default './migrations'
+  },
   access?: Record<string, {
     crud?: boolean,
     ownerColumn?: string,
@@ -35,8 +43,7 @@ await createBunderstack({
   },
   email?: {
     from: string,
-    provider?: 'resend' | 'smtp' | 'console'
-      | { send(msg): Promise<{ id?: string }> }, // custom adapter
+    provider?: 'resend' | 'console' | EmailAdapter | EmailAdapter['send'],
   },
   env?: {
     server?: Record<string, ZodType>,  // must NOT start with PUBLIC_
@@ -51,23 +58,43 @@ await createBunderstack({
 })
 ```
 
-## Database dialect and DATABASE_URL
+## Database adapters and URLs
 
-The dialect comes from your schema (`sqliteTable` → SQLite, `pgTable` →
-Postgres) — see [Using PostgreSQL](/docs/getting-started#using-postgresql).
-`DATABASE_URL` then selects the engine within that dialect:
+Import exactly one adapter from `bunderstack/database/<adapter>`. Its dialect
+must match the schema (`sqliteTable` for libSQL; `pgTable` for the Postgres
+adapters), and the URL defaults are selected from that adapter:
 
-| Schema        | `DATABASE_URL`  | Engine                                      |
-| ------------- | --------------- | -------------------------------------------- |
-| `sqliteTable` | unset           | local SQLite file `./data.db`               |
-| `sqliteTable` | `file:./app.db` | local SQLite file                           |
-| `sqliteTable` | `libsql://…`    | Turso (`DATABASE_AUTH_TOKEN` for auth)      |
-| `pgTable`     | unset           | PGlite in `./data.pglite`                   |
-| `pgTable`     | `file:./pgdata` | PGlite in that directory                    |
-| `pgTable`     | `memory://`     | PGlite in-memory (tests)                    |
-| `pgTable`     | `postgres://…`  | Postgres server (`Bun.sql` under Bun, `postgres`/postgres.js under Node) |
+| Adapter import | Optional peer to install | URLs |
+| --- | --- | --- |
+| `bunderstack/database/libsql` (`libsql()`) | `@libsql/client` | `file:./data.db` by default; `libsql://…` for Turso |
+| `bunderstack/database/pglite` (`pglite()`) | `@electric-sql/pglite` | `file:./data.pglite` by default; `memory://` for tests |
+| `bunderstack/database/bun-sql` (`bunSql()`) | none — Bun provides `Bun.sql` | `postgres://…` |
+| `bunderstack/database/postgres-js` (`postgresJs()`) | `postgres` | `postgres://…` |
 
-A URL that contradicts the schema's dialect throws a clear error at startup.
+Install only the selected adapter's peer. `DATABASE_URL` (or `database.url`)
+supplies its URL; an incompatible adapter/schema pair or URL fails at startup.
+
+## SMTP
+
+SMTP is an explicit email adapter rather than an `email.provider` string. Add
+Nodemailer only when using it, then pass the factory result. Do not assign the
+old `'smtp'` string to `email`; `email: smtp(...)` also omits the required
+sender. Keep the email config and use the factory as `provider`:
+
+```ts
+email: {
+  from: 'My app <hello@example.com>',
+  provider: smtp({ url: process.env.SMTP_URL! }),
+}
+```
+
+## Introspection and lifecycle
+
+Set `BUNDERSTACK_INTROSPECT=1` to load a manifest without connecting to a
+database. The selected adapter returns `drizzle.mock({ schema })`, so no
+database client is created; Redis is also skipped. Real PGlite, libSQL,
+postgres.js, and Bun SQL clients are owned by the app and closed by
+`await app.close()`.
 
 ## Environment variables
 
@@ -78,7 +105,7 @@ A URL that contradicts the schema's dialect throws a clear error at startup.
 | `AUTH_SECRET`          | dev default      | BetterAuth secret — required in production |
 | `REDIS_URL`            | —                | Redis URL for multi-process realtime       |
 | `RESEND_API_KEY`       | —                | Required when email provider is 'resend'   |
-| `SMTP_URL`             | —                | Required when email provider is 'smtp'     |
+| `SMTP_URL`             | —                | SMTP connection URL passed to `smtp({ url })` |
 | `S3_BUCKET`            | —                | S3 bucket name                             |
 | `S3_REGION`            | `us-east-1`      | S3 region                                  |
 | `S3_ACCESS_KEY_ID`     | —                | S3 access key                              |

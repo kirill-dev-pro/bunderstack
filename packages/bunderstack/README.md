@@ -6,15 +6,20 @@ and get CRUD APIs, auth, file storage, realtime, typed custom endpoints
 single `Request → Response` handler.
 
 ```sh
-bun add bunderstack
+bun add bunderstack better-auth drizzle-orm hono zod @libsql/client
 ```
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import * as schema from './schema'
 
 const app = await createBunderstack({
   schema,
+  database: {
+    adapter: libsql(),
+    url: 'file:./data.db',
+  },
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
@@ -50,8 +55,9 @@ code-level config wins over.
 ### Introspection
 
 Set `BUNDERSTACK_INTROSPECT=1` and import the app declaration: the boot is
-guaranteed offline (in-memory database, no Redis) and missing user env vars
-don't throw. Then read `app.manifest`:
+guaranteed offline (the selected adapter returns its `drizzle.mock({ schema })`
+database, no Redis) and missing user env vars don't throw. Then read
+`app.manifest`:
 
 ```ts
 process.env.BUNDERSTACK_INTROSPECT = '1'
@@ -59,6 +65,11 @@ const { app } = await import('./src/bunderstack')
 console.log(JSON.stringify(app.manifest))
 // { version: 2, dialect, tables, tableMap, systemTables, background, ... }
 ```
+
+Real database clients belong to the app. Call `await app.close()` when a
+standalone process or test is finished; it closes the real libSQL, PGlite,
+postgres.js, or Bun SQL client selected by `database.adapter`. Introspection
+mocks own no client, so there is nothing to close for that database path.
 
 ### Background runtime
 
