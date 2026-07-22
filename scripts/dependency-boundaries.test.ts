@@ -124,6 +124,19 @@ describe('published dependency boundaries', () => {
     expect(start.peerDependenciesMeta['better-auth']?.optional).toBe(true)
   })
 
+  test('bunderstack peer metadata matches runtime import boundaries', async () => {
+    const pkg = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/package.json'),
+    ).json()
+
+    expect(pkg.peerDependencies['better-auth']).toBe('^1.0.0')
+    expect(pkg.peerDependenciesMeta?.['better-auth']).toBeUndefined()
+    expect(pkg.peerDependencies.nodemailer).toBe('>=6 <10')
+    expect(pkg.peerDependenciesMeta.nodemailer.optional).toBe(true)
+    expect(pkg.peerDependencies.typescript).toBe('>=5')
+    expect(pkg.peerDependenciesMeta.typescript.optional).toBe(true)
+  })
+
   test('published package source does not disable TypeScript checking', async () => {
     const glob = new Bun.Glob('packages/*/src/**/*.{ts,tsx}')
     const offenders: string[] = []

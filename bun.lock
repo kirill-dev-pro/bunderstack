@@ -242,7 +242,7 @@
         "drizzle-kit": "^0.30.0",
         "drizzle-orm": "^0.45.0",
         "hono": "^4.0.0",
-        "nodemailer": "",
+        "nodemailer": ">=6 <10",
         "postgres": ">=3.4.0",
         "typescript": ">=5",
         "zod": "^4.4.3",
