@@ -198,4 +198,35 @@ describe('redis realtime broker', () => {
     expect(res.gap).toBe(false)
     expect(a.received.map((e) => e.eventId)).toEqual([2])
   })
+
+  it('fans out worker publications to subscribers on another broker instance', async () => {
+    const redis = makeFakeRedis()
+    const webBroker = createRedisRealtimeBroker({ access, redis })
+    const workerBroker = createRedisRealtimeBroker({ access, redis })
+
+    await webBroker.start()
+    const browser = sub(webBroker, 'org_1', ['boards'])
+
+    await workerBroker.publish('boards', 'update', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'Completed by worker',
+    })
+
+    expect(browser.received).toEqual([
+      {
+        eventId: 1,
+        action: 'update',
+        table: 'boards',
+        record: {
+          id: 'b1',
+          organizationId: 'org_1',
+          title: 'Completed by worker',
+        },
+      },
+    ])
+
+    await workerBroker.close()
+    await webBroker.close()
+  })
 })
