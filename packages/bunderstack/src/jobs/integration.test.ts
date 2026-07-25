@@ -187,40 +187,54 @@ test('introspection mode boots with jobs configured', async () => {
 })
 
 test('runWorker rejects process-local realtime by default', async () => {
-  const app = await createBunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    realtime: true,
-    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  })
-  await provision(app, { force: true })
+  const prevRedis = process.env.REDIS_URL
+  delete process.env.REDIS_URL
+  try {
+    const app = await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:', adapter: libsql() },
+      realtime: true,
+      jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+    })
+    await provision(app, { force: true })
 
-  await expect(
-    app.runWorker({ signal: AbortSignal.abort(), pollIntervalMs: 1 }),
-  ).rejects.toThrow(
-    '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker',
-  )
-  expect(app.status).toBe('ready')
-  await app.close()
+    await expect(
+      app.runWorker({ signal: AbortSignal.abort(), pollIntervalMs: 1 }),
+    ).rejects.toThrow(
+      '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker',
+    )
+    expect(app.status).toBe('ready')
+    await app.close()
+  } finally {
+    if (prevRedis !== undefined) process.env.REDIS_URL = prevRedis
+    else delete process.env.REDIS_URL
+  }
 })
 
 test('runWorker allows an explicit process-local realtime override', async () => {
-  const app = await createBunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    realtime: true,
-    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  })
-  await provision(app, { force: true })
+  const prevRedis = process.env.REDIS_URL
+  delete process.env.REDIS_URL
+  try {
+    const app = await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:', adapter: libsql() },
+      realtime: true,
+      jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+    })
+    await provision(app, { force: true })
 
-  await expect(
-    app.runWorker({
-      signal: AbortSignal.abort(),
-      pollIntervalMs: 1,
-      allowProcessLocalRealtime: true,
-    }),
-  ).resolves.toBeUndefined()
-  expect(app.status).toBe('closed')
+    await expect(
+      app.runWorker({
+        signal: AbortSignal.abort(),
+        pollIntervalMs: 1,
+        allowProcessLocalRealtime: true,
+      }),
+    ).resolves.toBeUndefined()
+    expect(app.status).toBe('closed')
+  } finally {
+    if (prevRedis !== undefined) process.env.REDIS_URL = prevRedis
+    else delete process.env.REDIS_URL
+  }
 })
 
 test('runWorker accepts configured redis realtime without throwing', async () => {

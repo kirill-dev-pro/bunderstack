@@ -194,7 +194,9 @@ test('server database introspection stays offline', async () => {
 
 test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports configured realtimeTransport', async () => {
   const previous = process.env.BUNDERSTACK_INTROSPECT
+  const prevRedis = process.env.REDIS_URL
   process.env.BUNDERSTACK_INTROSPECT = '1'
+  delete process.env.REDIS_URL
   try {
     const app = await createBunderstack({
       schema: { notes },
@@ -210,5 +212,7 @@ test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports con
   } finally {
     if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
     else process.env.BUNDERSTACK_INTROSPECT = previous
+    if (prevRedis === undefined) delete process.env.REDIS_URL
+    else process.env.REDIS_URL = prevRedis
   }
 })
