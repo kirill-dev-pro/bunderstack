@@ -12,14 +12,19 @@ key to your config and use `app.email.send()` anywhere on the server.
 
 ```ts
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import * as schema from './schema'
 
 export const app = await createBunderstack({
   schema,
+  database: {
+    adapter: libsql(),
+    url: 'file:./data.db',
+  },
   auth: { emailAndPassword: { enabled: true } },
   email: {
     from: 'noreply@example.com',
-    provider: 'resend', // or 'smtp', 'console', a custom adapter
+    provider: 'resend', // or 'console' or a custom adapter
   },
 })
 ```
@@ -49,9 +54,11 @@ SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
 ```
 
 ```ts
+import { smtp } from 'bunderstack/email/smtp'
+
 email: {
   from: 'noreply@example.com',
-  provider: 'smtp',
+  provider: smtp({ url: process.env.SMTP_URL! }),
 }
 ```
 
@@ -62,7 +69,8 @@ optional peer:
 bun add nodemailer
 ```
 
-Bunderstack lazy-loads it on the first send, so boot stays synchronous.
+The SMTP integration is isolated to this subpath, so projects that do not use
+it do not load Nodemailer.
 
 ### Console (development default)
 

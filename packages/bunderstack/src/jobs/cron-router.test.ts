@@ -4,16 +4,20 @@ import { beforeAll, expect, test } from 'bun:test'
 
 import type { BackgroundDefs } from './define'
 
-import { signScheduleRequest } from './cron-auth'
-import { buildCronRouter } from './cron-router'
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
+import { signScheduleRequest } from './cron-auth'
+import { buildCronRouter } from './cron-router'
 
 let db: LibSQLDatabase<Record<string, never>>
 
 beforeAll(async () => {
-  ;({ db } = await createDb({}, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    {},
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,
@@ -35,7 +39,9 @@ function router(defs: BackgroundDefs, now: number) {
 
 test('rejects a request without a schedule signature', async () => {
   const app = router({}, Date.UTC(2026, 6, 18, 12, 0))
-  const response = await app.request('http://localhost/cron/hourly', { method: 'POST' })
+  const response = await app.request('http://localhost/cron/hourly', {
+    method: 'POST',
+  })
   expect(response.status).toBe(401)
 })
 
@@ -87,7 +93,11 @@ test('runs signed storage maintenance once per schedule slot', async () => {
     defs: {},
     ctx: {},
     secret: 'secret',
-    storage: { sweep: async () => { sweeps++ } },
+    storage: {
+      sweep: async () => {
+        sweeps++
+      },
+    },
     now: () => slot,
   })
   const headers = {
@@ -99,14 +109,20 @@ test('runs signed storage maintenance once per schedule slot', async () => {
     ),
   }
 
-  const first = await app.request('http://localhost/maintenance/storage-sweep', {
-    method: 'POST',
-    headers,
-  })
-  const second = await app.request('http://localhost/maintenance/storage-sweep', {
-    method: 'POST',
-    headers,
-  })
+  const first = await app.request(
+    'http://localhost/maintenance/storage-sweep',
+    {
+      method: 'POST',
+      headers,
+    },
+  )
+  const second = await app.request(
+    'http://localhost/maintenance/storage-sweep',
+    {
+      method: 'POST',
+      headers,
+    },
+  )
 
   expect(first.status).toBe(200)
   expect(second.status).toBe(200)

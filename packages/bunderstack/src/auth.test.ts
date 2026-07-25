@@ -3,6 +3,7 @@ import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { createAuth } from './auth'
+import { libsql } from './database/libsql'
 import { createDb } from './db'
 
 const posts = sqliteTable('posts', {
@@ -11,7 +12,10 @@ const posts = sqliteTable('posts', {
 })
 
 test('createAuth returns an object with a handler function', async () => {
-  const { db } = await createDb({ posts }, { url: ':memory:', dialect: 'sqlite' })
+  const { db } = await createDb(
+    { posts },
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  )
   const auth = createAuth(
     db,
     {

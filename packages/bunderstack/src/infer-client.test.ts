@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import { createBunderstack, MAX_LIST_LIMIT } from './index'
 import { defineAccess } from './access'
+import { libsql } from './database/libsql'
+import { createBunderstack, MAX_LIST_LIMIT } from './index'
 
 // -- type-level assertion helpers -------------------------------------------
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
-  ? 1
-  : 2
-  ? true
-  : false
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
 type Expect<T extends true> = T
 
 const user = sqliteTable('user', {
@@ -48,7 +48,7 @@ describe('client type inference carriers', () => {
         user: { exposeAuthTable: true, ownerColumn: 'id' },
         posts: { ownerColumn: 'userId' },
       },
-      database: { url: ':memory:' },
+      database: { url: ':memory:', adapter: libsql() },
       storage: {
         local: './uploads',
         defaultBucket: 'images',

@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import type { JobsDefs } from './define'
 
+import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackJobs, withInternalTables } from '../internal-tables'
 import { provisionSchema } from '../provision'
@@ -15,7 +16,10 @@ import { createJobRunner } from './worker'
 let db: LibSQLDatabase<Record<string, never>>
 
 async function freshDb() {
-  ;({ db } = await createDb({}, { url: ':memory:', dialect: 'sqlite' }))
+  ;({ db } = await createDb(
+    {},
+    { url: ':memory:', dialect: 'sqlite', adapter: libsql() },
+  ))
   const merged = withInternalTables({})
   await provisionSchema(
     db as unknown as LibSQLDatabase<typeof merged>,
@@ -140,7 +144,12 @@ test('jobs clear dedupeKey on terminal status; re-enqueue works', async () => {
 
 test('expired lease recovers to pending and burns the attempt', async () => {
   const defs: JobsDefs = {
-    stuck: { kind: 'job', retries: 3, timeout: 60_000, handler: async () => {} },
+    stuck: {
+      kind: 'job',
+      retries: 3,
+      timeout: 60_000,
+      handler: async () => {},
+    },
   }
   const r = runner(defs)
   const t0 = Date.now()

@@ -8,7 +8,6 @@ import {
 import { createIsomorphicFetch } from './isomorphic-fetch'
 
 export { createIsomorphicFetch } from './isomorphic-fetch'
-export { createStartAuthClient } from './auth-client'
 
 export type BunderstackStartOptions = {
   /** API mount point. Defaults to '/api'. */

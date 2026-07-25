@@ -1,10 +1,6 @@
 import type { QueryClient, UseMutationOptions } from '@tanstack/react-query'
-import type { TableAccessInput } from 'bunderstack/access'
 
-import type {
-  BucketClient,
-  BucketMutationOptions,
-} from './bucket-client'
+import type { BucketClient, BucketMutationOptions } from './bucket-client'
 import type { TableMutationOptions } from './mutation-options'
 import type { TableClient } from './table-client'
 
@@ -51,7 +47,7 @@ export type CrudTableKey<TSchema extends Record<string, unknown>> = {
 
 export type CreateClientOptions<
   TSchema extends Record<string, unknown>,
-  TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TAccess extends Record<string, unknown> | undefined = undefined,
 > = {
   /** Drizzle schema object — used to resolve CRUD-exposed tables at runtime. */
   schema?: TSchema

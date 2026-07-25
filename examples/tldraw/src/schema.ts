@@ -1,8 +1,6 @@
 import { typeid, generateTypeId } from 'bunderstack'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
-export * from 'bunderstack/schema'
-
 // BetterAuth required tables
 export const user = sqliteTable('user', {
   id: typeid('user')
@@ -74,9 +72,7 @@ export const canvas = sqliteTable('canvas', {
     .$defaultFn(() => generateTypeId('canvas')),
   name: text('name').notNull(),
 
-  ownerId: typeid('user')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+  ownerId: typeid('user').notNull(),
 
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
@@ -91,10 +87,8 @@ export const shape = sqliteTable('shape', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('shape')),
 
-  canvasId: typeid('canvas')
-    .notNull()
-    .references(() => canvas.id, { onDelete: 'cascade' }),
-  ownerId: typeid('user').references(() => user.id, { onDelete: 'cascade' }),
+  canvasId: typeid('canvas').notNull(),
+  ownerId: typeid('user'),
 
   type: text('type').notNull(),
   x: integer('x').notNull(),
@@ -124,9 +118,7 @@ export const presence = sqliteTable('presence', {
     .primaryKey()
     .$defaultFn(() => generateTypeId('presence')),
 
-  canvasId: typeid('canvas')
-    .notNull()
-    .references(() => canvas.id, { onDelete: 'cascade' }),
+  canvasId: typeid('canvas').notNull(),
 
   name: text('name').notNull(),
   color: text('color').notNull(),

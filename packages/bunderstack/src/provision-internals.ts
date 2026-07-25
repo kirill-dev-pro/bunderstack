@@ -1,6 +1,6 @@
+import type { Driver } from './db'
 // src/provision-internals.ts
 import type { AnyDb, Dialect } from './dialect'
-import type { Driver } from './db'
 
 /**
  * Hidden handle connecting `createBunderstack()` to the optional
@@ -21,6 +21,7 @@ export interface ProvisionInternals {
   migrationsFolder: string
   dialect: Dialect
   driver: Driver
+  adapter: import('./database/adapter').DatabaseAdapter
 }
 
 export interface WithProvisionInternals {

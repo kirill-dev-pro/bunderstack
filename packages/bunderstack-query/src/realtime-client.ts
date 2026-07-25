@@ -154,13 +154,9 @@ export function createRealtimeClient(config: RealtimeClientConfig) {
     } catch {
       return
     }
-    if (
-      data &&
-      typeof data === 'object' &&
-      'clientId' in data &&
-      (data as any).clientId
-    ) {
-      clientId = (data as any).clientId
+    const candidate = (data as { clientId?: unknown })?.clientId
+    if (typeof candidate === 'string' && candidate.length > 0) {
+      clientId = candidate
       if (lastTopics.length) void postSubscribe(lastTopics)
       return
     }

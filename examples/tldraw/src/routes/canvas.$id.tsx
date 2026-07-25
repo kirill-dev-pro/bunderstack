@@ -17,6 +17,7 @@ import {
   createClientTypeId,
   createShapeDraft,
   shapeListParams,
+  type ShapeRow,
   type ShapeType,
 } from '~/utils/canvas-data'
 import { fetchCanvas } from '~/utils/canvas-loader'
@@ -124,20 +125,36 @@ function WhiteboardClient() {
     params,
   ])
 
-  const { data: shapes = [] } = useLiveQuery((query) =>
+  const { data: rawShapes = [] } = useLiveQuery((query) =>
     query
-      .from({ shape: api.shape.collection })
-      .where(({ shape }) => eq(shape.canvasId, params.canvasId))
-      .orderBy(({ shape }) => shape.createdAt, params.order)
-      .limit(params.limit)
-      .select(({ shape }) => shape),
+      .from({
+        shape:
+          api.shape.collection as unknown as Parameters<
+            typeof query.from
+          >[0]['shape'],
+      })
+      .where(({ shape }: { shape: ShapeRow }) =>
+        eq(shape.canvasId, params.canvasId),
+      )
+      .orderBy(
+        ({ shape }: { shape: ShapeRow }) => shape.createdAt,
+        params.order,
+      )
+      .limit(params.limit),
   )
+  const shapes = rawShapes as unknown as ShapeRow[]
 
   const { data: presenceLiveRows = [] } = useLiveQuery((query) =>
     query
-      .from({ presence: api.presence.collection })
-      .where(({ presence }) => eq(presence.canvasId, params.canvasId))
-      .select(({ presence }) => presence),
+      .from({
+        presence:
+          api.presence.collection as unknown as Parameters<
+            typeof query.from
+          >[0]['presence'],
+      })
+      .where(({ presence }: { presence: PresenceRow }) =>
+        eq(presence.canvasId, params.canvasId),
+      ),
   )
   // Same live-query inference quirk the shape query above carries; the rows
   // are presence rows at runtime.

@@ -3,7 +3,9 @@ import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { EmailFacade } from './email'
+
 import { withEmailAuthDefaults } from './auth'
+import { libsql } from './database/libsql'
 import { createBunderstack } from './index'
 
 const notes = sqliteTable('notes', {
@@ -77,7 +79,7 @@ test('default reset template sends through the facade', async () => {
 test('app.email is exposed and unconfigured send throws', async () => {
   const app = await createBunderstack({
     schema: { notes },
-    database: { url: ':memory:' },
+    database: { url: ':memory:', adapter: libsql() },
   })
   expect(
     app.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
@@ -90,7 +92,7 @@ test('email provider resend requires RESEND_API_KEY at boot', async () => {
   await expect(
     createBunderstack({
       schema: { notes },
-      database: { url: ':memory:' },
+      database: { url: ':memory:', adapter: libsql() },
       email: { from: 'app@example.com', provider: 'resend' },
     }),
   ).rejects.toThrow(/RESEND_API_KEY/)

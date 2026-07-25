@@ -1,4 +1,8 @@
-import { createCollection } from '@tanstack/db'
+import {
+  createCollection,
+  type Collection,
+  type StandardSchema,
+} from '@tanstack/db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
 import type { QueryClient } from '@tanstack/react-query'
 import {
@@ -294,8 +298,45 @@ export function createTableCollection<
   }
 }
 
+export type ScopedCollection<TRow extends { id: string | number }> = {
+  collection: Collection<
+    TRow,
+    string | number,
+    Record<string, any>,
+    StandardSchema<TRow>
+  >
+  loadMore: (count?: number) => Promise<void>
+  hasMore: () => boolean
+  size: () => number
+}
+
 export type TableCollection<
   TRow extends { id: string | number },
   TCreate = Partial<TRow>,
   TUpdate = Partial<TRow>,
-> = ReturnType<typeof createTableCollection<TRow, TCreate, TUpdate>>
+> = {
+  collection: Collection<
+    TRow,
+    string | number,
+    Record<string, any>,
+    StandardSchema<TRow>
+  >
+  table: TableClient<TRow, TCreate, TUpdate>
+  scopedCollection: (
+    options?: ScopedCollectionOptions,
+  ) => ScopedCollection<TRow>
+  collectionByIds: (
+    ids: readonly (string | number)[],
+    column?: string,
+  ) => Collection<
+    TRow,
+    string | number,
+    Record<string, any>,
+    StandardSchema<TRow>
+  >
+  applyRealtimeEvent: (
+    action: 'create' | 'update' | 'delete',
+    record: Record<string, unknown>,
+  ) => void
+  refetchAll: () => Promise<void>
+}
