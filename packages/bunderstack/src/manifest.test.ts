@@ -31,6 +31,7 @@ test('buildManifest describes tables, buckets, env requirements', () => {
       client: { PUBLIC_APP_NAME: z.string() },
     },
     realtime: true,
+    realtimeTransport: 'redis',
     jobs: undefined,
   })
 
@@ -49,6 +50,7 @@ test('buildManifest describes tables, buckets, env requirements', () => {
     { name: 'attachments', visibility: 'private' },
   ])
   expect(manifest.realtime).toBe(true)
+  expect(manifest.realtimeTransport).toBe('redis')
   expect(manifest.env.server).toEqual([
     { key: 'STRIPE_KEY', required: true },
     { key: 'LOG_LEVEL', required: false },
@@ -65,9 +67,11 @@ test('buildManifest handles the zero-config app', () => {
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
     realtime: false,
+    realtimeTransport: 'disabled',
     jobs: undefined,
   })
   expect(manifest.buckets).toEqual([{ name: 'default', visibility: 'private' }])
+  expect(manifest.realtimeTransport).toBe('disabled')
   expect(manifest.env).toEqual({ server: [], client: [] })
   expect(manifest.background).toEqual({
     jobs: [],
@@ -83,6 +87,7 @@ test('manifest separates queue jobs from cron schedules', () => {
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
     realtime: false,
+    realtimeTransport: 'disabled',
     jobs: {
       generateLook: { kind: 'job', handler: async () => {} },
       nightly: {
@@ -106,6 +111,7 @@ test('manifest background is empty except maintenance when no jobs are configure
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
     realtime: false,
+    realtimeTransport: 'disabled',
     jobs: undefined,
   })
   expect(manifest.background.jobs).toEqual([])

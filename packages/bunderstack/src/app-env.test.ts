@@ -162,6 +162,7 @@ test('app.manifest describes the declaration', async () => {
     { name: 'avatars', visibility: 'public' },
   ])
   expect(app.manifest.realtime).toBe(false)
+  expect(app.manifest.realtimeTransport).toBe('disabled')
   expect(app.manifest.env.server).toEqual([
     { key: 'WEBHOOK_SECRET', required: false },
   ])
@@ -185,6 +186,27 @@ test('server database introspection stays offline', async () => {
       'object',
     )
     await app.close()
+  } finally {
+    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
+    else process.env.BUNDERSTACK_INTROSPECT = previous
+  }
+})
+
+test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports configured realtimeTransport', async () => {
+  const previous = process.env.BUNDERSTACK_INTROSPECT
+  process.env.BUNDERSTACK_INTROSPECT = '1'
+  try {
+    const app = await createBunderstack({
+      schema: { notes },
+      database: { url: ':memory:', adapter: libsql() },
+      env: { server: { STRIPE_KEY: z.string() } },
+      realtime: true,
+    })
+    expect(app.manifest.env.server).toEqual([
+      { key: 'STRIPE_KEY', required: true },
+    ])
+    expect(app.manifest.realtime).toBe(true)
+    expect(app.manifest.realtimeTransport).toBe('memory')
   } finally {
     if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
     else process.env.BUNDERSTACK_INTROSPECT = previous

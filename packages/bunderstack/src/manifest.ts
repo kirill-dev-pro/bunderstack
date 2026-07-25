@@ -8,6 +8,7 @@ import { getTableName, isTable } from 'drizzle-orm'
 import type { Dialect } from './dialect'
 import type { EnvConfigInput } from './env'
 import type { JobsDefs } from './jobs/define'
+import type { RealtimeTransport } from './realtime/facade'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 import {
   bunderstackCronRuns,
@@ -29,6 +30,7 @@ export type BunderstackManifest = {
   defaultBucket: string
   buckets: { name: string; visibility: ResolvedBucket['visibility'] }[]
   realtime: boolean
+  realtimeTransport: RealtimeTransport
   env: { server: ManifestEnvVar[]; client: ManifestEnvVar[] }
   background: {
     jobs: { name: string }[]
@@ -60,6 +62,7 @@ export function buildManifest(args: {
   storage: ResolvedStorageBuckets
   envConfig: EnvConfigInput | undefined
   realtime: boolean
+  realtimeTransport: RealtimeTransport
   jobs: JobsDefs | undefined
 }): BunderstackManifest {
   return {
@@ -78,6 +81,7 @@ export function buildManifest(args: {
       visibility: bucket.visibility,
     })),
     realtime: args.realtime,
+    realtimeTransport: args.realtimeTransport,
     env: {
       server: describeSection(args.envConfig?.server),
       client: describeSection(args.envConfig?.client),
