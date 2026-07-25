@@ -185,3 +185,58 @@ test('introspection mode boots with jobs configured', async () => {
     delete process.env.BUNDERSTACK_INTROSPECT
   }
 })
+
+test('runWorker rejects process-local realtime by default', async () => {
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:', adapter: libsql() },
+    realtime: true,
+    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+  })
+  await provision(app, { force: true })
+
+  await expect(
+    app.runWorker({ signal: AbortSignal.abort(), pollIntervalMs: 1 }),
+  ).rejects.toThrow(
+    '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker',
+  )
+  expect(app.status).toBe('ready')
+  await app.close()
+})
+
+test('runWorker allows an explicit process-local realtime override', async () => {
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:', adapter: libsql() },
+    realtime: true,
+    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+  })
+  await provision(app, { force: true })
+
+  await expect(
+    app.runWorker({
+      signal: AbortSignal.abort(),
+      pollIntervalMs: 1,
+      allowProcessLocalRealtime: true,
+    }),
+  ).resolves.toBeUndefined()
+  expect(app.status).toBe('closed')
+})
+
+test('runWorker accepts configured redis realtime without throwing', async () => {
+  const app = await createBunderstack({
+    schema: { notes },
+    database: { url: ':memory:', adapter: libsql() },
+    realtime: { redis: 'redis://localhost:6379' },
+    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
+  })
+  await provision(app, { force: true })
+
+  await expect(
+    app.runWorker({
+      signal: AbortSignal.abort(),
+      pollIntervalMs: 1,
+    }),
+  ).resolves.toBeUndefined()
+  expect(app.status).toBe('closed')
+})
