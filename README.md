@@ -504,6 +504,16 @@ import { app } from './bunderstack'
 await app.runWorker() // handles SIGINT/SIGTERM, then closes app resources
 ```
 
+If a queue handler calls `ctx.realtime.publish()`, the web and worker processes
+must share a realtime transport. Configure `REDIS_URL` (or
+`realtime: { redis: "redis://..." }`). `realtime: true` without Redis uses a
+process-local memory broker and is suitable only when the worker is embedded
+with `app.startWorker()`.
+
+`app.runWorker()` rejects that unsafe combination by default. If queue handlers
+never publish realtime events, acknowledge the process-local behavior with
+`app.runWorker({ allowProcessLocalRealtime: true })`.
+
 For embedded development, use a closeable handle instead:
 
 ```ts

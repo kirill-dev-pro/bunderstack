@@ -82,6 +82,28 @@ import { app } from './bunderstack'
 await app.runWorker()
 ```
 
+If a queue handler calls `ctx.realtime.publish()`, the web and worker processes
+must share a realtime transport. Configure `REDIS_URL` (or
+`realtime: { redis: "redis://..." }`). `realtime: true` without Redis uses a
+process-local memory broker and is suitable only when the worker is embedded
+with `app.startWorker()`.
+
+`app.runWorker()` rejects that unsafe combination by default. If queue handlers
+never publish realtime events, acknowledge the process-local behavior with
+`app.runWorker({ allowProcessLocalRealtime: true })`.
+
+```ts
+const app = await createBunderstack({
+  // ...
+  realtime: { redis: process.env.REDIS_URL! },
+})
+```
+
+```bash
+REDIS_URL=redis://localhost:6379 bun src/server.ts
+REDIS_URL=redis://localhost:6379 bun src/worker.ts
+```
+
 Cron tasks (`j.cron()`) are delivered by the host to
 `POST /api/_bunderstack/cron/:name`; storage maintenance uses
 `POST /api/_bunderstack/maintenance/storage-sweep`. Production requires the

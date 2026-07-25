@@ -54,10 +54,11 @@ it and add an event log + replay to both implementations:
 consumer code changes; behavior is identical, just durable/multi-instance when
 Redis is present.
 
-**Correctness never depends on Redis.** Without it, a server restart drops the
-in-memory buffer, which simply triggers the client's `gap`-driven full-refetch
-catch-up path. Redis is a nice-to-have for persistence + horizontal scaling, the
-same way `database.url` upgrades storage without changing app code.
+Correctness does not depend on Redis while publishers and SSE subscribers share
+one process: reconnect gaps fall back to a full refetch. Cross-process
+publication is different. A standalone queue worker has no access to the web
+process's memory broker, so Redis (or another shared transport) is required for
+worker events to reach browser subscribers.
 
 ### Redis broker fan-out (multi-instance)
 
