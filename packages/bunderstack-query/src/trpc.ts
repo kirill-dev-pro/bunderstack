@@ -44,7 +44,7 @@ export function createTRPCClient<TApp extends AnyBunderstackApp>(
   options: ClientOptions = {},
 ): TRPCBunderstackClient<TApp> {
   const rest = createClient<TApp>(options)
-  let trpcProxy: any
+  let trpcProxy: TRPCOptionsProxy<AnyRouter> | undefined
   return new Proxy(rest, {
     get(target, property, receiver) {
       if (property !== 'trpc') return Reflect.get(target, property, receiver)

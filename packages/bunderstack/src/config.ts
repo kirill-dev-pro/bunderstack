@@ -22,10 +22,10 @@ export type BetterAuthConfig = Omit<
 
 export const BunderstackOptionsSchema = z.object({
   schema: z.record(z.string(), z.unknown()),
-  access: z.record(z.string(), z.any()).optional(),
+  access: z.record(z.string(), z.unknown()).optional(),
   database: z
     .object({
-      adapter: z.any(),
+      adapter: z.unknown(),
       url: z.string().optional(),
       authToken: z.string().optional(),
       migrations: z.string().optional(),

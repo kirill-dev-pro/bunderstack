@@ -2,14 +2,14 @@ import nodemailer from 'nodemailer'
 
 import type { EmailAdapter, EmailMessage } from '../email'
 
-type TransportFactory = (url: string) => {
+type SmtpTransport = {
   sendMail(message: Record<string, unknown>): Promise<{ messageId?: string }>
 }
 
 export function createSmtpAdapter(
   options: { url: string },
-  createTransport: TransportFactory = (url) =>
-    nodemailer.createTransport(url) as any,
+  createTransport: (url: string) => SmtpTransport = (url) =>
+    nodemailer.createTransport(url) as SmtpTransport,
 ): EmailAdapter {
   const toArray = (v: string | string[] | undefined) =>
     v === undefined ? undefined : Array.isArray(v) ? v : [v]

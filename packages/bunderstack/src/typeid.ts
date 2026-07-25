@@ -16,10 +16,10 @@ const PREFIX_RE = /^[a-z]([a-z_]{0,61}[a-z])?$/
 // 26 base32 chars from the alphabet above.
 const SUFFIX_RE = /^[0-9a-hjkmnp-tv-z]{26}$/
 
-declare const brand: unique symbol
+declare const typeIdBrand: unique symbol
 
 /** A branded TypeID string. `TypeId<'post'>` is incompatible with `TypeId<'user'>`. */
-export type TypeId<P extends string> = string & { readonly [brand]: P }
+export type TypeId<P extends string> = string & { readonly [typeIdBrand]?: P }
 
 /** Encode a 16-byte UUID into the 26-character base32 suffix. */
 export function encode(bytes: Uint8Array): string {
