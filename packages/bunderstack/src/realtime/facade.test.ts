@@ -98,4 +98,22 @@ describe('RealtimeFacade', () => {
 
     expect(realtime.enabled).toBe(false)
   })
+
+  test('reports disabled without a broker', () => {
+    const realtime = createRealtimeFacade()
+    expect(realtime.enabled).toBe(false)
+    expect(realtime.transport).toBe('disabled')
+  })
+
+  test.each([
+    ['memory', 'memory'],
+    ['redis', 'redis'],
+  ] satisfies [import('./facade').RealtimeTransport, import('./facade').RealtimeTransport][])(
+    'reports %s transport',
+    (transport, expected) => {
+      const realtime = createRealtimeFacade(recordingBroker([]), transport)
+      expect(realtime.enabled).toBe(true)
+      expect(realtime.transport).toBe(expected)
+    },
+  )
 })

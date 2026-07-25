@@ -50,7 +50,11 @@ import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
 } from './provision-internals'
-import { createRealtimeFacade, type RealtimeFacade } from './realtime/facade'
+import {
+  createRealtimeFacade,
+  type RealtimeFacade,
+  type RealtimeTransport,
+} from './realtime/facade'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
 import { deleteFileWithDerivatives } from './storage/delete'
@@ -93,9 +97,9 @@ const DEFAULT_PENDING_TTL_MS = 30 * 60_000
  * must also clean the file-meta row.
  */
 export interface StorageFacade {
-  /** Delete an object, its transform derivatives, and its file-meta row. `fileId` is `<bucket>/<id>`. */
+  /** Delete a file row and purge all underlying storage derivatives. */
   delete(fileId: string): Promise<void>
-  /** Get the raw adapter for a bucket, or `undefined` if it isn't declared. */
+  /** Low-level access to the underlying storage adapter for a bucket. */
   bucket(name: string): StorageAdapter | undefined
   /**
    * Reap stale `pending` uploads older than `olderThanMs` (default 30m). Runs
@@ -106,7 +110,15 @@ export interface StorageFacade {
 }
 
 export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
-export type AppRunWorkerOptions = AppStartWorkerOptions
+export type AppRunWorkerOptions = AppStartWorkerOptions & {
+  /**
+   * Permit process-local realtime in a standalone worker.
+   *
+   * Use only when job handlers never call ctx.realtime.publish(). Publications
+   * made through the memory broker cannot reach SSE clients in another process.
+   */
+  allowProcessLocalRealtime?: boolean
+}
 export type AppStartCronSchedulerOptions = Pick<
   LocalCronSchedulerOptions,
   'onError'
@@ -362,10 +374,15 @@ export async function createBunderstack<
       typeof config.realtime === 'object'
         ? config.realtime.bufferSize
         : undefined
-    const redisUrl =
-      config.realtime && !introspect
-        ? resolveRealtimeRedisUrl(config.realtime, env)
-        : undefined
+    const configuredRedisUrl = config.realtime
+      ? resolveRealtimeRedisUrl(config.realtime, env)
+      : undefined
+    const configuredRealtimeTransport: RealtimeTransport = !config.realtime
+      ? 'disabled'
+      : configuredRedisUrl
+        ? 'redis'
+        : 'memory'
+    const redisUrl = introspect ? undefined : configuredRedisUrl
     const broker = config.realtime
       ? redisUrl
         ? createRedisRealtimeBroker({
@@ -400,7 +417,15 @@ export async function createBunderstack<
             bufferSize: realtimeBufferSize,
           })
       : undefined
-    const realtime = createRealtimeFacade<TSchema>(broker)
+    const runtimeRealtimeTransport: RealtimeTransport = !broker
+      ? 'disabled'
+      : redisUrl
+        ? 'redis'
+        : 'memory'
+    const realtime = createRealtimeFacade<TSchema>(
+      broker,
+      runtimeRealtimeTransport,
+    )
     const crudRouter = buildCrudRouter(options.schema, userDb, {
       auth: authResolver,
       access: resolvedAccess,
@@ -526,12 +551,24 @@ export async function createBunderstack<
     const runWorker = async (
       options: AppRunWorkerOptions = {},
     ): Promise<void> => {
-      const handle = await startWorker(options)
+      if (
+        realtime.transport === 'memory' &&
+        !options.allowProcessLocalRealtime
+      ) {
+        throw new Error(
+          '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker. Configure REDIS_URL or realtime.redis, embed the worker with startWorker(), or pass allowProcessLocalRealtime: true only when jobs never publish realtime.',
+        )
+      }
+      const {
+        allowProcessLocalRealtime: _allowProcessLocalRealtime,
+        ...workerOptions
+      } = options
+      const handle = await startWorker(workerOptions)
       try {
-        const signal = options.signal
-          ? AbortSignal.any([lifecycle.signal, options.signal])
+        const signal = workerOptions.signal
+          ? AbortSignal.any([lifecycle.signal, workerOptions.signal])
           : lifecycle.signal
-        await waitForWorkerShutdown(signal, !options.signal)
+        await waitForWorkerShutdown(signal, !workerOptions.signal)
       } finally {
         await handle.close()
         await lifecycle.close()
@@ -613,6 +650,7 @@ export async function createBunderstack<
         storage: config.storage,
         envConfig: options.env as EnvConfigInput | undefined,
         realtime: Boolean(config.realtime),
+        realtimeTransport: configuredRealtimeTransport,
         jobs: jobsDefs,
       }),
     }
@@ -724,4 +762,9 @@ export type {
 export type { TransformSpec } from './storage/thumbnails'
 
 export type { RealtimeAction } from './realtime/index'
-export type { RealtimeFacade, SchemaTable } from './realtime/facade'
+export { createRealtimeFacade } from './realtime/facade'
+export type {
+  RealtimeFacade,
+  RealtimeTransport,
+  SchemaTable,
+} from './realtime/facade'
