@@ -342,7 +342,9 @@ const app = await createBunderstack({
 })
 ```
 
-The router mounts at `/api/trpc/*`. On the client, `api.trpc.*` is fully typed from the server app (see [bunderstack-query](#client-bunderstack-query)):
+The router mounts at `/api/trpc/*`. On the client, `api.trpc.*` from
+`createTRPCClient<App>()` is fully typed from the server app (see
+[bunderstack-query](#client-bunderstack-query)):
 
 ```ts
 const { data } = useQuery(api.trpc.feed.queryOptions({ limit: 20 }))
@@ -510,9 +512,13 @@ must share a realtime transport. Configure `REDIS_URL` (or
 process-local memory broker and is suitable only when the worker is embedded
 with `app.startWorker()`.
 
-`app.runWorker()` rejects that unsafe combination by default. If queue handlers
-never publish realtime events, acknowledge the process-local behavior with
-`app.runWorker({ allowProcessLocalRealtime: true })`.
+Since 0.9.0, `app.runWorker()` rejects that unsafe combination by default. If
+queue handlers never publish realtime events, acknowledge the process-local
+behavior with `app.runWorker({ allowProcessLocalRealtime: true })`.
+
+Inspect the active runtime with `app.realtime.transport` (`'disabled'`,
+`'memory'`, or `'redis'`). Deploy tooling can read the configured transport
+from `app.manifest.realtimeTransport`.
 
 For embedded development, use a closeable handle instead:
 
@@ -576,9 +582,14 @@ const update = useMutation(api.posts.updateMutation())
 const remove = useMutation(api.posts.deleteMutation())
 ```
 
-If the server declares a `trpc` router, the client grows a typed `trpc` namespace (backed by tRPC's official TanStack Query integration — same `queryOptions`/`mutationOptions` shape as the table clients):
+If the server declares a `trpc` router, switch to the optional tRPC entrypoint
+to add a typed `trpc` namespace (backed by tRPC's official TanStack Query
+integration):
 
 ```ts
+import { createTRPCClient } from 'bunderstack-query/trpc'
+
+const api = createTRPCClient<App>({ queryClient })
 const { data } = useQuery(api.trpc.feed.queryOptions({ limit: 20 }))
 // data's type is inferred from the procedure's return — Dates included
 ```

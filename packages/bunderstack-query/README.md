@@ -15,6 +15,16 @@ import type { App } from '../server/app'
 const client = createClient<App>({ baseUrl: '/api' })
 ```
 
+The root entrypoint exposes REST tables and files. If the server declares tRPC,
+use the optional entrypoint to add a typed `client.trpc` namespace:
+
+```ts
+import { createTRPCClient } from 'bunderstack-query/trpc'
+import type { App } from '../server/app'
+
+const client = createTRPCClient<App>({ baseUrl: '/api' })
+```
+
 Full documentation and examples:
 [github.com/kirill-dev-pro/bunderstack](https://github.com/kirill-dev-pro/bunderstack)
 

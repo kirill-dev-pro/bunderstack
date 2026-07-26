@@ -53,10 +53,38 @@ await createBunderstack({
   trpc?: ((t: BunderstackTRPC) => AnyRouter) | AnyRouter, // builder callback or prebuilt router
   rateLimit?: boolean | RateLimitConfig,
   idempotency?: boolean | IdempotencyConfig,
-  realtime?: boolean | { keepaliveMs?: number; bufferSize?: number; redis?: … },
+  realtime?: boolean | {
+    keepaliveMs?: number,
+    bufferSize?: number,
+    redis?: string | { url: string; token?: string },
+  },
   jobs?: (j: BunderstackJobsBuilder) => JobsDefs,
 })
 ```
+
+## Realtime transport
+
+| Configuration | Selected transport | Intended use |
+| --- | --- | --- |
+| Realtime omitted or `false` | `disabled` | No SSE subscriptions or publications |
+| `realtime: true` | `memory` | One process, including an embedded worker |
+| `realtime: true` + `REDIS_URL` | `redis` | Separate web and worker processes |
+| `realtime: { redis: "redis://…" }` | `redis` | Explicit shared broker URL |
+| `realtime: { redis: { url, token } }` | `redis` | Shared broker with a token |
+
+The web server and every standalone worker must use the same Redis instance
+when job handlers call `ctx.realtime.publish()`. Memory transport is
+process-local: an event published in the worker cannot reach a browser
+subscribed through another process.
+
+Since 0.9.0, `app.runWorker()` fails at startup when it detects memory
+transport. Use `app.startWorker()` to embed the worker, configure Redis, or pass
+`allowProcessLocalRealtime: true` only when job handlers never publish
+realtime events.
+
+At runtime, inspect `app.realtime.transport`. During deploy introspection,
+`app.manifest.realtimeTransport` reports the configured transport without
+opening a Redis connection.
 
 ## Database adapters and URLs
 
@@ -107,7 +135,7 @@ postgres.js, and Bun SQL clients are owned by the app and closed by
 | `DATABASE_URL`            | `file:./data.db` (sqlite) / `file:./data.pglite` (pg) | Connection string — see the table above              |
 | `DATABASE_AUTH_TOKEN`     | —                                                     | Turso auth token                                     |
 | `AUTH_SECRET`             | dev default                                           | BetterAuth secret — required in production           |
-| `REDIS_URL`               | —                                                     | Redis URL for multi-process realtime                 |
+| `REDIS_URL`               | —                                                     | Shared realtime broker for separate web/worker processes |
 | `RESEND_API_KEY`          | —                                                     | Required when email provider is 'resend'             |
 | `SMTP_URL`                | —                                                     | SMTP connection URL passed to `smtp({ url })`        |
 | `S3_BUCKET`               | —                                                     | S3 bucket name                                       |

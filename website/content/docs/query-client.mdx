@@ -123,10 +123,10 @@ When your server declares a tRPC router, `api.trpc` is a fully typed
 `@trpc/tanstack-react-query` proxy — no codegen needed:
 
 ```ts
-import { createClient } from 'bunderstack-query'
+import { createTRPCClient } from 'bunderstack-query/trpc'
 import type { App } from './bunderstack'
 
-const api = createClient<App>({ queryClient })
+const api = createTRPCClient<App>({ queryClient })
 
 // Typed option factories — wrap with useQuery / useMutation
 const { data } = useQuery(api.trpc.hello.queryOptions())
@@ -136,7 +136,7 @@ const greet = useMutation(api.trpc.greet.mutationOptions())
 
 Requires `@trpc/client`, `@trpc/tanstack-react-query`, `@trpc/server`, and
 `superjson` as peer dependencies. See [tRPC Endpoints](/docs/trpc) for the
-server-side setup.
+server-side setup. The root `createClient` remains the REST-only entrypoint.
 
 ## Explicit alternatives
 

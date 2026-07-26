@@ -144,16 +144,16 @@ export const app = await createBunderstack({
 
 ## Client-side
 
-### `api.trpc` via `createClient`
+### `api.trpc` via `createTRPCClient`
 
 When the server has a `trpc` key, `api.trpc` is fully typed and uses
 `@trpc/tanstack-react-query` under the hood:
 
 ```ts
-import { createClient } from 'bunderstack-query'
+import { createTRPCClient } from 'bunderstack-query/trpc'
 import type { App } from './bunderstack'
 
-const api = createClient<App>({ queryClient })
+const api = createTRPCClient<App>({ queryClient })
 
 // Typed option factories — wrap with useQuery / useMutation, no codegen needed
 useQuery(api.trpc.hello.queryOptions())
@@ -169,4 +169,7 @@ bun add bunderstack-query @trpc/client @trpc/tanstack-react-query @trpc/server s
 ### Explicit builder
 
 The `createBunderstackQueryClient` builder does not expose `withTrpc` directly.
-Use `createClient<App>()` for automatic tRPC inference from your server type.
+Use `createTRPCClient<App>()` for automatic tRPC inference from your server
+type. The root `createClient<App>()` entrypoint intentionally contains only
+REST tables and files, so apps that do not use tRPC do not load its optional
+peer dependencies.

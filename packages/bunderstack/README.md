@@ -88,9 +88,13 @@ must share a realtime transport. Configure `REDIS_URL` (or
 process-local memory broker and is suitable only when the worker is embedded
 with `app.startWorker()`.
 
-`app.runWorker()` rejects that unsafe combination by default. If queue handlers
-never publish realtime events, acknowledge the process-local behavior with
-`app.runWorker({ allowProcessLocalRealtime: true })`.
+Since 0.9.0, `app.runWorker()` rejects that unsafe combination by default. If
+queue handlers never publish realtime events, acknowledge the process-local
+behavior with `app.runWorker({ allowProcessLocalRealtime: true })`.
+
+Inspect the active runtime with `app.realtime.transport` (`'disabled'`,
+`'memory'`, or `'redis'`). Deploy tooling can read the configured transport
+from `app.manifest.realtimeTransport`.
 
 ```ts
 const app = await createBunderstack({

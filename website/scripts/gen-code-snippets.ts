@@ -43,10 +43,12 @@ export const posts = sqliteTable('posts', {
 
 const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { z } from 'zod'
 import * as schema from './schema'
 export const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   access: { posts: { ownerColumn: 'userId', searchableColumns: ['title'], filterableColumns: ['replyToId'], sortableColumns: ['createdAt', 'id'] } },
   storage: { local: './uploads', buckets: { images: {} } },
   realtime: true,
@@ -66,10 +68,12 @@ const snippets: Record<string, string> = {
   server: `${SCHEMA_FILE}// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import * as schema from './schema'
 
 export const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   access: { posts: { ownerColumn: 'userId' } },
   storage: {
     local: './uploads',
@@ -180,11 +184,13 @@ api.secrets // not in the schema — the client knows`,
 // @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
 import { z } from 'zod'
 import * as schema from './schema'
 
 export const app = await createBunderstack({
   schema,
+  database: { adapter: libsql() },
   env: {
     server: { SMTP_URL: z.string().optional() },
     client: { PUBLIC_APP_NAME: z.string().default('Demo') },
@@ -209,10 +215,10 @@ await app.email.send({
 
   trpc: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// ---cut---
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createTRPCClient } from 'bunderstack-query/trpc'
 import type { App } from './bunderstack'
 
-const api = createClient<App>({ queryClient })
+const api = createTRPCClient<App>({ queryClient })
 
 const stats = useQuery(api.trpc.stats.queryOptions())
 // typed straight from the server router — no codegen,
@@ -255,6 +261,7 @@ const twoslash = transformerTwoslash({
         bunderstack: ['../packages/bunderstack/src/index.ts'],
         'bunderstack/*': ['../packages/bunderstack/src/*.ts'],
         'bunderstack-query': ['../packages/bunderstack-query/src/index.ts'],
+        'bunderstack-query/*': ['../packages/bunderstack-query/src/*.ts'],
         'bunderstack-sync': ['../packages/bunderstack-sync/src/index.ts'],
         'drizzle-orm': [drizzleOrmDir],
         'drizzle-orm/*': [join(drizzleOrmDir, '*')],
