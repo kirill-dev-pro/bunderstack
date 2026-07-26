@@ -2,6 +2,11 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.9.1] - 2026-07-26
+
+### Fixed
+- **npm Publish Workspace Resolution**: Automatically sanitize `workspace:*` dependency protocols to exact version specifiers (`^0.9.1`) during `npm publish` in CI/CD pipeline.
+
 ## [0.9.0] - 2026-07-26
 
 ### Added

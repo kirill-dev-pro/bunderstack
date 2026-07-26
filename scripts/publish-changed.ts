@@ -80,15 +80,32 @@ async function main() {
     }
 
     console.log(`publish ${name}@${pkg.version} (registry has ${published})`)
-    const args = ['publish', '-w', `packages/${name}`, '--provenance']
-    if (dryRun) args.push('--dry-run')
-    const proc = Bun.spawn(['npm', ...args], {
-      cwd: root,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    })
-    if ((await proc.exited) !== 0) {
-      throw new Error(`npm publish failed for ${name}`)
+
+    const pkgFile = `${dir}/package.json`
+    const originalContent = await Bun.file(pkgFile).text()
+    const sanitizedContent = originalContent.replace(
+      /"workspace:\*"/g,
+      `"^${pkg.version}"`,
+    )
+    if (sanitizedContent !== originalContent) {
+      await Bun.write(pkgFile, sanitizedContent)
+    }
+
+    try {
+      const args = ['publish', '-w', `packages/${name}`, '--provenance']
+      if (dryRun) args.push('--dry-run')
+      const proc = Bun.spawn(['npm', ...args], {
+        cwd: root,
+        stdout: 'inherit',
+        stderr: 'inherit',
+      })
+      if ((await proc.exited) !== 0) {
+        throw new Error(`npm publish failed for ${name}`)
+      }
+    } finally {
+      if (sanitizedContent !== originalContent) {
+        await Bun.write(pkgFile, originalContent)
+      }
     }
   }
 }
