@@ -1,6 +1,6 @@
 import { cronMatches, parseCron } from './cron'
 
-type Timer = ReturnType<typeof setTimeout>
+type Timer = ReturnType<typeof setTimeout> | number
 
 export type LocalCronDefinition = {
   name: string
