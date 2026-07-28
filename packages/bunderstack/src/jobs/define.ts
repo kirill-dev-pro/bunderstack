@@ -82,9 +82,10 @@ export type CronInvocation = { scheduledFor: Date }
 export type CronDefinition<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
+  TSchedule extends string = string,
 > = {
   kind: 'cron'
-  schedule: string
+  schedule: TSchedule
   handler: (
     invocation: CronInvocation,
     ctx: JobContext<TSchema, TEnvResult>,
@@ -162,9 +163,9 @@ export function createJobsBuilder<
     ): QueueJobDefinition<TInput, TSchema, TEnvResult> {
       return { kind: 'job', ...def }
     },
-    cron(
-      def: Omit<CronDefinition<TSchema, TEnvResult>, 'kind'>,
-    ): CronDefinition<TSchema, TEnvResult> {
+    cron<const TSchedule extends string>(
+      def: Omit<CronDefinition<TSchema, TEnvResult, TSchedule>, 'kind'>,
+    ): CronDefinition<TSchema, TEnvResult, TSchedule> {
       parseCron(def.schedule)
       return { kind: 'cron', ...def }
     },

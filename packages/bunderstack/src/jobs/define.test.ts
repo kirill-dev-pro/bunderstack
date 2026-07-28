@@ -3,6 +3,12 @@ import { z } from 'zod'
 
 import { backoffMs, createJobsBuilder, validateJobsDefs } from './define'
 
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
+type Expect<T extends true> = T
+
 const j = createJobsBuilder<Record<string, never>>()
 
 test('j.define returns the defs object unchanged and validated', () => {
@@ -34,6 +40,10 @@ test('j.job and j.cron produce discriminated definitions', () => {
   expect(defs.email.kind).toBe('job')
   expect(defs.hourly.kind).toBe('cron')
   expect(defs.hourly.schedule).toBe('0 * * * *')
+
+  type _schedule = Expect<
+    Equal<(typeof defs)['hourly']['schedule'], '0 * * * *'>
+  >
 })
 
 test('cron rejects invalid expressions', () => {
