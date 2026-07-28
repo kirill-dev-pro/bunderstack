@@ -3,6 +3,12 @@ import { z } from 'zod'
 
 import { backoffMs, createJobsBuilder, validateJobsDefs } from './define'
 
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
+type Expect<T extends true> = T
+
 const j = createJobsBuilder<Record<string, never>>()
 
 test('j.define returns the defs object unchanged and validated', () => {
@@ -34,6 +40,10 @@ test('j.job and j.cron produce discriminated definitions', () => {
   expect(defs.email.kind).toBe('job')
   expect(defs.hourly.kind).toBe('cron')
   expect(defs.hourly.schedule).toBe('0 * * * *')
+
+  type _schedule = Expect<
+    Equal<(typeof defs)['hourly']['schedule'], '0 * * * *'>
+  >
 })
 
 test('cron rejects invalid expressions', () => {
@@ -44,10 +54,14 @@ test('cron rejects invalid expressions', () => {
 
 test('negative retries and zero concurrency throw', () => {
   expect(() =>
-    validateJobsDefs({ bad: { kind: 'job', retries: -1, handler: async () => {} } }),
+    validateJobsDefs({
+      bad: { kind: 'job', retries: -1, handler: async () => {} },
+    }),
   ).toThrow(/retries/)
   expect(() =>
-    validateJobsDefs({ bad: { kind: 'job', concurrency: 0, handler: async () => {} } }),
+    validateJobsDefs({
+      bad: { kind: 'job', concurrency: 0, handler: async () => {} },
+    }),
   ).toThrow(/concurrency/)
 })
 
@@ -56,6 +70,8 @@ test('backoffMs: default exponential, object form, function form', () => {
   expect(backoffMs(base, 1)).toBe(1000)
   expect(backoffMs(base, 2)).toBe(2000)
   expect(backoffMs(base, 3)).toBe(4000)
-  expect(backoffMs({ ...base, backoff: { baseMs: 100, factor: 3 } }, 2)).toBe(300)
+  expect(backoffMs({ ...base, backoff: { baseMs: 100, factor: 3 } }, 2)).toBe(
+    300,
+  )
   expect(backoffMs({ ...base, backoff: (a) => a * 7 }, 3)).toBe(21)
 })
