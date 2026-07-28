@@ -121,9 +121,10 @@ TanStack Start server output. Monorepo root dependencies remain available
 because Docker build context is the repository root while commands target
 `rootDirectory`.
 
-The web application and optional worker use the same image. The web machine
-uses the image default command; a future worker deployment can override the
-command with the selected package's `worker` script.
+The web application and optional worker are built from the same installed
+repository. The web image contains TanStack Start's `.output`; when the
+contract requires a worker, Bunderhost also builds a private worker target and
+runs the selected package's `worker` script in a separate Fly app.
 
 ## Removal
 
