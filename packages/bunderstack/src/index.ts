@@ -107,6 +107,14 @@ export interface StorageFacade {
    * the count reaped.
    */
   sweep(olderThanMs?: number): Promise<number>
+  /**
+   * Get a public or presigned download URL for a file key.
+   * Returns a presigned S3 URL when S3 is configured, or local proxy route `/api/files/...` in development.
+   */
+  getUrl(
+    key: string,
+    opts?: { bucket?: string; expiresIn?: number },
+  ): Promise<string>
 }
 
 export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
@@ -362,10 +370,11 @@ export async function createBunderstack<
       db,
       withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
       dialect,
+      options.schema as Record<string, unknown>,
     )
     // Internal routers consume the narrow AuthSessionResolver contract, not the
     // raw better-auth instance. app.auth still exposes `auth` unchanged.
-    const authResolver = toAuthSessionResolver(auth)
+    const authResolver = options.authResolver ?? toAuthSessionResolver(auth)
     const resolvedAccess = validateAndResolveAccess(
       options.schema,
       options.access,
@@ -464,6 +473,19 @@ export async function createBunderstack<
       },
       sweep(olderThanMs = DEFAULT_PENDING_TTL_MS) {
         return sweepOrphans(registry, db, olderThanMs)
+      },
+      async getUrl(key, opts = {}) {
+        const bucketName =
+          opts.bucket ??
+          key.split('/')[0] ??
+          registry.defaultBucketName
+        const adapter = registry.get(bucketName)?.adapter
+        if (adapter?.presignGet) {
+          return adapter.presignGet(key, {
+            expiresIn: opts.expiresIn ?? 3600,
+          })
+        }
+        return `/api/files/${key}`
       },
     }
     const jobRunner = jobsDefs
@@ -760,6 +782,7 @@ export type {
 } from './storage/buckets'
 // StorageFacade is declared+exported inline above.
 export type { TransformSpec } from './storage/thumbnails'
+export { mockAuthSession } from './testing'
 
 export type { RealtimeAction } from './realtime/index'
 export { createRealtimeFacade } from './realtime/facade'
