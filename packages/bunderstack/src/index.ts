@@ -726,7 +726,6 @@ export { createTRPC } from './trpc'
 export type { BunderstackTRPC, TRPCContext } from './trpc'
 export {
   createJobsBuilder,
-  defineJobHandler,
   signScheduleRequest,
   verifyScheduleRequest,
 } from './jobs/index'

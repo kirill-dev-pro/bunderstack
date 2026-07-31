@@ -493,23 +493,17 @@ const app = await createBunderstack({
 await app.jobs.enqueue('sendReceipt', { orderId: 'ord_123' })
 ```
 
-### Standalone Job Handlers (`BunderstackJobContext` & `defineJobHandler`)
+### Standalone Job Handlers (`BunderstackJobContext`)
 
-When extracting job handlers into separate files, use `BunderstackJobContext` or `defineJobHandler` for clean type safety:
+When extracting job handlers into separate files, annotate the `ctx` parameter with `BunderstackJobContext`:
 
 ```ts
 import type { BunderstackJobContext } from 'bunderstack'
-import { defineJobHandler } from 'bunderstack'
 
-// Type extracted job context parameter
 export async function processJob(id: string, ctx: BunderstackJobContext) {
   const url = await ctx.storage.getUrl(`files/${id}`)
-}
-
-// Or define typed handler callback
-export const processOrder = defineJobHandler(async ({ orderId }: { orderId: string }, ctx) => {
   await ctx.email.send({ ... })
-})
+}
 ```
 
 `j.job()` names are the only names accepted by `app.jobs.enqueue()`. Queue

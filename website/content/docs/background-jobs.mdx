@@ -30,25 +30,19 @@ const app = await createBunderstack({
 await app.jobs.enqueue('sendEmail', { userId: 'usr_123' })
 ```
 
-## Standalone Job Handlers (`BunderstackJobContext` & `defineJobHandler`)
+## Standalone Job Handlers (`BunderstackJobContext`)
 
-When extracting job handler logic into separate files, use `BunderstackJobContext` or `defineJobHandler` to type the job context cleanly:
+When extracting job handler logic into separate files, annotate the `ctx` parameter with `BunderstackJobContext` for full type safety:
 
 ```ts
 // src/server/jobs/generate-resume.ts
 import type { BunderstackJobContext } from 'bunderstack'
-import { defineJobHandler } from 'bunderstack'
 
-// Method A: Type job context parameter
 export async function generateResume(adaptationId: string, ctx: BunderstackJobContext) {
   await ctx.realtime.publish('adaptations:progress', { adaptationId })
   const url = await ctx.storage.getUrl(`adaptations/${adaptationId}/resume.pdf`)
+  await ctx.email.send({ ... })
 }
-
-// Method B: Define typed job handler callback
-export const processReport = defineJobHandler(async ({ reportId }: { reportId: string }, ctx) => {
-  await ctx.db.select().from(...)
-})
 ```
 
 `j.job()` is durable queue work and is the only declaration accepted by

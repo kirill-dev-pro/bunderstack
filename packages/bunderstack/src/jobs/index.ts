@@ -1,7 +1,6 @@
 // src/jobs/index.ts — module surface consumed by createBunderstack.
 export {
   createJobsBuilder,
-  defineJobHandler,
   validateBackgroundDefs,
   validateJobsDefs,
   DEFAULT_RETRIES,
