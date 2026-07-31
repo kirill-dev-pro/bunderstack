@@ -49,6 +49,27 @@ export type JobContext<
   realtime: RealtimeFacade<TSchema>
 }
 
+export type BunderstackJobContext<
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+> = JobContext<TSchema, TEnvResult>
+
+/**
+ * Type-safe helper for defining standalone job handler functions extracted into separate files.
+ */
+export function defineJobHandler<
+  TInput,
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+>(
+  handler: (
+    input: TInput,
+    ctx: JobContext<TSchema, TEnvResult>,
+  ) => Promise<void> | void,
+) {
+  return handler
+}
+
 export type QueueJobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,

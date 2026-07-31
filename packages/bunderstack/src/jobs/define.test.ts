@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { z } from 'zod'
 
-import { backoffMs, createJobsBuilder, validateJobsDefs } from './define'
+import { backoffMs, createJobsBuilder, defineJobHandler, validateJobsDefs } from './define'
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
@@ -74,4 +74,13 @@ test('backoffMs: default exponential, object form, function form', () => {
     300,
   )
   expect(backoffMs({ ...base, backoff: (a) => a * 7 }, 3)).toBe(21)
+})
+
+test('defineJobHandler creates a typed handler callback', async () => {
+  const handler = defineJobHandler(async (input: { id: string }, ctx) => {
+    expect(input.id).toBe('123')
+    expect(ctx).toBeDefined()
+  })
+
+  await handler({ id: '123' }, { db: {} } as never)
 })
