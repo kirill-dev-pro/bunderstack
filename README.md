@@ -234,6 +234,14 @@ storageOptions: {
 - `GET /api/files/:id` — serve the file
 - `DELETE /api/files/:id` — delete
 
+### Programmatic URLs (`app.storage.getUrl`)
+
+Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs in production or local proxy URLs in development:
+
+```ts
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
+```
+
 ### Image transforms
 
 Append query params to any image URL to resize or convert on the fly. Transformed images are cached automatically.
