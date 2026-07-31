@@ -65,6 +65,19 @@ export async function getAuthSession() {
 
 You can also access `app.auth` directly — it's just a BetterAuth instance.
 
+## Unit testing auth (`mockAuthSession`)
+
+In unit tests, mock user session resolution cleanly without typecasting:
+
+```ts
+import { mockAuthSession } from 'bunderstack'
+
+// Mock active user session for test assertions
+mockAuthSession(app, async () => ({
+  user: { id: 'test_user', email: 'user@example.com', role: 'admin' },
+}))
+```
+
 ## Required schema tables
 
 Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.

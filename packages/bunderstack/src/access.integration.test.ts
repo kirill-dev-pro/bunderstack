@@ -69,3 +69,34 @@ test('posts CRUD is available with userId convention', async () => {
   )
   expect(res.status).toBe(201)
 })
+
+test('uses an application-provided session resolver for CRUD access', async () => {
+  const appWithApplicationAuth = await createBunderstack({
+    schema,
+    database: { url: ':memory:', adapter: libsql() },
+    access: { posts: { list: 'authenticated' } },
+    authResolver: {
+      api: {
+        getSession: async ({ headers }) =>
+          headers.get('x-application-session')
+            ? {
+                user: {
+                  id: 'application-user',
+                  email: 'user@example.com',
+                },
+              }
+            : null,
+      },
+    },
+  })
+  await provision(appWithApplicationAuth, { force: true })
+
+  const response = await appWithApplicationAuth.handler(
+    new Request('http://localhost/api/posts', {
+      headers: { 'x-application-session': 'present' },
+    }),
+  )
+
+  expect(response.status).toBe(200)
+  await appWithApplicationAuth.close()
+})

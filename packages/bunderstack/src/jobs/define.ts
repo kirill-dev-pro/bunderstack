@@ -49,6 +49,11 @@ export type JobContext<
   realtime: RealtimeFacade<TSchema>
 }
 
+export type BunderstackJobContext<
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+> = JobContext<TSchema, TEnvResult>
+
 export type QueueJobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,

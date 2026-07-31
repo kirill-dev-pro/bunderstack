@@ -50,8 +50,6 @@ await createBunderstack({ schema, storage: { s3: true } })
 # For R2/MinIO also set S3_ENDPOINT
 ```
 
-## Validation rules
-
 ```ts
 await createBunderstack({
   schema,
@@ -62,4 +60,13 @@ await createBunderstack({
     },
   },
 })
+```
+
+## Programmatic URLs (`app.storage.getUrl`)
+
+Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs in production or local proxy URLs in development:
+
+```ts
+// Programmatically get download URL for a file key
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
 ```

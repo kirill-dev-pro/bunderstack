@@ -2,7 +2,7 @@
 import { betterAuth } from 'better-auth'
 import { z } from 'zod'
 
-import type { TableAccessInput } from './access'
+import type { AuthSessionResolver, TableAccessInput } from './access'
 import type { DatabaseAdapter } from './database/adapter'
 import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
@@ -86,6 +86,7 @@ export type BunderstackConfig<
   | 'schema'
   | 'access'
   | 'auth'
+  | 'authResolver'
   | 'storage'
   | 'env'
   | 'email'
@@ -102,6 +103,11 @@ export type BunderstackConfig<
     migrations?: string
   }
   auth?: BetterAuthConfig
+  /**
+   * Reuse an application-owned session reader for CRUD, realtime, storage,
+   * and tRPC while keeping Bunderstack's auth handler available.
+   */
+  authResolver?: AuthSessionResolver
   storage?: TStorage
   env?: TEnv
   email?: EmailConfigInput

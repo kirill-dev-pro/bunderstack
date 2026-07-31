@@ -234,6 +234,14 @@ storageOptions: {
 - `GET /api/files/:id` — serve the file
 - `DELETE /api/files/:id` — delete
 
+### Programmatic URLs (`app.storage.getUrl`)
+
+Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs in production or local proxy URLs in development:
+
+```ts
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
+```
+
 ### Image transforms
 
 Append query params to any image URL to resize or convert on the fly. Transformed images are cached automatically.
@@ -483,6 +491,19 @@ const app = await createBunderstack({
 })
 
 await app.jobs.enqueue('sendReceipt', { orderId: 'ord_123' })
+```
+
+### Standalone Job Handlers (`BunderstackJobContext`)
+
+When extracting job handlers into separate files, annotate the `ctx` parameter with `BunderstackJobContext`:
+
+```ts
+import type { BunderstackJobContext } from 'bunderstack'
+
+export async function processJob(id: string, ctx: BunderstackJobContext) {
+  const url = await ctx.storage.getUrl(`files/${id}`)
+  await ctx.email.send({ ... })
+}
 ```
 
 `j.job()` names are the only names accepted by `app.jobs.enqueue()`. Queue

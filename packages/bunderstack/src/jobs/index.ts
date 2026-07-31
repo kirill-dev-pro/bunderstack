@@ -10,6 +10,7 @@ export type {
   AnyJobDefinition,
   BackgroundDefinition,
   BackgroundDefs,
+  BunderstackJobContext,
   BunderstackJobsBuilder,
   EnqueueOptions,
   JobContext,

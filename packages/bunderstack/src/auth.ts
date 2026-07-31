@@ -2,16 +2,22 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
-import type { BetterAuthConfig } from './config'
 import type { AuthSessionResolver } from './access'
+import type { BetterAuthConfig } from './config'
 import type { AnyDb, Dialect } from './dialect'
 import type { EmailFacade } from './email'
 
-export function createAuth(db: AnyDb, cfg: BetterAuthConfig, dialect: Dialect) {
+export function createAuth(
+  db: AnyDb,
+  cfg: BetterAuthConfig,
+  dialect: Dialect,
+  userSchema?: Record<string, unknown>,
+) {
   return betterAuth({
     ...cfg,
     database: drizzleAdapter(db as Parameters<typeof drizzleAdapter>[0], {
       provider: dialect === 'pg' ? 'pg' : 'sqlite',
+      ...(userSchema ? { schema: userSchema } : {}),
     }),
   })
 }
@@ -39,15 +45,18 @@ export function toAuthSessionResolver(
             typeof session.activeOrganizationId === 'string'
               ? session.activeOrganizationId
               : null
+          const role =
+            'role' in result.user && typeof result.user.role === 'string'
+              ? result.user.role
+              : undefined
           return {
             user: {
               id: result.user.id,
               email: result.user.email,
               name: result.user.name,
+              ...(role ? { role } : {}),
             },
-            session: session
-              ? { activeOrganizationId }
-              : null,
+            session: session ? { activeOrganizationId } : null,
           }
         }
         return null
@@ -70,7 +79,10 @@ export function withEmailAuthDefaults(
   if (!emailConfigured) return cfg
   const out: BetterAuthConfig = { ...cfg }
 
-  if (cfg.emailAndPassword?.enabled && !cfg.emailAndPassword.sendResetPassword) {
+  if (
+    cfg.emailAndPassword?.enabled &&
+    !cfg.emailAndPassword.sendResetPassword
+  ) {
     out.emailAndPassword = {
       ...cfg.emailAndPassword,
       sendResetPassword: async ({ user, url }) => {

@@ -311,7 +311,13 @@ export function validateAndResolveAccess<
       columns.includes('userId')
 
     if (!hasExplicitRules && !hasConventionOwner) continue
-    if (!ownerColumn && input?.crud !== true && !input?.scope?.read && !input?.scope?.write) continue
+    if (
+      !ownerColumn &&
+      input?.crud !== true &&
+      !input?.scope?.read &&
+      !input?.scope?.write
+    )
+      continue
 
     if (input?.ownerColumn && !columns.includes(input.ownerColumn)) {
       throw new Error(
@@ -483,7 +489,7 @@ export function sanitizeWriteBody(
 export type AuthSessionResolver = {
   api: {
     getSession: (opts: { headers: Headers }) => Promise<{
-      user: { id: string; email: string; name?: string } | null
+      user: { id: string; email: string; name?: string; role?: string } | null
       session?: { activeOrganizationId?: string | null } | null
     } | null>
   }
@@ -500,6 +506,7 @@ export async function resolveAccessUser(
     id: session.user.id,
     email: session.user.email,
     name: session.user.name,
+    role: session.user.role,
   }
 }
 
@@ -515,6 +522,7 @@ export async function resolveSession(
       id: session.user.id,
       email: session.user.email,
       name: session.user.name,
+      role: session.user.role,
     },
     activeOrganizationId: session.session?.activeOrganizationId ?? null,
   }
