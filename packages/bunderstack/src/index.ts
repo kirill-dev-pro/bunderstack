@@ -58,7 +58,7 @@ import {
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
 import { deleteFileWithDerivatives } from './storage/delete'
-import { deleteFileMetaRow } from './storage/file-meta'
+import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
 import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
@@ -115,6 +115,17 @@ export interface StorageFacade {
     key: string,
     opts?: { bucket?: string; expiresIn?: number },
   ): Promise<string>
+  /**
+   * Upload bytes as a ready file and register it in file_meta so it is
+   * accessible via `GET /api/files/<key>`. Use this for server-generated
+   * files (e.g. generated PDFs) that are not uploaded by end-users.
+   */
+  upload(
+    key: string,
+    body: ArrayBuffer | Uint8Array,
+    contentType: string,
+    opts?: { ownerId?: string; filename?: string },
+  ): Promise<void>
 }
 
 export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
@@ -486,6 +497,23 @@ export async function createBunderstack<
           })
         }
         return `/api/files/${key}`
+      },
+      async upload(key, body, contentType, opts = {}) {
+        const bucketName = key.split('/')[0] ?? ''
+        const adapter = registry.get(bucketName)?.adapter
+        if (!adapter) throw new Error(`Unknown bucket: ${bucketName}`)
+        const u8 = body instanceof Uint8Array ? body : new Uint8Array(body)
+        const buf: ArrayBuffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
+        await adapter.upload(key, buf, contentType)
+        await insertReadyFile(db, {
+          fileId: key,
+          bucket: bucketName,
+          ownerId: opts.ownerId ?? null,
+          scopeJson: null,
+          filename: opts.filename ?? key.split('/').at(-1) ?? null,
+          contentType,
+          size: buf.byteLength,
+        })
       },
     }
     const jobRunner = jobsDefs

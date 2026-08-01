@@ -371,14 +371,16 @@ export function buildBucketStorageRouter(
     return c.json({ fileId, url }, 200)
   })
 
-  // ─── GET /:bucket/:id ─────────────────────────────────────────────────────
-  router.get('/:bucket/:id', async (c) => {
+  // ─── GET /:bucket/* ──────────────────────────────────────────────────────
+  // NOTE: wildcard captures nested paths like `adaptations/uuid/resume.pdf`.
+  router.get('/:bucket/*', async (c) => {
     const bucketName = c.req.param('bucket')
     const entry = registry.get(bucketName)
     if (!entry) return apiError(c, ErrorCode.NOT_FOUND, 'Unknown bucket', 404)
     const { bucket, adapter } = entry
 
-    const id = c.req.param('id')
+    const mountPrefix = c.req.routePath.replace(/\/:[^\/]+\/\*$/, '')
+    const id = c.req.path.slice(`${mountPrefix}/${bucketName}/`.length)
     const fileId = `${bucketName}/${id}`
 
     const row = await getFileMeta(db, fileId)
@@ -467,14 +469,15 @@ export function buildBucketStorageRouter(
     return new Response(res.body, { status: res.status, headers })
   })
 
-  // ─── DELETE /:bucket/:id ──────────────────────────────────────────────────
-  router.delete('/:bucket/:id', async (c) => {
+  // ─── DELETE /:bucket/* ─────────────────────────────────────────────────
+  router.delete('/:bucket/*', async (c) => {
     const bucketName = c.req.param('bucket')
     const entry = registry.get(bucketName)
     if (!entry) return apiError(c, ErrorCode.NOT_FOUND, 'Unknown bucket', 404)
     const { bucket, adapter } = entry
 
-    const id = c.req.param('id')
+    const mountPrefix = c.req.routePath.replace(/\/:[^/]+\/\*$/, '')
+    const id = c.req.path.slice(`${mountPrefix}/${bucketName}/`.length)
     const fileId = `${bucketName}/${id}`
 
     const row = await getFileMeta(db, fileId)
