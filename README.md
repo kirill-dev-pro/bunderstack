@@ -549,8 +549,8 @@ queue handlers never publish realtime events, acknowledge the process-local
 behavior with `app.runWorker({ allowProcessLocalRealtime: true })`.
 
 Inspect the active runtime with `app.realtime.transport` (`'disabled'`,
-`'memory'`, or `'redis'`). Deploy tooling can read the configured transport
-from `app.manifest.realtimeTransport`.
+`'memory'`, or `'redis'`). The committed deployment blueprint records whether
+realtime is required; the host selects and injects its shared transport.
 
 For embedded development, use a closeable handle instead:
 
@@ -572,10 +572,26 @@ Production cron delivery is mounted at
 `POST /api/_bunderstack/cron/:name`; storage maintenance is at
 `POST /api/_bunderstack/maintenance/storage-sweep`. Production requires
 `BUNDERSTACK_CRON_SECRET`; the platform signs each task name and UTC minute
-slot. Do not expose or call these endpoints from browser code. Bunderhost
-reads `app.manifest.background`: queue jobs cause a separate always-on worker
-deployment, while cron-only applications remain web-only and can still scale to
-zero between requests.
+slot. Do not expose or call these endpoints from browser code. Bunderhost reads
+the committed `bunderstack.blueprint.yaml`: queue jobs cause a separate
+always-on worker deployment, while cron-only applications remain web-only and
+can still scale to zero between requests.
+
+### Deployment blueprint
+
+TanStack Start projects can commit a complete, provider-neutral declaration for
+deployment tooling:
+
+```sh
+bunx bunderstack blueprint
+bunx bunderstack blueprint --check
+```
+
+It safely imports `src/bunderstack.ts` (or `package.json#bunderstack.entry`) in
+offline introspection mode and writes `bunderstack.blueprint.yaml`. The file
+declares database tables and migration mode, storage, environment requirements,
+realtime, jobs, cron, and maintenance schedules. Run the `--check` command in
+CI to prevent stale declarations from reaching a host.
 
 ---
 

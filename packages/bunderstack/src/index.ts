@@ -541,6 +541,9 @@ export async function createBunderstack<
     const startWorker = async (
       options: AppStartWorkerOptions = {},
     ): Promise<WorkerHandle> => {
+      if (introspect) {
+        return { closed: Promise.resolve(), close: async () => {} }
+      }
       if (!jobRunner) {
         throw new Error('[bunderstack] no queue jobs configured')
       }
@@ -562,6 +565,9 @@ export async function createBunderstack<
     const startCronScheduler = async (
       options: AppStartCronSchedulerOptions = {},
     ): Promise<LocalCronScheduler> => {
+      if (introspect) {
+        return { tick: async () => {}, close: async () => {} }
+      }
       const cron = Object.entries(jobsDefs ?? {}).flatMap(
         ([name, definition]) =>
           definition.kind === 'cron'
@@ -601,6 +607,7 @@ export async function createBunderstack<
     const runWorker = async (
       options: AppRunWorkerOptions = {},
     ): Promise<void> => {
+      if (introspect) return
       if (
         realtime.transport === 'memory' &&
         !options.allowProcessLocalRealtime
@@ -698,10 +705,11 @@ export async function createBunderstack<
       manifest: buildManifest({
         schema: options.schema,
         dialect,
+        migrationsDirectory: config.database.migrations,
         storage: config.storage,
         envConfig: options.env as EnvConfigInput | undefined,
+        emailProvider: emailProviderTag(options.email),
         realtime: Boolean(config.realtime),
-        realtimeTransport: configuredRealtimeTransport,
         jobs: jobsDefs,
       }),
     }
@@ -742,7 +750,7 @@ export type {
 } from './config'
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
-export { buildManifest } from './manifest'
+export { buildManifest, parseManifest } from './manifest'
 export type { BunderstackManifest, ManifestEnvVar } from './manifest'
 export { createEmail } from './email'
 export type {

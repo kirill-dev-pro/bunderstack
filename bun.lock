@@ -227,9 +227,10 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.10.0",
+      "version": "0.13.0",
       "dependencies": {
         "superjson": "^2.2.0",
+        "yaml": "^2.9.0",
       },
       "devDependencies": {
         "@electric-sql/pglite": ">=0.3.0",
@@ -266,7 +267,7 @@
     },
     "packages/bunderstack-query": {
       "name": "bunderstack-query",
-      "version": "0.10.0",
+      "version": "0.13.0",
       "devDependencies": {
         "@tanstack/query-core": "^5.101.1",
         "@tanstack/react-query": "^5.101.1",
@@ -299,7 +300,7 @@
     },
     "packages/bunderstack-start": {
       "name": "bunderstack-start",
-      "version": "0.10.0",
+      "version": "0.13.0",
       "dependencies": {
         "bunderstack-sync": "workspace:*",
       },
@@ -323,7 +324,7 @@
     },
     "packages/bunderstack-sync": {
       "name": "bunderstack-sync",
-      "version": "0.10.0",
+      "version": "0.13.0",
       "dependencies": {
         "bunderstack-query": "workspace:*",
       },
@@ -1428,6 +1429,8 @@
     "xmlbuilder2": ["xmlbuilder2@4.0.3", "", { "dependencies": { "@oozcitak/dom": "^2.0.2", "@oozcitak/infra": "^2.0.2", "@oozcitak/util": "^10.0.0", "js-yaml": "^4.1.1" } }, "sha512-bx8Q1STctnNaaDymWnkfQLKofs0mGNN7rLLapJlGuV3VlvegD7Ls4ggMjE3aUSWItCCzU0PEv45lI87iSigiCA=="],
 
     "yallist": ["yallist@3.1.1", "", {}, "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g=="],
+
+    "yaml": ["yaml@2.9.0", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA=="],
 
     "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
 

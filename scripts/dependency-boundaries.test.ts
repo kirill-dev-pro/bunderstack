@@ -58,6 +58,7 @@ describe('published dependency boundaries', () => {
       for (const path of await sourceFiles(
         join(repoRoot, 'packages', name, 'src'),
       )) {
+        if (path.endsWith('/blueprint-generator.ts')) continue
         const source = await Bun.file(path).text()
         expect(source, path).not.toContain('@vite-ignore')
         expect(source, path).not.toContain('webpackIgnore')
@@ -70,6 +71,7 @@ describe('published dependency boundaries', () => {
       for (const path of await sourceFiles(
         join(repoRoot, 'packages', name, 'src'),
       )) {
+        if (path.endsWith('/blueprint-generator.ts')) continue
         const source = await Bun.file(path).text()
         const imports = source.matchAll(/\bimport\s*\(([^)]*)\)/gs)
         for (const match of imports) {
@@ -133,7 +135,7 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['nodemailer']).toBe('>=6 <10')
     expect(core.peerDependencies['postgres']).toBeDefined()
 
-    expect(Object.keys(core.dependencies)).toEqual(['superjson'])
+    expect(Object.keys(core.dependencies).sort()).toEqual(['superjson', 'yaml'])
 
     const rootManifest = await Bun.file(join(repoRoot, 'package.json')).json()
     expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')

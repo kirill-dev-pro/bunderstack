@@ -2,92 +2,36 @@ import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
-import { buildManifest } from './manifest'
+import { buildManifest, parseManifest } from './manifest'
+import { bunderstackJobs } from './internal-tables'
 import { resolveBuckets } from './storage/buckets'
 
-const posts = sqliteTable('app_posts', {
-  id: text('id').primaryKey(),
-})
-const schema = { posts }
+const posts = sqliteTable('app_posts', { id: text('id').primaryKey() })
+const accounts = sqliteTable('app_accounts', { id: text('id').primaryKey() })
+const schema = { posts, accounts }
 
-test('buildManifest describes tables, buckets, env requirements', () => {
-  const storage = resolveBuckets(
-    {
-      local: './uploads',
-      defaultBucket: 'attachments',
-      buckets: {
-        avatars: { visibility: 'public' },
-        attachments: {},
-      },
-    },
-    {},
-  )
-  const manifest = buildManifest({
+function makeManifest() {
+  return buildManifest({
     schema,
     dialect: 'sqlite',
-    storage,
+    migrationsDirectory: './migrations',
+    storage: resolveBuckets(
+      {
+        local: './uploads',
+        defaultBucket: 'attachments',
+        buckets: {
+          avatars: { visibility: 'public' },
+          attachments: {},
+        },
+      },
+      {},
+    ),
     envConfig: {
       server: { STRIPE_KEY: z.string(), LOG_LEVEL: z.string().optional() },
       client: { PUBLIC_APP_NAME: z.string() },
     },
+    emailProvider: 'resend',
     realtime: true,
-    realtimeTransport: 'redis',
-    jobs: undefined,
-  })
-
-  expect(manifest.dialect).toBe('sqlite')
-  expect(manifest.tables).toEqual(['posts'])
-  expect(manifest.version).toBe(2)
-  expect(manifest.tableMap).toEqual({ posts: 'app_posts' })
-  expect(manifest.systemTables).toEqual({
-    jobs: '_bunderstack_jobs',
-    files: 'bunderstack_file_meta',
-    scheduledRuns: '_bunderstack_cron_runs',
-  })
-  expect(manifest.defaultBucket).toBe('attachments')
-  expect(manifest.buckets).toEqual([
-    { name: 'avatars', visibility: 'public' },
-    { name: 'attachments', visibility: 'private' },
-  ])
-  expect(manifest.realtime).toBe(true)
-  expect(manifest.realtimeTransport).toBe('redis')
-  expect(manifest.env.server).toEqual([
-    { key: 'STRIPE_KEY', required: true },
-    { key: 'LOG_LEVEL', required: false },
-  ])
-  expect(manifest.env.client).toEqual([
-    { key: 'PUBLIC_APP_NAME', required: true },
-  ])
-})
-
-test('buildManifest handles the zero-config app', () => {
-  const manifest = buildManifest({
-    schema,
-    dialect: 'sqlite',
-    storage: resolveBuckets(undefined, {}),
-    envConfig: undefined,
-    realtime: false,
-    realtimeTransport: 'disabled',
-    jobs: undefined,
-  })
-  expect(manifest.buckets).toEqual([{ name: 'default', visibility: 'private' }])
-  expect(manifest.realtimeTransport).toBe('disabled')
-  expect(manifest.env).toEqual({ server: [], client: [] })
-  expect(manifest.background).toEqual({
-    jobs: [],
-    cron: [],
-    maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *' }],
-  })
-})
-
-test('manifest separates queue jobs from cron schedules', () => {
-  const manifest = buildManifest({
-    schema,
-    dialect: 'sqlite',
-    storage: resolveBuckets(undefined, {}),
-    envConfig: undefined,
-    realtime: false,
-    realtimeTransport: 'disabled',
     jobs: {
       generateLook: { kind: 'job', handler: async () => {} },
       nightly: {
@@ -97,23 +41,100 @@ test('manifest separates queue jobs from cron schedules', () => {
       },
     },
   })
-  expect(manifest.background).toEqual({
-    jobs: [{ name: 'generateLook' }],
-    cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
-    maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *' }],
+}
+
+test('buildManifest describes deployment requirements deterministically', () => {
+  expect(makeManifest()).toEqual({
+    version: 3,
+    database: {
+      dialect: 'sqlite',
+      migrationsDirectory: './migrations',
+      tables: [
+        { exportName: '_system.scheduledRuns', physicalName: '_bunderstack_cron_runs', system: true },
+        { exportName: '_system.idempotency', physicalName: '_bunderstack_idempotency', system: true },
+        { exportName: '_system.jobs', physicalName: '_bunderstack_jobs', system: true },
+        { exportName: 'accounts', physicalName: 'app_accounts', system: false },
+        { exportName: 'posts', physicalName: 'app_posts', system: false },
+        { exportName: '_system.files', physicalName: 'bunderstack_file_meta', system: true },
+      ],
+    },
+    storage: {
+      defaultBucket: 'attachments',
+      buckets: [
+        { name: 'attachments', visibility: 'private' },
+        { name: 'avatars', visibility: 'public' },
+      ],
+    },
+    realtime: { required: true },
+    environment: [
+      { key: 'LOG_LEVEL', required: false, scope: 'server' },
+      { key: 'PUBLIC_APP_NAME', required: true, scope: 'client' },
+      { key: 'RESEND_API_KEY', required: true, scope: 'server' },
+      { key: 'STRIPE_KEY', required: true, scope: 'server' },
+    ],
+    background: {
+      jobs: [{ name: 'generateLook' }],
+      cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
+      maintenance: [
+        { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+      ],
+    },
   })
 })
 
-test('manifest background is empty except maintenance when no jobs are configured', () => {
+test('parseManifest rejects unsupported versions and invalid declarations', () => {
+  const manifest = makeManifest()
+  expect(parseManifest(manifest)).toEqual(manifest)
+  expect(() => parseManifest({ ...manifest, version: 2 })).toThrow(/version/)
+  expect(() =>
+    parseManifest({
+      ...manifest,
+      database: { ...manifest.database, migrationsDirectory: '../migrations' },
+    }),
+  ).toThrow(/migrationsDirectory/)
+  expect(() =>
+    parseManifest({
+      ...manifest,
+      environment: [...manifest.environment, manifest.environment[0]!],
+    }),
+  ).toThrow(/duplicate environment key/)
+})
+
+test('buildManifest handles zero-config apps', () => {
   const manifest = buildManifest({
-    schema,
+    schema: { posts },
     dialect: 'sqlite',
+    migrationsDirectory: './migrations',
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
+    emailProvider: undefined,
     realtime: false,
-    realtimeTransport: 'disabled',
     jobs: undefined,
   })
-  expect(manifest.background.jobs).toEqual([])
-  expect(manifest.background.cron).toEqual([])
+  expect(manifest.storage).toEqual({
+    defaultBucket: 'default',
+    buckets: [{ name: 'default', visibility: 'private' }],
+  })
+  expect(manifest.environment).toEqual([])
+  expect(manifest.background).toEqual({
+    jobs: [],
+    cron: [],
+    maintenance: [
+      { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+    ],
+  })
+})
+
+test('buildManifest does not duplicate system tables re-exported by an app schema', () => {
+  const manifest = buildManifest({
+    schema: { posts, bunderstackJobs },
+    dialect: 'sqlite',
+    migrationsDirectory: './migrations',
+    storage: resolveBuckets(undefined, {}),
+    envConfig: undefined,
+    emailProvider: undefined,
+    realtime: false,
+    jobs: undefined,
+  })
+  expect(manifest.database.tables.filter((table) => table.physicalName === '_bunderstack_jobs')).toHaveLength(1)
 })

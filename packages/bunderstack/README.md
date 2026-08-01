@@ -52,19 +52,24 @@ through env vars alone — no code changes required.
 Plain `DATABASE_URL` / `S3_*` vars keep their usual role: fallbacks that
 code-level config wins over.
 
-### Introspection
+### Committed deployment blueprint
 
-Set `BUNDERSTACK_INTROSPECT=1` and import the app declaration: the boot is
-guaranteed offline (the selected adapter returns its `drizzle.mock({ schema })`
-database, no Redis) and missing user env vars don't throw. Then read
-`app.manifest`:
+Generate a deterministic, provider-neutral declaration that a host can read
+without importing the application at deploy time. Version 1 supports TanStack
+Start apps and records database tables and migration mode, storage buckets,
+environment requirements, realtime, jobs, cron, and maintenance schedules.
 
-```ts
-process.env.BUNDERSTACK_INTROSPECT = '1'
-const { app } = await import('./src/bunderstack')
-console.log(JSON.stringify(app.manifest))
-// { version: 2, dialect, tables, tableMap, systemTables, background, ... }
+```sh
+bunx bunderstack blueprint
+bunx bunderstack blueprint --check
 ```
+
+The command imports `src/bunderstack.ts` by default (or
+`package.json#bunderstack.entry`) with `BUNDERSTACK_INTROSPECT=1`, so it never
+opens external database, storage, or realtime connections. Commit the generated
+`bunderstack.blueprint.yaml`; CI should run the `--check` form. The public
+`bunderstack/blueprint` module exposes the strict parser and conversion helpers
+for hosts and other tooling.
 
 Real database clients belong to the app. Call `await app.close()` when a
 standalone process or test is finished; it closes the real libSQL, PGlite,
@@ -93,8 +98,9 @@ queue handlers never publish realtime events, acknowledge the process-local
 behavior with `app.runWorker({ allowProcessLocalRealtime: true })`.
 
 Inspect the active runtime with `app.realtime.transport` (`'disabled'`,
-`'memory'`, or `'redis'`). Deploy tooling can read the configured transport
-from `app.manifest.realtimeTransport`.
+`'memory'`, or `'redis'`). The generated blueprint declares only whether
+realtime is required; the host chooses its shared transport and injects its
+runtime configuration.
 
 ```ts
 const app = await createBunderstack({
