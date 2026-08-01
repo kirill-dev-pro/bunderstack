@@ -230,9 +230,9 @@ storageOptions: {
 
 **Routes:**
 
-- `POST /api/files` — multipart upload, field name `file`. Returns `{ fileId, url }`.
-- `GET /api/files/:id` — serve the file
-- `DELETE /api/files/:id` — delete
+- `POST /api/files/:bucket` — multipart upload, field name `file`. Returns `{ fileId, url }`.
+- `GET /api/files/:bucket/*` — serve the file (supports nested paths like `adaptations/123/resume.pdf`)
+- `DELETE /api/files/:bucket/*` — delete
 
 ### Programmatic URLs (`app.storage.getUrl`)
 
@@ -240,6 +240,17 @@ Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs 
 
 ```ts
 const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
+```
+
+### Server-side uploads (`app.storage.upload`)
+
+Use `app.storage.upload` (or `ctx.storage.upload`) to upload server-generated files (e.g. generated PDFs) and automatically register them in file metadata:
+
+```ts
+await app.storage.upload('adaptations/123/resume.pdf', pdfBytes, 'application/pdf', {
+  filename: 'resume.pdf',
+  ownerId: user.id,
+})
 ```
 
 ### Image transforms

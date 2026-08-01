@@ -788,3 +788,28 @@ test('confirm: never-uploaded → 404', async () => {
   })
   expect(conf.status).toBe(404)
 })
+
+test('GET supports nested multi-segment keys like adaptations/123/resume.pdf', async () => {
+  const reg: BucketStorageRegistry = new Map([
+    ['adaptations', localBucket('adaptations', local)],
+  ])
+  await makeApp(reg)
+  const key = 'adaptations/123/resume.pdf'
+  await local.upload(key, new TextEncoder().encode('PDF_CONTENT').buffer, 'application/pdf')
+  const { insertReadyFile } = await import('./file-meta')
+  await insertReadyFile(db, {
+    fileId: key,
+    bucket: 'adaptations',
+    ownerId: 'u1',
+    scopeJson: null,
+    filename: 'resume.pdf',
+    contentType: 'application/pdf',
+    size: 11,
+  })
+
+  const get = await app.request('/api/files/adaptations/123/resume.pdf', {
+    headers: { 'x-test-user': 'u1' },
+  })
+  expect(get.status).toBe(200)
+  expect(await get.text()).toBe('PDF_CONTENT')
+})
