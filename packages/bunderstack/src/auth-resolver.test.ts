@@ -34,7 +34,7 @@ test('preserves an application role from the authenticated user', async () => {
 
   const result = await resolver.api.getSession({ headers: new Headers() })
 
-  expect(result?.user.role).toBe('admin')
+  expect(result?.user?.role).toBe('admin')
 })
 
 test('passes an application role into Bunderstack access context', async () => {

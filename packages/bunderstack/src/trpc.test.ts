@@ -26,6 +26,12 @@ function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
     email: fakeEmail,
     jobs: { enqueue: async () => ({ id: '' }), tick: async () => {} },
     realtime: createRealtimeFacade<Schema>(),
+    storage: {
+      delete: async () => {},
+      bucket: () => undefined,
+      sweep: async () => 0,
+      getUrl: async () => '',
+    },
     req: new Request('http://test/'),
   }
 }

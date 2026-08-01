@@ -7,6 +7,7 @@ import type { DbFor } from './db'
 import type { EmailFacade } from './email'
 import type { JobsRuntimeFacade } from './jobs/index'
 import type { RealtimeFacade } from './realtime/facade'
+import type { StorageFacade } from './index'
 
 export type TRPCContext<
   TSchema extends Record<string, unknown>,
@@ -18,6 +19,7 @@ export type TRPCContext<
   email: EmailFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
+  storage: StorageFacade
   req: Request
 }
 
