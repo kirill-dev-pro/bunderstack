@@ -227,7 +227,10 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.13.0",
+      "version": "0.14.0",
+      "bin": {
+        "bunderstack": "./src/cli.ts",
+      },
       "dependencies": {
         "superjson": "^2.2.0",
         "yaml": "^2.9.0",
