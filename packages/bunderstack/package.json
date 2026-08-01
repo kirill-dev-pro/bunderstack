@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
   "keywords": [
     "backend",
@@ -20,6 +20,9 @@
     "url": "git+https://github.com/kirill-dev-pro/bunderstack.git",
     "directory": "packages/bunderstack"
   },
+  "bin": {
+    "bunderstack": "./src/cli.ts"
+  },
   "files": [
     "src",
     "!src/**/*.test.ts",
@@ -30,9 +33,6 @@
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
-  "bin": {
-    "bunderstack": "./src/cli.ts"
-  },
   "exports": {
     ".": "./src/index.ts",
     "./access": "./src/access.ts",

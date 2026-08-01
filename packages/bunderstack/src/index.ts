@@ -407,6 +407,7 @@ export async function createBunderstack<
       ? redisUrl
         ? createRedisRealtimeBroker({
             access: resolvedAccess,
+            channel: process.env.BUNDERSTACK_REALTIME_CHANNEL || undefined,
             redis: () => {
               // Redis pub/sub requires a dedicated connection (subscribe puts the client into
               // a restricted state). We use one client for commands and a second for subscribe.
@@ -487,9 +488,7 @@ export async function createBunderstack<
       },
       async getUrl(key, opts = {}) {
         const bucketName =
-          opts.bucket ??
-          key.split('/')[0] ??
-          config.storage.defaultBucket
+          opts.bucket ?? key.split('/')[0] ?? config.storage.defaultBucket
         const adapter = registry.get(bucketName)?.adapter
         if (adapter?.presignGet) {
           return adapter.presignGet(key, {
@@ -503,7 +502,10 @@ export async function createBunderstack<
         const adapter = registry.get(bucketName)?.adapter
         if (!adapter) throw new Error(`Unknown bucket: ${bucketName}`)
         const u8 = body instanceof Uint8Array ? body : new Uint8Array(body)
-        const buf: ArrayBuffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
+        const buf: ArrayBuffer = u8.buffer.slice(
+          u8.byteOffset,
+          u8.byteOffset + u8.byteLength,
+        ) as ArrayBuffer
         await adapter.upload(key, buf, contentType)
         await insertReadyFile(db, {
           fileId: key,

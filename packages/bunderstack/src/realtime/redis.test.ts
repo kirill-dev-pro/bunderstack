@@ -19,8 +19,12 @@ const access = validateAndResolveAccess(
       update: 'authenticated',
       delete: 'authenticated',
       scope: {
-        read: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
-        write: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+        read: (c) => ({
+          organizationId: c.session?.activeOrganizationId ?? '',
+        }),
+        write: (c) => ({
+          organizationId: c.session?.activeOrganizationId ?? '',
+        }),
       },
     },
   },
@@ -228,5 +232,84 @@ describe('redis realtime broker', () => {
 
     await workerBroker.close()
     await webBroker.close()
+  })
+
+  it('isolates pub/sub messages, replay logs, and sequence counters when channel namespaces differ', async () => {
+    const redis = makeFakeRedis()
+    const brokerEnv1 = createRedisRealtimeBroker({
+      access,
+      redis,
+      channel: 'bunderstack:env_1',
+    })
+    const brokerEnv2 = createRedisRealtimeBroker({
+      access,
+      redis,
+      channel: 'bunderstack:env_2',
+    })
+
+    await brokerEnv1.start()
+    await brokerEnv2.start()
+
+    const sub1 = sub(brokerEnv1, 'org_1', ['boards'])
+    const sub2 = sub(brokerEnv2, 'org_1', ['boards'])
+
+    // Publish to env_1
+    await brokerEnv1.publish('boards', 'create', {
+      id: 'b1',
+      organizationId: 'org_1',
+      title: 'Env 1 board',
+    })
+
+    // Publish to env_2
+    await brokerEnv2.publish('boards', 'create', {
+      id: 'b2',
+      organizationId: 'org_1',
+      title: 'Env 2 board',
+    })
+
+    // sub1 receives only env_1 message with eventId 1
+    expect(sub1.received).toEqual([
+      {
+        eventId: 1,
+        action: 'create',
+        table: 'boards',
+        record: { id: 'b1', organizationId: 'org_1', title: 'Env 1 board' },
+      },
+    ])
+
+    // sub2 receives only env_2 message with eventId 1 (independent sequence counter)
+    expect(sub2.received).toEqual([
+      {
+        eventId: 1,
+        action: 'create',
+        table: 'boards',
+        record: { id: 'b2', organizationId: 'org_1', title: 'Env 2 board' },
+      },
+    ])
+
+    // Replay log check for env_1
+    const sub1Replay = sub(brokerEnv1, 'org_1', ['boards'])
+    const res1 = await brokerEnv1.setContext(sub1Replay.id, {
+      user: { id: 'u_1', email: 'a@b.c' },
+      activeOrganizationId: 'org_1',
+      subscriptions: new Set(['boards']),
+      since: 0,
+    })
+    expect(res1.gap).toBe(false)
+    expect(sub1Replay.received.map((e) => e.record['id'])).toEqual(['b1'])
+
+    // Replay log check for env_2
+    const sub2Replay = sub(brokerEnv2, 'org_1', ['boards'])
+    const res2 = await brokerEnv2.setContext(sub2Replay.id, {
+      user: { id: 'u_1', email: 'a@b.c' },
+      activeOrganizationId: 'org_1',
+      subscriptions: new Set(['boards']),
+      since: 0,
+    })
+    expect(res2.gap).toBe(false)
+    expect(sub2Replay.received.map((e) => e.record['id'])).toEqual(['b2'])
+
+    await brokerEnv1.close()
+    await brokerEnv2.close()
   })
 })
