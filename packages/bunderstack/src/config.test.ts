@@ -4,7 +4,11 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import type { DatabaseAdapter } from './database/adapter'
 
-import { resolveConfig, type BunderstackConfig } from './config'
+import {
+  resolveConfig,
+  resolveRealtimeRedisUrl,
+  type BunderstackConfig,
+} from './config'
 import { validateEnv } from './env'
 
 const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
@@ -158,4 +162,41 @@ test('without platform vars, code-level database config still wins over env', ()
     {},
   )
   expect(cfg.database.url).toBe('file:./hardcoded.db')
+})
+
+test('resolveRealtimeRedisUrl precedence: platformSource > env > code config > undefined', () => {
+  const codeRealtime = { redis: 'redis://code-level' }
+  const envWithRedis = validateEnv(undefined, {
+    source: { REDIS_URL: 'redis://env-level' },
+  })
+
+  // 1. platformSource.REDIS_URL beats everything
+  expect(
+    resolveRealtimeRedisUrl(codeRealtime, envWithRedis, {
+      REDIS_URL: 'redis://platform-level',
+    }),
+  ).toBe('redis://platform-level')
+
+  // 2. env.REDIS_URL beats code-level realtime.redis when platformSource is empty
+  expect(resolveRealtimeRedisUrl(codeRealtime, envWithRedis, {})).toBe(
+    'redis://env-level',
+  )
+
+  // 3. realtime.redis used when neither platformSource nor env has REDIS_URL
+  expect(resolveRealtimeRedisUrl(codeRealtime, undefined, {})).toBe(
+    'redis://code-level',
+  )
+
+  // 4. undefined when no REDIS_URL or realtime.redis exists
+  expect(resolveRealtimeRedisUrl(undefined, undefined, {})).toBe(undefined)
+})
+
+test('Bunderhost-injected REDIS_URL overrides hardcoded application Redis URL', () => {
+  const codeRealtime = { redis: { url: 'redis://app-hardcoded:6379' } }
+
+  const resolved = resolveRealtimeRedisUrl(codeRealtime, undefined, {
+    REDIS_URL: 'redis://bunderhost-injected:6379',
+  })
+
+  expect(resolved).toBe('redis://bunderhost-injected:6379')
 })

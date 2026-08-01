@@ -197,12 +197,23 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
 export function resolveRealtimeRedisUrl(
   realtime: ResolvedConfig['realtime'],
   env?: BaseEnv,
+  platformSource: Record<string, string | undefined> = process.env as Record<
+    string,
+    string | undefined
+  >,
 ): string | undefined {
+  const platformRedis = platformSource['REDIS_URL']
+  if (platformRedis) return platformRedis
+
+  const envRedis = env?.REDIS_URL
+  if (envRedis) return envRedis
+
   const fromConfig =
     typeof realtime === 'object' && realtime.redis
       ? typeof realtime.redis === 'string'
         ? realtime.redis
         : realtime.redis.url
       : undefined
-  return fromConfig ?? env?.REDIS_URL ?? process.env.REDIS_URL ?? undefined
+
+  return fromConfig ?? undefined
 }
