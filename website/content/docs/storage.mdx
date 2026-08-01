@@ -70,3 +70,19 @@ Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs 
 // Programmatically get download URL for a file key
 const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
 ```
+
+## Server-side uploads (`app.storage.upload`)
+
+Use `app.storage.upload` (or `ctx.storage.upload` in background jobs and tRPC procedures) to upload server-generated files (e.g. generated PDFs or exported reports). It uploads the bytes to storage and automatically registers a `file_meta` record so the file can be retrieved via `GET /api/files/<key>`:
+
+```ts
+await app.storage.upload(
+  'adaptations/123/resume.pdf',
+  pdfBytes,
+  'application/pdf',
+  { filename: 'resume.pdf', ownerId: user.id },
+)
+```
+
+Nested keys (like `adaptations/123/resume.pdf`) are fully supported by `GET /api/files/:bucket/*` and `DELETE /api/files/:bucket/*`.
+

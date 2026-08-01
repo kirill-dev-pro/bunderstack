@@ -31,6 +31,7 @@ function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
       bucket: () => undefined,
       sweep: async () => 0,
       getUrl: async () => '',
+      upload: async () => {},
     },
     req: new Request('http://test/'),
   }
