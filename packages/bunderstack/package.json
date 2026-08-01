@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
   "keywords": [
     "backend",
@@ -30,6 +30,9 @@
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
+  "bin": {
+    "bunderstack": "./src/cli.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./access": "./src/access.ts",
@@ -43,6 +46,7 @@
     "./typeid": "./src/typeid.ts",
     "./typeid/pg": "./src/typeid-pg.ts",
     "./env": "./src/env.ts",
+    "./blueprint": "./src/blueprint.ts",
     "./trpc": "./src/trpc.ts",
     "./cron": "./src/cron.ts",
     "./email/smtp": "./src/email/smtp.ts"
@@ -54,7 +58,8 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "superjson": "^2.2.0"
+    "superjson": "^2.2.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": ">=0.3.0",

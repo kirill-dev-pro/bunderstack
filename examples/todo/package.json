@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "bun --bun vite dev --port 3005",
     "worker": "bun src/worker.ts",
-    "build": "vite build"
+    "build": "vite build",
+    "start": "bun .output/server/index.mjs",
+    "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
+    "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

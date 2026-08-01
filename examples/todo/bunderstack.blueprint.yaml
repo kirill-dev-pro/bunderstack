@@ -1,0 +1,70 @@
+version: 1
+generator:
+  name: bunderstack
+  version: 0.14.0
+application:
+  framework: tanstack-start
+  scripts:
+    build: build
+    start: start
+    worker: worker
+bunderstack:
+  entry: src/bunderstack.ts
+  manifestVersion: 3
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: push
+    tables:
+      - exportName: _system.scheduledRuns
+        physicalName: _bunderstack_cron_runs
+        system: true
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: boards
+        physicalName: boards
+        system: false
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: todos
+        physicalName: todos
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+  storage:
+    defaultBucket: images
+    buckets:
+      - name: images
+        visibility: private
+  realtime:
+    required: true
+environment:
+  - key: NOTIFY_COMPLETED
+    required: false
+    scope: server
+  - key: PUBLIC_APP_NAME
+    required: false
+    scope: client
+background:
+  worker:
+    required: true
+  jobs:
+    - name: celebrateBoardComplete
+  cron:
+    - name: archiveDoneTodos
+      schedule: "* * * * *"
+      timezone: UTC
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC

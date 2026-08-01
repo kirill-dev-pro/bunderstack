@@ -157,14 +157,13 @@ test('app.manifest describes the declaration', async () => {
       buckets: { avatars: { visibility: 'public' } },
     },
   })
-  expect(app.manifest.dialect).toBe('sqlite')
-  expect(app.manifest.buckets).toEqual([
+  expect(app.manifest.database.dialect).toBe('sqlite')
+  expect(app.manifest.storage.buckets).toEqual([
     { name: 'avatars', visibility: 'public' },
   ])
-  expect(app.manifest.realtime).toBe(false)
-  expect(app.manifest.realtimeTransport).toBe('disabled')
-  expect(app.manifest.env.server).toEqual([
-    { key: 'WEBHOOK_SECRET', required: false },
+  expect(app.manifest.realtime).toEqual({ required: false })
+  expect(app.manifest.environment).toEqual([
+    { key: 'WEBHOOK_SECRET', required: false, scope: 'server' },
   ])
 })
 
@@ -192,7 +191,7 @@ test('server database introspection stays offline', async () => {
   }
 })
 
-test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports configured realtimeTransport', async () => {
+test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports realtime requirements', async () => {
   const previous = process.env.BUNDERSTACK_INTROSPECT
   const prevRedis = process.env.REDIS_URL
   process.env.BUNDERSTACK_INTROSPECT = '1'
@@ -204,11 +203,10 @@ test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports con
       env: { server: { STRIPE_KEY: z.string() } },
       realtime: true,
     })
-    expect(app.manifest.env.server).toEqual([
-      { key: 'STRIPE_KEY', required: true },
+    expect(app.manifest.environment).toEqual([
+      { key: 'STRIPE_KEY', required: true, scope: 'server' },
     ])
-    expect(app.manifest.realtime).toBe(true)
-    expect(app.manifest.realtimeTransport).toBe('memory')
+    expect(app.manifest.realtime).toEqual({ required: true })
   } finally {
     if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
     else process.env.BUNDERSTACK_INTROSPECT = previous

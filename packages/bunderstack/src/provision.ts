@@ -105,6 +105,8 @@ export async function provision(
   app: object,
   options?: { force?: boolean },
 ): Promise<void> {
+  if (process.env.BUNDERSTACK_INTROSPECT === '1') return
+
   const internals = (app as WithProvisionInternals)[PROVISION_INTERNALS]
   if (!internals) {
     throw new Error(
