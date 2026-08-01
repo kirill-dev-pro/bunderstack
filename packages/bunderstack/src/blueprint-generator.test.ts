@@ -1,12 +1,12 @@
 import { test, expect } from 'bun:test'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, realpath } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { BlueprintCheckError, generateBlueprint } from './blueprint-generator'
 
-const tempRoot = '/private/tmp'
-
 async function fixture(entry = 'src/bunderstack.ts', migrationsDirectory = './migrations') {
+  const tempRoot = await realpath(tmpdir())
   const directory = await mkdtemp(join(tempRoot, 'bunderstack-blueprint-'))
   const entryPath = join(directory, entry)
   await mkdir(join(entryPath, '..'), { recursive: true })
