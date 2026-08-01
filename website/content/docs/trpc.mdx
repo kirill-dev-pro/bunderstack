@@ -6,7 +6,7 @@ description: Pre-wired tRPC with superjson, protected procedures, and typed TanS
 # tRPC Endpoints
 
 Bunderstack ships with a pre-configured tRPC instance — superjson transformer,
-typed context (db, user, env, email), and a `protectedProcedure` that rejects
+typed context (db, user, env, email, jobs, realtime, storage), and a `protectedProcedure` that rejects
 unauthenticated callers. Mounted at `/api/trpc`.
 
 ## Quick start
@@ -66,13 +66,16 @@ trpc: myExternalRouter
 
 Every procedure receives:
 
-| Field   | Type                      | Description                 |
-| ------- | ------------------------- | --------------------------- |
-| `db`    | `LibSQLDatabase<TSchema>` | Your Drizzle database       |
-| `user`  | `AccessUser \| null`      | Current session, or null    |
-| `env`   | `ValidatedEnv<TEnv>`      | Typed, validated env vars   |
-| `email` | `EmailFacade`             | Send emails from procedures |
-| `req`   | `Request`                 | Raw incoming Request        |
+| Field      | Type                      | Description                                   |
+| ---------- | ------------------------- | --------------------------------------------- |
+| `db`       | `LibSQLDatabase<TSchema>` | Your Drizzle database                         |
+| `user`     | `AccessUser \| null`      | Current session, or null                      |
+| `env`      | `ValidatedEnv<TEnv>`      | Typed, validated env vars                     |
+| `email`    | `EmailFacade`             | Send emails from procedures                   |
+| `jobs`     | `JobsRuntimeFacade`       | Enqueue background jobs                       |
+| `realtime` | `RealtimeFacade<TSchema>` | Publish realtime messages                     |
+| `storage`  | `StorageFacade`           | Work with buckets and presigned URLs          |
+| `req`      | `Request`                 | Raw incoming Request                          |
 
 ## `t` API
 

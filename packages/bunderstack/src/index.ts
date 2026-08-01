@@ -478,7 +478,7 @@ export async function createBunderstack<
         const bucketName =
           opts.bucket ??
           key.split('/')[0] ??
-          registry.defaultBucketName
+          config.storage.defaultBucket
         const adapter = registry.get(bucketName)?.adapter
         if (adapter?.presignGet) {
           return adapter.presignGet(key, {
@@ -613,6 +613,7 @@ export async function createBunderstack<
               email,
               jobs,
               realtime,
+              storage,
               req,
             }),
           })
