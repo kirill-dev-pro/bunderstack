@@ -79,36 +79,53 @@ export async function runScheduledSlot(args: {
   }
 
   let heartbeatTimer: Timer | undefined
-  const stopHeartbeat = () => {
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer)
+  let heartbeatInFlight: Promise<void> | undefined
+  let heartbeatStopped = false
+
+  const scheduleHeartbeat = () => {
+    heartbeatTimer = setTimeout(() => {
       heartbeatTimer = undefined
-    }
+      if (heartbeatStopped) return
+
+      heartbeatInFlight = (async () => {
+        try {
+          const renewUntil = Date.now() + leaseMs
+          await db
+            .update(t)
+            .set({ lockedUntil: renewUntil })
+            .where(
+              and(
+                eq(t.taskId, taskId),
+                eq(t.scheduledAt, slot),
+                eq(t.status, 'running'),
+                eq(t.startedAt, now),
+              ),
+            )
+        } catch {
+          // Best effort renewal
+        }
+      })()
+
+      void heartbeatInFlight.finally(() => {
+        heartbeatInFlight = undefined
+        if (!heartbeatStopped) scheduleHeartbeat()
+      })
+    }, heartbeatIntervalMs)
   }
 
-  heartbeatTimer = setInterval(async () => {
-    try {
-      const renewUntil = Date.now() + leaseMs
-      await db
-        .update(t)
-        .set({ lockedUntil: renewUntil })
-        .where(
-          and(
-            eq(t.taskId, taskId),
-            eq(t.scheduledAt, slot),
-            eq(t.status, 'running'),
-            eq(t.startedAt, now),
-          ),
-        )
-    } catch {
-      // Best effort renewal
+  const stopHeartbeat = async () => {
+    heartbeatStopped = true
+    if (heartbeatTimer) {
+      clearTimeout(heartbeatTimer)
+      heartbeatTimer = undefined
     }
-  }, heartbeatIntervalMs)
+    await heartbeatInFlight
+  }
+
+  scheduleHeartbeat()
 
   try {
     await run(new Date(slot))
-
-    stopHeartbeat()
 
     const updated = await db
       .update(t)
@@ -131,8 +148,6 @@ export async function runScheduledSlot(args: {
 
     return { status: 'succeeded' }
   } catch (error) {
-    stopHeartbeat()
-
     const message = error instanceof Error ? error.message : String(error)
     await db
       .update(t)
@@ -152,7 +167,7 @@ export async function runScheduledSlot(args: {
       )
     throw error
   } finally {
-    stopHeartbeat()
+    await stopHeartbeat()
   }
 }
 
