@@ -43,6 +43,7 @@ function wrapUpdateQuery(
   query: object,
   values: Record<string, unknown>,
   beforeExecute: (values: Record<string, unknown>) => Promise<void> | void,
+  afterExecute: (values: Record<string, unknown>) => Promise<void> | void,
 ): object {
   return new Proxy(query, {
     get(target, property) {
@@ -54,13 +55,22 @@ function wrapUpdateQuery(
           Promise.resolve()
             .then(() => beforeExecute(values))
             .then(() => target)
+            .then(async (result) => {
+              await afterExecute(values)
+              return result
+            })
             .then(onFulfilled, onRejected)
       }
 
       const value = Reflect.get(target, property, target)
       if (typeof value !== 'function') return value
       return (...args: unknown[]) =>
-        wrapUpdateQuery(value.apply(target, args), values, beforeExecute)
+        wrapUpdateQuery(
+          value.apply(target, args),
+          values,
+          beforeExecute,
+          afterExecute,
+        )
     },
   })
 }
@@ -68,6 +78,9 @@ function wrapUpdateQuery(
 function instrumentUpdates(
   realDb: AnyDb,
   beforeExecute: (values: Record<string, unknown>) => Promise<void> | void,
+  afterExecute: (
+    values: Record<string, unknown>,
+  ) => Promise<void> | void = () => {},
 ): AnyDb {
   return new Proxy(realDb, {
     get(target, property) {
@@ -82,6 +95,7 @@ function instrumentUpdates(
                     updateTarget.set(values),
                     values,
                     beforeExecute,
+                    afterExecute,
                   )
               }
               const value = Reflect.get(
@@ -343,6 +357,209 @@ test('does not execute heartbeats after success or handler failure settles', asy
       expect(result).toEqual({ result: { status: 'succeeded' } })
     }
   }
+})
+
+test('same-millisecond reclaim fences delayed renewal and terminal writes by attempt', async () => {
+  const slot = Date.UTC(2026, 6, 18, 15, 34)
+  const now = Date.now()
+  const renewalStarted = deferred()
+  const releaseRenewal = deferred()
+  const renewalFinished = deferred()
+  const finishOldHandler = deferred()
+  const newHandlerStarted = deferred()
+  const finishNewHandler = deferred()
+  let heldRenewal = false
+  const oldAttemptDb = instrumentUpdates(
+    db as unknown as AnyDb,
+    async (values) => {
+      if (isRenewal(values) && !heldRenewal) {
+        heldRenewal = true
+        renewalStarted.resolve()
+        await releaseRenewal.promise
+      }
+    },
+    (values) => {
+      if (isRenewal(values) && heldRenewal) renewalFinished.resolve()
+    },
+  )
+
+  const oldAttempt = runScheduledSlot({
+    db: oldAttemptDb,
+    taskId: 'cron:same-millisecond-owner',
+    schedule: '* * * * *',
+    slot,
+    now,
+    leaseMs: 100,
+    heartbeatIntervalMs: 20,
+    run: () => finishOldHandler.promise,
+  }).then(
+    (result) => ({ result }),
+    (error: unknown) => ({ error }),
+  )
+
+  await renewalStarted.promise
+  await db
+    .update(bunderstackCronRuns)
+    .set({ lockedUntil: now - 1 })
+    .where(
+      and(
+        eq(bunderstackCronRuns.taskId, 'cron:same-millisecond-owner'),
+        eq(bunderstackCronRuns.scheduledAt, slot),
+      ),
+    )
+
+  const newAttempt = runScheduledSlot({
+    db: db as unknown as AnyDb,
+    taskId: 'cron:same-millisecond-owner',
+    schedule: '* * * * *',
+    slot,
+    now,
+    leaseMs: 1_000,
+    heartbeatIntervalMs: 2_000,
+    run: async () => {
+      newHandlerStarted.resolve()
+      await finishNewHandler.promise
+    },
+  }).then(
+    (result) => ({ result }),
+    (error: unknown) => ({ error }),
+  )
+
+  await newHandlerStarted.promise
+  releaseRenewal.resolve()
+  await renewalFinished.promise
+  const afterLateRenewal = await db
+    .select({
+      attempts: bunderstackCronRuns.attempts,
+      lockedUntil: bunderstackCronRuns.lockedUntil,
+      status: bunderstackCronRuns.status,
+    })
+    .from(bunderstackCronRuns)
+    .where(
+      and(
+        eq(bunderstackCronRuns.taskId, 'cron:same-millisecond-owner'),
+        eq(bunderstackCronRuns.scheduledAt, slot),
+      ),
+    )
+
+  finishOldHandler.resolve()
+  const oldOutcome = await oldAttempt
+  const afterOldTerminal = await db
+    .select({
+      attempts: bunderstackCronRuns.attempts,
+      startedAt: bunderstackCronRuns.startedAt,
+      status: bunderstackCronRuns.status,
+    })
+    .from(bunderstackCronRuns)
+    .where(
+      and(
+        eq(bunderstackCronRuns.taskId, 'cron:same-millisecond-owner'),
+        eq(bunderstackCronRuns.scheduledAt, slot),
+      ),
+    )
+
+  finishNewHandler.resolve()
+  const newOutcome = await newAttempt
+
+  expect(afterLateRenewal).toEqual([
+    { attempts: 2, lockedUntil: now + 1_000, status: 'running' },
+  ])
+  expect(oldOutcome).toHaveProperty('error')
+  expect(afterOldTerminal).toEqual([
+    { attempts: 2, startedAt: now, status: 'running' },
+  ])
+  expect(newOutcome).toEqual({ result: { status: 'succeeded' } })
+})
+
+test('bounds cleanup when a renewal does not settle before the deadline', async () => {
+  const slot = Date.UTC(2026, 6, 18, 15, 35)
+  const now = Date.now()
+  const renewalStarted = deferred()
+  const releaseRenewal = deferred()
+  const renewalFinished = deferred()
+  const newHandlerStarted = deferred()
+  const finishNewHandler = deferred()
+  let heldRenewal = false
+  const oldAttemptDb = instrumentUpdates(
+    db as unknown as AnyDb,
+    async (values) => {
+      if (isRenewal(values) && !heldRenewal) {
+        heldRenewal = true
+        renewalStarted.resolve()
+        await releaseRenewal.promise
+      }
+    },
+    (values) => {
+      if (isRenewal(values) && heldRenewal) renewalFinished.resolve()
+    },
+  )
+
+  const oldAttempt = runScheduledSlot({
+    db: oldAttemptDb,
+    taskId: 'cron:bounded-cleanup',
+    schedule: '* * * * *',
+    slot,
+    now,
+    leaseMs: 100,
+    heartbeatIntervalMs: 5,
+    heartbeatCleanupTimeoutMs: 20,
+    run: async () => {
+      await renewalStarted.promise
+      throw new Error('handler failed')
+    },
+  }).then(
+    (result) => ({ result }),
+    (error: unknown) => ({ error }),
+  )
+
+  const boundedOutcome = await Promise.race([
+    oldAttempt.then(() => 'settled' as const),
+    delay(100).then(() => 'timed-out' as const),
+  ])
+  expect(boundedOutcome).toBe('settled')
+
+  const newAttempt = runScheduledSlot({
+    db: db as unknown as AnyDb,
+    taskId: 'cron:bounded-cleanup',
+    schedule: '* * * * *',
+    slot,
+    now,
+    leaseMs: 1_000,
+    heartbeatIntervalMs: 2_000,
+    run: async () => {
+      newHandlerStarted.resolve()
+      await finishNewHandler.promise
+    },
+  })
+  await newHandlerStarted.promise
+
+  releaseRenewal.resolve()
+  await renewalFinished.promise
+  const rows = await db
+    .select({
+      attempts: bunderstackCronRuns.attempts,
+      lockedUntil: bunderstackCronRuns.lockedUntil,
+      startedAt: bunderstackCronRuns.startedAt,
+      status: bunderstackCronRuns.status,
+    })
+    .from(bunderstackCronRuns)
+    .where(
+      and(
+        eq(bunderstackCronRuns.taskId, 'cron:bounded-cleanup'),
+        eq(bunderstackCronRuns.scheduledAt, slot),
+      ),
+    )
+
+  finishNewHandler.resolve()
+  await expect(newAttempt).resolves.toEqual({ status: 'succeeded' })
+  expect(rows).toEqual([
+    {
+      attempts: 2,
+      lockedUntil: now + 1_000,
+      startedAt: now,
+      status: 'running',
+    },
+  ])
 })
 
 test('stale attempt cannot overwrite a newer attempt terminal state', async () => {
