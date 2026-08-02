@@ -22,11 +22,13 @@ export async function runScheduledSlot(args: {
   run: (scheduledFor: Date) => Promise<void> | void
   leaseMs?: number
   heartbeatIntervalMs?: number
+  heartbeatCleanupTimeoutMs?: number
 }): Promise<CronRunResult> {
   const { db, taskId, schedule, slot, now, run } = args
   const leaseMs = args.leaseMs ?? LEASE_MS
   const heartbeatIntervalMs =
     args.heartbeatIntervalMs ?? Math.max(1, Math.floor(leaseMs / 4))
+  const heartbeatCleanupTimeoutMs = args.heartbeatCleanupTimeoutMs ?? 1_000
 
   if (slot % 60_000 !== 0 || !cronMatches(parseCron(schedule), slot)) {
     throw new Error('[bunderstack] cron slot does not match its schedule')
@@ -45,9 +47,12 @@ export async function runScheduledSlot(args: {
       startedAt: now,
     })
     .onConflictDoNothing({ target: [t.taskId, t.scheduledAt] })
-    .returning({ taskId: t.taskId })
+    .returning({ taskId: t.taskId, attempts: t.attempts })
 
-  if (!inserted[0]) {
+  let ownershipAttempt: number
+  if (inserted[0]) {
+    ownershipAttempt = Number(inserted[0].attempts)
+  } else {
     const existing = await db
       .select({ status: t.status, lockedUntil: t.lockedUntil })
       .from(t)
@@ -74,8 +79,10 @@ export async function runScheduledSlot(args: {
           or(eq(t.status, 'failed'), lt(t.lockedUntil, now)),
         ),
       )
-      .returning({ taskId: t.taskId })
-    if (!reclaimed[0]) return { status: 'running' }
+      .returning({ taskId: t.taskId, attempts: t.attempts })
+    const reclaimedRow = reclaimed[0]
+    if (!reclaimedRow) return { status: 'running' }
+    ownershipAttempt = Number(reclaimedRow.attempts)
   }
 
   let heartbeatTimer: Timer | undefined
@@ -99,6 +106,7 @@ export async function runScheduledSlot(args: {
                 eq(t.scheduledAt, slot),
                 eq(t.status, 'running'),
                 eq(t.startedAt, now),
+                eq(t.attempts, ownershipAttempt),
               ),
             )
         } catch {
@@ -119,7 +127,20 @@ export async function runScheduledSlot(args: {
       clearTimeout(heartbeatTimer)
       heartbeatTimer = undefined
     }
-    await heartbeatInFlight
+    const inFlight = heartbeatInFlight
+    if (!inFlight) return
+
+    let cleanupTimer: Timer | undefined
+    try {
+      await Promise.race([
+        inFlight,
+        new Promise<void>((resolve) => {
+          cleanupTimer = setTimeout(resolve, heartbeatCleanupTimeoutMs)
+        }),
+      ])
+    } finally {
+      if (cleanupTimer) clearTimeout(cleanupTimer)
+    }
   }
 
   scheduleHeartbeat()
@@ -136,6 +157,7 @@ export async function runScheduledSlot(args: {
           eq(t.scheduledAt, slot),
           eq(t.status, 'running'),
           eq(t.startedAt, now),
+          eq(t.attempts, ownershipAttempt),
         ),
       )
       .returning({ taskId: t.taskId })
@@ -163,6 +185,7 @@ export async function runScheduledSlot(args: {
           eq(t.scheduledAt, slot),
           eq(t.status, 'running'),
           eq(t.startedAt, now),
+          eq(t.attempts, ownershipAttempt),
         ),
       )
     throw error
@@ -180,6 +203,7 @@ export async function runCronSlot(args: {
   now: number
   leaseMs?: number
   heartbeatIntervalMs?: number
+  heartbeatCleanupTimeoutMs?: number
 }): Promise<CronRunResult> {
   const definition = args.defs[args.name]
   if (!definition || definition.kind !== 'cron') {
@@ -193,6 +217,7 @@ export async function runCronSlot(args: {
     now: args.now,
     leaseMs: args.leaseMs,
     heartbeatIntervalMs: args.heartbeatIntervalMs,
+    heartbeatCleanupTimeoutMs: args.heartbeatCleanupTimeoutMs,
     run: (scheduledFor) =>
       definition.handler({ scheduledFor }, args.ctx as never),
   })
