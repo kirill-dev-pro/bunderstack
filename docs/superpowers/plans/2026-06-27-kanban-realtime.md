@@ -1943,14 +1943,12 @@ for (const title of listDefs) {
       .values({ organizationId: orgId, boardId, title, position: pos })
       .returning()
   )[0].id
-  await db
-    .insert(schema.cards)
-    .values({
-      organizationId: orgId,
-      listId,
-      title: `Sample card in ${title}`,
-      position: 1000,
-    })
+  await db.insert(schema.cards).values({
+    organizationId: orgId,
+    listId,
+    title: `Sample card in ${title}`,
+    position: 1000,
+  })
   pos += 1000
 }
 console.log('Seeded org', orgId, 'board', boardId)

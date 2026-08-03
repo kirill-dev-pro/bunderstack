@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
+import { describe, it, expect } from 'bun:test'
 
 import { createSyncRealtimeClient } from './realtime-sync'
 
@@ -160,7 +160,9 @@ describe('createSyncRealtimeClient', () => {
 
     expect(posts.refetchCount).toBe(1)
     expect(errorLogs.length).toBe(1)
-    expect(errorLogs[0]).toContain('bunderstack-sync: gap-recovery refetch failed')
+    expect(errorLogs[0]).toContain(
+      'bunderstack-sync: gap-recovery refetch failed',
+    )
     console.error = originalError
     rt.close()
   })

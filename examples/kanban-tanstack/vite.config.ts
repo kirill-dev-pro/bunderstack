@@ -1,8 +1,9 @@
+import type { IncomingMessage } from 'node:http'
+
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
-import type { IncomingMessage } from 'node:http'
 import { defineConfig, type Plugin } from 'vite'
 
 function requestHeaders(req: IncomingMessage): Headers {
@@ -38,7 +39,9 @@ function bunderstackApiDevMiddleware(): Plugin {
             init.duplex = 'half'
           }
 
-          const response = await app.handler(new Request(new URL(path, origin), init))
+          const response = await app.handler(
+            new Request(new URL(path, origin), init),
+          )
           res.statusCode = response.status
 
           const getSetCookie = (

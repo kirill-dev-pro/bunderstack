@@ -23,13 +23,16 @@ test('provisionSchema pushes schema to in-memory sqlite', async () => {
   expect(row?.label).toBe('ok')
 })
 
-test.serial('provision is a no-op during deployment introspection', async () => {
-  const previous = process.env.BUNDERSTACK_INTROSPECT
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-  try {
-    await expect(provision({})).resolves.toBeUndefined()
-  } finally {
-    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
-    else process.env.BUNDERSTACK_INTROSPECT = previous
-  }
-})
+test.serial(
+  'provision is a no-op during deployment introspection',
+  async () => {
+    const previous = process.env.BUNDERSTACK_INTROSPECT
+    process.env.BUNDERSTACK_INTROSPECT = '1'
+    try {
+      await expect(provision({})).resolves.toBeUndefined()
+    } finally {
+      if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
+      else process.env.BUNDERSTACK_INTROSPECT = previous
+    }
+  },
+)

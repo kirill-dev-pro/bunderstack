@@ -1,6 +1,6 @@
-import { useSyncExternalStore } from 'react'
-
 import type { InferSelect } from 'bunderstack-query'
+
+import { useSyncExternalStore } from 'react'
 
 import type { cards } from '~/schema'
 

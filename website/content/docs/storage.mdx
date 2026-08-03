@@ -68,7 +68,9 @@ Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs 
 
 ```ts
 // Programmatically get download URL for a file key
-const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', {
+  expiresIn: 3600,
+})
 ```
 
 ## Server-side uploads (`app.storage.upload`)
@@ -85,4 +87,3 @@ await app.storage.upload(
 ```
 
 Nested keys (like `adaptations/123/resume.pdf`) are fully supported by `GET /api/files/:bucket/*` and `DELETE /api/files/:bucket/*`.
-

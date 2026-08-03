@@ -1,11 +1,8 @@
-import { expect, test } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
+import { expect, test } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import {
-  BunderstackApiError,
-  createBunderstackQueryClient,
-} from '../src/index'
+import { BunderstackApiError, createBunderstackQueryClient } from '../src/index'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -154,12 +151,10 @@ test('files bucket exposes upload and delete mutation options', async () => {
     }),
   })
 
-  const uploaded = await api.files.attachments
-    .uploadMutation()
-    .mutationFn!(
-      new File(['hello'], 'hello.txt', { type: 'text/plain' }),
-      {} as never,
-    )
+  const uploaded = await api.files.attachments.uploadMutation().mutationFn!(
+    new File(['hello'], 'hello.txt', { type: 'text/plain' }),
+    {} as never,
+  )
   expect(uploaded.fileId).toBe('attachments/file-1.txt')
 
   await api.files.attachments.deleteMutation().mutationFn!(

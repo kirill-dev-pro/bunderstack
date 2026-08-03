@@ -2,8 +2,8 @@ import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
-import { buildManifest, parseManifest } from './manifest'
 import { bunderstackJobs } from './internal-tables'
+import { buildManifest, parseManifest } from './manifest'
 import { resolveBuckets } from './storage/buckets'
 
 const posts = sqliteTable('app_posts', { id: text('id').primaryKey() })
@@ -50,12 +50,28 @@ test('buildManifest describes deployment requirements deterministically', () => 
       dialect: 'sqlite',
       migrationsDirectory: './migrations',
       tables: [
-        { exportName: '_system.scheduledRuns', physicalName: '_bunderstack_cron_runs', system: true },
-        { exportName: '_system.idempotency', physicalName: '_bunderstack_idempotency', system: true },
-        { exportName: '_system.jobs', physicalName: '_bunderstack_jobs', system: true },
+        {
+          exportName: '_system.scheduledRuns',
+          physicalName: '_bunderstack_cron_runs',
+          system: true,
+        },
+        {
+          exportName: '_system.idempotency',
+          physicalName: '_bunderstack_idempotency',
+          system: true,
+        },
+        {
+          exportName: '_system.jobs',
+          physicalName: '_bunderstack_jobs',
+          system: true,
+        },
         { exportName: 'accounts', physicalName: 'app_accounts', system: false },
         { exportName: 'posts', physicalName: 'app_posts', system: false },
-        { exportName: '_system.files', physicalName: 'bunderstack_file_meta', system: true },
+        {
+          exportName: '_system.files',
+          physicalName: 'bunderstack_file_meta',
+          system: true,
+        },
       ],
     },
     storage: {
@@ -136,5 +152,9 @@ test('buildManifest does not duplicate system tables re-exported by an app schem
     realtime: false,
     jobs: undefined,
   })
-  expect(manifest.database.tables.filter((table) => table.physicalName === '_bunderstack_jobs')).toHaveLength(1)
+  expect(
+    manifest.database.tables.filter(
+      (table) => table.physicalName === '_bunderstack_jobs',
+    ),
+  ).toHaveLength(1)
 })

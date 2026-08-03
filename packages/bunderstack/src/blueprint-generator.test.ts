@@ -5,7 +5,10 @@ import { join } from 'node:path'
 
 import { BlueprintCheckError, generateBlueprint } from './blueprint-generator'
 
-async function fixture(entry = 'src/bunderstack.ts', migrationsDirectory = './migrations') {
+async function fixture(
+  entry = 'src/bunderstack.ts',
+  migrationsDirectory = './migrations',
+) {
   const tempRoot = await realpath(tmpdir())
   const directory = await mkdtemp(join(tempRoot, 'bunderstack-blueprint-'))
   const entryPath = join(directory, entry)
@@ -23,10 +26,19 @@ async function fixture(entry = 'src/bunderstack.ts', migrationsDirectory = './mi
     `export const app = { manifest: ${JSON.stringify({
       version: 3,
       database: { dialect: 'sqlite', migrationsDirectory, tables: [] },
-      storage: { defaultBucket: 'default', buckets: [{ name: 'default', visibility: 'private' }] },
+      storage: {
+        defaultBucket: 'default',
+        buckets: [{ name: 'default', visibility: 'private' }],
+      },
       realtime: { required: false },
       environment: [],
-      background: { jobs: [], cron: [], maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' }] },
+      background: {
+        jobs: [],
+        cron: [],
+        maintenance: [
+          { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+        ],
+      },
     })}, close: async () => {} }`,
   )
   return directory
@@ -38,9 +50,13 @@ test('generateBlueprint discovers package entry and supports freshness checks', 
     const result = await generateBlueprint({ directory })
     expect(result.changed).toBe(true)
     expect(result.blueprint.bunderstack.entry).toBe('src/bunderstack/index.ts')
-    await expect(generateBlueprint({ directory, check: true })).resolves.toMatchObject({ changed: false })
+    await expect(
+      generateBlueprint({ directory, check: true }),
+    ).resolves.toMatchObject({ changed: false })
     await Bun.write(join(directory, 'bunderstack.blueprint.yaml'), 'stale\n')
-    await expect(generateBlueprint({ directory, check: true })).rejects.toBeInstanceOf(BlueprintCheckError)
+    await expect(
+      generateBlueprint({ directory, check: true }),
+    ).rejects.toBeInstanceOf(BlueprintCheckError)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
@@ -54,15 +70,26 @@ test('generateBlueprint normalizes absolute migration directories inside the app
     `export const app = { manifest: ${JSON.stringify({
       version: 3,
       database: { dialect: 'sqlite', migrationsDirectory, tables: [] },
-      storage: { defaultBucket: 'default', buckets: [{ name: 'default', visibility: 'private' }] },
+      storage: {
+        defaultBucket: 'default',
+        buckets: [{ name: 'default', visibility: 'private' }],
+      },
       realtime: { required: false },
       environment: [],
-      background: { jobs: [], cron: [], maintenance: [{ name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' }] },
+      background: {
+        jobs: [],
+        cron: [],
+        maintenance: [
+          { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+        ],
+      },
     })}, close: async () => {} }`,
   )
   try {
     const result = await generateBlueprint({ directory })
-    expect(result.blueprint.resources.database.migrationsDirectory).toBe('migrations')
+    expect(result.blueprint.resources.database.migrationsDirectory).toBe(
+      'migrations',
+    )
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

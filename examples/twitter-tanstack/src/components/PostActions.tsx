@@ -1,9 +1,10 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
+import type { Like, Post, Retweet } from '~/utils/posts'
+
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { toast } from '~/utils/oat'
-import type { Like, Post, Retweet } from '~/utils/posts'
 
 type PostActionsProps = {
   postId: Post['id']

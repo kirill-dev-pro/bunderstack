@@ -28,6 +28,7 @@
 ### Task 1: Adopt and validate manifest v2
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `src/ports.ts`
 - Create: `src/manifest.ts`
@@ -36,6 +37,7 @@
 - Modify: `src/builder.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BunderstackManifest` v2 from the completed library plan.
 - Produces: `parseManifest(value): BunderstackManifest` and `BuildResult { webImage, workerImage?, manifest }`.
 
@@ -152,10 +154,12 @@ git commit -m "feat(manifest)!: adopt bunderstack manifest v2"
 ### Task 2: Build an optional companion worker image
 
 **Files:**
+
 - Modify: `src/builder.ts`
 - Modify: `src/builder.test.ts`
 
 **Interfaces:**
+
 - Consumes: validated manifest and the `src/bunderstack.ts` entry convention.
 - Produces: `workerImage` only when queue jobs are declared.
 
@@ -235,12 +239,14 @@ git commit -m "feat(builder): produce companion queue worker image"
 ### Task 3: Model web and worker Machines as separate runtime roles
 
 **Files:**
+
 - Modify: `src/ports.ts`
 - Modify: `src/fly.ts`
 - Modify: `src/fly.test.ts`
 - Modify: `src/testing/fakes.ts`
 
 **Interfaces:**
+
 - Consumes: web and worker OCI images.
 - Produces: role-aware runtime deployment and listing APIs.
 
@@ -339,6 +345,7 @@ git commit -m "feat(runtime): add explicit web and worker machine roles"
 ### Task 4: Persist worker identity and cron credentials
 
 **Files:**
+
 - Modify: `src/schema.ts`
 - Modify: `src/orchestrator.ts`
 - Modify: `src/deploy-env.ts`
@@ -348,6 +355,7 @@ git commit -m "feat(runtime): add explicit web and worker machine roles"
 - Create: `src/cron-schema.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing environment secret encryption and deployment records.
 - Produces: encrypted environment cron secret, worker Machine ID, durable cron dispatches, and scheduler cursor.
 
@@ -367,10 +375,14 @@ Add nullable `cronSecretEncrypted: text('cronSecretEncrypted')` to
 export const cronDispatches = sqliteTable(
   'cronDispatches',
   {
-    id: typeid('cron_dispatch').primaryKey().$defaultFn(() => generateTypeId('cron_dispatch')),
-    environmentId: typeid('env').notNull().references(() => environments.id, {
-      onDelete: 'cascade',
-    }),
+    id: typeid('cron_dispatch')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('cron_dispatch')),
+    environmentId: typeid('env')
+      .notNull()
+      .references(() => environments.id, {
+        onDelete: 'cascade',
+      }),
     kind: text('kind').notNull(),
     name: text('name').notNull(),
     scheduledAt: integer('scheduledAt', { mode: 'timestamp' }).notNull(),
@@ -392,7 +404,9 @@ export const cronDispatches = sqliteTable(
 
 export const schedulerState = sqliteTable('schedulerState', {
   key: text('key').primaryKey(),
-  lastEvaluatedSlot: integer('lastEvaluatedSlot', { mode: 'timestamp' }).notNull(),
+  lastEvaluatedSlot: integer('lastEvaluatedSlot', {
+    mode: 'timestamp',
+  }).notNull(),
 })
 ```
 
@@ -424,11 +438,13 @@ git commit -m "feat(cron): persist dispatch state and environment credentials"
 ### Task 5: Deploy web and worker generations safely
 
 **Files:**
+
 - Modify: `src/orchestrator.ts`
 - Modify: `src/orchestrator.test.ts`
 - Modify: `src/deploy-logger.ts`
 
 **Interfaces:**
+
 - Consumes: role-aware runtime, optional worker image, manifest v2, and expanded deployment row.
 - Produces: production blue-green rollout for both roles and web-only preview rollout.
 
@@ -486,12 +502,14 @@ git commit -m "feat(deploy): roll out explicit production workers"
 ### Task 6: Build durable signed cron dispatching
 
 **Files:**
+
 - Create: `src/cron-dispatcher.ts`
 - Create: `src/cron-dispatcher.test.ts`
 - Modify: `src/ports.ts`
 - Modify: `src/testing/fakes.ts`
 
 **Interfaces:**
+
 - Consumes: live production manifests, encrypted cron secrets, `parseCron`,
   `cronMatches`, and `signScheduleRequest` from `bunderstack/cron`.
 - Produces: `createCronDispatchesForSlots()` and `deliverPendingCronDispatches()`.
@@ -509,9 +527,7 @@ and pending rows are retained regardless of age.
 Use an injected fetch. Assert:
 
 ```ts
-expect(request.url).toBe(
-  'https://bh-app.fly.dev/api/_bunderstack/cron/hourly',
-)
+expect(request.url).toBe('https://bh-app.fly.dev/api/_bunderstack/cron/hourly')
 expect(request.headers.get('X-Bunderstack-Cron-Slot')).toBe(String(slot))
 expect(request.headers.get('X-Bunderstack-Cron-Signature')).toBe(
   await signScheduleRequest(secret, 'cron:hourly', slot),
@@ -576,12 +592,14 @@ git commit -m "feat(cron): dispatch production schedules over signed HTTP"
 ### Task 7: Add the single global scheduler process
 
 **Files:**
+
 - Create: `src/platform-scheduler.ts`
 - Create: `src/platform-scheduler.test.ts`
 - Modify: `package.json`
 - Modify: `src/deps.ts`
 
 **Interfaces:**
+
 - Consumes: cron reconciliation/delivery functions and real control-plane dependencies.
 - Produces: one long-running Bunderhost scheduler process shared by all hosted applications.
 
@@ -631,6 +649,7 @@ git commit -m "feat(platform): add shared cron scheduler process"
 ### Task 8: Expose background deployment consequences in the product
 
 **Files:**
+
 - Modify: `src/project-detail.ts`
 - Modify: `src/routes/_authed/projects.$projectId.index.tsx`
 - Modify: `src/components/DeploymentsTable.tsx`
@@ -639,6 +658,7 @@ git commit -m "feat(platform): add shared cron scheduler process"
 - Modify: `docs/superpowers/specs/2026-07-16-bunderhost-design.md`
 
 **Interfaces:**
+
 - Consumes: manifest v2 and deployment `workerMachineId`.
 - Produces: dashboard and documentation that make always-on worker cost/runtime explicit.
 
@@ -697,9 +717,11 @@ git commit -m "docs: make worker and cron deployment roles explicit"
 ### Task 9: Final platform verification
 
 **Files:**
+
 - Verify only.
 
 **Interfaces:**
+
 - Consumes: all preceding Bunderhost tasks and the completed Bunderstack release.
 - Produces: evidence for one production deployment matrix and no preview background execution.
 

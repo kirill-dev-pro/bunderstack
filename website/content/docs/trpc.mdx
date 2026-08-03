@@ -66,16 +66,16 @@ trpc: myExternalRouter
 
 Every procedure receives:
 
-| Field      | Type                      | Description                                   |
-| ---------- | ------------------------- | --------------------------------------------- |
-| `db`       | `LibSQLDatabase<TSchema>` | Your Drizzle database                         |
-| `user`     | `AccessUser \| null`      | Current session, or null                      |
-| `env`      | `ValidatedEnv<TEnv>`      | Typed, validated env vars                     |
-| `email`    | `EmailFacade`             | Send emails from procedures                   |
-| `jobs`     | `JobsRuntimeFacade`       | Enqueue background jobs                       |
-| `realtime` | `RealtimeFacade<TSchema>` | Publish realtime messages                     |
-| `storage`  | `StorageFacade`           | Work with buckets and presigned URLs          |
-| `req`      | `Request`                 | Raw incoming Request                          |
+| Field      | Type                      | Description                          |
+| ---------- | ------------------------- | ------------------------------------ |
+| `db`       | `LibSQLDatabase<TSchema>` | Your Drizzle database                |
+| `user`     | `AccessUser \| null`      | Current session, or null             |
+| `env`      | `ValidatedEnv<TEnv>`      | Typed, validated env vars            |
+| `email`    | `EmailFacade`             | Send emails from procedures          |
+| `jobs`     | `JobsRuntimeFacade`       | Enqueue background jobs              |
+| `realtime` | `RealtimeFacade<TSchema>` | Publish realtime messages            |
+| `storage`  | `StorageFacade`           | Work with buckets and presigned URLs |
+| `req`      | `Request`                 | Raw incoming Request                 |
 
 ## `t` API
 

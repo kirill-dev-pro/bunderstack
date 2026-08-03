@@ -42,11 +42,13 @@
 ### Task 1: Expose the selected realtime transport
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime/facade.ts`
 - Modify: `packages/bunderstack/src/realtime/facade.test.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `RealtimeTransport = 'disabled' | 'memory' | 'redis'`.
 - Produces: `RealtimeFacade.transport: RealtimeTransport`.
 - Produces: `createRealtimeFacade(broker?, transport?)`.
@@ -58,10 +60,7 @@ Add tests that construct all three facade modes:
 
 ```ts
 import type { RealtimeBroker } from './index'
-import {
-  createRealtimeFacade,
-  type RealtimeTransport,
-} from './facade'
+import { createRealtimeFacade, type RealtimeTransport } from './facade'
 
 const broker: RealtimeBroker = {
   async start() {},
@@ -121,9 +120,7 @@ export interface RealtimeFacade<
   ): Promise<void>
 }
 
-export function createRealtimeFacade<
-  TSchema extends Record<string, unknown>,
->(
+export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
   broker?: RealtimeBroker,
   transport: RealtimeTransport = broker ? 'memory' : 'disabled',
 ): RealtimeFacade<TSchema> {
@@ -190,10 +187,12 @@ git commit -m "feat(realtime): expose selected transport"
 ### Task 2: Reject unsafe standalone workers
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/index.ts`
 - Modify: `packages/bunderstack/src/jobs/integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RealtimeFacade.transport` from Task 1.
 - Produces: `AppRunWorkerOptions.allowProcessLocalRealtime?: boolean`.
 - Preserves: `AppStartWorkerOptions` without the override because embedded workers are safe.
@@ -270,10 +269,7 @@ export type AppRunWorkerOptions = AppStartWorkerOptions & {
 At the beginning of `runWorker()`, before `startWorker()`:
 
 ```ts
-if (
-  realtime.transport === 'memory' &&
-  !options.allowProcessLocalRealtime
-) {
+if (realtime.transport === 'memory' && !options.allowProcessLocalRealtime) {
   throw new Error(
     '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker. Configure REDIS_URL or realtime.redis, embed the worker with startWorker(), or pass allowProcessLocalRealtime: true only when jobs never publish realtime.',
   )
@@ -315,9 +311,11 @@ git commit -m "fix(jobs): reject process-local realtime in standalone workers"
 ### Task 3: Prove Redis delivery across independent broker instances
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime/redis.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createRedisRealtimeBroker`.
 - Verifies: a publisher broker does not need local SSE subscribers and can deliver to subscribers registered on another broker through the shared Redis channel.
 
@@ -411,12 +409,14 @@ git commit -m "test(realtime): cover cross-instance worker fan-out"
 ### Task 4: Express realtime transport requirements in the manifest
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/manifest.ts`
 - Modify: `packages/bunderstack/src/manifest.test.ts`
 - Modify: `packages/bunderstack/src/app-env.test.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `RealtimeTransport` from Task 1.
 - Produces: additive `manifest.realtimeTransport: RealtimeTransport`.
 - Preserves: `manifest.version === 2` and `manifest.realtime: boolean`.
@@ -528,10 +528,7 @@ const runtimeRealtimeTransport: RealtimeTransport = !broker
     ? 'redis'
     : 'memory'
 
-const realtime = createRealtimeFacade<TSchema>(
-  broker,
-  runtimeRealtimeTransport,
-)
+const realtime = createRealtimeFacade<TSchema>(broker, runtimeRealtimeTransport)
 
 manifest: buildManifest({
   // existing arguments
@@ -565,11 +562,13 @@ git commit -m "feat(manifest): describe realtime transport"
 ### Task 5: Document the standalone-worker contract
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `packages/bunderstack/README.md`
 - Modify: `docs/superpowers/specs/2026-06-27-durable-realtime-design.md`
 
 **Interfaces:**
+
 - Consumes: `RealtimeFacade.transport`, `allowProcessLocalRealtime`, and `manifest.realtimeTransport`.
 - Produces: copy-pasteable configuration for standalone worker realtime.
 

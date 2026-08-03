@@ -29,8 +29,8 @@
 
 import { eq, and, lt, sql } from 'drizzle-orm'
 
-import type { AnyDb } from '../dialect'
 import type { ScopeMap } from '../access'
+import type { AnyDb } from '../dialect'
 
 import { rowMatchesScope } from '../access'
 import { bunderstackFiles, filesTableFor } from '../internal-tables'

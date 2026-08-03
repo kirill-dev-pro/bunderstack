@@ -22,6 +22,7 @@
 ### Task 1: `bunderstack` — type carriers on the app + `MAX_LIST_LIMIT` export
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/list-query.ts:23`
 - Modify: `packages/bunderstack/src/access.ts:358-364` (`defineAccess`)
 - Modify: `packages/bunderstack/src/config.ts:59-76` (`BunderstackConfig`)
@@ -29,6 +30,7 @@
 - Test: `packages/bunderstack/src/infer-client.test.ts`
 
 **Interfaces:**
+
 - Produces: `BunderstackApp<TSchema, TAccess, TBuckets>` with optional phantom `$inferClient?: { schema: TSchema; access: TAccess; buckets: TBuckets }`; `defineAccess` returns its literal rules type; `MAX_LIST_LIMIT` exported from `bunderstack`.
 
 - [x] **Step 1: Write the failing test** — `packages/bunderstack/src/infer-client.test.ts`:
@@ -41,11 +43,10 @@ import { defineAccess } from './access'
 import { sqliteTable, text, integer } from './schema-export' // adjust to actual column-builder export
 
 // -- type-level assertion helpers ------------------------------------------
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
-  ? 1
-  : 2
-  ? true
-  : false
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
 type Expect<T extends true> = T
 
 const user = sqliteTable('user', {
@@ -73,9 +74,7 @@ describe('client type inference carriers', () => {
       user: { exposeAuthTable: true, ownerColumn: 'id' },
       posts: { ownerColumn: 'userId' },
     })
-    type _1 = Expect<
-      Equal<(typeof access)['user']['exposeAuthTable'], true>
-    >
+    type _1 = Expect<Equal<(typeof access)['user']['exposeAuthTable'], true>>
     expect(access.posts.ownerColumn).toBe('userId')
   })
 
@@ -185,7 +184,8 @@ export type BunderstackApp<
 
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
 >(
   options: BunderstackConfig<TSchema, TAccess, TStorage>,
@@ -203,6 +203,7 @@ export function createBunderstack<
 ### Task 2: `bunderstack-query` — inference types + lazy `createClient<App>()`
 
 **Files:**
+
 - Create: `packages/bunderstack-query/src/infer.ts`
 - Create: `packages/bunderstack-query/src/lazy-client.ts`
 - Modify: `packages/bunderstack-query/src/table-client.ts` (add `MAX_LIST_LIMIT`)
@@ -210,6 +211,7 @@ export function createBunderstack<
 - Test: `packages/bunderstack-query/tests/lazy-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: `$inferClient` phantom from Task 1.
 - Produces: `createClient<TApp>(options?: { baseUrl?; fetch?; queryClient? }): BunderstackClient<TApp>`; types `AnyBunderstackApp`, `InferSchema<TApp>`, `InferTables<TApp>`, `InferBuckets<TApp>`, `ExposedTables<TSchema, TAccess>`; const `MAX_LIST_LIMIT`; runtime helper `createLazyClientProxy` (internal, reused by sync in Task 5 via its own copy of the pattern — sync builds collections, not table clients, so it implements its own proxy; only `infer.ts` types are shared).
 
@@ -221,11 +223,10 @@ import { describe, it, expect } from 'bun:test'
 import { createClient, MAX_LIST_LIMIT } from '../src/index'
 import type { ExposedTables } from '../src/infer'
 
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
-  ? 1
-  : 2
-  ? true
-  : false
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
 type Expect<T extends true> = T
 
 // Minimal fake app type — mirrors what createBunderstack produces.
@@ -258,7 +259,12 @@ describe('ExposedTables', () => {
 describe('createClient', () => {
   const fetchMock = (async (input: RequestInfo | URL) => {
     return new Response(
-      JSON.stringify({ items: [], limit: 20, hasMore: false, url: String(input) }),
+      JSON.stringify({
+        items: [],
+        limit: 20,
+        hasMore: false,
+        url: String(input),
+      }),
       { status: 200 },
     )
   }) as unknown as typeof fetch
@@ -415,7 +421,12 @@ export type BunderstackClient<TApp extends AnyBunderstackApp> = {
 } & FilesQueryClient<InferBuckets<TApp>>
 
 /** Props a Proxy must not lazily materialize (await/introspection probes). */
-const PROXY_SKIP = new Set<string>(['then', 'toJSON', 'constructor', '$$typeof'])
+const PROXY_SKIP = new Set<string>([
+  'then',
+  'toJSON',
+  'constructor',
+  '$$typeof',
+])
 
 export function lazyRecord<T>(create: (key: string) => T): Record<string, T> {
   const cache = new Map<string, T>()
@@ -459,7 +470,11 @@ export function createClient<TApp extends AnyBunderstackApp>(
   })
 
   const tables = lazyRecord((tableName) => {
-    const tableClient = createTableClient({ tableName, baseUrl, fetch: fetchFn })
+    const tableClient = createTableClient({
+      tableName,
+      baseUrl,
+      fetch: fetchFn,
+    })
     return {
       ...tableClient,
       ...attachMutationOptions(tableClient, options.queryClient),
@@ -504,10 +519,12 @@ export type {
 ### Task 3: `bunderstack-query` — realtime: don't gate custom `applyEvent` on the static tables list
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/src/realtime-client.ts:90-103`
 - Test: `packages/bunderstack-query/src/realtime-client.test.ts` (extend)
 
 **Interfaces:**
+
 - Produces: `createRealtimeClient` calls `config.applyEvent` for events on tables NOT in `config.tables` (needed by Task 5's lazy resolver, which cannot enumerate tables upfront). `lastEventId` advances for every event.
 
 - [x] **Step 1: Write the failing test** — append to `src/realtime-client.test.ts` (follow the file's existing SSE mock helpers; if it has a helper that feeds frames, reuse it):
@@ -562,10 +579,12 @@ function apply(evt: RealtimeEvent) {
 ### Task 4: `bunderstack-sync` — `scopedCollection()` + `collectionByIds()` on table collections
 
 **Files:**
+
 - Modify: `packages/bunderstack-sync/src/collection.ts`
 - Test: `packages/bunderstack-sync/src/scoped-collection.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MAX_LIST_LIMIT` from `bunderstack-query` (Task 2).
 - Produces (added to `createTableCollection`'s return, so every table on the sync client gets them):
   - `scopedCollection(options?: ScopedCollectionOptions): ScopedCollection<TRow>` where `ScopedCollection = { collection; loadMore(count?: number): Promise<void>; hasMore(): boolean; size(): number }`
@@ -686,11 +705,19 @@ describe('applyRealtimeEvent', () => {
     t.applyRealtimeEvent('create', { id: 'new1', title: 'x', replyToId: null })
     expect(feed.collection.size).toBe(before + 1)
 
-    t.applyRealtimeEvent('create', { id: 'new2', title: 'y', replyToId: 'p001' })
+    t.applyRealtimeEvent('create', {
+      id: 'new2',
+      title: 'y',
+      replyToId: 'p001',
+    })
     expect(feed.collection.get('new2')).toBeUndefined()
 
     // update that stops matching the filter removes the row from the scope
-    t.applyRealtimeEvent('update', { id: 'new1', title: 'x', replyToId: 'p001' })
+    t.applyRealtimeEvent('update', {
+      id: 'new1',
+      title: 'x',
+      replyToId: 'p001',
+    })
     expect(feed.collection.get('new1')).toBeUndefined()
 
     t.applyRealtimeEvent('delete', { id: 'p001' })
@@ -865,7 +892,10 @@ function collectionByIds(
         const items: TRow[] = []
         for (let i = 0; i < unique.length; i += MAX_LIST_LIMIT) {
           const chunk = unique.slice(i, i + MAX_LIST_LIMIT)
-          const page = await table.list({ [column]: chunk, limit: chunk.length })
+          const page = await table.list({
+            [column]: chunk,
+            limit: chunk.length,
+          })
           items.push(...page.items)
         }
         return items
@@ -918,6 +948,7 @@ return {
 ```
 
 Notes for the implementer:
+
 - The base `collection.utils.writeDelete(id)` for a missing id: check TanStack DB behavior; if it throws on missing keys, guard with `collection.get(id) !== undefined` (same as the registry path).
 - Type the `ScopedCollection.collection` field using the same inferred type as the existing `collection` const (e.g. `type CollectionOf<TRow ...> = ReturnType<typeof createCollection<...>>` or capture via `typeof collection`). Do not introduce `any`.
 - `writeUpsert` in scoped collections only fires for rows already server-authorized (realtime broadcasts are access-filtered server-side).
@@ -931,12 +962,14 @@ Notes for the implementer:
 ### Task 5: `bunderstack-sync` — lazy `createSyncClient<App>()` + realtime resolver + SSR default
 
 **Files:**
+
 - Create: `packages/bunderstack-sync/src/sync-client.ts`
 - Modify: `packages/bunderstack-sync/src/realtime-sync.ts` (resolver mode)
 - Modify: `packages/bunderstack-sync/src/index.ts` (exports; `.with()` realtime SSR default)
 - Test: `packages/bunderstack-sync/src/sync-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 2 (`AnyBunderstackApp`, `InferTables`, `InferBuckets`, `lazyRecord`, bucket client), Task 3 (ungated `applyEvent`), Task 4 (`applyRealtimeEvent`, `refetchAll`).
 - Produces:
   - `createSyncClient<TApp>(options: { queryClient: QueryClient; baseUrl?; fetch?; realtime?: boolean }): BunderstackSyncClient<TApp>` — `{ [table]: TableCollection } & { files: { [bucket]: BucketClient } } & { realtime }`; `realtime` defaults to `typeof window !== 'undefined'`.
@@ -957,13 +990,20 @@ type FakeApp = {
       posts: Row<{ id: string; title: string; userId: string }>
       user: Row<{ id: string; name: string }>
     }
-    access: { posts: { ownerColumn: 'userId' }; user: { exposeAuthTable: true } }
+    access: {
+      posts: { ownerColumn: 'userId' }
+      user: { exposeAuthTable: true }
+    }
     buckets: 'images'
   }
 }
 
 const emptyListFetch = (async () =>
-  Response.json({ items: [], limit: 100, hasMore: false })) as unknown as typeof fetch
+  Response.json({
+    items: [],
+    limit: 100,
+    hasMore: false,
+  })) as unknown as typeof fetch
 
 describe('createSyncClient', () => {
   it('lazily materializes table collections with stable identity', () => {
@@ -1049,7 +1089,8 @@ export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
       }
       const collection = staticCollections[evt.table]
       if (!collection) return
-      if (evt.action === 'delete') collection.utils.writeDelete(evt.record['id'])
+      if (evt.action === 'delete')
+        collection.utils.writeDelete(evt.record['id'])
       else collection.utils.writeUpsert(evt.record)
     },
     onGap: () => {
@@ -1106,8 +1147,8 @@ export type BunderstackSyncClient<TApp extends AnyBunderstackApp> = {
     Partial<RowFor<InferSchema<TApp>, K>>
   >
 } & FilesQueryClient<InferBuckets<TApp>> & {
-  realtime: ReturnType<typeof createSyncRealtimeClient> | undefined
-}
+    realtime: ReturnType<typeof createSyncRealtimeClient> | undefined
+  }
 
 /**
  * Fully typed sync client inferred from the server app. Tables, their
@@ -1124,7 +1165,10 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
   const baseUrl = options.baseUrl ?? '/api'
   const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
 
-  const materialized = new Map<string, ReturnType<typeof createTableCollection>>()
+  const materialized = new Map<
+    string,
+    ReturnType<typeof createTableCollection>
+  >()
   const tables = lazyRecord((tableName) => {
     const bundle = createTableCollection({
       tableName,
@@ -1161,7 +1205,12 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
       if (typeof prop !== 'string') return undefined
       if (prop === 'files') return files
       if (prop === 'realtime') return realtime
-      if (prop === 'then' || prop === 'toJSON' || prop === 'constructor' || prop === '$$typeof')
+      if (
+        prop === 'then' ||
+        prop === 'toJSON' ||
+        prop === 'constructor' ||
+        prop === '$$typeof'
+      )
         return undefined
       return (tables as Record<string, unknown>)[prop]
     },
@@ -1171,6 +1220,7 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
 ```
 
 `index.ts` changes:
+
 - `export { createSyncClient } from './sync-client'` + `export type { BunderstackSyncClient, SyncClientOptions } from './sync-client'`.
 - Re-export inference types for downstream: `export type { AnyBunderstackApp, InferSchema, InferTables, InferBuckets } from 'bunderstack-query'`.
 - In the legacy `.with()`: change the realtime condition from `options.realtime === false ? undefined : create(...)` to `(options.realtime ?? typeof window !== 'undefined') ? create(...) : undefined`.
@@ -1184,6 +1234,7 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
 ### Task 6: new package `bunderstack-start` — TanStack Start adapter
 
 **Files:**
+
 - Create: `packages/bunderstack-start/package.json`
 - Create: `packages/bunderstack-start/tsconfig.json` (copy from `packages/bunderstack-sync/tsconfig.json`)
 - Create: `packages/bunderstack-start/src/isomorphic-fetch.ts`
@@ -1192,6 +1243,7 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
 - Test: `packages/bunderstack-start/src/index.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createSyncClient`, `AnyBunderstackApp`, `BunderstackSyncClient` from Task 5.
 - Produces:
   - `bunderstackStart<TApp>(options?: { baseUrl?: string; staleTime?: number }): { createQueryClient(): QueryClient; createApi(queryClient: QueryClient): BunderstackSyncClient<TApp> }`
@@ -1432,7 +1484,12 @@ type StartHandler = (ctx: StartRequestContext) => Promise<Response>
  */
 export function createApiHandlers(app: {
   handler: (req: Request) => Promise<Response>
-}): { GET: StartHandler; POST: StartHandler; PATCH: StartHandler; DELETE: StartHandler } {
+}): {
+  GET: StartHandler
+  POST: StartHandler
+  PATCH: StartHandler
+  DELETE: StartHandler
+} {
   const handle: StartHandler = ({ request }) => app.handler(request)
   return { GET: handle, POST: handle, PATCH: handle, DELETE: handle }
 }
@@ -1467,7 +1524,9 @@ export async function getSessionUser(
  * BetterAuth browser client pointed at the Bunderstack handler's /api/auth/*.
  * Import lazily to keep better-auth optional for apps that don't use it.
  */
-export async function createStartAuthClient(options: { baseURL?: string } = {}) {
+export async function createStartAuthClient(
+  options: { baseURL?: string } = {},
+) {
   const { createAuthClient } = await import('better-auth/react')
   return createAuthClient({
     baseURL:
@@ -1497,6 +1556,7 @@ export function createStartAuthClient(options: { baseURL?: string } = {}) {
 ### Task 7: migrate `examples/twitter-db-tanstack` to the inferred stack
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/bunderstack.ts` (add `export type App = typeof app`)
 - Create: `examples/twitter-db-tanstack/src/client.ts`
 - Delete: `examples/twitter-db-tanstack/src/collections.ts`
@@ -1506,6 +1566,7 @@ export function createStartAuthClient(options: { baseURL?: string } = {}) {
 - Modify: `examples/twitter-db-tanstack/package.json` (add `"bunderstack-start": "workspace:*"`)
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–6.
 
 - [x] **Step 1: server + client entry**
@@ -1556,14 +1617,26 @@ export const Route = createFileRoute('/api/$')({
 ```tsx
 const { api } = Route.useRouteContext()
 React.useEffect(() => {
-  void api.realtime?.subscribe(['posts', 'user', 'follows', 'likes', 'retweets'])
+  void api.realtime?.subscribe([
+    'posts',
+    'user',
+    'follows',
+    'likes',
+    'retweets',
+  ])
 }, [api])
 ```
 
 `routes/index.tsx` — `FeedList` drops the desiredCount ref/state plumbing and the imported factory functions:
 
 ```tsx
-function FeedList({ tab, user }: { tab: 'for-you' | 'following'; user: RouterContext['user'] }) {
+function FeedList({
+  tab,
+  user,
+}: {
+  tab: 'for-you' | 'following'
+  user: RouterContext['user']
+}) {
   const { api } = Route.useRouteContext()
   const [loadingMore, setLoadingMore] = React.useState(false)
 
@@ -1583,7 +1656,10 @@ function FeedList({ tab, user }: { tab: 'for-you' | 'following'; user: RouterCon
   }, [feed])
 
   const { data: allPosts } = useLiveQuery(
-    (q) => q.from({ post: feed.collection }).orderBy(({ post }) => post.createdAt, 'desc'),
+    (q) =>
+      q
+        .from({ post: feed.collection })
+        .orderBy(({ post }) => post.createdAt, 'desc'),
     [feed.collection],
   )
   const posts = allPosts ?? []
@@ -1593,7 +1669,10 @@ function FeedList({ tab, user }: { tab: 'for-you' | 'following'; user: RouterCon
     [posts],
   )
   const usersById = api.user.collectionByIds(authorIds)
-  const { data: users } = useLiveQuery((q) => q.from({ user: usersById }), [usersById])
+  const { data: users } = useLiveQuery(
+    (q) => q.from({ user: usersById }),
+    [usersById],
+  )
   /* likes/retweets/follows liveQueries, authorMap, followingIds, feed-tab filter: unchanged */
 
   const hasMore = feed.hasMore()
@@ -1686,6 +1765,7 @@ export const authClient = createStartAuthClient()
 ### Task 8: migrate `examples/tldraw`
 
 **Files:**
+
 - Modify: `examples/tldraw/src/bunderstack.ts` (add `export type App = typeof app`)
 - Create: `examples/tldraw/src/client.ts`
 - Delete: `examples/tldraw/src/api-client.ts`
@@ -1719,6 +1799,7 @@ Delete `api-client.ts`. The `feedParams` / `replyParams` / `byColumnIn` / `SCOPE
 ### Task 9: docs
 
 **Files:**
+
 - Modify: `README.md` (client section)
 - Modify: `examples/README.md` (mention `bunderstack-start` if it lists packages)
 
@@ -1726,7 +1807,12 @@ Delete `api-client.ts`. The `feedParams` / `replyParams` / `byColumnIn` / `SCOPE
 
 ```ts
 // server: src/bunderstack.ts
-export const app = createBunderstack({ schema, access, storage, realtime: true })
+export const app = createBunderstack({
+  schema,
+  access,
+  storage,
+  realtime: true,
+})
 export type App = typeof app
 
 // client: src/client.ts — everything else is inferred from App
@@ -1735,7 +1821,11 @@ import type { App } from './bunderstack'
 export const { createQueryClient, createApi } = bunderstackStart<App>()
 
 // in components
-api.posts.scopedCollection({ filter: { replyToId: null }, sort: 'createdAt', order: 'desc' })
+api.posts.scopedCollection({
+  filter: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+})
 api.user.collectionByIds(authorIds)
 api.files.images.upload(file)
 ```

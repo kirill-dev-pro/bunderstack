@@ -26,11 +26,13 @@
 ### Task 1.1: Export `RealtimeEvent` and add pluggable `applyEvent`/`onGap` config
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/src/realtime-client.ts`
 - Modify: `packages/bunderstack-query/src/index.ts:235-236`
 - Test: `packages/bunderstack-query/src/realtime-client.test.ts` (existing — must still pass; new test appended)
 
 **Interfaces:**
+
 - Consumes: nothing new — this task only changes `realtime-client.ts` internals and exports.
 - Produces: `RealtimeEvent` (exported type: `{ eventId: number; action: 'create' | 'update' | 'delete'; table: string; record: Record<string, unknown> }`), and two new optional `RealtimeClientConfig` fields:
   - `applyEvent?: (evt: RealtimeEvent) => void` — when provided, called instead of the default `setQueryData`/`invalidateQueries` patch.
@@ -41,6 +43,7 @@
 Run: `grep -n "^function apply\|^function invalidateAllSubscribed\|^type RealtimeEvent" packages/bunderstack-query/src/realtime-client.ts`
 
 Expected output (line numbers may have drifted slightly — use whatever this prints, not the numbers below):
+
 ```
 26:type RealtimeEvent = {
 78:function apply(evt: RealtimeEvent) {
@@ -50,6 +53,7 @@ Expected output (line numbers may have drifted slightly — use whatever this pr
 - [ ] **Step 2: Export `RealtimeEvent` and add the two new config fields**
 
 In `packages/bunderstack-query/src/realtime-client.ts`, change:
+
 ```ts
 type RealtimeEvent = {
   eventId: number
@@ -58,7 +62,9 @@ type RealtimeEvent = {
   record: Record<string, unknown>
 }
 ```
+
 to:
+
 ```ts
 export type RealtimeEvent = {
   eventId: number
@@ -69,6 +75,7 @@ export type RealtimeEvent = {
 ```
 
 In the same file, in `RealtimeClientConfig`, add two fields after `onStatus`:
+
 ```ts
 export type RealtimeClientConfig = {
   baseUrl: string
@@ -95,69 +102,78 @@ export type RealtimeClientConfig = {
 - [ ] **Step 3: Make `apply` delegate to `config.applyEvent` when provided**
 
 Change the `apply` function from:
+
 ```ts
-  function apply(evt: RealtimeEvent) {
-    const keys = keysByTable.get(evt.table)
-    if (!keys) return
-    if (typeof evt.eventId === 'number') lastEventId = evt.eventId
-    const id = evt.record['id'] as string | number
-    if (evt.action === 'delete')
-      queryClient.removeQueries({ queryKey: keys.detail(id) })
-    else queryClient.setQueryData(keys.detail(id), evt.record)
-    queryClient.invalidateQueries({ queryKey: keys.lists() })
-  }
+function apply(evt: RealtimeEvent) {
+  const keys = keysByTable.get(evt.table)
+  if (!keys) return
+  if (typeof evt.eventId === 'number') lastEventId = evt.eventId
+  const id = evt.record['id'] as string | number
+  if (evt.action === 'delete')
+    queryClient.removeQueries({ queryKey: keys.detail(id) })
+  else queryClient.setQueryData(keys.detail(id), evt.record)
+  queryClient.invalidateQueries({ queryKey: keys.lists() })
+}
 ```
+
 to:
+
 ```ts
-  function apply(evt: RealtimeEvent) {
-    const keys = keysByTable.get(evt.table)
-    if (!keys) return
-    if (typeof evt.eventId === 'number') lastEventId = evt.eventId
-    if (config.applyEvent) {
-      config.applyEvent(evt)
-      return
-    }
-    const id = evt.record['id'] as string | number
-    if (evt.action === 'delete')
-      queryClient.removeQueries({ queryKey: keys.detail(id) })
-    else queryClient.setQueryData(keys.detail(id), evt.record)
-    queryClient.invalidateQueries({ queryKey: keys.lists() })
+function apply(evt: RealtimeEvent) {
+  const keys = keysByTable.get(evt.table)
+  if (!keys) return
+  if (typeof evt.eventId === 'number') lastEventId = evt.eventId
+  if (config.applyEvent) {
+    config.applyEvent(evt)
+    return
   }
+  const id = evt.record['id'] as string | number
+  if (evt.action === 'delete')
+    queryClient.removeQueries({ queryKey: keys.detail(id) })
+  else queryClient.setQueryData(keys.detail(id), evt.record)
+  queryClient.invalidateQueries({ queryKey: keys.lists() })
+}
 ```
 
 - [ ] **Step 4: Make `invalidateAllSubscribed` delegate to `config.onGap` when provided**
 
 Change:
+
 ```ts
-  function invalidateAllSubscribed() {
-    for (const t of tables) {
-      const keys = keysByTable.get(t)
-      if (keys) queryClient.invalidateQueries({ queryKey: keys.lists() })
-    }
+function invalidateAllSubscribed() {
+  for (const t of tables) {
+    const keys = keysByTable.get(t)
+    if (keys) queryClient.invalidateQueries({ queryKey: keys.lists() })
   }
+}
 ```
+
 to:
+
 ```ts
-  function invalidateAllSubscribed() {
-    if (config.onGap) {
-      config.onGap()
-      return
-    }
-    for (const t of tables) {
-      const keys = keysByTable.get(t)
-      if (keys) queryClient.invalidateQueries({ queryKey: keys.lists() })
-    }
+function invalidateAllSubscribed() {
+  if (config.onGap) {
+    config.onGap()
+    return
   }
+  for (const t of tables) {
+    const keys = keysByTable.get(t)
+    if (keys) queryClient.invalidateQueries({ queryKey: keys.lists() })
+  }
+}
 ```
 
 - [ ] **Step 5: Export `RealtimeEvent` from the package's public API**
 
 In `packages/bunderstack-query/src/index.ts`, change:
+
 ```ts
 export { createRealtimeClient } from './realtime-client'
 export type { RealtimeClientConfig } from './realtime-client'
 ```
+
 to:
+
 ```ts
 export { createRealtimeClient } from './realtime-client'
 export type { RealtimeClientConfig, RealtimeEvent } from './realtime-client'
@@ -171,6 +187,7 @@ Expected: `2 pass, 0 fail` (same two tests as before — this proves the refacto
 - [ ] **Step 7: Write a new test proving `applyEvent`/`onGap` override the defaults**
 
 Append to `packages/bunderstack-query/src/realtime-client.test.ts`:
+
 ```ts
 it('uses applyEvent/onGap overrides instead of the default cache patching', async () => {
   const qc = new QueryClient()
@@ -205,7 +222,12 @@ it('uses applyEvent/onGap overrides instead of the default cache patching', asyn
   await new Promise((r) => setTimeout(r, 5))
 
   expect(applied).toEqual([
-    { eventId: 1, action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } },
+    {
+      eventId: 1,
+      action: 'create',
+      table: 'cards',
+      record: { id: 'card_1', title: 'A' },
+    },
   ])
   // Default cache-patching must NOT have run.
   expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toBeUndefined()
@@ -250,10 +272,12 @@ recovery. Default behavior (cache patch + invalidate) is unchanged."
 ### Task 2.1: Package scaffold
 
 **Files:**
+
 - Create: `packages/bunderstack-sync/package.json`
 - Create: `packages/bunderstack-sync/tsconfig.json`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: a workspace package named `bunderstack-sync`, installable via `bun install` from repo root (workspaces glob `packages/*` already covers it — no root `package.json` edit needed).
 
@@ -316,12 +340,15 @@ No commit yet — this task has no source files to commit besides config; fold t
 ### Task 2.2: `createTableCollection` — wraps one table as a TanStack DB collection
 
 **Files:**
+
 - Create: `packages/bunderstack-sync/src/collection.ts`
 - Test: `packages/bunderstack-sync/src/collection.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createTableClient` from `bunderstack-query` (signature: `createTableClient<TRow, TCreate, TUpdate>(config: { tableName: string; baseUrl: string; fetch: (input, init?) => Promise<Response> }) => { keys, list, get, create, update, delete, listQuery, listInfiniteQuery, getQuery }` — see `packages/bunderstack-query/src/table-client.ts`). `createCollection` from `@tanstack/react-db`. `queryCollectionOptions` from `@tanstack/query-db-collection`.
 - Produces: `createTableCollection<TRow extends { id: string | number }, TCreate, TUpdate>(config: TableCollectionConfig) => { collection: Collection<TRow>; table: TableClient<TRow, TCreate, TUpdate> }`, where:
+
 ```ts
 export type TableCollectionConfig = {
   tableName: string
@@ -334,11 +361,13 @@ export type TableCollectionConfig = {
   limit?: number
 }
 ```
-  The returned `table` is exposed so callers (e.g. the example's `collections.ts`) can also call `table.list(...)` directly for ad hoc scoped reads outside the live-query system, same as `bunderstack-query` consumers do today.
+
+The returned `table` is exposed so callers (e.g. the example's `collections.ts`) can also call `table.list(...)` directly for ad hoc scoped reads outside the live-query system, same as `bunderstack-query` consumers do today.
 
 - [ ] **Step 1: Write the failing test**
 
 Create `packages/bunderstack-sync/src/collection.test.ts`:
+
 ```ts
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
@@ -460,6 +489,7 @@ Expected: FAIL — `Cannot find module './collection'` (file doesn't exist yet).
 - [ ] **Step 3: Write the implementation**
 
 Create `packages/bunderstack-sync/src/collection.ts`:
+
 ```ts
 import { createCollection } from '@tanstack/react-db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
@@ -549,28 +579,44 @@ data layers."
 ### Task 2.3: Realtime sync — surgical writes via `applyEvent`/`onGap`
 
 **Files:**
+
 - Create: `packages/bunderstack-sync/src/realtime-sync.ts`
 - Test: `packages/bunderstack-sync/src/realtime-sync.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createRealtimeClient` and `RealtimeEvent` from `bunderstack-query` (from Phase 1 — `createRealtimeClient(config: RealtimeClientConfig)` where `RealtimeClientConfig` now includes `applyEvent?: (evt: RealtimeEvent) => void` and `onGap?: () => void`). `Collection` instances produced by `createTableCollection` (Task 2.2) — specifically their `.utils.writeUpsert(item)`, `.utils.writeDelete(key)`, and `.utils.refetch()` methods (from `@tanstack/query-db-collection`'s documented `QueryCollectionUtils` interface).
 - Produces:
+
 ```ts
 export type SyncRealtimeConfig = {
   baseUrl: string
   queryClient: QueryClient
   fetch?: typeof fetch
   /** Map of table name -> the collection that table's rows sync into. */
-  collections: Record<string, { utils: { writeUpsert: (item: unknown) => void; writeDelete: (key: unknown) => void; refetch: () => Promise<void> } }>
+  collections: Record<
+    string,
+    {
+      utils: {
+        writeUpsert: (item: unknown) => void
+        writeDelete: (key: unknown) => void
+        refetch: () => Promise<void>
+      }
+    }
+  >
 }
 
-export function createSyncRealtimeClient(config: SyncRealtimeConfig): ReturnType<typeof createRealtimeClient>
+export function createSyncRealtimeClient(
+  config: SyncRealtimeConfig,
+): ReturnType<typeof createRealtimeClient>
 ```
-  Later tasks (Phase 3) call this once with the full collection map and `.subscribe([...tableNames])`.
+
+Later tasks (Phase 3) call this once with the full collection map and `.subscribe([...tableNames])`.
 
 - [ ] **Step 1: Write the failing test**
 
 Create `packages/bunderstack-sync/src/realtime-sync.test.ts`:
+
 ```ts
 import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
@@ -709,6 +755,7 @@ Expected: FAIL — `Cannot find module './realtime-sync'`.
 - [ ] **Step 3: Write the implementation**
 
 Create `packages/bunderstack-sync/src/realtime-sync.ts`:
+
 ```ts
 import { createRealtimeClient, type RealtimeEvent } from 'bunderstack-query'
 import type { QueryClient } from '@tanstack/react-query'
@@ -787,12 +834,15 @@ one record patched per event, no list invalidation or refetch storm."
 ### Task 2.4: Public API — `createBunderstackSyncClient`
 
 **Files:**
+
 - Create: `packages/bunderstack-sync/src/index.ts`
 - Test: `packages/bunderstack-sync/src/index.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createTableCollection` (Task 2.2), `createSyncRealtimeClient` (Task 2.3), `createBunderstackQueryClient` from `bunderstack-query` (for the `.files` surface — delegate to its existing `withFiles({ baseUrl, fetch, buckets, queryClient })` method, which already returns the exact `FilesQueryClient<TBuckets[number]>` shape needed; do not reimplement its bucket-building loop).
 - Produces:
+
 ```ts
 export function createBunderstackSyncClient<TSchema extends Record<string, unknown> = Record<string, unknown>>(): {
   with<const TTables extends readonly (keyof TSchema & string)[], const TBuckets extends readonly string[]>(
@@ -815,7 +865,8 @@ export function createBunderstackSyncClient<TSchema extends Record<string, unkno
   }
 }
 ```
-  This is the only entry point Phase 3+ uses — no other `bunderstack-sync` export is consumed directly by the example except (optionally) the individual `createTableCollection`/`createSyncRealtimeClient` functions for advanced/custom use (re-exported for that "Level 2" escape hatch, matching `bunderstack-query`'s philosophy).
+
+This is the only entry point Phase 3+ uses — no other `bunderstack-sync` export is consumed directly by the example except (optionally) the individual `createTableCollection`/`createSyncRealtimeClient` functions for advanced/custom use (re-exported for that "Level 2" escape hatch, matching `bunderstack-query`'s philosophy).
 
 - [ ] **Step 1: Confirm `withFiles`'s exact signature before delegating to it**
 
@@ -826,6 +877,7 @@ Confirm it's a method on `createBunderstackQueryClient<TSchema>()` taking `{ bas
 - [ ] **Step 2: Write the failing test**
 
 Create `packages/bunderstack-sync/src/index.test.ts`:
+
 ```ts
 import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
@@ -841,10 +893,16 @@ function fetchMockFactory() {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.includes('/posts')) {
-      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+      return new Response(
+        JSON.stringify({ items: [], limit: 100, hasMore: false }),
+        { status: 200 },
+      )
     }
     if (url.includes('/user')) {
-      return new Response(JSON.stringify({ items: [], limit: 100, hasMore: false }), { status: 200 })
+      return new Response(
+        JSON.stringify({ items: [], limit: 100, hasMore: false }),
+        { status: 200 },
+      )
     }
     throw new Error(`unhandled request: ${url}`)
   }) as unknown as typeof fetch
@@ -891,6 +949,7 @@ Expected: FAIL — `Cannot find module './index'`.
 - [ ] **Step 4: Write the implementation**
 
 Create `packages/bunderstack-sync/src/index.ts`. The `.files` surface delegates to `bunderstack-query`'s own `createBunderstackQueryClient().withFiles(...)` — do not reimplement its bucket loop:
+
 ```ts
 import type { QueryClient } from '@tanstack/react-query'
 import {
@@ -954,10 +1013,7 @@ export function createBunderstackSyncClient<
               queryClient: options.queryClient,
               fetch: fetchFn,
               collections: Object.fromEntries(
-                Object.entries(tablesClient).map(([k, v]) => [
-                  k,
-                  v.collection,
-                ]),
+                Object.entries(tablesClient).map(([k, v]) => [k, v.collection]),
               ),
             })
 
@@ -1000,10 +1056,13 @@ Expected: `8 pass, 0 fail` (6 from Tasks 2.2/2.3 + 2 from this task).
 - [ ] **Step 8: Add bunderstack-sync to the root test script**
 
 In root `package.json`, change:
+
 ```json
 "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query",
 ```
+
 to:
+
 ```json
 "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync",
 ```
@@ -1031,6 +1090,7 @@ a files surface, and a live realtime connection (opt out with realtime: false)."
 ### Task 3.1: Copy and rename
 
 **Files:**
+
 - Create: `examples/twitter-db-tanstack/` (copied from `examples/twitter-tanstack/`)
 
 - [ ] **Step 1: Copy, excluding generated/runtime artifacts**
@@ -1050,10 +1110,13 @@ Expected: same directory structure as `examples/twitter-tanstack` (minus the exc
 - [ ] **Step 3: Rename the package**
 
 In `examples/twitter-db-tanstack/package.json`, change:
+
 ```json
 "name": "bunderstack-example-twitter-tanstack",
 ```
+
 to:
+
 ```json
 "name": "bunderstack-example-twitter-db-tanstack",
 ```
@@ -1086,6 +1149,7 @@ replaced in subsequent commits."
 ### Task 3.2: Swap dependencies — remove oat/react-query data hooks, add bunderstack-sync/Tailwind/shadcn deps
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/package.json`
 
 - [ ] **Step 1: Read the current dependencies**
@@ -1097,6 +1161,7 @@ Run: `cat examples/twitter-db-tanstack/package.json`
 Remove: `"@knadh/oat": "^0.6.2"`
 
 Add (alongside the existing `@tanstack/react-query` — it stays, `@tanstack/query-db-collection` needs a real `QueryClient` underneath):
+
 ```json
 "bunderstack-sync": "workspace:*",
 "@tanstack/react-db": "^0.1.91",
@@ -1139,6 +1204,7 @@ git commit -m "chore(twitter-db-tanstack): swap oat for bunderstack-sync + Tailw
 ### Task 3.3: Tailwind v4 + shadcn foundation
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/vite.config.ts`
 - Modify: `examples/twitter-db-tanstack/src/styles/app.css` (replace entirely)
 - Create: `examples/twitter-db-tanstack/components.json`
@@ -1149,16 +1215,19 @@ git commit -m "chore(twitter-db-tanstack): swap oat for bunderstack-sync + Tailw
 - [ ] **Step 1: Add the Tailwind Vite plugin**
 
 In `examples/twitter-db-tanstack/vite.config.ts`, add the import:
+
 ```ts
 import tailwindcss from '@tailwindcss/vite'
 ```
+
 and add `tailwindcss()` to the `plugins` array (alongside the existing `bunderstackApiDevMiddleware()`, `devtools()`, `tanstackStart(...)`, `viteReact()`, `nitro(...)`).
 
 - [ ] **Step 2: Replace `app.css` with Tailwind + a base theme**
 
 Replace the full contents of `examples/twitter-db-tanstack/src/styles/app.css` with:
+
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
@@ -1210,6 +1279,7 @@ rm examples/twitter-db-tanstack/src/components/OatInit.tsx
 - [ ] **Step 5: Create the `cn()` utility shadcn components depend on**
 
 Create `examples/twitter-db-tanstack/src/lib/utils.ts`:
+
 ```ts
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -1228,6 +1298,7 @@ If this succeeds, it will have appended shadcn's CSS variable theme block (`--ba
 - [ ] **Step 7: Manual fallback — if Step 6 failed or hung (no TTY for interactive prompts)**
 
 Append shadcn's standard "new-york" + "neutral" CSS variable block to `examples/twitter-db-tanstack/src/styles/app.css` (after the `@theme` block from Step 2):
+
 ```css
 @layer base {
   :root {
@@ -1304,7 +1375,7 @@ If you also skipped Step 6's CLI run, manually create `examples/twitter-db-tanst
 - [ ] **Step 8: Typecheck**
 
 Run: `bunx tsc --noEmit -p examples/twitter-db-tanstack 2>&1 | head -60`
-Expected: errors from the now-missing `oat.ts`/`OatInit.tsx` imports in `__root.tsx` and every component that imported `~/utils/oat` — this is **expected** at this point in the migration (Phase 5 fixes each one as it ports that file). Confirm the errors are *only* about missing oat imports/usages, not something else (e.g. a typo in this task's new files) — read through the error list before moving on.
+Expected: errors from the now-missing `oat.ts`/`OatInit.tsx` imports in `__root.tsx` and every component that imported `~/utils/oat` — this is **expected** at this point in the migration (Phase 5 fixes each one as it ports that file). Confirm the errors are _only_ about missing oat imports/usages, not something else (e.g. a typo in this task's new files) — read through the error list before moving on.
 
 - [ ] **Step 9: Commit**
 
@@ -1323,6 +1394,7 @@ fixed file-by-file in Phase 5, not all at once here."
 ### Task 3.4: Enable realtime on the backend
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/bunderstack.ts`
 
 - [ ] **Step 1: Read the current config**
@@ -1360,18 +1432,22 @@ git commit -m "feat(twitter-db-tanstack): enable realtime broker"
 ### Task 4.1: `collections.ts` — replaces `api-client.ts`
 
 **Files:**
+
 - Create: `examples/twitter-db-tanstack/src/collections.ts`
 - Delete: `examples/twitter-db-tanstack/src/api-client.ts`
 
 **Interfaces:**
+
 - Consumes: `createBunderstackSyncClient` from `bunderstack-sync` (Task 2.4).
 - Produces:
+
 ```ts
 export function createQueryClient(): QueryClient
-export function createSyncApi(queryClient: QueryClient): SyncApi  // SyncApi = return type of .with({...})
+export function createSyncApi(queryClient: QueryClient): SyncApi // SyncApi = return type of .with({...})
 export type SyncApi = ReturnType<typeof createSyncApi>
 ```
-  Same two-function shape as the old `api-client.ts`'s `createQueryClient`/`createApi`, so `router.tsx` (Task 4.2) needs minimal changes — same per-request-instance pattern that fixed the SSR singleton-leak bug earlier this session.
+
+Same two-function shape as the old `api-client.ts`'s `createQueryClient`/`createApi`, so `router.tsx` (Task 4.2) needs minimal changes — same per-request-instance pattern that fixed the SSR singleton-leak bug earlier this session.
 
 - [ ] **Step 1: Read the file being replaced**
 
@@ -1450,10 +1526,12 @@ git commit -m "feat(twitter-db-tanstack): add collections.ts on bunderstack-sync
 ### Task 4.2: `router.tsx` + `__root.tsx` — wire collections into router context, validate pagination strategy
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/router.tsx`
 - Modify: `examples/twitter-db-tanstack/src/routes/__root.tsx`
 
 **Interfaces:**
+
 - Consumes: `createQueryClient`/`createSyncApi`/`SyncApi` (Task 4.1).
 - Produces: `RouterContext` with `{ queryClient: QueryClient; api: SyncApi; user: ... | null }` (same shape as `twitter-tanstack`'s `RouterContext`, `api`'s type changed).
 
@@ -1466,6 +1544,7 @@ Run: `cat examples/twitter-db-tanstack/src/router.tsx examples/twitter-db-tansta
 Replace the `createApi`/`createQueryClient`/`AppApi` import and usage with `createSyncApi`/`createQueryClient`/`SyncApi` from `~/collections`. Remove the `setupRouterSsrQueryIntegration` call and its import (`@tanstack/react-router-ssr-query`) — TanStack DB collections sync independently of react-query's SSR dehydration mechanism; there is no equivalent step needed here. `RouterContext.api`'s type changes from `AppApi` to `SyncApi`.
 
 The resulting `getRouter()` should still:
+
 - Call `createQueryClient()` and `createSyncApi(queryClient)` once per router instance (per-request on the server, once on the client) — same pattern as before, for the same reason (no cross-request data leak).
 - Pass `{ queryClient, api, user: null }` as router context.
 - No longer call `setupRouterSsrQueryIntegration`.
@@ -1491,9 +1570,11 @@ git commit -m "feat(twitter-db-tanstack): wire collections into router context"
 ### Task 4.3: Feed page — posts collection + pagination strategy validation (GATING TASK)
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/routes/index.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.posts.collection` (a `Collection<Post>` from Task 4.1's `SyncApi`), `useLiveQuery`/`useLiveInfiniteQuery` from `@tanstack/react-db`.
 - Produces: a working `/` feed route. This task's main job is answering the open question from the design doc: **does paginating via `useLiveInfiniteQuery` keep the underlying HTTP fetch bounded, or does it require the base collection to already hold the full table?** Everything in Phase 5 that uses pagination depends on the answer.
 
@@ -1502,6 +1583,7 @@ git commit -m "feat(twitter-db-tanstack): wire collections into router context"
 - [ ] **Step 2: Write a minimal version using `useLiveQuery` directly (no infinite scroll yet) to prove the basic join works**
 
 In `examples/twitter-db-tanstack/src/routes/index.tsx`, write a component that:
+
 ```tsx
 import { useLiveQuery } from '@tanstack/react-db'
 import { eq } from '@tanstack/db'
@@ -1553,6 +1635,7 @@ sleep 4
 curl -s -o /tmp/feed-step3.html -w "HTTP %{http_code}\n" "http://localhost:3003/"
 grep -ao 'article' /tmp/feed-step3.html | wc -l
 ```
+
 Expected: `HTTP 200`, and at least 1 `article` tag (the seeded posts render with real author names, proving the join works end to end).
 
 - [ ] **Step 4: Stress-test and inspect actual network behavior**
@@ -1564,7 +1647,7 @@ bun scripts/stress-seed.ts --users=2000 --posts=20000 --replies=5000 --follows=1
 
 (If `scripts/stress-seed.ts` references `~/bunderstack` and `~/schema` the same way it did in `twitter-tanstack`, it should work unchanged — it was copied in Task 3.1. Confirm by reading it: `cat examples/twitter-db-tanstack/scripts/stress-seed.ts | head -20`.)
 
-Then, with the dev server running, fetch the homepage and time it, and check the actual HTTP request the browser would make for the *initial* posts collection sync:
+Then, with the dev server running, fetch the homepage and time it, and check the actual HTTP request the browser would make for the _initial_ posts collection sync:
 
 ```bash
 curl -s -o /dev/null -w "HTTP %{http_code}, %{time_total}s\n" "http://localhost:3003/"
@@ -1572,14 +1655,16 @@ curl -s "http://localhost:3003/api/posts?limit=100" | bun -e "const d = JSON.par
 ```
 
 **Decision point:**
-- If the page loads fast (well under 1s) and the network tab / curl timing shows only ~100 rows fetched for the initial collection sync (not all 25,000) — the `limit` passed to `createTableCollection` (Task 2.2, defaults to 100) is already doing its job as a bound, and `useLiveInfiniteQuery`'s `setWindow()` windows *within* that synced set. **This means the posts collection as built only ever shows the first ~100 posts by whatever order `table.list()` returns them in** (not true infinite scroll past 100) — note this finding, it's the actual behavior, and Step 5 below documents the fallback needed to get real infinite scroll past row 100.
+
+- If the page loads fast (well under 1s) and the network tab / curl timing shows only ~100 rows fetched for the initial collection sync (not all 25,000) — the `limit` passed to `createTableCollection` (Task 2.2, defaults to 100) is already doing its job as a bound, and `useLiveInfiniteQuery`'s `setWindow()` windows _within_ that synced set. **This means the posts collection as built only ever shows the first ~100 posts by whatever order `table.list()` returns them in** (not true infinite scroll past 100) — note this finding, it's the actual behavior, and Step 5 below documents the fallback needed to get real infinite scroll past row 100.
 - Either way, do **not** assume `useLiveInfiniteQuery` will transparently page an arbitrarily large table — confirm what actually happened from this test before writing Step 5.
 
 - [ ] **Step 5: Implement bounded infinite scroll for the posts collection specifically**
 
-Based on Step 4's finding, the posts collection needs a *growing* `limit`, re-synced as the user scrolls — not the default fixed `limit: 100` from `createTableCollection`. Add a dedicated collection for posts (separate from the generic `api.posts.collection` used for single-post lookups elsewhere) that takes a reactive page count:
+Based on Step 4's finding, the posts collection needs a _growing_ `limit`, re-synced as the user scrolls — not the default fixed `limit: 100` from `createTableCollection`. Add a dedicated collection for posts (separate from the generic `api.posts.collection` used for single-post lookups elsewhere) that takes a reactive page count:
 
 In `examples/twitter-db-tanstack/src/collections.ts`, add:
+
 ```ts
 import { createTableCollection } from 'bunderstack-sync'
 
@@ -1607,6 +1692,7 @@ In `index.tsx`'s `FeedPage`, hold `pageCount` in `useState(1)`, recreate the fee
 ```bash
 curl -s -o /dev/null -w "HTTP %{http_code}\n" "http://localhost:3003/"
 ```
+
 Expected: `200`, and scrolling (simulated by bumping `pageCount` and re-fetching) reveals posts beyond row 100 — confirm by checking that a post known to be outside the first 100 (e.g. query the db directly for a post's `createdAt` far down the sort order, same technique used earlier this session to find "the busiest thread") appears once `pageCount` is large enough.
 
 - [ ] **Step 7: Stop the dev server, typecheck**
@@ -1614,6 +1700,7 @@ Expected: `200`, and scrolling (simulated by bumping `pageCount` and re-fetching
 ```bash
 pkill -f "vite dev --port 3003"
 ```
+
 Run: `bunx tsc --noEmit -p examples/twitter-db-tanstack 2>&1 | head -60`
 
 - [ ] **Step 8: Commit**
@@ -1633,6 +1720,7 @@ against the 25k-post stress dataset that this keeps the initial fetch bounded."
 ## Phase 5 — Remaining routes and components
 
 Each task below ports one file (or a small tightly-coupled group) from `examples/twitter-tanstack` to `examples/twitter-db-tanstack`, replacing:
+
 - `useApi()` / `Route.useRouteContext().api` + `useQuery`/`useMutation`/`useInfiniteQuery` → `Route.useRouteContext().api` (now a `SyncApi`) + `useLiveQuery` + direct `collection.insert/update/delete` calls (TanStack DB's optimistic mutation API — replaces `*Mutation` helpers).
 - oat's `toast`/`showDialog`/`closeDialog`/native `<dialog>` → `sonner`'s `toast` + shadcn `Dialog`/`AlertDialog`.
 - oat-era CSS classes (`.card`, `.outline`, `.post-x`, etc.) → Tailwind utility classes + shadcn components (`Card`, `Button`, `Avatar`, etc.).
@@ -1642,6 +1730,7 @@ For each task: read the referenced `twitter-tanstack` file first, port its JSX s
 ### Task 5.1: `NotFound`, `DefaultCatchBoundary`, `AppDevtools` — no data/oat dependencies, port as-is with Tailwind classes
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/components/NotFound.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/DefaultCatchBoundary.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/AppDevtools.tsx`
@@ -1653,6 +1742,7 @@ For each task: read the referenced `twitter-tanstack` file first, port its JSX s
 ### Task 5.2: `UserAvatar`, `PostTime` — small, no data dependencies
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/components/UserAvatar.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/PostTime.tsx`
 
@@ -1662,25 +1752,32 @@ For each task: read the referenced `twitter-tanstack` file first, port its JSX s
 ### Task 5.3: `useToastMutation` → delete; sonner toast helpers
 
 **Files:**
+
 - Delete: `examples/twitter-db-tanstack/src/hooks/useToastMutation.ts`
 - Create: `examples/twitter-db-tanstack/src/lib/toast.ts`
 
 **Interfaces:**
+
 - Produces: `import { toast } from '~/lib/toast'` — a thin re-export of `sonner`'s `toast`, with `toast.success`/`toast.error`/`toast.warning` matching oat's call shape closely enough that Phase 5's remaining tasks can swap the import with minimal changes (`sonner`'s API is already `toast.success(message)`/`toast.error(message)` — no wrapper logic needed beyond the re-export).
 
 - [ ] **Step 1:** `useToastMutation.ts` doesn't port — TanStack DB's optimistic mutations (`collection.insert/update/delete`) handle the pending/error state differently (the mutation is applied optimistically immediately; errors roll back automatically). Each component that used `useToastMutation` gets toast calls added directly around its `collection.insert/update/delete` call in its own task (5.4+), with a `try/catch` for the error toast.
 - [ ] **Step 2:** Create `examples/twitter-db-tanstack/src/lib/toast.ts`:
+
 ```ts
 export { toast } from 'sonner'
 ```
+
 - [ ] **Step 3:** Delete `examples/twitter-db-tanstack/src/hooks/useToastMutation.ts`.
 - [ ] **Step 4:** Add the `<Toaster />` component (sonner's root) to `__root.tsx`'s `RootDocument`, inside `<body>`:
+
 ```tsx
 import { Toaster } from '~/components/ui/sonner'
 // ...
-<Toaster />
+;<Toaster />
 ```
+
 Create `examples/twitter-db-tanstack/src/components/ui/sonner.tsx` with shadcn's standard `Toaster` wrapper (re-exports `sonner`'s `Toaster` with theme wiring — well-known, stable shape, don't invent a different one):
+
 ```tsx
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 
@@ -1703,6 +1800,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
 export { Toaster }
 ```
+
 - [ ] **Step 5:** Typecheck (expect `useToastMutation` import errors in not-yet-ported files — fine, fixed as each is ported).
 - [ ] **Step 6:** Commit: `git add examples/twitter-db-tanstack/src/lib/toast.ts examples/twitter-db-tanstack/src/components/ui/sonner.tsx examples/twitter-db-tanstack/src/routes/__root.tsx && git rm examples/twitter-db-tanstack/src/hooks/useToastMutation.ts && git commit -m "feat(twitter-db-tanstack): add sonner toast + Toaster, remove useToastMutation"`
 
@@ -1711,17 +1809,24 @@ export { Toaster }
 **Files:** Modify `examples/twitter-db-tanstack/src/components/FollowButton.tsx`
 
 - [ ] Read `examples/twitter-tanstack/src/components/FollowButton.tsx`. Port using `Route.useRouteContext()`'s `api.follows.collection` — `existing` lookup stays the same client-side `.find()` logic over the `follows` prop array (unchanged — this component already receives a pre-scoped array, no collection query needed inside it). Replace `followMutation`/`unfollowMutation` (`useToastMutation` + `api.follows.createMutation`/`deleteMutation`) with:
+
 ```tsx
 async function handleFollow() {
   try {
-    api.follows.collection.insert({ id: generateTempId(), followerId: currentUserId, followingId: targetUserId })
+    api.follows.collection.insert({
+      id: generateTempId(),
+      followerId: currentUserId,
+      followingId: targetUserId,
+    })
     toast.success('Following')
   } catch {
     toast.error('Could not follow')
   }
 }
 ```
+
 (Use whatever temp-id generation TanStack DB's optimistic insert expects — check `@tanstack/react-db`'s docs/types for whether `insert()` requires a client-supplied key or generates one; if the collection's `getKey` expects `item.id` and the server assigns real TypeIDs, a temporary client-side id is needed for optimistic display until the server response reconciles it. Confirm this against the actual installed package's behavior, not assumption, before finalizing — this is the same kind of empirical check Task 4.3 did for pagination.)
+
 - [ ] Replace `outline`/button oat classes with shadcn `Button` (`variant="outline"` when following, default otherwise).
 - [ ] Typecheck, manual verify (curl a profile page that has a follow button, grep for the button text), commit.
 
@@ -1742,6 +1847,7 @@ async function handleFollow() {
 ### Task 5.7: `ImageUpload`, `ImageLightbox`
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/components/ImageUpload.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/ImageLightbox.tsx`
 
@@ -1751,11 +1857,12 @@ async function handleFollow() {
 ### Task 5.8: `ComposePostDialog`, `ReplyComposer`, `SearchBox`
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/components/ComposePostDialog.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/ReplyComposer.tsx`
 - Modify: `examples/twitter-db-tanstack/src/components/SearchBox.tsx`
 
-- [ ] Read all three reference files. `ComposePostDialog`: native `<dialog>` → shadcn `Dialog`, `createMutation` → `api.posts.collection.insert`. `ReplyComposer`: same mutation swap, no dialog (it's inline). `SearchBox`: currently `useQuery({...api.posts.listQuery({...listParams, q: term}), enabled: term.length >= 2})` — TanStack DB collections sync a fixed set of rows; full-text search (`?q=`) is a *different kind of query* than "what's already synced," and shouldn't be a collection at all. Keep `SearchBox` calling the underlying REST primitive directly: `api.posts.table.list({ q: term, limit: 20 })` and `api.user.table.list({ q: term, limit: 20 })` (the `table` property each collection entry exposes per Task 2.2's `createTableCollection` return shape) wrapped in a plain `useState`/`useEffect` fetch-on-change (or `@tanstack/react-query`'s `useQuery` directly, since `@tanstack/react-query` is still a dependency — either is fine, this one component is allowed to use react-query directly since it's not collection-shaped data).
+- [ ] Read all three reference files. `ComposePostDialog`: native `<dialog>` → shadcn `Dialog`, `createMutation` → `api.posts.collection.insert`. `ReplyComposer`: same mutation swap, no dialog (it's inline). `SearchBox`: currently `useQuery({...api.posts.listQuery({...listParams, q: term}), enabled: term.length >= 2})` — TanStack DB collections sync a fixed set of rows; full-text search (`?q=`) is a _different kind of query_ than "what's already synced," and shouldn't be a collection at all. Keep `SearchBox` calling the underlying REST primitive directly: `api.posts.table.list({ q: term, limit: 20 })` and `api.user.table.list({ q: term, limit: 20 })` (the `table` property each collection entry exposes per Task 2.2's `createTableCollection` return shape) wrapped in a plain `useState`/`useEffect` fetch-on-change (or `@tanstack/react-query`'s `useQuery` directly, since `@tanstack/react-query` is still a dependency — either is fine, this one component is allowed to use react-query directly since it's not collection-shaped data).
 - [ ] Typecheck, manual verify, commit.
 
 ### Task 5.9: `AppShell`
@@ -1790,6 +1897,7 @@ async function handleFollow() {
 ### Task 5.13: `profile.tsx`, `login.tsx`, `signup.tsx`, `logout.tsx`
 
 **Files:**
+
 - Modify: `examples/twitter-db-tanstack/src/routes/profile.tsx`
 - Modify: `examples/twitter-db-tanstack/src/routes/login.tsx`
 - Modify: `examples/twitter-db-tanstack/src/routes/signup.tsx`
@@ -1805,6 +1913,7 @@ async function handleFollow() {
 ### Task 6.1: Root scripts and README
 
 **Files:**
+
 - Modify: root `package.json`
 - Modify: `examples/README.md`
 
@@ -1855,10 +1964,13 @@ curl -s -b /tmp/cookies.txt -X POST "http://localhost:3003/api/posts" -H 'Conten
 wait $SSE_PID
 grep -c "SSE check" /tmp/sse-out.txt
 ```
+
 Expected: at least `1` (the SSE stream received the create event for the post body containing "SSE check" — note this only fires if the SSE connection had already POSTed its subscription via `/api/realtime` POST with `subscriptions: ["posts"]`; if this returns 0, check whether the curl-based SSE client above also needs to issue that POST — the browser-side `createRealtimeClient` does this automatically via `.subscribe()`, but a raw curl GET alone won't subscribe to any topics. Add the POST subscribe call before the sleep if needed:
+
 ```bash
 curl -s -X POST "http://localhost:3003/api/realtime" -H 'Content-Type: application/json' -d '{"clientId":"<id from the SSE stream'\''s first frame>","subscriptions":["posts"],"since":null}' > /dev/null
 ```
+
 extracting `clientId` from `/tmp/sse-out.txt`'s first frame requires reading it after a short delay before the POST.)
 
 - [ ] **Stop the dev server, clean up:**
@@ -1873,6 +1985,7 @@ rm -f /tmp/sse-out.txt /tmp/cookies.txt /tmp/twitter-db-final.log /tmp/twitter-d
 ```bash
 git status --short
 ```
+
 If clean, this task is done with no commit. If there are uncommitted fixes, commit them with a message describing what the final verification pass caught.
 
 ---

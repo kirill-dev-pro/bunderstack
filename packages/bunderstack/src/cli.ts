@@ -25,11 +25,19 @@ export async function runCli(
     return 0
   }
   if (args[0] === '--version') {
-    io.stdout((await Bun.file(new URL('../package.json', import.meta.url)).json() as { version: string }).version)
+    io.stdout(
+      (
+        (await Bun.file(
+          new URL('../package.json', import.meta.url),
+        ).json()) as { version: string }
+      ).version,
+    )
     return 0
   }
   if (args[0] !== 'blueprint') {
-    io.stderr('Usage: bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check]')
+    io.stderr(
+      'Usage: bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check]',
+    )
     return 2
   }
   const options: GenerateBlueprintOptions = { directory: process.cwd() }

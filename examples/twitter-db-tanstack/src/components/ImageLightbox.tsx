@@ -1,10 +1,10 @@
+import { fileIdFromUrl, thumbnailUrl } from '~/components/ImageUpload'
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog'
-import { fileIdFromUrl, thumbnailUrl } from '~/components/ImageUpload'
 
 type ImageLightboxProps = {
   imageUrl: string
@@ -33,10 +33,7 @@ export function ImageLightbox({
           <img src={thumbSrc} alt={alt} loading="lazy" className="block" />
         </button>
       </DialogTrigger>
-      <DialogContent
-        className="max-w-3xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <DialogContent className="max-w-3xl" onClick={(e) => e.stopPropagation()}>
         <DialogTitle className="sr-only">Image</DialogTitle>
         <img
           src={fullSrc}

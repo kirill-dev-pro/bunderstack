@@ -1,12 +1,12 @@
-import { Hono } from 'hono'
 import { and, eq, lt } from 'drizzle-orm'
+import { Hono } from 'hono'
 
 import type { AnyDb } from '../dialect'
 import type { BackgroundDefs } from './define'
 
+import { cronRunsTableFor } from '../internal-tables'
 import { verifyScheduleRequest } from './cron-auth'
 import { runCronSlot, runScheduledSlot } from './cron-runner'
-import { cronRunsTableFor } from '../internal-tables'
 
 const MAX_SLOT_AGE_MS = 60 * 60_000
 const MAX_FUTURE_SLOT_MS = 60_000
@@ -56,10 +56,7 @@ export function buildCronRouter(args: {
         slot,
         now: current,
       })
-      return c.json(
-        result,
-        result.status === 'running' ? 202 : 200,
-      )
+      return c.json(result, result.status === 'running' ? 202 : 200)
     } catch (error) {
       if (
         error instanceof Error &&
@@ -79,7 +76,14 @@ export function buildCronRouter(args: {
     if (!slotText || !Number.isSafeInteger(slot) || !signature) {
       return c.json({ error: 'invalid schedule signature' }, 401)
     }
-    if (!verifyScheduleRequest(args.secret, `maintenance:${name}`, slot, signature)) {
+    if (
+      !verifyScheduleRequest(
+        args.secret,
+        `maintenance:${name}`,
+        slot,
+        signature,
+      )
+    ) {
       return c.json({ error: 'invalid schedule signature' }, 401)
     }
     if (name !== 'storage-sweep') {

@@ -25,7 +25,13 @@ function HomePage() {
 
 /** Home screen: the boards you own. Board pages themselves are shared by
  *  link — anyone with the URL becomes a collaborator. */
-function BoardList({ appName, userName }: { appName: string; userName: string }) {
+function BoardList({
+  appName,
+  userName,
+}: {
+  appName: string
+  userName: string
+}) {
   const { api } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -47,7 +53,9 @@ function BoardList({ appName, userName }: { appName: string; userName: string })
   const deleteBoard = useMutation(
     api.boards.deleteMutation({
       onSuccess: () =>
-        void queryClient.invalidateQueries({ queryKey: boardsOptions.queryKey }),
+        void queryClient.invalidateQueries({
+          queryKey: boardsOptions.queryKey,
+        }),
     }),
   )
 
@@ -90,7 +98,10 @@ function BoardList({ appName, userName }: { appName: string; userName: string })
             <span className="muted">
               {board.createdAt.toLocaleDateString()}
             </span>
-            <button className="remove" onClick={() => deleteBoard.mutate(board.id)}>
+            <button
+              className="remove"
+              onClick={() => deleteBoard.mutate(board.id)}
+            >
               ×
             </button>
           </li>

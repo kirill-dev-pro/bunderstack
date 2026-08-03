@@ -16,8 +16,8 @@ import {
 } from 'drizzle-orm'
 import { PgTable } from 'drizzle-orm/pg-core'
 
-import type { AnyDb } from './dialect'
 import type { ResolvedTableAccess, SortOrder } from './access'
+import type { AnyDb } from './dialect'
 
 import { ErrorCode, ListQueryError } from './errors'
 
@@ -282,9 +282,7 @@ export function encodeCursor(payload: CursorPayload): string {
 
 export function decodeCursor(cursor: string): CursorPayload {
   try {
-    const parsed = JSON.parse(
-      Buffer.from(cursor, 'base64url').toString('utf8'),
-    )
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
     if (!isCursorPayload(parsed)) {
       throw new Error('invalid cursor shape')
     }

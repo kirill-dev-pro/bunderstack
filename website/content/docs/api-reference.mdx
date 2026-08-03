@@ -61,11 +61,13 @@ type BunderstackConfig<TSchema, TAccess, TStorage, TEnv> = {
   // trpc is declared on createBunderstack's overloads for contextual typing
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
-  realtime?: boolean | {
-    keepaliveMs?: number
-    bufferSize?: number
-    redis?: string | { url: string; token?: string }
-  }
+  realtime?:
+    | boolean
+    | {
+        keepaliveMs?: number
+        bufferSize?: number
+        redis?: string | { url: string; token?: string }
+      }
 }
 ```
 

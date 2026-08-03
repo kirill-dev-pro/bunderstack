@@ -25,12 +25,12 @@ export const todos = pgTable('todos', { id: text('id').primaryKey() /* … */ })
 
 Within the Postgres dialect, `DATABASE_URL` selects the engine:
 
-| `DATABASE_URL`      | Engine                                                        |
-| ------------------- | ------------------------------------------------------------- |
-| unset               | PGlite in `./data.pglite` (directory auto-created)            |
-| `file:./path`       | PGlite in that directory                                      |
-| `memory://`         | PGlite in-memory (tests)                                      |
-| `postgres://…`      | Real Postgres — `Bun.sql` under Bun, `postgres` (postgres.js) under Node |
+| `DATABASE_URL` | Engine                                                                   |
+| -------------- | ------------------------------------------------------------------------ |
+| unset          | PGlite in `./data.pglite` (directory auto-created)                       |
+| `file:./path`  | PGlite in that directory                                                 |
+| `memory://`    | PGlite in-memory (tests)                                                 |
+| `postgres://…` | Real Postgres — `Bun.sql` under Bun, `postgres` (postgres.js) under Node |
 
 Mental model stays the same as SQLite: **no URL / `file:` = local embedded, a
 server URL = production**. If the URL scheme contradicts the schema dialect
@@ -191,7 +191,7 @@ per driver:
 ## Documentation
 
 - Getting-started: a Postgres branch — pg schema + `bun add -d
-  @electric-sql/pglite`, and the prod `DATABASE_URL=postgres://…` handoff.
+@electric-sql/pglite`, and the prod `DATABASE_URL=postgres://…` handoff.
 - Configuration: the URL→engine table from this spec.
 - Framework-portability: note the Node fallback driver (`postgres`).
 - Migration note for the removed root re-exports (import from drizzle-orm

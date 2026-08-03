@@ -98,11 +98,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   )
 }
 
-function AccountNav({
-  user,
-}: {
-  user: RouterContext['user']
-}) {
+function AccountNav({ user }: { user: RouterContext['user'] }) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const logoutMutation = useMutation({

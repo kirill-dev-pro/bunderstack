@@ -1,9 +1,13 @@
+import type { InferSelect } from 'bunderstack-sync'
+
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
-import type { InferSelect } from 'bunderstack-sync'
 
 import type { user } from '~/schema'
 
+import { PostImagePreview } from '~/components/ImageLightbox'
+import { PostActions } from '~/components/PostActions'
+import { PostTime } from '~/components/PostTime'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,9 +28,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog'
-import { PostImagePreview } from '~/components/ImageLightbox'
-import { PostActions } from '~/components/PostActions'
-import { PostTime } from '~/components/PostTime'
 import { UserAvatar } from '~/components/UserAvatar'
 import { toast } from '~/lib/toast'
 import {

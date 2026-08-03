@@ -14,11 +14,11 @@ import {
 import { Suspense } from 'react'
 
 import { useMDXComponents } from '@/components/mdx'
-import { baseOptions } from '@/lib/layout.shared'
 // Build-time page tree + slug→file map (scripts/gen-docs-manifest.ts). Keeping
 // the loader pure means navigation never calls a server function — required
 // for static hosting (GitHub Pages), where /_serverFn/* RPCs would 404.
 import manifestJson from '@/lib/docs-manifest.gen.json'
+import { baseOptions } from '@/lib/layout.shared'
 
 // The JSON is produced by fumadocs-core's own serializePageTree (see the
 // generator script), so this assertion restores the type the JSON import

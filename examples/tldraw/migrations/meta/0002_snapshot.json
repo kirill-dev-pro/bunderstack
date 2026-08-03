@@ -105,12 +105,8 @@
           "name": "account_userId_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -164,12 +160,8 @@
           "name": "canvas_ownerId_user_id_fk",
           "tableFrom": "canvas",
           "tableTo": "user",
-          "columnsFrom": [
-            "ownerId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ownerId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -241,9 +233,7 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         }
       },
@@ -252,12 +242,8 @@
           "name": "session_userId_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -360,12 +346,8 @@
           "name": "shape_canvasId_canvas_id_fk",
           "tableFrom": "shape",
           "tableTo": "canvas",
-          "columnsFrom": [
-            "canvasId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["canvasId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -373,12 +355,8 @@
           "name": "shape_ownerId_user_id_fk",
           "tableFrom": "shape",
           "tableTo": "user",
-          "columnsFrom": [
-            "ownerId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["ownerId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -452,9 +430,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -540,25 +516,17 @@
       "indexes": {
         "bfm_owner": {
           "name": "bfm_owner",
-          "columns": [
-            "owner_id"
-          ],
+          "columns": ["owner_id"],
           "isUnique": false
         },
         "bfm_scope": {
           "name": "bfm_scope",
-          "columns": [
-            "bucket",
-            "scope_json"
-          ],
+          "columns": ["bucket", "scope_json"],
           "isUnique": false
         },
         "bfm_sweep": {
           "name": "bfm_sweep",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -617,10 +585,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "_bunderstack_idempotency_key_table_name_pk": {
-          "columns": [
-            "key",
-            "table_name"
-          ],
+          "columns": ["key", "table_name"],
           "name": "_bunderstack_idempotency_key_table_name_pk"
         }
       },

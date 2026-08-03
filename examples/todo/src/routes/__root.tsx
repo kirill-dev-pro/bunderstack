@@ -9,8 +9,8 @@ import * as React from 'react'
 
 import type { RouterContext } from '~/router'
 
-import { fetchUser } from '~/utils/session'
 import stylesCss from '~/styles.css?url'
+import { fetchUser } from '~/utils/session'
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {

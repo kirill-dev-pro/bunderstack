@@ -1,11 +1,11 @@
+import type { TypeId } from 'bunderstack/typeid'
 import type { ReactNode } from 'react'
 
 import { Link } from '@tanstack/react-router'
-import type { TypeId } from 'bunderstack/typeid'
 
 import { SearchBox } from '~/components/SearchBox'
-import { UserAvatar } from '~/components/UserAvatar'
 import { Button } from '~/components/ui/button'
+import { UserAvatar } from '~/components/UserAvatar'
 
 type AppShellProps = {
   user: {

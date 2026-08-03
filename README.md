@@ -239,7 +239,9 @@ storageOptions: {
 Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs in production or local proxy URLs in development:
 
 ```ts
-const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expiresIn: 3600 })
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', {
+  expiresIn: 3600,
+})
 ```
 
 ### Server-side uploads (`app.storage.upload`)
@@ -247,10 +249,15 @@ const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', { expire
 Use `app.storage.upload` (or `ctx.storage.upload`) to upload server-generated files (e.g. generated PDFs) and automatically register them in file metadata:
 
 ```ts
-await app.storage.upload('adaptations/123/resume.pdf', pdfBytes, 'application/pdf', {
-  filename: 'resume.pdf',
-  ownerId: user.id,
-})
+await app.storage.upload(
+  'adaptations/123/resume.pdf',
+  pdfBytes,
+  'application/pdf',
+  {
+    filename: 'resume.pdf',
+    ownerId: user.id,
+  },
+)
 ```
 
 ### Image transforms

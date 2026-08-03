@@ -29,11 +29,11 @@ Every exposed table gets a bundle:
 
 ```ts
 api.posts.collection // TanStack DB collection (default: first 100 rows)
-api.posts.table      // raw typed table client (list/get/create/update/delete)
+api.posts.table // raw typed table client (list/get/create/update/delete)
 api.posts.scopedCollection(options)
 api.posts.collectionByIds(ids)
-api.files.avatars    // bucket client
-api.realtime         // SSE client (undefined during SSR)
+api.files.avatars // bucket client
+api.realtime // SSE client (undefined during SSR)
 ```
 
 Mutations on `collection` are optimistic and persist through the CRUD API:
@@ -61,11 +61,13 @@ const feed = api.posts.scopedCollection({
 })
 
 useLiveQuery((q) =>
-  q.from({ post: feed.collection }).orderBy(({ post }) => post.createdAt, 'desc'),
+  q
+    .from({ post: feed.collection })
+    .orderBy(({ post }) => post.createdAt, 'desc'),
 )
 
 await feed.loadMore() // grow the window in place — rendered rows never unmount
-feed.hasMore()        // exact, from the server's last response
+feed.hasMore() // exact, from the server's last response
 ```
 
 Collections are **cached by their options** — calling `scopedCollection` with

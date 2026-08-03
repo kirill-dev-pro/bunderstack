@@ -108,12 +108,12 @@ describe('RealtimeFacade', () => {
   test.each([
     ['memory', 'memory'],
     ['redis', 'redis'],
-  ] satisfies [import('./facade').RealtimeTransport, import('./facade').RealtimeTransport][])(
-    'reports %s transport',
-    (transport, expected) => {
-      const realtime = createRealtimeFacade(recordingBroker([]), transport)
-      expect(realtime.enabled).toBe(true)
-      expect(realtime.transport).toBe(expected)
-    },
-  )
+  ] satisfies [
+    import('./facade').RealtimeTransport,
+    import('./facade').RealtimeTransport,
+  ][])('reports %s transport', (transport, expected) => {
+    const realtime = createRealtimeFacade(recordingBroker([]), transport)
+    expect(realtime.enabled).toBe(true)
+    expect(realtime.transport).toBe(expected)
+  })
 })

@@ -795,7 +795,11 @@ test('GET supports nested multi-segment keys like adaptations/123/resume.pdf', a
   ])
   await makeApp(reg)
   const key = 'adaptations/123/resume.pdf'
-  await local.upload(key, new TextEncoder().encode('PDF_CONTENT').buffer, 'application/pdf')
+  await local.upload(
+    key,
+    new TextEncoder().encode('PDF_CONTENT').buffer,
+    'application/pdf',
+  )
   const { insertReadyFile } = await import('./file-meta')
   await insertReadyFile(db, {
     fileId: key,

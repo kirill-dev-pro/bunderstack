@@ -1,10 +1,11 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import * as React from 'react'
 import { generate as generateTypeId } from 'bunderstack/typeid'
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react'
+import * as React from 'react'
+
+import type { Like, Post, Retweet } from '~/utils/posts'
 
 import { toast } from '~/lib/toast'
-import type { Like, Post, Retweet } from '~/utils/posts'
 
 type PostActionsProps = {
   postId: Post['id']
@@ -109,7 +110,10 @@ export function PostActions({
           void toggleRetweet()
         }}
       >
-        <Repeat2 className={`size-4 ${myRt ? 'text-green-600' : ''}`} aria-hidden />
+        <Repeat2
+          className={`size-4 ${myRt ? 'text-green-600' : ''}`}
+          aria-hidden
+        />
         {rtCount > 0 ? <span className="text-sm">{rtCount}</span> : null}
       </button>
 

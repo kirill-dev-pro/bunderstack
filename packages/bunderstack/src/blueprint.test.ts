@@ -16,7 +16,11 @@ const manifest: BunderstackManifest = {
     migrationsDirectory: './migrations',
     tables: [
       { exportName: 'todos', physicalName: 'todos', system: false },
-      { exportName: '_system.files', physicalName: 'bunderstack_file_meta', system: true },
+      {
+        exportName: '_system.files',
+        physicalName: 'bunderstack_file_meta',
+        system: true,
+      },
     ],
   },
   storage: {
@@ -30,7 +34,9 @@ const manifest: BunderstackManifest = {
   ],
   background: {
     jobs: [{ name: 'celebrateBoardComplete' }],
-    cron: [{ name: 'archiveDoneTodos', schedule: '* * * * *', timezone: 'UTC' }],
+    cron: [
+      { name: 'archiveDoneTodos', schedule: '* * * * *', timezone: 'UTC' },
+    ],
     maintenance: [
       { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
     ],
@@ -77,7 +83,10 @@ test('blueprint parser rejects unsafe and duplicate declarations', () => {
   expect(() =>
     parseBlueprint({
       ...blueprint,
-      application: { ...blueprint.application, scripts: { build: 'build', start: 'start' } },
+      application: {
+        ...blueprint.application,
+        scripts: { build: 'build', start: 'start' },
+      },
       background: { ...blueprint.background, worker: { required: false } },
     }),
   ).toThrow(/worker/)

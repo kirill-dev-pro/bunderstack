@@ -12,19 +12,20 @@ zero, while durable work has a clearly owned process.
 ```ts
 const app = await createBunderstack({
   schema,
-  jobs: (j) => j.define({
-    sendEmail: j.job({
-      input: z.object({ userId: z.string() }),
-      retries: 3,
-      handler: async ({ userId }, ctx) => {
-        // ctx.db, ctx.email, ctx.storage, ctx.jobs, and ctx.env
-      },
+  jobs: (j) =>
+    j.define({
+      sendEmail: j.job({
+        input: z.object({ userId: z.string() }),
+        retries: 3,
+        handler: async ({ userId }, ctx) => {
+          // ctx.db, ctx.email, ctx.storage, ctx.jobs, and ctx.env
+        },
+      }),
+      dailyReport: j.cron({
+        schedule: '0 9 * * 1-5',
+        handler: async ({ scheduledFor }, ctx) => {},
+      }),
     }),
-    dailyReport: j.cron({
-      schedule: '0 9 * * 1-5',
-      handler: async ({ scheduledFor }, ctx) => {},
-    }),
-  }),
 })
 
 await app.jobs.enqueue('sendEmail', { userId: 'usr_123' })
@@ -74,15 +75,16 @@ transport in both processes:
 const app = await createBunderstack({
   schema,
   realtime: { redis: process.env.REDIS_URL! },
-  jobs: (j) => j.define({
-    generateImage: j.job({
-      input: z.object({ itemId: z.string() }),
-      handler: async ({ itemId }, ctx) => {
-        const item = await generateAndSaveItem(itemId)
-        await ctx.realtime.publish(schema.items, 'update', item)
-      },
+  jobs: (j) =>
+    j.define({
+      generateImage: j.job({
+        input: z.object({ itemId: z.string() }),
+        handler: async ({ itemId }, ctx) => {
+          const item = await generateAndSaveItem(itemId)
+          await ctx.realtime.publish(schema.items, 'update', item)
+        },
+      }),
     }),
-  }),
 })
 ```
 

@@ -34,6 +34,7 @@ thumbnails, realtime two-tab sync, and completion email all work without
 the deleted tables.
 
 Implementation notes discovered during the build:
+
 - Queries must live in a component that only mounts when authenticated,
   otherwise they 401 on the login screen and cache the error.
 - Auto-CRUD mutations invalidate only their own table keys; the tRPC stats
@@ -53,12 +54,12 @@ Implementation notes discovered during the build:
    email in one call; console provider in dev).
 4. **tRPC** — keep `stats` + `complete`.
 5. **Storage** (new) — `storage: { local: true, defaultBucket: 'images',
-   buckets: { images: { upload: { maxSize: '5mb', accept: ['image/*'] },
-   transforms: true } } }` (`defaultBucket` must name a declared bucket).
+buckets: { images: { upload: { maxSize: '5mb', accept: ['image/*'] },
+transforms: true } } }` (`defaultBucket` must name a declared bucket).
    Optional file input in the create form → `api.files.images.upload(file)`
    → `imageFileId` on the todo → `?w=64&format=webp` thumbnail in the row.
 6. **Realtime** (new) — `createRealtimeClient({ baseUrl: '/api',
-   queryClient, tables: ['todos'] })` wired in `router.tsx`; two open tabs
+queryClient, tables: ['todos'] })` wired in `router.tsx`; two open tabs
    stay in sync.
 
 ## Deletions

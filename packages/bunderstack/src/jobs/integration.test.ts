@@ -182,10 +182,16 @@ test('introspection mode boots with jobs configured', async () => {
       database: { url: ':memory:', adapter: libsql() },
       jobs: (j) =>
         j.define({
-          noop: j.job({ handler: async () => { runs++ } }),
+          noop: j.job({
+            handler: async () => {
+              runs++
+            },
+          }),
           scheduled: j.cron({
             schedule: '* * * * *',
-            handler: async () => { runs++ },
+            handler: async () => {
+              runs++
+            },
           }),
         }),
     })

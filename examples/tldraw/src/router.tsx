@@ -1,11 +1,12 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 
+import type { AuthUser } from './utils/session'
+
 import { createApi, createQueryClient, type AppApi } from './api'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
 import { routeTree } from './routeTree.gen'
-import type { AuthUser } from './utils/session'
 
 export type RouterContext = {
   queryClient: QueryClient

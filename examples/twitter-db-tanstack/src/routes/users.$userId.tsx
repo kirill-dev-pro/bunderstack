@@ -1,3 +1,4 @@
+import { useLiveQuery } from '@tanstack/react-db'
 import { useQuery } from '@tanstack/react-query'
 import {
   ClientOnly,
@@ -6,19 +7,19 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
-import { asTypeId } from 'bunderstack/typeid'
 import { BunderstackApiError } from 'bunderstack-sync'
-import * as React from 'react'
-import { useLiveQuery } from '@tanstack/react-db'
+import { asTypeId } from 'bunderstack/typeid'
 import { ArrowLeft } from 'lucide-react'
+import * as React from 'react'
+
+import type { RouterContext } from '~/router'
 
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
-import { UserAvatar } from '~/components/UserAvatar'
 import { Button } from '~/components/ui/button'
-import type { RouterContext } from '~/router'
+import { UserAvatar } from '~/components/UserAvatar'
 
 function parseUserIdParam(raw: string) {
   try {

@@ -21,7 +21,7 @@ Two concepts, one module:
 
 - **Queue** — offloading and splitting work between workers: enqueue → claim →
   execute → retry.
-- **Cron** — recurring schedules that *enqueue* jobs on a cadence. The
+- **Cron** — recurring schedules that _enqueue_ jobs on a cadence. The
   scheduler stays thin; all execution semantics live in the queue.
 
 ## Non-goals (v1)
@@ -48,9 +48,9 @@ const app = await createBunderstack({
     j.define({
       generateLook: j.job({
         input: z.object({ generationId: z.number() }),
-        retries: 3,            // attempts after the first failure
-        concurrency: 2,        // max simultaneous runs of this type (cross-replica)
-        timeout: 5 * 60_000,   // lease duration; expired lease → back to pending
+        retries: 3, // attempts after the first failure
+        concurrency: 2, // max simultaneous runs of this type (cross-replica)
+        timeout: 5 * 60_000, // lease duration; expired lease → back to pending
         handler: async (input, ctx) => {
           // ctx: { db, env, email, storage, jobs } — same capabilities as tRPC ctx
         },
@@ -59,16 +59,22 @@ const app = await createBunderstack({
         },
       }),
       nightlyCleanup: j.job({
-        cron: '0 3 * * *',     // a cron entry is an ordinary definition + `cron`
-        handler: async (_, ctx) => { /* … */ },
+        cron: '0 3 * * *', // a cron entry is an ordinary definition + `cron`
+        handler: async (_, ctx) => {
+          /* … */
+        },
       }),
     }),
 })
 
-await app.jobs.enqueue('generateLook', { generationId: 42 }, {
-  dedupeKey: `look:42`,   // optional
-  delay: 5_000,           // optional; or runAt: Date
-})
+await app.jobs.enqueue(
+  'generateLook',
+  { generationId: 42 },
+  {
+    dedupeKey: `look:42`, // optional
+    delay: 5_000, // optional; or runAt: Date
+  },
+)
 ```
 
 ```ts
@@ -143,7 +149,7 @@ Claiming goes behind the established `*TableFor(db)` dialect pattern:
 - **Postgres:** `SELECT … FOR UPDATE SKIP LOCKED` inside a transaction, then
   flip to `running` with `locked_until = now + timeout`.
 - **libSQL/SQLite:** `UPDATE … SET status='running', locked_until=… WHERE id
-  IN (SELECT id … WHERE status='pending' AND run_at <= now LIMIT n) RETURNING`
+IN (SELECT id … WHERE status='pending' AND run_at <= now LIMIT n) RETURNING`
   — atomic under SQLite's single-writer model.
 
 The claim query excludes types whose `running` count has reached their
@@ -162,7 +168,7 @@ types; nothing for Bunderhost to learn beyond the manifest entry.
   makes crash accounting automatic (below).
 - Handler success → `succeeded`, `finished_at` set.
 - Handler failure → if `attempts <= retries`: `run_at = now +
-  backoff(attempts)`, back to `pending`. Otherwise: `failed`, error message
+backoff(attempts)`, back to `pending`. Otherwise: `failed`, error message
   stored in `last_error`, `onFailed` fires (its own errors are caught and
   logged, never retried).
 - **Crash recovery:** on boot and on every poll, `running` rows with
@@ -173,7 +179,7 @@ types; nothing for Bunderhost to learn beyond the manifest entry.
   reaper pass. `failed` rows are kept (they're the debugging surface; manual
   re-enqueue is just calling `enqueue` again).
 - Handler ctx is the tRPC ctx shape minus `req`/`user`: `{ db, env, email,
-  storage, jobs }`. `jobs` is included so jobs can enqueue jobs.
+storage, jobs }`. `jobs` is included so jobs can enqueue jobs.
 
 ## Cron without a coordinator
 
@@ -193,7 +199,7 @@ machinery.
 ## Public surface
 
 - `app.jobs.enqueue(name, input?, opts?)` — typed; `opts: { dedupeKey?,
-  delay? | runAt? }`. Returns `{ id: string }`.
+delay? | runAt? }`. Returns `{ id: string }`.
 - `ctx.jobs` in tRPC procedures — same facade.
 - `app.manifest` gains a `jobs` section: declared job names + cron schedules,
   for Bunderhost introspection. Introspection mode

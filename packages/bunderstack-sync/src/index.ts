@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+
 import {
   createBunderstackQueryClient,
   type FilesQueryClient,
@@ -8,9 +9,10 @@ import {
   type UploadedFile,
 } from 'bunderstack-query'
 
+import type { CreateFor, RowFor } from './sync-client'
+
 import { createTableCollection, type TableCollection } from './collection'
 import { createSyncRealtimeClient } from './realtime-sync'
-import type { CreateFor, RowFor } from './sync-client'
 
 type BaseOptions = {
   baseUrl?: string
@@ -70,32 +72,28 @@ export function createBunderstackSyncClient<
         })
 
       // Realtime needs a browser-side persistent connection; default off in SSR.
-      const realtime =
-        !(options.realtime ?? typeof window !== 'undefined')
-          ? undefined
-          : createSyncRealtimeClient({
-              baseUrl,
-              queryClient: options.queryClient,
-              // `createSyncRealtimeClient` expects the ambient `typeof fetch`
-              // (which includes Bun's `preconnect` static), while our public
-              // options accept any plain fetch-shaped function — the two
-              // signatures are otherwise call-compatible.
-              fetch: fetchFn as typeof fetch,
-              // Individual collections are typed against their own row shape
-              // (inferred from `createTableCollection`'s constraint since
-              // this loop can't carry a per-key TRow), which is narrower
-              // than `SyncableCollection`'s `unknown`-typed utils. Safe here
-              // because `realtime-sync.ts` only ever passes server-decoded
-              // records through, matching each collection's own row shape.
-              collections: Object.fromEntries(
-                Object.entries(tablesClient).map(([k, v]) => [
-                  k,
-                  v.collection,
-                ]),
-              ) as unknown as NonNullable<
-                Parameters<typeof createSyncRealtimeClient>[0]['collections']
-              >,
-            })
+      const realtime = !(options.realtime ?? typeof window !== 'undefined')
+        ? undefined
+        : createSyncRealtimeClient({
+            baseUrl,
+            queryClient: options.queryClient,
+            // `createSyncRealtimeClient` expects the ambient `typeof fetch`
+            // (which includes Bun's `preconnect` static), while our public
+            // options accept any plain fetch-shaped function — the two
+            // signatures are otherwise call-compatible.
+            fetch: fetchFn as typeof fetch,
+            // Individual collections are typed against their own row shape
+            // (inferred from `createTableCollection`'s constraint since
+            // this loop can't carry a per-key TRow), which is narrower
+            // than `SyncableCollection`'s `unknown`-typed utils. Safe here
+            // because `realtime-sync.ts` only ever passes server-decoded
+            // records through, matching each collection's own row shape.
+            collections: Object.fromEntries(
+              Object.entries(tablesClient).map(([k, v]) => [k, v.collection]),
+            ) as unknown as NonNullable<
+              Parameters<typeof createSyncRealtimeClient>[0]['collections']
+            >,
+          })
 
       return {
         ...tablesClient,

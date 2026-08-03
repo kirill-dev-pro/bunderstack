@@ -27,8 +27,8 @@ definitions there, keyed to match `BATTERIES` entries in
    - `trpc` — client side: `useQuery(api.trpc.stats.queryOptions())`
      inferred from the server router, matching the corrected docs (option
      factories, not `.useQuery()` hooks).
-   The shared hidden `APP_FILE` context gains a small `trpc` router (and
-   env schemas) so client snippets infer `api.trpc.*`.
+     The shared hidden `APP_FILE` context gains a small `trpc` router (and
+     env schemas) so client snippets infer `api.trpc.*`.
 
 2. **Todo example card** first in the Examples grid — the minimal
    full-feature showcase (`bun run dev:todo`).

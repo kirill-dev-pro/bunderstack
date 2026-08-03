@@ -1,6 +1,8 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
+import type { Post } from '~/utils/posts'
+
 import {
   uploadFile,
   fileIdFromUrl,
@@ -10,7 +12,6 @@ import {
 import { UserAvatar } from '~/components/UserAvatar'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { closeDialog, showDialog, toast } from '~/utils/oat'
-import type { Post } from '~/utils/posts'
 
 type ComposePostDialogProps = {
   dialogRef: React.RefObject<HTMLDialogElement | null>

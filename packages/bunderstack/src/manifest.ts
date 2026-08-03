@@ -5,13 +5,14 @@ import type { Dialect } from './dialect'
 import type { EnvConfigInput } from './env'
 import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
-import { parseCron } from './jobs/cron'
+
 import {
   bunderstackCronRuns,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
 } from './internal-tables'
+import { parseCron } from './jobs/cron'
 
 export type ManifestEnvVar = {
   key: string
@@ -47,8 +48,12 @@ const nonEmpty = z.string().min(1)
 const migrationDirectory = nonEmpty.refine(
   (value) =>
     value.startsWith('/') ||
-    (!value.includes('\\') && value.split('/').every((part) => part !== '..' && part !== '')),
-  { message: 'migrationsDirectory must be an absolute path or a relative path without traversal' },
+    (!value.includes('\\') &&
+      value.split('/').every((part) => part !== '..' && part !== '')),
+  {
+    message:
+      'migrationsDirectory must be an absolute path or a relative path without traversal',
+  },
 )
 const cronSchedule = nonEmpty.refine(
   (value) => {
@@ -85,7 +90,10 @@ const manifestSchema = z
         defaultBucket: nonEmpty,
         buckets: z.array(
           z
-            .object({ name: nonEmpty, visibility: z.enum(['public', 'private']) })
+            .object({
+              name: nonEmpty,
+              visibility: z.enum(['public', 'private']),
+            })
             .strict(),
         ),
       })
@@ -133,13 +141,16 @@ function sortBy<T>(entries: readonly T[], key: (entry: T) => string): T[] {
 function rejectDuplicates(collection: string, values: readonly string[]): void {
   const seen = new Set<string>()
   for (const value of values) {
-    if (seen.has(value)) throw new Error(`[bunderstack] duplicate ${collection} "${value}"`)
+    if (seen.has(value))
+      throw new Error(`[bunderstack] duplicate ${collection} "${value}"`)
     seen.add(value)
   }
 }
 
 function describeTables(schema: Record<string, unknown>) {
-  const systemNames = new Set<string>(systemTables().map((table) => table.physicalName))
+  const systemNames = new Set<string>(
+    systemTables().map((table) => table.physicalName),
+  )
   return sortBy(
     Object.entries(schema).flatMap(([exportName, value]) =>
       isTable(value) && !systemNames.has(getTableName(value))
@@ -163,13 +174,21 @@ function describeSection(
 
 function systemTables() {
   return [
-    { exportName: '_system.files', physicalName: getTableName(bunderstackFiles), system: true },
+    {
+      exportName: '_system.files',
+      physicalName: getTableName(bunderstackFiles),
+      system: true,
+    },
     {
       exportName: '_system.idempotency',
       physicalName: getTableName(bunderstackIdempotency),
       system: true,
     },
-    { exportName: '_system.jobs', physicalName: getTableName(bunderstackJobs), system: true },
+    {
+      exportName: '_system.jobs',
+      physicalName: getTableName(bunderstackJobs),
+      system: true,
+    },
     {
       exportName: '_system.scheduledRuns',
       physicalName: getTableName(bunderstackCronRuns),
@@ -180,13 +199,34 @@ function systemTables() {
 
 export function parseManifest(value: unknown): BunderstackManifest {
   const manifest = manifestSchema.parse(value) as BunderstackManifest
-  rejectDuplicates('database physical table', manifest.database.tables.map((entry) => entry.physicalName))
-  rejectDuplicates('database export table', manifest.database.tables.map((entry) => entry.exportName))
-  rejectDuplicates('storage bucket', manifest.storage.buckets.map((entry) => entry.name))
-  rejectDuplicates('environment key', manifest.environment.map((entry) => entry.key))
-  rejectDuplicates('background job', manifest.background.jobs.map((entry) => entry.name))
-  rejectDuplicates('background cron', manifest.background.cron.map((entry) => entry.name))
-  rejectDuplicates('background maintenance', manifest.background.maintenance.map((entry) => entry.name))
+  rejectDuplicates(
+    'database physical table',
+    manifest.database.tables.map((entry) => entry.physicalName),
+  )
+  rejectDuplicates(
+    'database export table',
+    manifest.database.tables.map((entry) => entry.exportName),
+  )
+  rejectDuplicates(
+    'storage bucket',
+    manifest.storage.buckets.map((entry) => entry.name),
+  )
+  rejectDuplicates(
+    'environment key',
+    manifest.environment.map((entry) => entry.key),
+  )
+  rejectDuplicates(
+    'background job',
+    manifest.background.jobs.map((entry) => entry.name),
+  )
+  rejectDuplicates(
+    'background cron',
+    manifest.background.cron.map((entry) => entry.name),
+  )
+  rejectDuplicates(
+    'background maintenance',
+    manifest.background.maintenance.map((entry) => entry.name),
+  )
   return manifest
 }
 
@@ -210,14 +250,20 @@ export function buildManifest(args: {
       ? [{ key: 'SMTP_URL', required: true, scope: 'server' as const }]
       : []),
   ]
-  rejectDuplicates('environment key', environment.map((entry) => entry.key))
+  rejectDuplicates(
+    'environment key',
+    environment.map((entry) => entry.key),
+  )
 
   return parseManifest({
     version: 3,
     database: {
       dialect: args.dialect,
       migrationsDirectory: args.migrationsDirectory,
-      tables: sortBy([...systemTables(), ...describeTables(args.schema)], (entry) => entry.physicalName),
+      tables: sortBy(
+        [...systemTables(), ...describeTables(args.schema)],
+        (entry) => entry.physicalName,
+      ),
     },
     storage: {
       defaultBucket: args.storage.defaultBucket,
@@ -249,7 +295,11 @@ export function buildManifest(args: {
         (entry) => entry.name,
       ),
       maintenance: [
-        { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' as const },
+        {
+          name: 'storage-sweep',
+          schedule: '0 4 * * *',
+          timezone: 'UTC' as const,
+        },
       ],
     },
   })

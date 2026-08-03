@@ -160,7 +160,7 @@ background:
 
   cron:
     - name: archiveDoneTodos
-      schedule: "* * * * *"
+      schedule: '* * * * *'
       timezone: UTC
 ```
 

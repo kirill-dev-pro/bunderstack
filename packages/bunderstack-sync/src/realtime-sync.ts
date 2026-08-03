@@ -1,5 +1,6 @@
-import { createRealtimeClient, type RealtimeEvent } from 'bunderstack-query'
 import type { QueryClient } from '@tanstack/react-query'
+
+import { createRealtimeClient, type RealtimeEvent } from 'bunderstack-query'
 
 type SyncableCollection = {
   utils: {

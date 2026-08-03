@@ -6,8 +6,8 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
 import { buildCrudRouter } from './crud'
-import { createRealtimeBroker } from './realtime/index'
 import { createRealtimeFacade } from './realtime/facade'
+import { createRealtimeBroker } from './realtime/index'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
@@ -36,8 +36,12 @@ it('publishes a create event after insert', async () => {
       list: 'authenticated',
       get: 'authenticated',
       scope: {
-        read: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
-        write: (c) => ({ organizationId: c.session?.activeOrganizationId ?? '' }),
+        read: (c) => ({
+          organizationId: c.session?.activeOrganizationId ?? '',
+        }),
+        write: (c) => ({
+          organizationId: c.session?.activeOrganizationId ?? '',
+        }),
       },
     },
   })

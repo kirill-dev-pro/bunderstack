@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
-
 import type { InferSelect } from 'bunderstack-query'
+
+import { useEffect, useRef } from 'react'
 
 import type * as schema from '~/schema'
 

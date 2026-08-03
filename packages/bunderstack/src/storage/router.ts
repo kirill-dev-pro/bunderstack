@@ -27,11 +27,7 @@ import {
   sumReadySize,
   type FileMetaRow,
 } from './file-meta'
-import {
-  parseTransformSpec,
-  transformHash,
-  transformImage,
-} from './thumbnails'
+import { parseTransformSpec, transformHash, transformImage } from './thumbnails'
 
 export interface BucketStorageRouterOptions {
   registry: BucketStorageRegistry
@@ -379,7 +375,7 @@ export function buildBucketStorageRouter(
     if (!entry) return apiError(c, ErrorCode.NOT_FOUND, 'Unknown bucket', 404)
     const { bucket, adapter } = entry
 
-    const mountPrefix = c.req.routePath.replace(/\/:[^\/]+\/\*$/, '')
+    const mountPrefix = c.req.routePath.replace(/\/:[^/]+\/\*$/, '')
     const id = c.req.path.slice(`${mountPrefix}/${bucketName}/`.length)
     const fileId = `${bucketName}/${id}`
 

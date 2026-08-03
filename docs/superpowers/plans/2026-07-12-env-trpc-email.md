@@ -26,10 +26,12 @@
 ### Task 1: Env core — `validateEnv` with base schema, user extension, aggregated errors
 
 **Files:**
+
 - Create: `packages/bunderstack/src/env.ts`
 - Create: `packages/bunderstack/src/env.test.ts`
 
 **Interfaces:**
+
 - Produces: `validateEnv<TEnv>(envConfig: TEnv, options?: ValidateEnvOptions): ValidatedEnv<TEnv>`, `BunderstackEnvError` (with `issues: string[]`), types `EnvConfigInput`, `BaseEnv`, `ValidatedEnv<TEnv>`, constant `CLIENT_PREFIX = 'PUBLIC_'`. `ValidateEnvOptions = { emailProvider?: string; source?: Record<string, string | undefined> }` (`source` defaults to `process.env` — tests always pass an explicit `source`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -192,10 +194,11 @@ export type BaseEnv = {
   SMTP_URL?: string
 }
 
-type InferVars<T> = T extends Record<string, ZodType>
-  ? { [K in keyof T]: z.output<T[K]> }
-  : // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-    {}
+type InferVars<T> =
+  T extends Record<string, ZodType>
+    ? { [K in keyof T]: z.output<T[K]> }
+    : // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+      {}
 
 export type ValidatedEnv<TEnv extends EnvConfigInput | undefined> = BaseEnv &
   InferVars<NonNullable<TEnv>['server']> &
@@ -256,7 +259,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
   envConfig: TEnv,
   options: ValidateEnvOptions = {},
 ): ValidatedEnv<TEnv> {
-  const source = options.source ?? (process.env as Record<string, string | undefined>)
+  const source =
+    options.source ?? (process.env as Record<string, string | undefined>)
   const issues: string[] = []
   const isProduction = source.NODE_ENV === 'production'
 
@@ -305,11 +309,13 @@ git commit -m "feat(bunderstack): env validation with built-in base schema and u
 ### Task 2: `createClientEnv` + browser-safe `bunderstack/env` subpath
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/env.ts` (append)
 - Modify: `packages/bunderstack/src/env.test.ts` (append)
 - Modify: `packages/bunderstack/package.json` (exports map)
 
 **Interfaces:**
+
 - Consumes: `EnvConfigInput`, `CLIENT_PREFIX`, `BunderstackEnvError` from Task 1.
 - Produces: `createClientEnv<TEnv extends EnvConfigInput>(envConfig: TEnv): InferVars<TEnv['client']>` — validates client section only; accessing a key declared in `envConfig.server` throws `"<key> is server-only"`. Subpath export `bunderstack/env`.
 
@@ -432,11 +438,13 @@ git commit -m "feat(bunderstack): createClientEnv + browser-safe bunderstack/env
 ### Task 3: Wire env into `resolveConfig` / `createBunderstack`, expose `app.env`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 - Modify: `packages/bunderstack/src/config.test.ts` (append new tests only — do NOT touch existing tests)
 
 **Interfaces:**
+
 - Consumes: `validateEnv`, `ValidatedEnv`, `EnvConfigInput`, `BaseEnv` from Task 1.
 - Produces:
   - `BunderstackConfig` gains `env?: TEnv` (new generic `TEnv extends EnvConfigInput | undefined`).
@@ -558,7 +566,8 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
   env?: BaseEnv,
 ): ResolvedConfig {
   const parsed = BunderstackOptionsSchema.parse(options)
-  const resolvedEnv = env ?? validateEnv(options.env as EnvConfigInput | undefined)
+  const resolvedEnv =
+    env ?? validateEnv(options.env as EnvConfigInput | undefined)
 
   return {
     database: {
@@ -567,7 +576,10 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     },
     auth: (() => {
       const authInput = options.auth ?? {}
-      return { ...authInput, secret: authInput.secret ?? resolvedEnv.AUTH_SECRET }
+      return {
+        ...authInput,
+        secret: authInput.secret ?? resolvedEnv.AUTH_SECRET,
+      }
     })(),
     storage: resolveBuckets(options.storage),
     realtime: parsed.realtime,
@@ -620,10 +632,12 @@ git commit -m "feat(bunderstack): validate env at boot, expose typed app.env"
 ### Task 4: Email core — adapters and facade
 
 **Files:**
+
 - Create: `packages/bunderstack/src/email.ts`
 - Create: `packages/bunderstack/src/email.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - Types: `EmailMessage`, `SentEmail = { id?: string }`, `EmailAdapter = { send(msg: EmailMessage & { from: string }): Promise<SentEmail> }`, `EmailConfigInput = { from: string; provider?: 'resend' | 'smtp' | 'console' | EmailAdapter | EmailAdapter['send'] }`, `EmailFacade = { send(msg: EmailMessage): Promise<SentEmail> }`.
   - `createEmail(config: EmailConfigInput | undefined, opts: CreateEmailOptions): EmailFacade` where `CreateEmailOptions = { env: { RESEND_API_KEY?: string; SMTP_URL?: string; NODE_ENV?: string }; fetchFn?: typeof fetch; canResolveModule?: (specifier: string) => boolean }` (last two are test seams).
@@ -656,7 +670,10 @@ test('console provider is the dev default and logs instead of sending', async ()
 
 test('unset provider in production is a boot error', () => {
   expect(() =>
-    createEmail({ from: 'app@example.com' }, { env: { NODE_ENV: 'production' } }),
+    createEmail(
+      { from: 'app@example.com' },
+      { env: { NODE_ENV: 'production' } },
+    ),
   ).toThrow(/provider/)
 })
 
@@ -677,7 +694,11 @@ test('resend provider posts to the resend API with from default', async () => {
     { from: 'app@example.com', provider: 'resend' },
     { env: { ...devEnv, RESEND_API_KEY: 're_test' }, fetchFn },
   )
-  const result = await email.send({ to: 'a@b.c', subject: 'hi', html: '<b>x</b>' })
+  const result = await email.send({
+    to: 'a@b.c',
+    subject: 'hi',
+    html: '<b>x</b>',
+  })
   expect(result.id).toBe('email_123')
   expect(captured!.url).toBe('https://api.resend.com/emails')
   expect(captured!.init.headers).toMatchObject({
@@ -743,7 +764,9 @@ test('smtp provider without nodemailer installed is a boot error', () => {
 
 test('emailProviderTag extracts string providers only', () => {
   expect(emailProviderTag({ from: 'a@b.c', provider: 'resend' })).toBe('resend')
-  expect(emailProviderTag({ from: 'a@b.c', provider: async () => ({}) })).toBeUndefined()
+  expect(
+    emailProviderTag({ from: 'a@b.c', provider: async () => ({}) }),
+  ).toBeUndefined()
   expect(emailProviderTag(undefined)).toBeUndefined()
 })
 ```
@@ -826,7 +849,10 @@ function createConsoleAdapter(): EmailAdapter {
   }
 }
 
-function createResendAdapter(apiKey: string, fetchFn: typeof fetch): EmailAdapter {
+function createResendAdapter(
+  apiKey: string,
+  fetchFn: typeof fetch,
+): EmailAdapter {
   return {
     async send(msg) {
       const res = await fetchFn('https://api.resend.com/emails', {
@@ -972,12 +998,14 @@ git commit -m "feat(bunderstack): email facade with resend/smtp/console/custom a
 ### Task 5: Email in config — `app.email`, env conditionals, better-auth auto-wiring
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts` (add `email` key)
 - Modify: `packages/bunderstack/src/index.ts` (create facade, expose, pass provider tag to validateEnv)
 - Modify: `packages/bunderstack/src/auth.ts` (add `withEmailAuthDefaults`)
 - Create: `packages/bunderstack/src/auth-email.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createEmail`, `emailProviderTag`, `EmailConfigInput`, `EmailFacade` (Task 4); `validateEnv` options (Task 1).
 - Produces:
   - `BunderstackConfig.email?: EmailConfigInput`.
@@ -1070,9 +1098,9 @@ test('app.email is exposed and unconfigured send throws', () => {
     schema: { notes },
     database: { url: ':memory:' },
   })
-  expect(app.email.send({ to: 'a@b.c', subject: 's', text: 't' })).rejects.toThrow(
-    /email is not configured/,
-  )
+  expect(
+    app.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
+  ).rejects.toThrow(/email is not configured/)
 })
 
 test('email provider resend requires RESEND_API_KEY at boot', () => {
@@ -1115,7 +1143,10 @@ export function withEmailAuthDefaults(
   if (!emailConfigured) return cfg
   const out: BetterAuthConfig = { ...cfg }
 
-  if (cfg.emailAndPassword?.enabled && !cfg.emailAndPassword.sendResetPassword) {
+  if (
+    cfg.emailAndPassword?.enabled &&
+    !cfg.emailAndPassword.sendResetPassword
+  ) {
     out.emailAndPassword = {
       ...cfg.emailAndPassword,
       sendResetPassword: async ({ user, url }) => {
@@ -1150,6 +1181,7 @@ extra `request` parameter — match the library types; the callback bodies stay
 the same.)
 
 In `packages/bunderstack/src/config.ts`:
+
 - Add `email: z.unknown().optional(),` to `BunderstackOptionsSchema` (may hold functions — loose like `storage`).
 - Add `email?: EmailConfigInput` to `BunderstackConfig` (import the type from `./email`), and add `'email'` to the `Omit<...>` key list.
 
@@ -1200,11 +1232,13 @@ git commit -m "feat(bunderstack): email config key, app.email, better-auth email
 ### Task 6: tRPC instance — `createTRPC`, context, `protectedProcedure`, superjson
 
 **Files:**
+
 - Modify: `packages/bunderstack/package.json` (deps + `./trpc` subpath)
 - Create: `packages/bunderstack/src/trpc.ts`
 - Create: `packages/bunderstack/src/trpc.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AccessUser` (`./access`), `EmailFacade` (`./email`).
 - Produces (from `bunderstack/trpc` and re-exported by `src/index.ts` in Task 7):
   - `TRPCContext<TSchema, TEnvResult>` = `{ db: LibSQLDatabase<TSchema>; user: AccessUser | null; env: TEnvResult; email: EmailFacade; req: Request }`
@@ -1403,12 +1437,14 @@ git commit -m "feat(bunderstack): pre-wired tRPC instance with protectedProcedur
 ### Task 7: Mount tRPC — config `trpc` key (callback + prebuilt), handler route, `$inferClient` carrier
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts` (add `trpc` key to zod options schema + config type)
 - Modify: `packages/bunderstack/src/handler.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 - Create: `packages/bunderstack/src/trpc-mount.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createTRPC`, `BunderstackTRPC`, `TRPCContext` (Task 6); `resolveAccessUser(auth: AuthSessionResolver | undefined, headers: Headers)` from `./access` (already exists, line ~487); validated `env` + `email` facade (Tasks 3/5).
 - Produces:
   - `BunderstackConfig.trpc?: TTrpc` with generic `TTrpc extends AnyRouter | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter) | undefined = undefined`.
@@ -1528,6 +1564,7 @@ Expected: FAIL — `trpc` is not a config key (zod strip or type error).
 - [ ] **Step 3: Implement**
 
 In `packages/bunderstack/src/config.ts`:
+
 - Add `trpc: z.unknown().optional(),` to `BunderstackOptionsSchema`.
 - Add generic + field to `BunderstackConfig` (import `type { AnyRouter } from '@trpc/server'` and `type { BunderstackTRPC } from './trpc'`, `type { ValidatedEnv } from './env'`):
 
@@ -1583,9 +1620,11 @@ export type RouterOf<TTrpc> = TTrpc extends (t: never) => infer R
 ```ts
 const trpcRouter: AnyRouter | undefined =
   typeof options.trpc === 'function'
-    ? (options.trpc as (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)(
-        createTRPC<TSchema, ValidatedEnv<TEnv>>(),
-      )
+    ? (
+        options.trpc as (
+          t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>,
+        ) => AnyRouter
+      )(createTRPC<TSchema, ValidatedEnv<TEnv>>())
     : options.trpc
 const trpcHandler = trpcRouter
   ? (req: Request) =>
@@ -1635,12 +1674,14 @@ git commit -m "feat(bunderstack): trpc config key with builder callback, mounted
 ### Task 8: `bunderstack-query` — `trpc` namespace on `createClient`
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/package.json` (deps)
 - Modify: `packages/bunderstack-query/src/infer.ts`
 - Modify: `packages/bunderstack-query/src/lazy-client.ts`
 - Create: `packages/bunderstack-query/src/trpc-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: server app from Task 7 (`$inferClient.trpc` carries the router type); `createTRPCOptionsProxy` + `TRPCOptionsProxy` from `@trpc/tanstack-react-query`; `createTRPCClient`, `httpBatchLink` from `@trpc/client`.
 - Produces:
   - `ClientCarrier` gains **optional** `trpc?: unknown` (optional so pre-existing apps still satisfy `AnyBunderstackApp`).
@@ -1700,7 +1741,9 @@ const app = createBunderstack({
 
 // Route the client's fetch straight into the server handler.
 const fetchViaApp = (async (input: RequestInfo | URL, init?: RequestInit) =>
-  app.handler(new Request(input instanceof Request ? input : String(input), init))) as typeof fetch
+  app.handler(
+    new Request(input instanceof Request ? input : String(input), init),
+  )) as typeof fetch
 
 const api = createClient<typeof app>({
   baseUrl: 'http://test/api',
@@ -1743,7 +1786,7 @@ export type ClientCarrier = {
   schema: Record<string, unknown>
   access: unknown
   buckets: string
-  trpc?: unknown   // optional: apps built before the trpc feature still match
+  trpc?: unknown // optional: apps built before the trpc feature still match
 }
 
 export type InferTrpcRouter<TApp extends AnyBunderstackApp> =
@@ -1759,7 +1802,10 @@ In `packages/bunderstack-query/src/lazy-client.ts`:
 ```ts
 import type { AnyRouter } from '@trpc/server'
 import { createTRPCClient, httpBatchLink } from '@trpc/client'
-import { createTRPCOptionsProxy, type TRPCOptionsProxy } from '@trpc/tanstack-react-query'
+import {
+  createTRPCOptionsProxy,
+  type TRPCOptionsProxy,
+} from '@trpc/tanstack-react-query'
 import { QueryClient } from '@tanstack/react-query'
 import superjson from 'superjson'
 
@@ -1817,11 +1863,13 @@ git commit -m "feat(bunderstack-query): typed api.trpc namespace via @trpc/tanst
 ### Task 9: Showcase — feed procedure in the twitter example + docs
 
 **Files:**
+
 - Modify: `examples/twitter-tanstack/src/bunderstack.ts`
 - Create: `examples/twitter-tanstack/src/hooks/use-feed.ts`
 - Modify: `examples/README.md` (short mention)
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–8. The example's schema (`examples/twitter-tanstack/src/schema.ts`) has `posts` (id, title, body, imageUrl, userId, replyToId, createdAt), `likes` (id, userId, postId, createdAt), `user`.
 - Produces: a `feed` query procedure returning posts joined with author + like counts in one call, plus a client hook using it.
 

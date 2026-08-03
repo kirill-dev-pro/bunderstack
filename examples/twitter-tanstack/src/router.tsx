@@ -1,13 +1,10 @@
+import type { TypeId } from 'bunderstack/typeid'
+
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import type { TypeId } from 'bunderstack/typeid'
 
-import {
-  createApi,
-  createQueryClient,
-  type AppApi,
-} from './api-client'
+import { createApi, createQueryClient, type AppApi } from './api-client'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
 import { routeTree } from './routeTree.gen'

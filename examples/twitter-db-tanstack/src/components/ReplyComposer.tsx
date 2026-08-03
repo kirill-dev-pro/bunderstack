@@ -1,11 +1,12 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import * as React from 'react'
 import { generate as generateTypeId, type TypeId } from 'bunderstack/typeid'
+import * as React from 'react'
 
-import { UserAvatar } from '~/components/UserAvatar'
-import { Button } from '~/components/ui/button'
-import { toast } from '~/lib/toast'
 import type { Post } from '~/utils/posts'
+
+import { Button } from '~/components/ui/button'
+import { UserAvatar } from '~/components/UserAvatar'
+import { toast } from '~/lib/toast'
 
 type ReplyComposerProps = {
   user: { id: TypeId<'user'>; name: string; image?: string | null } | null

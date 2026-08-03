@@ -1,6 +1,7 @@
+import type { TypeId } from 'bunderstack/typeid'
+
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
-import type { TypeId } from 'bunderstack/typeid'
 
 import { createApi, createQueryClient, type SyncApi } from './api'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'

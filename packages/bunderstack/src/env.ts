@@ -22,9 +22,10 @@ export type BaseEnv = {
   BUNDERSTACK_CRON_SECRET?: string
 }
 
-type InferVars<T> = T extends Record<string, ZodType>
-  ? { [K in keyof T]: z.output<T[K]> }
-  : unknown
+type InferVars<T> =
+  T extends Record<string, ZodType>
+    ? { [K in keyof T]: z.output<T[K]> }
+    : unknown
 
 // Non-distributive so `ValidatedEnv<undefined>` is BaseEnv, not `never`.
 export type ValidatedEnv<TEnv extends EnvConfigInput | undefined> = [
@@ -113,8 +114,14 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
   if (isProduction && !source.AUTH_SECRET) {
     issues.push('AUTH_SECRET: required in production')
   }
-  if (isProduction && options.cronConfigured && !source.BUNDERSTACK_CRON_SECRET) {
-    issues.push('BUNDERSTACK_CRON_SECRET: required when cron is configured in production')
+  if (
+    isProduction &&
+    options.cronConfigured &&
+    !source.BUNDERSTACK_CRON_SECRET
+  ) {
+    issues.push(
+      'BUNDERSTACK_CRON_SECRET: required when cron is configured in production',
+    )
   }
   if (options.emailProvider === 'resend' && !source.RESEND_API_KEY) {
     issues.push("RESEND_API_KEY: required when email provider is 'resend'")

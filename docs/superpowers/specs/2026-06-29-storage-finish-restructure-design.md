@@ -67,24 +67,26 @@ src/
 
 Test relocation, exhaustively:
 
-| Destination | Test files moved in |
-| --- | --- |
-| `src/realtime/` | `src/realtime.test.ts`, `src/realtime-sse.test.ts`, `src/realtime-redis.test.ts` |
-| `src/storage/` | all 9 of `tests/storage/*.test.ts` |
-| `src/` (flat, from `tests/`) | `crud.test.ts`, `access.test.ts`, `access.integration.test.ts`, `auth.test.ts`, `config.test.ts`, `db.test.ts`, `internal-tables.test.ts`, `provision.test.ts`, `provision.integration.test.ts`, `rate-limit.test.ts`, `typeid.test.ts` |
-| `src/` (flat, already there, unchanged) | `crud-broadcast.test.ts`, `crud-scope.test.ts`, `access-sanitize.test.ts`, `config-access.test.ts`, `index.test.ts`, `scope-where.test.ts`, `scope.test.ts` |
+| Destination                             | Test files moved in                                                                                                                                                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/realtime/`                         | `src/realtime.test.ts`, `src/realtime-sse.test.ts`, `src/realtime-redis.test.ts`                                                                                                                                                        |
+| `src/storage/`                          | all 9 of `tests/storage/*.test.ts`                                                                                                                                                                                                      |
+| `src/` (flat, from `tests/`)            | `crud.test.ts`, `access.test.ts`, `access.integration.test.ts`, `auth.test.ts`, `config.test.ts`, `db.test.ts`, `internal-tables.test.ts`, `provision.test.ts`, `provision.integration.test.ts`, `rate-limit.test.ts`, `typeid.test.ts` |
+| `src/` (flat, already there, unchanged) | `crud-broadcast.test.ts`, `crud-scope.test.ts`, `access-sanitize.test.ts`, `config-access.test.ts`, `index.test.ts`, `scope-where.test.ts`, `scope.test.ts`                                                                             |
 
 No filename collisions exist between the `tests/` files moving to flat `src/`
 and the tests already there (e.g. `access.test.ts` vs the existing
 `access-sanitize.test.ts`).
 
 Decisions:
+
 - `realtime/` uses `index.ts` + `redis.ts` (not a `core.ts` + barrel split) —
   fewer files, matches storage's flat-ish style.
 - `crud` stays a flat `crud.ts`: a folder for a single source file is ceremony,
   not structure. A domain earns a folder only when it has 2+ source files.
 
 Import updates:
+
 - `src/index.ts`: `./realtime.ts` -> `./realtime/index.ts`,
   `./realtime-redis.ts` -> `./realtime/redis.ts`. `./crud.ts` is unchanged.
 - Any other importers of `realtime`, `realtime-redis` update to the new paths.
@@ -97,7 +99,7 @@ Verification: `bun test` (116+ pass, 0 fail) after the moves.
 
 ## Section 2 — TypeScript fix: auth resolver (3 errors)
 
-Root cause: better-auth 1.6.20 types `api.getSession` as a *union* return. One
+Root cause: better-auth 1.6.20 types `api.getSession` as a _union_ return. One
 branch is the bare `{ session, user }` object; the other is a
 `{ headers, response }` wrapper (the `returnHeaders`/`asResponse` overload). The
 wrapper branch has no top-level `user`, so the raw `auth` instance no longer
@@ -117,6 +119,7 @@ composing and adapting raw instances rather than coupling internals to upstream
 types.
 
 Rejected alternatives:
+
 - Cast `auth as unknown as AuthSessionResolver` at the 3 call sites — hides the
   real runtime shape and repeats the cast.
 - Widen `AuthSessionResolver` to match better-auth's union — couples our
@@ -142,6 +145,7 @@ unchanged — `createDb` returns a working Drizzle instance against in-memory
 SQLite. This dovetails with Section 1: the file becomes `src/db.test.ts`.
 
 Rejected alternatives:
+
 - Dedupe drizzle-orm via install overrides/resolutions — fragile across Bun
   installs and unrelated to what this test verifies.
 - Cast the table in the test — hides the instance mismatch instead of removing

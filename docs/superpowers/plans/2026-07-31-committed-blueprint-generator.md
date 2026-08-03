@@ -61,10 +61,12 @@
 ### Task 1: Make Provisioning Introspection-Safe
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/provision.ts:87`
 - Modify: `packages/bunderstack/src/provision.test.ts`
 
 **Interfaces:**
+
 - Consumes: `process.env.BUNDERSTACK_INTROSPECT`.
 - Produces: `provision(app, options)` resolving immediately when the flag equals `'1'`; later generator tasks rely on importing entries that call `await provision(app)`.
 
@@ -145,12 +147,14 @@ git commit -m "fix: skip provisioning during introspection"
 ### Task 2: Define and Serialize the Minimal Blueprint
 
 **Files:**
+
 - Create: `scripts/blueprint/model.ts`
 - Create: `scripts/blueprint/model.test.ts`
 - Modify: `package.json`
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Consumes: runtime `unknown` manifest values and the subset of Bunderstack
   manifest v2 required by the blueprint.
 - Produces:
@@ -300,10 +304,9 @@ describe('blueprintFromManifest', () => {
       },
     })
 
-    expect(blueprint.resources.storage.buckets.map(({ name }) => name)).toEqual([
-      'alpha',
-      'zeta',
-    ])
+    expect(blueprint.resources.storage.buckets.map(({ name }) => name)).toEqual(
+      ['alpha', 'zeta'],
+    )
     expect(blueprint.environment.map(({ key }) => key)).toEqual([
       'A_KEY',
       'Z_KEY',
@@ -342,9 +345,7 @@ test('serializeBlueprint emits deterministic safe YAML', () => {
 
 test('parseBunderstackManifest rejects unsupported values', () => {
   expect(() => parseBunderstackManifest(null)).toThrow(/manifest/i)
-  expect(() => parseBunderstackManifest({ version: 1 })).toThrow(
-    /version 2/i,
-  )
+  expect(() => parseBunderstackManifest({ version: 1 })).toThrow(/version 2/i)
   expect(() =>
     parseBunderstackManifest({ ...manifest, dialect: 'mysql' }),
   ).toThrow(/dialect/i)
@@ -439,9 +440,7 @@ function hasNamedEntries(value: unknown): value is { name: string }[] {
   )
 }
 
-export function parseBunderstackManifest(
-  value: unknown,
-): BlueprintManifest {
+export function parseBunderstackManifest(value: unknown): BlueprintManifest {
   if (!isRecord(value)) invalid('expected an object')
   if (value.version !== 2) invalid('expected manifest version 2')
   if (value.dialect !== 'sqlite' && value.dialect !== 'pg') {
@@ -507,10 +506,7 @@ export function blueprintFromManifest(
   manifest: BlueprintManifest,
   entry: string = BUNDERSTACK_ENTRY,
 ): BunderstackBlueprint {
-  const environment = [
-    ...manifest.env.server,
-    ...manifest.env.client,
-  ]
+  const environment = [...manifest.env.server, ...manifest.env.client]
     .map(({ key, required }) => ({ key, required }))
     .sort((left, right) => left.key.localeCompare(right.key))
 
@@ -541,9 +537,7 @@ export function blueprintFromManifest(
   }
 }
 
-export function serializeBlueprint(
-  blueprint: BunderstackBlueprint,
-): string {
+export function serializeBlueprint(blueprint: BunderstackBlueprint): string {
   return stringify(blueprint, {
     aliasDuplicateObjects: false,
     lineWidth: 0,
@@ -585,10 +579,12 @@ git commit -m "feat: define static blueprint model"
 ### Task 3: Generate and Atomically Replace the Blueprint
 
 **Files:**
+
 - Create: `scripts/blueprint/generator.ts`
 - Create: `scripts/blueprint/generator.test.ts`
 
 **Interfaces:**
+
 - Consumes:
 
 ```ts
@@ -626,20 +622,8 @@ export async function generateBlueprint(
 Create `scripts/blueprint/generator.test.ts`:
 
 ```ts
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from 'bun:test'
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  rm,
-  stat,
-} from 'node:fs/promises'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parse } from 'yaml'
@@ -698,21 +682,24 @@ afterEach(async () => {
   await rm(directory, { recursive: true, force: true })
 })
 
-test.serial('generates YAML beside package.json and cleans its temporary file', async () => {
-  const result = await generateBlueprint(directory)
+test.serial(
+  'generates YAML beside package.json and cleans its temporary file',
+  async () => {
+    const result = await generateBlueprint(directory)
 
-  expect(result.destination).toBe(
-    join(directory, 'bunderstack.blueprint.yaml'),
-  )
-  expect(parse(await Bun.file(result.destination).text())).toEqual(
-    result.blueprint,
-  )
-  expect((await readdir(directory)).sort()).toEqual([
-    'bunderstack.blueprint.yaml',
-    'package.json',
-    'src',
-  ])
-})
+    expect(result.destination).toBe(
+      join(directory, 'bunderstack.blueprint.yaml'),
+    )
+    expect(parse(await Bun.file(result.destination).text())).toEqual(
+      result.blueprint,
+    )
+    expect((await readdir(directory)).sort()).toEqual([
+      'bunderstack.blueprint.yaml',
+      'package.json',
+      'src',
+    ])
+  },
+)
 ```
 
 - [ ] **Step 2: Add explicit failure and preservation tests**
@@ -754,49 +741,60 @@ test.serial('requires a worker script when queue jobs exist', async () => {
   )
 })
 
-test.serial('preserves an existing blueprint after failed generation', async () => {
-  const destination = join(directory, 'bunderstack.blueprint.yaml')
-  await Bun.write(destination, 'existing: blueprint\n')
-  await writeEntry({ version: 1 })
+test.serial(
+  'preserves an existing blueprint after failed generation',
+  async () => {
+    const destination = join(directory, 'bunderstack.blueprint.yaml')
+    await Bun.write(destination, 'existing: blueprint\n')
+    await writeEntry({ version: 1 })
 
-  await expect(generateBlueprint(directory)).rejects.toThrow(/version 2/)
-  expect(await Bun.file(destination).text()).toBe('existing: blueprint\n')
-})
+    await expect(generateBlueprint(directory)).rejects.toThrow(/version 2/)
+    expect(await Bun.file(destination).text()).toBe('existing: blueprint\n')
+  },
+)
 
-test.serial('reports an atomic replacement failure and cleans the temp file', async () => {
-  const destination = join(directory, 'bunderstack.blueprint.yaml')
-  await mkdir(destination)
+test.serial(
+  'reports an atomic replacement failure and cleans the temp file',
+  async () => {
+    const destination = join(directory, 'bunderstack.blueprint.yaml')
+    await mkdir(destination)
 
-  await expect(generateBlueprint(directory)).rejects.toThrow(
-    /failed to write blueprint/,
-  )
-  expect((await stat(destination)).isDirectory()).toBe(true)
-  expect((await readdir(directory)).filter((name) => name.endsWith('.tmp'))).toEqual([])
-})
+    await expect(generateBlueprint(directory)).rejects.toThrow(
+      /failed to write blueprint/,
+    )
+    expect((await stat(destination)).isDirectory()).toBe(true)
+    expect(
+      (await readdir(directory)).filter((name) => name.endsWith('.tmp')),
+    ).toEqual([])
+  },
+)
 
-test.serial('restores cwd and introspection env after an import failure', async () => {
-  const previousCwd = process.cwd()
-  const previousIntrospection = process.env.BUNDERSTACK_INTROSPECT
-  await Bun.write(
-    join(directory, 'src/bunderstack.ts'),
-    'throw new Error("fixture import failed")\n',
-  )
+test.serial(
+  'restores cwd and introspection env after an import failure',
+  async () => {
+    const previousCwd = process.cwd()
+    const previousIntrospection = process.env.BUNDERSTACK_INTROSPECT
+    await Bun.write(
+      join(directory, 'src/bunderstack.ts'),
+      'throw new Error("fixture import failed")\n',
+    )
 
-  await expect(prepareBlueprint(directory)).rejects.toThrow(
-    /fixture import failed/,
-  )
-  expect(process.cwd()).toBe(previousCwd)
-  expect(process.env.BUNDERSTACK_INTROSPECT).toBe(previousIntrospection)
-})
+    await expect(prepareBlueprint(directory)).rejects.toThrow(
+      /fixture import failed/,
+    )
+    expect(process.cwd()).toBe(previousCwd)
+    expect(process.env.BUNDERSTACK_INTROSPECT).toBe(previousIntrospection)
+  },
+)
 ```
 
 Add the remaining path and package failures explicitly:
 
 ```ts
 test.serial('rejects a missing application directory', async () => {
-  await expect(
-    prepareBlueprint(join(directory, 'missing')),
-  ).rejects.toThrow(/application directory does not exist/)
+  await expect(prepareBlueprint(join(directory, 'missing'))).rejects.toThrow(
+    /application directory does not exist/,
+  )
 })
 
 test.serial('rejects a missing package.json', async () => {
@@ -844,11 +842,7 @@ Create `scripts/blueprint/generator.ts` with constants and helpers:
 
 ```ts
 import { randomUUID } from 'node:crypto'
-import {
-  rename,
-  rm,
-  stat,
-} from 'node:fs/promises'
+import { rename, rm, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -982,10 +976,7 @@ export async function prepareBlueprint(
     )
   }
 
-  const manifest = await loadManifestFromEntry(
-    entryPath,
-    applicationDirectory,
-  )
+  const manifest = await loadManifestFromEntry(entryPath, applicationDirectory)
   if (manifest.background.jobs.length > 0) {
     requirePackageScript(packageJson, 'worker')
   }
@@ -1063,12 +1054,14 @@ git commit -m "feat: generate committed blueprint yaml"
 ### Task 4: Add the Internal Script and Dogfood the Todo Blueprint
 
 **Files:**
+
 - Create: `scripts/generate-blueprint.ts`
 - Create: `scripts/generate-blueprint.test.ts`
 - Modify: `examples/todo/package.json`
 - Create: `examples/todo/bunderstack.blueprint.yaml`
 
 **Interfaces:**
+
 - Consumes:
 
 ```ts
@@ -1144,12 +1137,15 @@ test('internal script generates a blueprint for a valid fixture', async () => {
   }
 })
 
-test.serial('committed todo blueprint matches current app declaration', async () => {
-  const directory = join(repositoryRoot, 'examples/todo')
-  const prepared = await prepareBlueprint(directory)
-  const committed = await Bun.file(prepared.destination).text()
-  expect(committed).toBe(prepared.yaml)
-})
+test.serial(
+  'committed todo blueprint matches current app declaration',
+  async () => {
+    const directory = join(repositoryRoot, 'examples/todo')
+    const prepared = await prepareBlueprint(directory)
+    const committed = await Bun.file(prepared.destination).text()
+    expect(committed).toBe(prepared.yaml)
+  },
+)
 ```
 
 The first test intentionally proves the executable boundary, not only imported
@@ -1249,7 +1245,7 @@ background:
     - name: celebrateBoardComplete
   cron:
     - name: archiveDoneTodos
-      schedule: "* * * * *"
+      schedule: '* * * * *'
       timezone: UTC
 ```
 

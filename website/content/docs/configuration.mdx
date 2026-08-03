@@ -64,13 +64,13 @@ await createBunderstack({
 
 ## Realtime transport
 
-| Configuration | Selected transport | Intended use |
-| --- | --- | --- |
-| Realtime omitted or `false` | `disabled` | No SSE subscriptions or publications |
-| `realtime: true` | `memory` | One process, including an embedded worker |
-| `realtime: true` + `REDIS_URL` | `redis` | Separate web and worker processes |
-| `realtime: { redis: "redis://…" }` | `redis` | Explicit shared broker URL |
-| `realtime: { redis: { url, token } }` | `redis` | Shared broker with a token |
+| Configuration                         | Selected transport | Intended use                              |
+| ------------------------------------- | ------------------ | ----------------------------------------- |
+| Realtime omitted or `false`           | `disabled`         | No SSE subscriptions or publications      |
+| `realtime: true`                      | `memory`           | One process, including an embedded worker |
+| `realtime: true` + `REDIS_URL`        | `redis`            | Separate web and worker processes         |
+| `realtime: { redis: "redis://…" }`    | `redis`            | Explicit shared broker URL                |
+| `realtime: { redis: { url, token } }` | `redis`            | Shared broker with a token                |
 
 The web server and every standalone worker must use the same Redis instance
 when job handlers call `ctx.realtime.publish()`. Memory transport is
@@ -130,17 +130,17 @@ postgres.js, and Bun SQL clients are owned by the app and closed by
 
 ## Environment variables
 
-| Variable                  | Default                                               | Description                                          |
-| ------------------------- | ----------------------------------------------------- | ---------------------------------------------------- |
-| `DATABASE_URL`            | `file:./data.db` (sqlite) / `file:./data.pglite` (pg) | Connection string — see the table above              |
-| `DATABASE_AUTH_TOKEN`     | —                                                     | Turso auth token                                     |
-| `AUTH_SECRET`             | dev default                                           | BetterAuth secret — required in production           |
+| Variable                  | Default                                               | Description                                              |
+| ------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`            | `file:./data.db` (sqlite) / `file:./data.pglite` (pg) | Connection string — see the table above                  |
+| `DATABASE_AUTH_TOKEN`     | —                                                     | Turso auth token                                         |
+| `AUTH_SECRET`             | dev default                                           | BetterAuth secret — required in production               |
 | `REDIS_URL`               | —                                                     | Shared realtime broker for separate web/worker processes |
-| `RESEND_API_KEY`          | —                                                     | Required when email provider is 'resend'             |
-| `SMTP_URL`                | —                                                     | SMTP connection URL passed to `smtp({ url })`        |
-| `S3_BUCKET`               | —                                                     | S3 bucket name                                       |
-| `S3_REGION`               | `us-east-1`                                           | S3 region                                            |
-| `S3_ACCESS_KEY_ID`        | —                                                     | S3 access key                                        |
-| `S3_SECRET_ACCESS_KEY`    | —                                                     | S3 secret                                            |
-| `S3_ENDPOINT`             | —                                                     | Custom endpoint for R2 / MinIO                       |
-| `BUNDERSTACK_CRON_SECRET` | —                                                     | Required in production for signed scheduled delivery |
+| `RESEND_API_KEY`          | —                                                     | Required when email provider is 'resend'                 |
+| `SMTP_URL`                | —                                                     | SMTP connection URL passed to `smtp({ url })`            |
+| `S3_BUCKET`               | —                                                     | S3 bucket name                                           |
+| `S3_REGION`               | `us-east-1`                                           | S3 region                                                |
+| `S3_ACCESS_KEY_ID`        | —                                                     | S3 access key                                            |
+| `S3_SECRET_ACCESS_KEY`    | —                                                     | S3 secret                                                |
+| `S3_ENDPOINT`             | —                                                     | Custom endpoint for R2 / MinIO                           |
+| `BUNDERSTACK_CRON_SECRET` | —                                                     | Required in production for signed scheduled delivery     |

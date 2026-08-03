@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
+import { describe, it, expect } from 'bun:test'
 
 import { createTableCollection } from './collection'
 
@@ -119,7 +119,11 @@ describe('applyRealtimeEvent', () => {
     expect(feed.collection.get('new2')).toBeUndefined()
 
     // update that stops matching the filter removes the row from the scope
-    t.applyRealtimeEvent('update', { id: 'new1', title: 'x', replyToId: 'p001' })
+    t.applyRealtimeEvent('update', {
+      id: 'new1',
+      title: 'x',
+      replyToId: 'p001',
+    })
     expect(feed.collection.get('new1')).toBeUndefined()
 
     t.applyRealtimeEvent('delete', { id: 'p001' })

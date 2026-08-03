@@ -69,10 +69,9 @@ function CanvasesClient() {
   const { data: rawCanvases = [] } = useLiveQuery((query) =>
     query
       .from({
-        canvas:
-          api.canvas.collection as unknown as Parameters<
-            typeof query.from
-          >[0]['canvas'],
+        canvas: api.canvas.collection as unknown as Parameters<
+          typeof query.from
+        >[0]['canvas'],
       })
       .where(({ canvas }: { canvas: CanvasRow }) =>
         eq(canvas.ownerId, params.ownerId),

@@ -166,7 +166,12 @@ it('uses applyEvent/onGap overrides instead of the default cache patching', asyn
   await new Promise((r) => setTimeout(r, 5))
 
   expect(applied).toEqual([
-    { eventId: 1, action: 'create', table: 'cards', record: { id: 'card_1', title: 'A' } },
+    {
+      eventId: 1,
+      action: 'create',
+      table: 'cards',
+      record: { id: 'card_1', title: 'A' },
+    },
   ])
   // Default cache-patching must NOT have run.
   expect(qc.getQueryData(['cards', 'detail', 'card_1'])).toBeUndefined()

@@ -38,8 +38,6 @@ export function shouldPublish(
   return Bun.semver.order(localVersion, registryVersion) === 1
 }
 
-
-
 async function registryVersion(name: string): Promise<string | null> {
   const res = await fetch(`${REGISTRY}/${name}`)
   if (res.status === 404) return null
@@ -59,7 +57,6 @@ async function main() {
     const pkg = (await Bun.file(`${dir}/package.json`).json()) as PackageJson
     packages.set(name, { dir, pkg })
   }
-
 
   for (const name of PUBLISH_ORDER) {
     const { dir, pkg } = packages.get(name)!

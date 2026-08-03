@@ -163,7 +163,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         )
       }
 
-      const scope = scopeFor(tableAccess.readScope, { user, session, request: c.req.raw })
+      const scope = scopeFor(tableAccess.readScope, {
+        user,
+        session,
+        request: c.req.raw,
+      })
       if (
         scope &&
         !rowMatchesScope(rows[0] as Record<string, unknown>, scope)
@@ -240,7 +244,12 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         user?.id ?? null,
       )
 
-      const scope = scopeFor(tableAccess.writeScope, { user, session, request: c.req.raw, body: body as Record<string, unknown> })
+      const scope = scopeFor(tableAccess.writeScope, {
+        user,
+        session,
+        request: c.req.raw,
+        body: body as Record<string, unknown>,
+      })
       const stamped = scope ? stampScope(values, scope) : values
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rows = await (db as any).insert(table).values(stamped).returning()
@@ -279,7 +288,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
-      const readScope = scopeFor(tableAccess.readScope, { user, session, request: c.req.raw })
+      const readScope = scopeFor(tableAccess.readScope, {
+        user,
+        session,
+        request: c.req.raw,
+      })
       if (
         readScope &&
         !rowMatchesScope(existing[0] as Record<string, unknown>, readScope)
@@ -319,7 +332,12 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         user?.id ?? null,
       )
 
-      const writeScope = scopeFor(tableAccess.writeScope, { user, session, request: c.req.raw, body: body as Record<string, unknown> })
+      const writeScope = scopeFor(tableAccess.writeScope, {
+        user,
+        session,
+        request: c.req.raw,
+        body: body as Record<string, unknown>,
+      })
       const stamped = writeScope ? stampScope(values, writeScope) : values
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -352,7 +370,11 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
       }
 
-      const scope = scopeFor(tableAccess.readScope, { user, session, request: c.req.raw })
+      const scope = scopeFor(tableAccess.readScope, {
+        user,
+        session,
+        request: c.req.raw,
+      })
       if (
         scope &&
         !rowMatchesScope(existing[0] as Record<string, unknown>, scope)

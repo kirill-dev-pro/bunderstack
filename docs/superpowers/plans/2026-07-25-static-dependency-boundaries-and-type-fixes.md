@@ -22,6 +22,7 @@
 ### Task 1: Consolidate Database Adapter Lifecycle & Introspection
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/database/adapter.ts`
 - Modify: `packages/bunderstack/src/database/libsql.ts`
 - Modify: `packages/bunderstack/src/database/pglite.ts`
@@ -34,19 +35,25 @@
 - Test: `packages/bunderstack/src/database/adapter.test.ts`
 
 **Interfaces:**
+
 - Consumes: `DbFor<TSchema>`, `Driver`, `Dialect`, `Lifecycle`.
 - Produces:
+
   ```ts
-  export type DatabaseConnectionResult<TSchema extends Record<string, unknown>> = {
+  export type DatabaseConnectionResult<
+    TSchema extends Record<string, unknown>,
+  > = {
     db: DbFor<TSchema>
     close?: () => void | Promise<void>
   }
   ```
+
   and offline `drizzle.mock()` when `{ introspect: true }`.
 
 - [ ] **Step 1: Write lifecycle regression tests in `db.test.ts` and `app-env.test.ts`**
 
 Add to `packages/bunderstack/src/db.test.ts`:
+
 ```ts
 test('createDb returns adapter cleanup', async () => {
   let closed = false
@@ -56,7 +63,9 @@ test('createDb returns adapter cleanup', async () => {
     async connect() {
       return {
         db: drizzle.mock({ schema }),
-        close: () => { closed = true },
+        close: () => {
+          closed = true
+        },
       } as never
     },
     async migrate() {},
@@ -74,6 +83,7 @@ test('createDb returns adapter cleanup', async () => {
 ```
 
 Add to `packages/bunderstack/src/app-env.test.ts`:
+
 ```ts
 test('app.close() closes database adapter exactly once and is idempotent', async () => {
   let closeCount = 0
@@ -83,7 +93,9 @@ test('app.close() closes database adapter exactly once and is idempotent', async
     async connect() {
       return {
         db: drizzle.mock({ schema: {} }),
-        close: () => { closeCount++ },
+        close: () => {
+          closeCount++
+        },
       } as never
     },
     async migrate() {},
@@ -109,9 +121,14 @@ In `packages/bunderstack/src/database/adapter.ts`, update `DatabaseAdapter` `con
 In each built-in adapter (`libsql.ts`, `pglite.ts`, `bun-sql.ts`, `postgresJs.ts`), return the underlying `$client.close()` or `$client.end()` callback.
 
 In `packages/bunderstack/src/index.ts`, register `close` handle with `lifecycle` immediately after `createDb`:
+
 ```ts
 const lifecycle = new Lifecycle()
-const { db, driver, close: closeDatabase } = await createDb(mergedSchema, {
+const {
+  db,
+  driver,
+  close: closeDatabase,
+} = await createDb(mergedSchema, {
   ...config.database,
   dialect,
   introspect,
@@ -122,6 +139,7 @@ if (closeDatabase) lifecycle.add(closeDatabase)
 - [ ] **Step 4: Implement offline introspection**
 
 In each built-in adapter's `connect()`, check `{ introspect }`:
+
 ```ts
 async connect(schema, connection, { introspect }) {
   if (introspect) return { db: drizzle.mock({ schema }) as never }
@@ -146,6 +164,7 @@ git commit -m "fix: close database adapter connections and keep introspection of
 ### Task 2: Remove `@ts-nocheck`, Align Peer Metadata & Enforce Bundle Boundaries
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/auth.ts`
 - Modify: `packages/bunderstack-start/src/isomorphic-fetch.ts`
 - Modify: `packages/bunderstack/package.json`
@@ -154,6 +173,7 @@ git commit -m "fix: close database adapter connections and keep introspection of
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Consumes: published package sources, package manifests, and `Bun.build`.
 - Produces: clean published TypeScript source without `@ts-nocheck`, accurate peer dependencies, and browser bundle size tests.
 
@@ -164,6 +184,7 @@ In `packages/bunderstack/src/auth.ts` and `packages/bunderstack-start/src/isomor
 - [ ] **Step 2: Add `@ts-nocheck` boundary assertion to `dependency-boundaries.test.ts`**
 
 Add to `scripts/dependency-boundaries.test.ts`:
+
 ```ts
 test('published package source does not disable TypeScript checking', async () => {
   const glob = new Bun.Glob('packages/*/src/**/*.{ts,tsx}')
@@ -179,6 +200,7 @@ test('published package source does not disable TypeScript checking', async () =
 - [ ] **Step 3: Create `[NEW] scripts/bundle-boundaries.test.ts`**
 
 Create `scripts/bundle-boundaries.test.ts`:
+
 ```ts
 import { describe, expect, test } from 'bun:test'
 import { join } from 'node:path'
@@ -211,10 +233,14 @@ describe('browser bundle boundaries', () => {
   test('query root stays schema-only', async () => {
     const output = await bundle('packages/bunderstack-query/src/index.ts')
     expect(output.size).toBeLessThan(32 * 1024)
-    expect(output.inputs.some((path) => path.includes('@tanstack/react-query'))).toBe(false)
+    expect(
+      output.inputs.some((path) => path.includes('@tanstack/react-query')),
+    ).toBe(false)
     expect(output.inputs.some((path) => path.includes('@trpc'))).toBe(false)
     expect(output.inputs.some((path) => path.includes('superjson'))).toBe(false)
-    expect(output.inputs.some((path) => path.includes('better-auth'))).toBe(false)
+    expect(output.inputs.some((path) => path.includes('better-auth'))).toBe(
+      false,
+    )
   })
 })
 ```
@@ -222,6 +248,7 @@ describe('browser bundle boundaries', () => {
 - [ ] **Step 4: Align `packages/bunderstack/package.json` peerDependencies**
 
 Update `packages/bunderstack/package.json`:
+
 - `better-auth`: `^1.0.0` in `peerDependencies` (remove from `peerDependenciesMeta`).
 - `nodemailer`: `>=6 <10` in `peerDependencies` (keep optional in `peerDependenciesMeta`).
 
@@ -242,18 +269,21 @@ git commit -m "fix: remove ts-nocheck, align peer metadata, and enforce bundle b
 ### Task 3: Eliminate Four Identified Avoidable `any` Usages
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/src/trpc.ts`
 - Modify: `packages/bunderstack/src/email/smtp.ts`
 - Modify: `packages/bunderstack-query/src/realtime-client.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 
 **Interfaces:**
+
 - Consumes: `TRPCOptionsProxy`, `TransportFactory`, `RealtimeEvent`, `BunderstackOptionsSchema`.
 - Produces: type-safe implementations with zero `any` in these 4 targets.
 
 - [ ] **Step 1: Refactor `trpcProxy` in `packages/bunderstack-query/src/trpc.ts`**
 
 Replace `let trpcProxy: any` on line 47 with:
+
 ```ts
 let trpcProxy: TRPCOptionsProxy<AnyRouter> | undefined
 ```
@@ -261,6 +291,7 @@ let trpcProxy: TRPCOptionsProxy<AnyRouter> | undefined
 - [ ] **Step 2: Refactor `createTransport` in `packages/bunderstack/src/email/smtp.ts`**
 
 Replace `nodemailer.createTransport(url) as any` on line 12 with:
+
 ```ts
 type SmtpTransport = {
   sendMail(message: Record<string, unknown>): Promise<{ messageId?: string }>
@@ -276,6 +307,7 @@ export function createSmtpAdapter(
 - [ ] **Step 3: Refactor `clientId` handling in `packages/bunderstack-query/src/realtime-client.ts`**
 
 Replace `(data as any).clientId` on lines 161 & 163 with:
+
 ```ts
 const candidate = (data as { clientId?: unknown }).clientId
 if (typeof candidate === 'string' && candidate.length > 0) {
@@ -288,6 +320,7 @@ if (typeof candidate === 'string' && candidate.length > 0) {
 - [ ] **Step 4: Refactor Zod schema in `packages/bunderstack/src/config.ts`**
 
 Replace `z.any()` on lines 25 and 28 with:
+
 ```ts
 access: z.record(z.string(), z.unknown()).optional(),
 database: z
@@ -317,6 +350,7 @@ git commit -m "refactor: eliminate identified avoidable any types in core packag
 ### Task 4: Add `typecheck:examples` & Fix Workspace Examples TypeScript Errors
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `examples/todo/tsconfig.json`
 - Modify: `examples/tldraw/src/routes/canvas.tsx`
@@ -324,12 +358,14 @@ git commit -m "refactor: eliminate identified avoidable any types in core packag
 - Modify: `examples/kanban-tanstack/src/vite-env.d.ts` (or create if missing)
 
 **Interfaces:**
+
 - Consumes: Bun types, TanStack DB collection types, oat.min.js declarations.
 - Produces: 100% clean typecheck across all workspace examples without using `@ts-nocheck`, `any`, or unsafe casts.
 
 - [ ] **Step 1: Add `typecheck:examples` and `typecheck:all` to root `package.json`**
 
 Add to `package.json` `scripts`:
+
 ```json
 "typecheck:examples": "bunx tsc --noEmit -p examples/todo/tsconfig.json && bunx tsc --noEmit -p examples/tldraw/tsconfig.json && bunx tsc --noEmit -p examples/kanban-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-db-tanstack/tsconfig.json",
 "typecheck:all": "bun run typecheck && bun run typecheck:examples"
@@ -338,6 +374,7 @@ Add to `package.json` `scripts`:
 - [ ] **Step 2: Add Bun types to `examples/todo/tsconfig.json`**
 
 In `examples/todo/tsconfig.json`, add `"bun"` to `compilerOptions.types`:
+
 ```json
 "compilerOptions": {
   "types": ["bun"]

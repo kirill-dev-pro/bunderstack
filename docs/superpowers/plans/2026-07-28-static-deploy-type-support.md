@@ -20,10 +20,12 @@
 ### Task 1: Preserve cron schedule literals
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/define.ts`
 - Modify: `packages/bunderstack/src/jobs/define.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `createJobsBuilder<TSchema, TEnvResult>()`.
 - Produces: `CronDefinition<TSchema, TEnvResult, TSchedule>` and a `cron` builder whose returned `schedule` retains the input literal.
 

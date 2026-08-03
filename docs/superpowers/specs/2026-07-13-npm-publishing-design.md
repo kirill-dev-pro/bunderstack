@@ -62,7 +62,7 @@ A Bun script, run by CI and runnable locally with `--dry-run`:
    OIDC-supporting client) and `npm publish` does not rewrite the workspace
    protocol. In CI the mutation is discarded with the runner; locally,
    `--dry-run` never writes.
-   - *Implementation note:* check whether `bun publish` supports OIDC trusted
+   - _Implementation note:_ check whether `bun publish` supports OIDC trusted
      publishing by now; if it does, it can replace the rewrite + `npm publish`
      pair. The rewrite approach is the guaranteed-working baseline.
 4. Publishes with `npm publish --provenance`. `--dry-run` on the script maps
