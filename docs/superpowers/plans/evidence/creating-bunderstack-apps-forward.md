@@ -270,91 +270,90 @@ supplies the target shape instead of banning same-origin SPA hosting.
 ### Exact dispatch message
 
 ````text
-Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. Use the repository skill `$creating-bunderstack-apps`; load its instructions and any directly relevant reference before responding. Build a React SPA backed by Bunderstack. Explain which process owns the API and how the frontend reaches it.
+Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. In a fresh context, use the repository skill `$creating-bunderstack-apps` for this task: Build a React SPA backed by Bunderstack. Explain which process owns the API and how the frontend reaches it.
 
 Return only your proposed application structure and implementation plan. Do not edit files or inspect prior task evidence.
 ````
 
-Dispatch parameters: `task_name: forward_react_spa_final`, `fork_turns: none`.
+Dispatch parameters: `task_name: forward_react_spa_controlled`,
+`fork_turns: none`. This message is byte-for-byte identical to Run 3's
+dispatch message; only the skill revision differs.
 
 ### Verbatim response
 
 ````markdown
-Proposed structure:
+## Proposed application structure
 
 ```text
 /
+├── package.json                    # Bun workspace scripts for dev, test, build, blueprint
+├── bun.lock
+├── .env.example
+├── bunderstack.blueprint.yaml
+├── migrations/
 ├── api/
 │   ├── package.json
-│   ├── src/
-│   │   ├── server.ts             # Bun.serve({ fetch: app.handler })
-│   │   └── bunderstack/
-│   │       ├── index.ts          # constructs/exports the sole `app`
-│   │       ├── schema/
-│   │       │   ├── index.ts      # aggregates domain, auth, and Bunderstack tables
-│   │       │   └── tasks.ts
-│   │       ├── access.ts         # server-side CRUD policies/scopes
-│   │       ├── auth.ts           # Better Auth configuration
-│   │       └── env.ts            # validated server configuration
-│   ├── drizzle/
-│   │   └── *.sql                 # committed drizzle-kit migrations
-│   └── .env.example
-├── frontend/
-│   ├── package.json
-│   ├── index.html
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── app.tsx
-│   │   ├── api.ts                # fetch/Bunderstack client using PUBLIC_API_BASE_URL
-│   │   ├── auth.ts               # browser auth client
-│   │   ├── routes/
-│   │   ├── components/
-│   │   └── styles.css
-│   ├── server.ts                 # Bun dev/static SPA server
-│   └── .env.example
-└── README.md
+│   └── src/
+│       ├── index.ts                # Bun.serve({ fetch: app.handler })
+│       └── bunderstack/
+│           ├── index.ts            # Constructs and exports the single app and App type
+│           ├── schema/
+│           │   ├── index.ts        # Aggregates domain, auth, and bunderstack/schema tables
+│           │   └── items.ts
+│           ├── access.ts           # Explicit server-side CRUD and tenant policies
+│           ├── auth.ts
+│           ├── env.ts              # Validated server configuration
+│           ├── trpc/
+│           │   └── index.ts
+│           └── jobs/
+│               └── index.ts
+└── frontend/
+    ├── package.json
+    ├── index.html
+    └── src/
+        ├── main.tsx
+        ├── App.tsx
+        ├── api.ts                  # Browser client configured with PUBLIC_API_BASE_URL
+        ├── routes/
+        ├── components/
+        └── styles.css
 ```
 
-Process ownership and request path:
+The Bun process in `api/src/index.ts` owns the API and mounts the single Bunderstack `app.handler`. The React SPA has no server handler and never constructs a Bunderstack app, database, or auth instance. Its browser client reads `PUBLIC_API_BASE_URL` at build/runtime and sends HTTP, auth, tRPC, CRUD, and SSE requests to that Bun API origin. Local development can use separate ports, with API CORS configured for the frontend origin; production can expose both behind one domain or use an explicit API subdomain.
 
-```text
-Browser React SPA
-  └─ fetch(`${PUBLIC_API_BASE_URL}/...`, { credentials: "include" })
-       └─ Bun API process (`api/src/server.ts`)
-            └─ app.handler
-                 └─ Bunderstack: auth, access, CRUD/tRPC, DB, realtime
-```
+## Implementation plan
 
-The API is owned exclusively by the `api` Bun process; it mounts the one Bunderstack `app.handler` through `Bun.serve({ fetch: app.handler })`. The frontend is browser-only—no server handler—and obtains the API origin from `PUBLIC_API_BASE_URL` (for example, `http://localhost:3001`). In production, host both behind one origin or configure CORS and credential/cookie settings for the SPA origin.
-
-Implementation plan:
-
-1. Create the separate `api` and `frontend` Bun projects, with root scripts that run both development processes.
-2. Implement the modular Bunderstack entry, aggregate all migration schema tables, and configure validated environment variables.
-3. Add Better Auth and explicit server-side access rules; protect all tenant/domain data with owner or scope policies.
-4. Add the Bun API entry that imports the already-constructed app and delegates all HTTP requests directly to `app.handler`.
-5. Build the React SPA with Bun HTML imports, routing, an API client driven by `PUBLIC_API_BASE_URL`, and auth-aware application state.
-6. Configure local development URLs, CORS/credentials where cross-origin, `.env.example` files, and committed Drizzle migrations.
-7. Add API and browser-level verification, then document local startup, migration, and deployment process boundaries.
+1. Create a Bun workspace containing independent `api` and `frontend` packages, with root scripts that run both development processes and aggregate verification.
+2. Define the complete Drizzle schema in `api/src/bunderstack/schema/`, including required Better Auth tables and `bunderstack/schema` exports.
+3. Add validated server environment variables, auth configuration, explicit access rules, tenant scopes, optional tRPC procedures, jobs, storage, and realtime configuration.
+4. Assemble exactly one `createBunderstack()` instance in `api/src/bunderstack/index.ts`; export `app` and `type App = typeof app`, and call `provision(app)` if this application owns provisioning.
+5. Start the API with `Bun.serve({ fetch: app.handler })`. Keep background workers in a separate entry/process if jobs are enabled.
+6. Build the React SPA with Bun HTML imports and configure its typed client in `frontend/src/api.ts` using `PUBLIC_API_BASE_URL`; import `App` as a type only.
+7. Implement authentication state, protected routes, domain screens, loading/error handling, and SSE lifecycle handling. Treat server access policies—not hidden UI—as authorization.
+8. Add `.env.example` entries for the API origin, browser origin, database, auth, storage, and shared realtime transport without committing secrets.
+9. Generate and commit Drizzle migrations plus `bunderstack.blueprint.yaml`; configure `package.json#bunderstack.entry` for the modular API entry.
+10. Verify from the application root with `bun install`, `bun test`, `bun run typecheck`, `bun run build`, `bun run blueprint`, and `bun run blueprint:check`.
 ````
 
 ### Score
 
 | Decision | Score | Verbatim basis |
 | --- | --- | --- |
-| Layout | Pass | “separate `api` and `frontend` Bun projects.” |
+| Layout | Pass | “independent `api` and `frontend` packages.” |
 | HTTP handler | Pass | Exact `Bun.serve({ fetch: app.handler })`. |
-| API process ownership | Pass | “owned exclusively by the `api` Bun process.” |
+| API process ownership | Pass | “The Bun process in `api/src/index.ts` owns the API.” |
 | Worker model | N/A | No jobs requested. |
 | Direct-write realtime | N/A | No realtime write requested. |
 | Provisioning | N/A | Production persistence was not required. |
 | Template path | N/A | Not a full SaaS. |
 
-Result after refactor: **3/3 applicable decisions correct.**
+Controlled result after refactor: **3/3 applicable decisions correct.** Because
+the dispatch is identical to Run 3, the refactor still passes without the
+extra reference-loading instruction used by the superseded re-test.
 
 ## Conclusion
 
 The preserved dispatches show that no baseline failures or desired answers
 were supplied. Runs 1 and 2 selected the intended contracts immediately. Run 3
-exposed the React SPA decision-shape gap, and Run 4 independently verifies the
-positive runtime recipe that closed it.
+exposed the React SPA decision-shape gap, and controlled Run 4 independently
+verifies the positive runtime recipe that closed it.
