@@ -31,7 +31,9 @@ describe('migrating-to-bunderstack skill', () => {
 
   test('migration skill uses current runtime contracts', () => {
     const markdown = readFileSync(resolve(migrationSkill, 'SKILL.md'), 'utf8')
-    expect(markdown).toContain("ctx.realtime.publish(schema.tasks, 'update', row)")
+    expect(markdown).toContain(
+      "ctx.realtime.publish(schema.tasks, 'update', row)",
+    )
     expect(markdown).toContain('createApiHandlers(app)')
     expect(markdown).toContain('app.runWorker()')
     expect(markdown).not.toContain("ctx.realtime.publish('channel', payload)")
