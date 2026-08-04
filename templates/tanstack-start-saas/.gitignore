@@ -1,0 +1,11 @@
+node_modules
+.output
+.nitro
+.tanstack
+dist
+*.db
+*.db-journal
+uploads
+.env
+.env.local
+src/routeTree.gen.ts
