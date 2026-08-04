@@ -15,7 +15,7 @@ function AdminProjectsPage() {
     let active = true
     api.projects.table
       .list()
-      .then((res) => {
+      .then((res: { items: any[] }) => {
         if (active) {
           setProjects(res.items || [])
           setLoading(false)

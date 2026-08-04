@@ -26,8 +26,9 @@ test('SaaS template contains all required routes and deployment files', () => {
     'README.md',
     'bunderstack.blueprint.yaml',
     'src/routes/index.tsx',
+    'src/routes/app/layout.tsx',
     'src/routes/app/index.tsx',
-    'src/routes/admin.tsx',
+    'src/routes/admin/layout.tsx',
     'src/routes/admin/index.tsx',
   ]
 

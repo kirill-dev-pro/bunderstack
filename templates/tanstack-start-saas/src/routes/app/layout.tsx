@@ -2,7 +2,7 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AppShell } from '~/components/app-shell'
 import { requireClientAuth } from '~/lib/client-auth-context'
 
-export const Route = createFileRoute('/app')({
+export const Route = createFileRoute('/app/layout')({
   beforeLoad: ({ context, location }) => requireClientAuth({ context, location }),
   component: ClientAppLayout,
 })
