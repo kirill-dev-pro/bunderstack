@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "getting-started",
+    "templates-and-skills",
     "configuration",
     "crud",
     "auth",

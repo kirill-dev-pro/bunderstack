@@ -474,6 +474,20 @@ the server. Realtime defaults to on in the browser and off during SSR.
 `getSessionUser(app, request)` resolves the BetterAuth session in server
 functions, and `createStartAuthClient()` is the browser auth SDK.
 
+### BunderSaaS Starter Template & AI Agent Skills
+
+To quickly launch a full-stack SaaS application with TanStack Start, check out the official **BunderSaaS** template:
+
+- **`templates/tanstack-start-saas`**: Features dual client (`/app`) and admin (`/admin`) dashboards with dedicated route contexts (`requireClientAuth`, `requireAdminAuth`), Better Auth, shadcn/ui components, real-time delivery pipeline, and background workers.
+
+In addition, Bunderstack includes pre-installed **TanStack Agent Skills** in `.agents/skills/`:
+- `tanstack-start-best-practices` — Server functions, Zod validation, SSR hydration
+- `tanstack-router-best-practices` — Typed route context, `beforeLoad` guards, search params
+- `tanstack-query-best-practices` — `staleTime`, query key factories, optimistic UI
+- `tanstack-integration-best-practices` — TanStack Router + Query + Start coordination
+
+These skills provide AI coding assistants (Antigravity, Cursor, Claude Code) with full architecture guidance for server functions, route context guards, hydration safety, and query caching.
+
 ---
 
 ## Background work: jobs, workers, and cron
