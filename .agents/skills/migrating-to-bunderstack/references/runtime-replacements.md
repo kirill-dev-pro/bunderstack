@@ -124,8 +124,9 @@ export const defineJobs = (jobs) =>
       onFailed: async ({ reportId }, error, ctx) => markFailed(reportId, error, ctx),
     }),
     archiveStale: jobs.cron({
+      // A cron handler receives the invocation first, then the job context.
       schedule: '0 3 * * *',
-      handler: async (ctx) => archiveStale(ctx),
+      handler: async (_invocation, ctx) => archiveStale(ctx),
     }),
   })
 ```

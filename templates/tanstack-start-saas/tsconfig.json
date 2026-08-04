@@ -15,7 +15,6 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"]
     }
