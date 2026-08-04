@@ -6,7 +6,7 @@
  * because the entry imports this config.
  */
 export const authConfig = {
-  baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+  baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:5173',
   secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
   emailAndPassword: { enabled: true },
   user: {
