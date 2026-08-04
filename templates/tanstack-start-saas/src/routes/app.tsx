@@ -1,21 +1,9 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AppShell } from '~/components/app-shell'
+import { requireClientAuth } from '~/lib/client-auth-context'
 
 export const Route = createFileRoute('/app')({
-  beforeLoad: ({ context, location }) => {
-    if (!context.user) {
-      throw redirect({
-        to: '/login',
-        search: { redirect: location.href },
-      })
-    }
-    return {
-      clientAuth: {
-        user: context.user,
-        role: 'client' as const,
-      },
-    }
-  },
+  beforeLoad: ({ context, location }) => requireClientAuth({ context, location }),
   component: ClientAppLayout,
 })
 
