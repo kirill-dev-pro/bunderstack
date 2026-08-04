@@ -1,0 +1,4 @@
+interface:
+  display_name: "Creating Bunderstack Apps"
+  short_description: "Start production-ready Bunderstack applications"
+  default_prompt: "Use $creating-bunderstack-apps to start a new Bunderstack application."

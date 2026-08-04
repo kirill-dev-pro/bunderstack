@@ -1,0 +1,82 @@
+version: 1
+generator:
+  name: bunderstack
+  version: 0.15.1
+application:
+  framework: tanstack-start
+  scripts:
+    build: build
+    start: start
+    worker: worker
+bunderstack:
+  entry: src/bunderstack/index.ts
+  manifestVersion: 3
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: push
+    tables:
+      - exportName: _system.scheduledRuns
+        physicalName: _bunderstack_cron_runs
+        system: true
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: account
+        physicalName: account
+        system: false
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: projects
+        physicalName: projects
+        system: false
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: tasks
+        physicalName: tasks
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+      - exportName: verification
+        physicalName: verification
+        system: false
+  storage:
+    defaultBucket: project-files
+    buckets:
+      - name: project-files
+        visibility: private
+  realtime:
+    required: true
+environment:
+  - key: EMAIL_FROM
+    required: false
+    scope: server
+  - key: PUBLIC_APP_NAME
+    required: false
+    scope: client
+  - key: REDIS_URL
+    required: false
+    scope: server
+  - key: RESEND_API_KEY
+    required: false
+    scope: server
+background:
+  worker:
+    required: true
+  jobs:
+    - name: sendProjectDigest
+  cron:
+    - name: archiveCompletedTasks
+      schedule: "0 3 * * *"
+      timezone: UTC
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC

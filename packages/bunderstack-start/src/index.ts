@@ -76,6 +76,7 @@ export type SessionUser = {
   email: string
   name: string
   image?: string | null
+  role?: string
 }
 
 type SessionApp = {

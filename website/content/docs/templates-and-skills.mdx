@@ -1,0 +1,65 @@
+---
+title: Templates & Agent Skills
+description: Production-ready BunderSaaS template and TanStack AI agent skills
+---
+
+# Templates & Agent Skills
+
+Bunderstack ships with a production-ready SaaS template and a suite of AI coding agent skills to streamline building full-stack applications with TanStack Start, TanStack Router, and TanStack Query.
+
+---
+
+## BunderSaaS Template (`templates/tanstack-start-saas`)
+
+The **BunderSaaS** template is a complete, full-stack SaaS workspace built on **Bunderstack** and **TanStack Start**.
+
+### Key Features
+- **Dual Dashboards & Auth Contexts**:
+  - **Client Workspace (`/app/*`)**: Guarded by `clientAuth` route context in `src/routes/app/layout.tsx` using `requireClientAuth`.
+  - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context in `src/routes/admin/layout.tsx` using `requireAdminAuth` (`role === 'admin'`).
+- **Isomorphic Session Validation**: Root `beforeLoad` in `src/routes/__root.tsx` fetches the session user isomorphically via `fetchUser()`.
+- **shadcn/ui Ready**: Pre-configured `components.json`, Tailwind v4, Lucide icons, Radix primitives, and `@shadcnstore` registry support (`bunx shadcn@latest add <component>`).
+- **Real-Time Delivery Rail**: Visual project status and proof attachment upload pipeline.
+- **Background Worker & Cron**: Wired `worker.ts` process for background jobs and scheduled sweeps.
+
+### Quick Start with BunderSaaS
+
+```bash
+cd templates/tanstack-start-saas
+bun install
+cp .env.example .env
+bun run db:generate
+bun run dev
+```
+
+In a separate terminal, run the background queue worker:
+
+```bash
+bun run worker
+```
+
+---
+
+## TanStack Agent Skills
+
+Bunderstack integrates [TanStack Agent Skills](https://github.com/DeckardGer/tanstack-agent-skills) to guide AI coding assistants (Antigravity, Cursor, Claude Code, etc.) in following best practices when generating or modifying code.
+
+### Available Skills
+1. **`tanstack-start-best-practices`**:
+   - Server functions (`createServerFn`), Zod input validation, isomorphic session checks, SSR hydration safety.
+2. **`tanstack-router-best-practices`**:
+   - Root context typing (`createRootRouteWithContext`), `beforeLoad` route guards, search parameter validation (`validateSearch`), and `notFoundComponent` / `errorComponent` handling.
+3. **`tanstack-query-best-practices`**:
+   - `staleTime` optimization, query key factory patterns, and optimistic UI mutations.
+4. **`tanstack-integration-best-practices`**:
+   - Seamless data flow coordination between TanStack Router, Query, and Start.
+
+### Installing Skills in Your Workspace
+
+To add the TanStack Agent Skills to your project workspace:
+
+```bash
+npx -y skills add https://github.com/deckardger/tanstack-agent-skills
+```
+
+Or copy `.agents/skills/` directly into your workspace root.

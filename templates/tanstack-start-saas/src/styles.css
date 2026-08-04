@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ink: #17211B;
+    --parchment: #F6F3E9;
+    --mint-sheet: #DCEBDD;
+    --signal-blue: #315CF5;
+    --amber-pin: #E9A23B;
+    --paper-white: #FFFDF7;
+    --radius: 10px;
+
+    --background: var(--parchment);
+    --foreground: var(--ink);
+    --card: var(--paper-white);
+    --card-foreground: var(--ink);
+    --primary: var(--signal-blue);
+    --primary-foreground: #ffffff;
+    --muted: var(--mint-sheet);
+    --muted-foreground: #4a5d51;
+    --accent: var(--mint-sheet);
+    --accent-foreground: var(--ink);
+    --border: #d4decb;
+    --input: #d4decb;
+    --ring: var(--signal-blue);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Newsreader', Georgia, serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}

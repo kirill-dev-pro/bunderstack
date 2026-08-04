@@ -1,0 +1,57 @@
+{
+  "name": "bunderstack-template-tanstack-start-saas",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "bunderstack": {
+    "entry": "src/bunderstack/index.ts"
+  },
+  "scripts": {
+    "dev": "bun --bun vite dev",
+    "build": "vite build",
+    "start": "bun run .output/server/index.mjs",
+    "worker": "bun src/worker.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
+    "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/react-start": "^1.168.26",
+    "@trpc/client": "^11.15.0",
+    "@trpc/server": "^11.15.0",
+    "@trpc/tanstack-react-query": "^11.15.0",
+    "better-auth": "^1.6.23",
+    "bunderstack": "workspace:*",
+    "bunderstack-query": "workspace:*",
+    "bunderstack-start": "workspace:*",
+    "bunderstack-sync": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^0.545.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^22.5.4",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "drizzle-kit": "^0.31.10",
+    "nitro": "^3.0.260311-beta",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.14"
+  }
+}

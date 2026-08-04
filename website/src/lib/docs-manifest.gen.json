@@ -27,6 +27,14 @@
           "$ref": "getting-started.mdx"
         },
         {
+          "$id": "templates-and-skills.mdx",
+          "type": "page",
+          "name": "Templates &amp; Agent Skills",
+          "description": "Production-ready BunderSaaS template and TanStack AI agent skills",
+          "url": "/docs/templates-and-skills",
+          "$ref": "templates-and-skills.mdx"
+        },
+        {
           "$id": "configuration.mdx",
           "type": "page",
           "name": "Configuration",
@@ -147,6 +155,7 @@
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
     "sync-collections": "sync-collections.mdx",
+    "templates-and-skills": "templates-and-skills.mdx",
     "thumbnails": "thumbnails.mdx",
     "trpc": "trpc.mdx"
   }
