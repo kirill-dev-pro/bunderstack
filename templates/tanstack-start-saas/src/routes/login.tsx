@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { EyeIcon, EyeOffIcon, Lock, Mail } from 'lucide-react'
 import * as React from 'react'
+import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
@@ -9,11 +10,15 @@ import { Input } from '~/components/ui/input'
 import { signIn } from '~/lib/auth-client'
 
 export const Route = createFileRoute('/login')({
+  validateSearch: z.object({
+    redirect: z.string().optional(),
+  }),
   component: LoginPage,
 })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const search = Route.useSearch()
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [showPassword, setShowPassword] = React.useState(false)
@@ -29,14 +34,15 @@ function LoginPage() {
       const res = await signIn.email({
         email,
         password,
-        callbackURL: '/app',
+        callbackURL: search.redirect || '/app',
       })
 
       if (res.error) {
         setError(res.error.message ?? 'Failed to sign in')
         setIsPending(false)
       } else {
-        await navigate({ to: '/app' as any })
+        const target = search.redirect || '/app'
+        await navigate({ to: target as any })
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')

@@ -1,17 +1,17 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { AppShell } from '~/components/app-shell'
-import { fetchClientSession } from '~/lib/session'
 
 export const Route = createFileRoute('/app')({
-  beforeLoad: async () => {
-    // Isomorphic server function call to fetch user session and verify client access
-    const session = await fetchClientSession()
-    if (!session?.user) {
-      throw redirect({ to: '/login' })
+  beforeLoad: ({ context, location }) => {
+    if (!context.user) {
+      throw redirect({
+        to: '/login',
+        search: { redirect: location.href },
+      })
     }
     return {
       clientAuth: {
-        user: session.user,
+        user: context.user,
         role: 'client' as const,
       },
     }
