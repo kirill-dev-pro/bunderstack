@@ -62,3 +62,5 @@ bun run blueprint
 - **Relay Delivery Rail**: Visual and interactive status tracking for client project deliverables.
 - **Dashboard & Workspaces**: Responsive project overview, task completion, and proof attachment uploads.
 - **Admin Overview**: Server-authorized metrics overview at `/app/admin`.
+- **shadcn/ui Ready**: Fully configured with `components.json`, Tailwind v4, Radix primitives, Lucide icons, and `cn()` helper (`bunx shadcn@latest add <component>`).
+
