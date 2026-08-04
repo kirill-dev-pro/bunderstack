@@ -1,17 +1,22 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { AdminAppShell } from '~/components/admin-shell'
+import { fetchAdminSession, fetchUser } from '~/lib/session'
 
 export const Route = createFileRoute('/admin')({
-  beforeLoad: ({ context }) => {
-    if (!context.user) {
+  beforeLoad: async () => {
+    // Isomorphic server function call to fetch user session and verify admin role
+    const session = await fetchAdminSession()
+    if (!session?.user || !session.isAdmin) {
+      // Isomorphically check if user is logged in at all to decide redirect target
+      const currentUser = await fetchUser()
+      if (currentUser) {
+        throw redirect({ to: '/app' })
+      }
       throw redirect({ to: '/login' })
-    }
-    if (context.user.role !== 'admin') {
-      throw redirect({ to: '/app' })
     }
     return {
       adminAuth: {
-        user: context.user,
+        user: session.user,
         role: 'admin' as const,
         isAdmin: true,
       },
@@ -21,9 +26,9 @@ export const Route = createFileRoute('/admin')({
 })
 
 function AdminLayout() {
-  const { user } = Route.useRouteContext()
+  const { adminAuth } = Route.useRouteContext()
   return (
-    <AdminAppShell user={user}>
+    <AdminAppShell user={adminAuth.user}>
       <Outlet />
     </AdminAppShell>
   )
