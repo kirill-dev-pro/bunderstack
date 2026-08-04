@@ -1,5 +1,4 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import * as React from 'react'
 import { AppShell } from '~/components/app-shell'
 
 export const Route = createFileRoute('/app')({
@@ -7,11 +6,17 @@ export const Route = createFileRoute('/app')({
     if (!context.user) {
       throw redirect({ to: '/login' })
     }
+    return {
+      clientAuth: {
+        user: context.user,
+        role: 'client' as const,
+      },
+    }
   },
-  component: AppLayout,
+  component: ClientAppLayout,
 })
 
-function AppLayout() {
+function ClientAppLayout() {
   const { user } = Route.useRouteContext()
   return (
     <AppShell user={user}>

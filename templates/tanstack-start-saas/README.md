@@ -1,6 +1,6 @@
-# Relay — Bunderstack + TanStack Start SaaS Template
+# BunderSaaS — Bunderstack + TanStack Start SaaS Template
 
-Relay is a production-ready SaaS template built with **Bunderstack** and **TanStack Start**. It features a creative studio project delivery workspace with owner-scoped CRUD, email/password authentication (Better Auth), real-time delivery status, file attachments, and an admin dashboard.
+BunderSaaS is a production-ready SaaS template built with **Bunderstack** and **TanStack Start**. It features 2 separate dashboards (Client Workspace and Admin Portal) with distinct TanStack Start auth contexts (`clientAuth` and `adminAuth`), owner-scoped CRUD, email/password authentication (Better Auth), real-time delivery status, file attachments, and background task processing.
 
 ## Quick Start
 
@@ -56,11 +56,11 @@ bun run blueprint
 
 ## Features
 
+- **Dual Dashboards & Auth Contexts**:
+  - **Client Workspace (`/app/*`)**: Guarded by `clientAuth` route context for project owners.
+  - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context (`role: 'admin'`).
 - **Catch-all API Routing**: Integrated via `createApiHandlers(app)` in `src/routes/api/$.tsx`.
 - **Typed Client**: Exported via `bunderstackStart<App>()` in `src/api.ts`.
 - **Auth Flow**: Complete Better Auth sign-in (`/login`) and registration (`/register`) with session management.
-- **Relay Delivery Rail**: Visual and interactive status tracking for client project deliverables.
-- **Dashboard & Workspaces**: Responsive project overview, task completion, and proof attachment uploads.
-- **Admin Overview**: Server-authorized metrics overview at `/app/admin`.
+- **BunderSaaS Delivery Rail**: Visual and interactive status tracking for client project deliverables.
 - **shadcn/ui Ready**: Fully configured with `components.json`, Tailwind v4, Radix primitives, Lucide icons, and `cn()` helper (`bunx shadcn@latest add <component>`).
-

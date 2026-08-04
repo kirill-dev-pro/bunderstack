@@ -10,7 +10,8 @@ export const Route = createFileRoute('/app/')({
 })
 
 function DashboardOverview() {
-  const { user, api } = Route.useRouteContext()
+  const { clientAuth, api } = Route.useRouteContext()
+  const user = clientAuth?.user
   const [projects, setProjects] = React.useState<any[]>([])
 
   const loadProjects = React.useCallback(async () => {
@@ -31,10 +32,10 @@ function DashboardOverview() {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-3xl font-bold tracking-tight">
-          Welcome back, {user?.name || 'Creator'}
+          Welcome back, {user?.name || 'Client'}
         </h1>
         <p className="text-sm text-[#17211B]/70 mt-1">
-          Here is your studio's active delivery rhythm and project pulse.
+          Here is your client workspace delivery rhythm and active projects.
         </p>
       </div>
 
@@ -93,7 +94,7 @@ function DashboardOverview() {
 
         {/* Right Column - Delivery Rail & Live Pulse */}
         <div className="md:col-span-5 space-y-6">
-          <h2 className="font-display text-xl font-semibold">Delivery Rail Status</h2>
+          <h2 className="font-display text-xl font-semibold font-display">Delivery Rail Status</h2>
           <DeliveryRail />
         </div>
       </div>

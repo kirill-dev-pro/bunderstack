@@ -27,10 +27,10 @@ export function AppShell({ children, user }: AppShellProps) {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <Link to="/" className="font-display text-2xl font-bold tracking-tight text-[#17211B]">
-              Relay
+              BunderSaaS
             </Link>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#DCEBDD] text-[#17211B]">
-              SaaS
+              CLIENT
             </span>
           </div>
 
@@ -49,13 +49,17 @@ export function AppShell({ children, user }: AppShellProps) {
             >
               Projects
             </Link>
-            <Link
-              to="/app/admin"
-              activeProps={{ className: 'bg-[#DCEBDD] font-semibold' }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#17211B] hover:bg-[#DCEBDD]/60 transition-colors"
-            >
-              Admin Overview
-            </Link>
+
+            {user?.role === 'admin' && (
+              <div className="pt-4 border-t border-[#17211B]/10 mt-2">
+                <Link
+                  to="/admin"
+                  className="flex items-center px-3 py-2 rounded-[10px] text-xs font-semibold text-[#315CF5] hover:bg-[#315CF5]/10 transition-colors"
+                >
+                  Admin Portal →
+                </Link>
+              </div>
+            )}
           </nav>
         </div>
 

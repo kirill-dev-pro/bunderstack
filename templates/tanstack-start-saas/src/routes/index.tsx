@@ -13,11 +13,11 @@ function LandingPage() {
       {/* Header / Nav */}
       <header className="max-w-6xl w-full mx-auto flex items-center justify-between py-4 border-b border-[#17211B]/10">
         <div className="flex items-center space-x-8">
-          <span className="font-display text-2xl font-bold tracking-tight">Relay</span>
+          <span className="font-display text-2xl font-bold tracking-tight">BunderSaaS</span>
           <nav className="hidden sm:flex space-x-6 text-sm font-medium text-[#17211B]/80">
             <span>Product</span>
-            <span>Workflow</span>
-            <span>Client Proofs</span>
+            <span>Client Workspace</span>
+            <span>Admin Portal</span>
           </nav>
         </div>
         <div className="flex items-center space-x-4">
@@ -34,13 +34,13 @@ function LandingPage() {
       <main className="max-w-6xl w-full mx-auto my-12 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
         <div className="md:col-span-7 space-y-6">
           <span className="inline-flex items-center font-mono text-xs uppercase tracking-wider px-3 py-1 rounded-full bg-[#DCEBDD] text-[#17211B]">
-            Client delivery rhythm for studios
+            BunderSaaS Template for TanStack Start
           </span>
           <h1 className="font-display text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]">
             Deliver the work, not the status meeting.
           </h1>
           <p className="text-lg text-[#17211B]/80 leading-relaxed max-w-xl">
-            Relay replaces endless status updates with a live delivery rail, client proofing, and automated task flow powered by Bunderstack.
+            BunderSaaS pairs client workspaces and admin portals with live delivery rails, owner-scoped CRUD, and background queue workers on Bunderstack.
           </p>
           <div className="flex flex-wrap gap-4 pt-2">
             <Button size="lg" variant="default" asChild>
@@ -60,7 +60,7 @@ function LandingPage() {
 
       {/* Footer */}
       <footer className="max-w-6xl w-full mx-auto py-6 border-t border-[#17211B]/10 flex flex-col sm:flex-row items-center justify-between text-xs text-[#17211B]/60">
-        <p>© {new Date().getFullYear()} Relay. Built on Bunderstack + TanStack Start.</p>
+        <p>© {new Date().getFullYear()} BunderSaaS. Built on Bunderstack + TanStack Start.</p>
         <div className="flex space-x-4 mt-2 sm:mt-0">
           <span>Documentation</span>
           <span>Privacy</span>

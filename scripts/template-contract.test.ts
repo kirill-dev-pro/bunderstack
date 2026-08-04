@@ -27,7 +27,8 @@ test('SaaS template contains all required routes and deployment files', () => {
     'bunderstack.blueprint.yaml',
     'src/routes/index.tsx',
     'src/routes/app/index.tsx',
-    'src/routes/app/admin.tsx',
+    'src/routes/admin.tsx',
+    'src/routes/admin/index.tsx',
   ]
 
   for (const file of files) {

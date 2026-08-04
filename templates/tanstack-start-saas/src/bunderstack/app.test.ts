@@ -2,13 +2,13 @@ import { afterEach, expect, test } from 'bun:test'
 import { mockAuthSession } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 
-import { createRelayApp } from './index'
+import { createBunderSaaSApp } from './index'
 import * as schema from './schema'
 
-type Relay = Awaited<ReturnType<typeof createRelayApp>>
+type BunderSaaSApp = Awaited<ReturnType<typeof createBunderSaaSApp>>
 
 async function seedUser(
-  app: Relay,
+  app: BunderSaaSApp,
   id: string,
   role: 'user' | 'admin' = 'user',
 ) {
@@ -18,7 +18,7 @@ async function seedUser(
     .values({
       id,
       name: id,
-      email: `${id}@relay.test`,
+      email: `${id}@bunderstack.test`,
       role,
       createdAt: now,
       updatedAt: now,
@@ -26,19 +26,19 @@ async function seedUser(
     .returning()
 }
 
-function signIn(app: Relay, id: string, role: 'user' | 'admin' = 'user') {
+function signIn(app: BunderSaaSApp, id: string, role: 'user' | 'admin' = 'user') {
   mockAuthSession(app, async () => ({
-    user: { id, email: `${id}@relay.test`, name: id, role },
+    user: { id, email: `${id}@bunderstack.test`, name: id, role },
   }))
 }
 
-const apps: Awaited<ReturnType<typeof createRelayApp>>[] = []
+const apps: Awaited<ReturnType<typeof createBunderSaaSApp>>[] = []
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()))
 })
 
 test('declares the full SaaS runtime', async () => {
-  const app = await createRelayApp({ databaseUrl: 'file::memory:' })
+  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
   apps.push(app)
   expect(app.manifest.realtime.required).toBe(true)
   expect(app.manifest.background.jobs).toEqual([{ name: 'sendProjectDigest' }])
@@ -48,17 +48,17 @@ test('declares the full SaaS runtime', async () => {
 })
 
 test('does not expose projects without a session', async () => {
-  const app = await createRelayApp({ databaseUrl: 'file::memory:' })
+  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
   apps.push(app)
   await provision(app, { force: true })
   const response = await app.handler(
-    new Request('http://relay.test/api/projects'),
+    new Request('http://bunderstack.test/api/projects'),
   )
   expect(response.status).toBe(401)
 })
 
 test('scopes the project list to the signed-in owner', async () => {
-  const app = await createRelayApp({ databaseUrl: 'file::memory:' })
+  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
   apps.push(app)
   await provision(app, { force: true })
 
@@ -71,7 +71,7 @@ test('scopes the project list to the signed-in owner', async () => {
 
   signIn(app, 'user_alice')
   const response = await app.handler(
-    new Request('http://relay.test/api/projects'),
+    new Request('http://bunderstack.test/api/projects'),
   )
   expect(response.status).toBe(200)
 
@@ -80,7 +80,7 @@ test('scopes the project list to the signed-in owner', async () => {
 })
 
 test('refuses a cross-owner project read', async () => {
-  const app = await createRelayApp({ databaseUrl: 'file::memory:' })
+  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
   apps.push(app)
   await provision(app, { force: true })
 
@@ -92,7 +92,7 @@ test('refuses a cross-owner project read', async () => {
 
   signIn(app, 'user_alice')
   const response = await app.handler(
-    new Request('http://relay.test/api/projects/project_b'),
+    new Request('http://bunderstack.test/api/projects/project_b'),
   )
   // The owner rule refuses before the read scope filters, so this is 403
   // rather than the 404 a scope-only configuration would produce.

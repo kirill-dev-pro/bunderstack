@@ -13,7 +13,7 @@ import { createAppRouter } from './trpc'
  * Factory form so tests can own an isolated in-memory database. Production
  * uses the module-level `app` below.
  */
-export async function createRelayApp(options: { databaseUrl?: string } = {}) {
+export async function createBunderSaaSApp(options: { databaseUrl?: string } = {}) {
   return createBunderstack({
     schema,
     access,
@@ -24,7 +24,7 @@ export async function createRelayApp(options: { databaseUrl?: string } = {}) {
     },
     auth: authConfig,
     email: {
-      from: process.env.EMAIL_FROM ?? 'Relay <hello@example.com>',
+      from: process.env.EMAIL_FROM ?? 'BunderSaaS <hello@example.com>',
     },
     storage: {
       local: './uploads',
@@ -45,7 +45,8 @@ export async function createRelayApp(options: { databaseUrl?: string } = {}) {
   })
 }
 
-export const app = await createRelayApp()
+export const createRelayApp = createBunderSaaSApp
+export const app = await createBunderSaaSApp()
 export const { db, auth, env } = app
 export type App = typeof app
 
