@@ -23,6 +23,27 @@ ssr: {
 }
 ```
 
+Because `exports` point straight at source, your TypeScript and bundler
+resolve modules *inside this package's own directory* rather than a compiled
+`dist`. That makes a stray `node_modules/bunderstack-sync/node_modules/`
+uniquely dangerous: if one is ever present (e.g. left over from an earlier
+`link:`/`file:` dependency on a local checkout, then never cleaned up after
+switching to a registry version), both `tsc` and the bundler will resolve
+peer packages like `@tanstack/db`, `@tanstack/react-query`, or `react` from
+inside it instead of your app's own `node_modules`. Two copies of a
+context-carrying package means two separate module instances at runtime —
+collections, providers, or contexts from one copy become invisible to hooks
+from the other. If you hit unexplained "not found"/mismatched-type errors,
+check for nested `node_modules` under this package's install location before
+assuming it's an application bug:
+
+```sh
+find node_modules -path '*/bunderstack-sync/node_modules/@tanstack*'
+```
+
+A clean `rm -rf node_modules && bun install` removes any that a normal
+install wouldn't have produced on its own.
+
 ## License
 
 MIT

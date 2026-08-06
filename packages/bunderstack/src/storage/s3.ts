@@ -39,11 +39,17 @@ export class S3StorageAdapter implements StorageAdapter {
   }
 
   async get(fileId: string): Promise<Response> {
-    const exists = await this.client.exists(fileId)
-    if (!exists) return new Response('Not found', { status: 404 })
+    // `stat` (a HEAD, same cost as `exists`) is the only way to learn the
+    // stored Content-Type: a lazily-constructed `client.file(key)` reports
+    // `type: ""` — it never stats, and unlike `Bun.file` it does not guess
+    // from the extension either.
+    const info = await this.stat(fileId)
+    if (!info) return new Response('Not found', { status: 404 })
     const file = this.client.file(fileId)
     return new Response(file.stream(), {
-      headers: { 'Content-Type': file.type ?? 'application/octet-stream' },
+      headers: {
+        'Content-Type': info.contentType || 'application/octet-stream',
+      },
     })
   }
 

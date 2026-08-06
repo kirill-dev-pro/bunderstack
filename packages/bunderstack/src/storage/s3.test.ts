@@ -101,3 +101,50 @@ test('publicUrlFor without trailing slash works correctly', () => {
     'https://cdn.x/avatars/a.jpg',
   )
 })
+
+// `client.file(key).type` is always "" for a lazily-constructed S3File (unlike
+// `Bun.file`, it neither stats nor guesses from the extension). `get()` must
+// therefore read the stored Content-Type off the object itself, or every
+// server-side reader gets an empty MIME type.
+test('get() serves the Content-Type stored on the object', async () => {
+  const server = Bun.serve({
+    port: 0,
+    fetch: (req) =>
+      new Response(req.method === 'GET' ? 'fakebytes' : null, {
+        headers: { 'Content-Type': 'image/png', 'Content-Length': '9' },
+      }),
+  })
+  try {
+    const adapter = new S3StorageAdapter({
+      bucket: 'test-bucket',
+      region: 'auto',
+      accessKeyId: 'fake-key',
+      secretAccessKey: 'fake-secret',
+      endpoint: `http://localhost:${server.port}`,
+    })
+    const res = await adapter.get('selfies/a.jpg')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('image/png')
+  } finally {
+    await server.stop(true)
+  }
+})
+
+test('get() returns 404 when the object is missing', async () => {
+  const server = Bun.serve({
+    port: 0,
+    fetch: () => new Response('nope', { status: 404 }),
+  })
+  try {
+    const adapter = new S3StorageAdapter({
+      bucket: 'test-bucket',
+      region: 'auto',
+      accessKeyId: 'fake-key',
+      secretAccessKey: 'fake-secret',
+      endpoint: `http://localhost:${server.port}`,
+    })
+    expect((await adapter.get('selfies/missing.jpg')).status).toBe(404)
+  } finally {
+    await server.stop(true)
+  }
+})
