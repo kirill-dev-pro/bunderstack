@@ -9,7 +9,6 @@ test('SaaS template exposes the Bunderstack deployment contract', () => {
   expect(templatePackage.bunderstack.entry).toBe('src/bunderstack/index.ts')
   expect(templatePackage.scripts).toMatchObject({
     dev: 'bun --bun vite dev',
-    worker: 'bun src/worker.ts',
     typecheck: 'tsc --noEmit',
     blueprint: 'bun ../../packages/bunderstack/src/cli.ts blueprint',
     'blueprint:check':
@@ -20,7 +19,6 @@ test('SaaS template exposes the Bunderstack deployment contract', () => {
 test('SaaS template contains all required routes and deployment files', () => {
   const files = [
     'src/bunderstack/index.ts',
-    'src/worker.ts',
     'src/routes/api/$.tsx',
     '.env.example',
     'README.md',
