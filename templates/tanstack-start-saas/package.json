@@ -10,7 +10,6 @@
     "dev": "bun --bun vite dev",
     "build": "vite build",
     "start": "bun run .output/server/index.mjs",
-    "worker": "bun src/worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
