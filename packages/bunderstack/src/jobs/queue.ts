@@ -7,6 +7,8 @@ import type { EnqueueOptions, JobsDefs } from './define'
 import { jobsTableFor } from '../internal-tables'
 import { generate } from '../typeid'
 
+import { CRON_PREFIX } from './slots'
+
 export async function enqueueJob(
   db: AnyDb,
   defs: JobsDefs,
@@ -15,11 +17,13 @@ export async function enqueueJob(
   opts: EnqueueOptions = {},
 ): Promise<{ id: string }> {
   const def = defs[name]
-  if (!def || def.kind !== 'job') {
-    throw new Error(`[bunderstack] unknown queue job "${name}"`)
+  if (!def) {
+    throw new Error(`[bunderstack] unknown background task "${name}"`)
   }
-  // Fail fast: a bad payload should throw at the call site, not in the worker.
-  const parsed = def.input ? def.input.parse(input) : null
+  const isCron = def.kind === 'cron'
+  const type = isCron ? `${CRON_PREFIX}${name}` : name
+  // Cron slots carry no payload; queue jobs validate theirs at the call site.
+  const parsed = isCron ? null : def.input ? def.input.parse(input) : null
   const t = jobsTableFor(db)
   const now = Date.now()
   const runAt =
@@ -35,7 +39,7 @@ export async function enqueueJob(
       .insert(t)
       .values({
         id,
-        type: name,
+        type,
         payloadJson: JSON.stringify(parsed),
         status: 'pending',
         attempts: 0,
@@ -49,7 +53,7 @@ export async function enqueueJob(
     const existing = await db
       .select({ id: t.id })
       .from(t)
-      .where(and(eq(t.type, name), eq(t.dedupeKey, opts.dedupeKey ?? '')))
+      .where(and(eq(t.type, type), eq(t.dedupeKey, opts.dedupeKey ?? '')))
       .limit(1)
     if (existing[0]) return { id: String(existing[0].id) }
   }

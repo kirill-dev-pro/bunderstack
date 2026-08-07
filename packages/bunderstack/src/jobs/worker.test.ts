@@ -99,7 +99,7 @@ test('failure retries with backoff, then fails and fires onFailed', async () => 
     flaky: {
       kind: 'job',
       retries: 2,
-      backoff: { baseMs: 1000, factor: 2 },
+      backoff: (attempt) => 1000 * 2 ** (attempt - 1),
       handler: async () => {
         calls++
         throw new Error(`boom ${calls}`)
@@ -148,6 +148,7 @@ test('expired lease recovers to pending and burns the attempt', async () => {
       kind: 'job',
       retries: 3,
       timeout: 60_000,
+      backoff: () => 1000,
       handler: async () => {},
     },
   }
@@ -247,21 +248,81 @@ test('malformed stored payload fails immediately without retries', async () => {
   expect(row?.attempts).toBe(1)
 })
 
-test('queue runner ignores cron definitions', async () => {
-  let cronRuns = 0
+import { and, eq as eqOp } from 'drizzle-orm'
+
+import { CRON_PREFIX, SLOT_MS } from './slots'
+
+async function cronRows(name: string) {
+  return db
+    .select()
+    .from(bunderstackJobs)
+    .where(eqOp(bunderstackJobs.type, `${CRON_PREFIX}${name}`))
+}
+
+test('tick materializes the current slot on first sight', async () => {
   const defs: JobsDefs = {
-    scheduled: {
+    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+  }
+  const now = Date.parse('2026-08-07T10:00:30Z')
+  await runner(defs).tick(now)
+
+  const rows = await cronRows('beat')
+  expect(rows).toHaveLength(1)
+  expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:00:00Z'))
+  expect(rows[0]!.dedupeKey).toBe(String(Date.parse('2026-08-07T10:00:00Z')))
+})
+
+test('tick does not backfill from epoch on first sight', async () => {
+  const defs: JobsDefs = {
+    beat: { kind: 'cron', schedule: '* * * * *', catchUp: 'all', handler: () => {} },
+  }
+  await runner(defs).tick(Date.parse('2026-08-07T10:00:30Z'))
+  expect(await cronRows('beat')).toHaveLength(1)
+})
+
+test('materialization is idempotent across concurrent ticks', async () => {
+  let runs = 0
+  const defs: JobsDefs = {
+    beat: {
       kind: 'cron',
       schedule: '* * * * *',
-      handler: async () => {
-        cronRuns++
+      handler: () => {
+        runs++
       },
     },
   }
+  const now = Date.parse('2026-08-07T10:00:30Z')
+  const a = runner(defs)
+  const b = runner(defs)
+  await Promise.all([a.tick(now), b.tick(now)])
+
+  expect(await cronRows('beat')).toHaveLength(1)
+  expect(runs).toBe(1)
+})
+
+test('the watermark advances so a slot is materialized once per minute', async () => {
+  const defs: JobsDefs = {
+    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+  }
   const r = runner(defs)
-  await r.tick(Date.now())
-  expect(cronRuns).toBe(0)
-  expect(await db.select().from(bunderstackJobs)).toEqual([])
+  const t0 = Date.parse('2026-08-07T10:00:30Z')
+  await r.tick(t0)
+  await r.tick(t0 + 10_000)
+  await r.tick(t0 + SLOT_MS)
+
+  const runAts = (await cronRows('beat')).map((row) => Number(row.runAt)).sort()
+  expect(runAts).toEqual([
+    Date.parse('2026-08-07T10:00:00Z'),
+    Date.parse('2026-08-07T10:01:00Z'),
+  ])
+})
+
+test('a non-matching minute materializes nothing', async () => {
+  const defs: JobsDefs = {
+    hourly: { kind: 'cron', schedule: '0 * * * *', handler: () => {} },
+  }
+  await runner(defs).tick(Date.parse('2026-08-07T10:30:00Z'))
+  expect(await cronRows('hourly')).toHaveLength(0)
 })
 
 test('succeeded rows are reaped after the retention window', async () => {
@@ -275,3 +336,4 @@ test('succeeded rows are reaped after the retention window', async () => {
   // The succeeded row is gone (only rows from this test's runs remain pending-free).
   expect(rows.filter((x) => x.status === 'succeeded')).toHaveLength(0)
 })
+

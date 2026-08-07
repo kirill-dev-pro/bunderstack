@@ -1,13 +1,16 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
 // recover expired leases → reap old succeeded rows → claim and run queue jobs.
-import { and, eq, inArray, is, isNotNull, lt, lte, sql } from 'drizzle-orm'
+import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
 import type { AnyJobDefinition, JobsDefs, JobsRuntimeFacade } from './define'
 
 import { jobsTableFor } from '../internal-tables'
+import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
+import { enqueueJob } from './queue'
+import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
 
 const CLAIM_BATCH = 10
 const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
@@ -41,6 +44,44 @@ export function createJobRunner(deps: {
   const { db, defs } = deps
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
+
+  /**
+   * The watermark is the newest slot we already stored for this cron. When no
+   * rows exist — a newly declared cron, or one whose rows were reaped — anchor
+   * one slot before now so the current minute is eligible and nothing older is.
+   */
+  async function cronWatermark(type: string, now: number): Promise<number> {
+    const rows = await db
+      .select({ latest: max(t.runAt) })
+      .from(t)
+      .where(eq(t.type, type))
+    const latest = rows[0]?.latest
+    return latest == null ? floorSlot(now) - SLOT_MS : Number(latest)
+  }
+
+  /** Enqueue a row per due slot. The unique(type, dedupeKey) constraint makes
+   *  this safe to run concurrently in any number of processes. */
+  async function materializeCronSlots(now: number) {
+    for (const [name, def] of Object.entries(defs)) {
+      if (def.kind !== 'cron') continue
+      const type = `${CRON_PREFIX}${name}`
+      const from = await cronWatermark(type, now)
+      const slots = slotsDue({
+        cron: parseCron(def.schedule),
+        from,
+        to: now,
+        catchUp: def.catchUp,
+        catchUpWindowMs: def.catchUpWindow,
+      })
+      for (const slot of slots) {
+        await enqueueJob(db, defs, name, null, {
+          runAt: slot,
+          dedupeKey: String(slot),
+        })
+      }
+    }
+  }
+
   async function fireOnFailed(
     def: AnyJobDefinition,
     payloadJson: string,
@@ -258,6 +299,7 @@ export function createJobRunner(deps: {
 
   return {
     async tick(now: number = Date.now()) {
+      await materializeCronSlots(now)
       await recoverExpiredLeases(now)
       await reapSucceeded(now)
       await runClaimable(now)
