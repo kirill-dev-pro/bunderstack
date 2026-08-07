@@ -143,4 +143,4 @@ postgres.js, and Bun SQL clients are owned by the app and closed by
 | `S3_ACCESS_KEY_ID`        | —                                                     | S3 access key                                            |
 | `S3_SECRET_ACCESS_KEY`    | —                                                     | S3 secret                                                |
 | `S3_ENDPOINT`             | —                                                     | Custom endpoint for R2 / MinIO                           |
-| `BUNDERSTACK_CRON_SECRET` | —                                                     | Required in production for signed scheduled delivery     |
+| `BUNDERSTACK_ROLE`        | `all`                                                 | `all` \| `web` \| `worker` — whether this process serves HTTP, runs background work, or both |

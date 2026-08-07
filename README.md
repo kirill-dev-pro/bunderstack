@@ -552,6 +552,11 @@ import { app } from './bunderstack'
 Bun.serve({ fetch: app.handler })
 ```
 
+Background work runs in-process by default — deploy one container and both HTTP
+and jobs happen. `BUNDERSTACK_ROLE` (`all` | `web` | `worker`, default `all`)
+splits it across processes without any code change. The explicit entry points
+remain available as escape hatches:
+
 ```ts
 // worker.ts
 import { app } from './bunderstack'
@@ -581,22 +586,10 @@ const worker = await app.startWorker({ pollIntervalMs: 250 })
 await worker.close()
 ```
 
-For local standalone development only, Bunderstack can act as the clock:
-
-```ts
-const scheduler = await app.startCronScheduler()
-// ...
-await scheduler.close()
-```
-
-Production cron delivery is mounted at
-`POST /api/_bunderstack/cron/:name`; storage maintenance is at
-`POST /api/_bunderstack/maintenance/storage-sweep`. Production requires
-`BUNDERSTACK_CRON_SECRET`; the platform signs each task name and UTC minute
-slot. Do not expose or call these endpoints from browser code. Bunderhost reads
-the committed `bunderstack.blueprint.yaml`: queue jobs cause a separate
-always-on worker deployment, while cron-only applications remain web-only and
-can still scale to zero between requests.
+Cron needs nothing extra. `j.cron()` occurrences are materialized as job rows
+keyed by their UTC minute slot, so they run through the same loop as queue jobs
+and inherit `retries`, `timeout`, and `onFailed`. There is no separate cron
+process, no signed dispatch endpoint, and no development/production split.
 
 ### Deployment blueprint
 

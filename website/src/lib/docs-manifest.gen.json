@@ -67,6 +67,14 @@
           "$ref": "trpc.mdx"
         },
         {
+          "$id": "custom-routes.mdx",
+          "type": "page",
+          "name": "Custom routes",
+          "description": "Hand-written Hono endpoints with the framework's context",
+          "url": "/docs/custom-routes",
+          "$ref": "custom-routes.mdx"
+        },
+        {
           "$id": "email.mdx",
           "type": "page",
           "name": "Email",
@@ -86,7 +94,7 @@
           "$id": "background-jobs.mdx",
           "type": "page",
           "name": "Background jobs and cron",
-          "description": "Explicit queue workers and platform-delivered schedules",
+          "description": "One table, one loop, one deployable process",
           "url": "/docs/background-jobs",
           "$ref": "background-jobs.mdx"
         },
@@ -147,6 +155,7 @@
     "background-jobs": "background-jobs.mdx",
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
+    "custom-routes": "custom-routes.mdx",
     "email": "email.mdx",
     "env": "env.mdx",
     "framework-portability": "framework-portability.mdx",

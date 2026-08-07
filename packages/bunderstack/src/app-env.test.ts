@@ -6,6 +6,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
 
 import type { DatabaseAdapter } from './database/adapter'
+import type { BunderstackJobsBuilder } from './jobs/define'
 
 import { bunSql } from './database/bun-sql'
 import { libsql } from './database/libsql'
@@ -220,7 +221,7 @@ test('role=all starts the background loop', async () => {
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     env: undefined,
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)
   expect(app.backgroundRunning).toBe(true)
@@ -231,7 +232,7 @@ test('role=web does not start the background loop', async () => {
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
   } as never)
   expect(app.backgroundRunning).toBe(false)
@@ -242,7 +243,7 @@ test('background.autoStart false wins over role=all', async () => {
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     background: { autoStart: false },
     processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)

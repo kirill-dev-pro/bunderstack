@@ -568,7 +568,11 @@ export async function createBunderstack<
       const handle = startJobWorker({
         ...options,
         signal,
-        tick: (now) => jobRunner.tick(now),
+        // The runtime loop only cares that a tick completed; TickResult is for
+        // callers that invoke tick() directly.
+        tick: async (now) => {
+          await jobRunner.tick(now)
+        },
       })
       const unregister = lifecycle.add(() => handle.close())
       void handle.closed.finally(unregister)

@@ -88,6 +88,9 @@ type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
   email: EmailFacade
   /** Typed custom row publication and selected runtime transport. */
   realtime: RealtimeFacade<TSchema>
+  /** True when this process runs the background tick loop (BUNDERSTACK_ROLE). */
+  readonly backgroundRunning: boolean
+  /** Escape hatches — the loop starts automatically from BUNDERSTACK_ROLE. */
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
   runWorker(options?: AppRunWorkerOptions): Promise<void>
   /** Deploy-time description, including realtimeTransport. */

@@ -25,7 +25,10 @@ function makeCtx(user: TRPCContext<Schema>['user']): TRPCContext<Schema> {
     user,
     env: {},
     email: fakeEmail,
-    jobs: { enqueue: async () => ({ id: '' }), tick: async () => {} },
+    jobs: {
+      enqueue: async () => ({ id: '' }),
+      tick: async () => ({ claimed: 0, ran: 0, failed: 0 }),
+    },
     realtime: createRealtimeFacade<Schema>(),
     storage: {
       delete: async () => {},

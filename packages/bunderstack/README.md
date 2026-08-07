@@ -87,6 +87,10 @@ import { app } from './bunderstack'
 await app.runWorker()
 ```
 
+Most applications need none of this: background work runs in-process by
+default. Set `BUNDERSTACK_ROLE` to `web` or `worker` to split it across
+processes without changing code.
+
 If a queue handler calls `ctx.realtime.publish()`, the web and worker processes
 must share a realtime transport. Configure `REDIS_URL` (or
 `realtime: { redis: "redis://..." }`). `realtime: true` without Redis uses a
@@ -114,13 +118,9 @@ REDIS_URL=redis://localhost:6379 bun src/server.ts
 REDIS_URL=redis://localhost:6379 bun src/worker.ts
 ```
 
-Cron tasks (`j.cron()`) are delivered by the host to
-`POST /api/_bunderstack/cron/:name`; storage maintenance uses
-`POST /api/_bunderstack/maintenance/storage-sweep`. Production requires the
-injected `BUNDERSTACK_CRON_SECRET`. Use `await app.startCronScheduler()` only
-for local standalone development. `app.manifest.background` tells Bunderhost
-whether to deploy an always-on worker (queue jobs) or only HTTP-delivered cron
-(cron-only).
+Cron tasks (`j.cron()`) are materialized as job rows keyed by their slot, so
+they run through the same loop, retries, and timeouts as queue jobs. There is
+no separate cron process and no signed dispatch endpoint.
 
 ### Publishing custom writes to realtime
 

@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.15.2",
+  "version": "0.16.0",
   "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
   "keywords": [
     "backend",
@@ -53,6 +53,7 @@
   },
   "scripts": {
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "dev": "bun --hot ../../examples/standalone/server.ts",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate"

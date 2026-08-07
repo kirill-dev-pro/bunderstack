@@ -1,13 +1,13 @@
 ---
 title: Background jobs and cron
-description: Explicit queue workers and platform-delivered schedules
+description: One table, one loop, one deployable process
 ---
 
 # Background jobs and cron
 
-Background execution is declared with the app but never starts as a side effect
-of `createBunderstack()`. This is intentional: the web server can scale to
-zero, while durable work has a clearly owned process.
+Everything in the background is a row in one table. A job is a type, a payload,
+a time to run, and an attempt count. **A cron is a job that gets created on a
+schedule.** One loop — `tick()` — moves rows forward.
 
 ```ts
 const app = await createBunderstack({
@@ -18,11 +18,12 @@ const app = await createBunderstack({
         input: z.object({ userId: z.string() }),
         retries: 3,
         handler: async ({ userId }, ctx) => {
-          // ctx.db, ctx.email, ctx.storage, ctx.jobs, and ctx.env
+          // ctx.db, ctx.email, ctx.storage, ctx.jobs, ctx.realtime, ctx.env
         },
       }),
       dailyReport: j.cron({
         schedule: '0 9 * * 1-5',
+        retries: 2,
         handler: async ({ scheduledFor }, ctx) => {},
       }),
     }),
@@ -31,45 +32,94 @@ const app = await createBunderstack({
 await app.jobs.enqueue('sendEmail', { userId: 'usr_123' })
 ```
 
-## Standalone Job Handlers (`BunderstackJobContext`)
-
-When extracting job handler logic into separate files, annotate the `ctx` parameter with `BunderstackJobContext` for full type safety:
-
-```ts
-// src/server/jobs/generate-resume.ts
-import type { BunderstackJobContext } from 'bunderstack'
-
-export async function generateResume(adaptationId: string, ctx: BunderstackJobContext) {
-  await ctx.realtime.publish('adaptations:progress', { adaptationId })
-  const url = await ctx.storage.getUrl(`adaptations/${adaptationId}/resume.pdf`)
-  await ctx.email.send({ ... })
-}
-```
-
 `j.job()` is durable queue work and is the only declaration accepted by
 `app.jobs.enqueue()`. Delivery is at-least-once: make handlers idempotent.
 
-Run queue work as its own process:
+## You do not start a worker
 
-```ts
-// worker.ts
-import { app } from './bunderstack'
+The background loop starts automatically. There is no second process to run and
+no decision to make — deploy one container, set your database and storage
+variables, and both HTTP and background work happen.
 
-await app.runWorker()
+Topology is controlled by `BUNDERSTACK_ROLE`, not by application code:
+
+| `BUNDERSTACK_ROLE` | Serves HTTP | Runs background work |
+| --- | --- | --- |
+| `all` *(default)* | yes | yes |
+| `web` | yes | no |
+| `worker` | no | yes |
+
+Self-hosting sets nothing. A hosting platform sets the variable to split roles
+across processes when an application grows, with no change to your code.
+
+```bash
+# One process, everything. The default.
+bun run start
+
+# Split, same image, same entry point.
+BUNDERSTACK_ROLE=web bun run start
+BUNDERSTACK_ROLE=worker bun run start
 ```
 
-`runWorker()` handles `SIGINT` and `SIGTERM` then closes app resources. For an
-embedded dev process, use `const worker = await app.startWorker()` and later
-`await worker.close()`.
+`app.backgroundRunning` reports whether the current process runs the loop.
+To suppress auto-start — in tests, or when you want to drive ticks manually —
+pass `background: { autoStart: false }`. `app.startWorker()` and
+`app.runWorker()` remain available as escape hatches.
 
-## Realtime from standalone workers
+## Cron
 
-A standalone worker and the web server are different processes. An in-memory
+`j.cron()` uses a five-field UTC schedule. Each due minute is materialized as a
+job row whose dedupe key is the slot timestamp, so a slot runs exactly once no
+matter how many processes are ticking — including the brief overlap during a
+rolling deploy.
+
+Because cron occurrences are jobs, they take the same options queue jobs do:
+
+```ts
+weeklyDigest: j.cron({
+  schedule: '0 9 * * 1',
+  retries: 3,          // a throwing handler now retries with backoff
+  timeout: 120_000,    // lease duration
+  catchUp: 'latest',   // or 'all'
+  onFailed: async (invocation, error, ctx) => {},
+  handler: async ({ scheduledFor }, ctx) => {},
+})
+```
+
+### Missed slots
+
+If the process was down when a slot came due, `catchUp` decides what happens on
+the next tick:
+
+- **`'latest'` (default)** — only the most recent missed slot runs. Right for
+  handlers that bring state up to date.
+- **`'all'`** — every missed slot runs, bounded by `catchUpWindow` (default one
+  hour). Right when each interval represents distinct work.
+
+A newly declared cron never backfills from the past — it starts from the minute
+it is first seen.
+
+Job names may not begin with `cron:`; the prefix is reserved.
+
+## Running a tick manually
+
+`app.jobs.tick()` runs one full cycle and returns what it did:
+
+```ts
+const { claimed, ran, failed } = await app.jobs.tick()
+```
+
+This is what tests should use, paired with `background: { autoStart: false }`.
+
+## Realtime from a separate worker process
+
+With `BUNDERSTACK_ROLE=all` — the default — job handlers and SSE subscribers
+share a process, so realtime works with no extra configuration.
+
+When you split roles, the web and worker processes are separate. An in-memory
 realtime broker cannot carry an event published by a job handler to SSE clients
-connected to the web process.
-
-If a queue handler calls `ctx.realtime.publish()`, enable a shared Redis
-transport in both processes:
+connected to the web process. If a handler calls `ctx.realtime.publish()`,
+configure a shared Redis transport in both:
 
 ```ts
 const app = await createBunderstack({
@@ -89,43 +139,51 @@ const app = await createBunderstack({
 ```
 
 ```bash
-REDIS_URL=redis://localhost:6379 bun src/server.ts
-REDIS_URL=redis://localhost:6379 bun src/worker.ts
+REDIS_URL=redis://localhost:6379 BUNDERSTACK_ROLE=web bun run start
+REDIS_URL=redis://localhost:6379 BUNDERSTACK_ROLE=worker bun run start
 ```
 
 Setting `REDIS_URL` is enough when realtime is enabled; the explicit
 `realtime.redis` option is useful when the URL comes from another source.
-`realtime: true` without Redis selects a process-local memory transport and is
-safe only when the worker is embedded with `app.startWorker()`.
+`realtime: true` without Redis selects a process-local memory transport, which
+is correct for `BUNDERSTACK_ROLE=all`.
 
-Since 0.9.0, `app.runWorker()` rejects the unsafe standalone
-memory-transport combination instead of silently losing cross-process events.
-If job handlers never publish realtime events, acknowledge that intentionally:
+`app.runWorker()` rejects the unsafe standalone memory-transport combination
+rather than silently losing cross-process events. If handlers never publish
+realtime events, say so explicitly:
 
 ```ts
 await app.runWorker({ allowProcessLocalRealtime: true })
 ```
 
-You can inspect the selected runtime transport through
-`app.realtime.transport` (`'disabled'`, `'memory'`, or `'redis'`). The deploy
-manifest exposes the configured value as `app.manifest.realtimeTransport`.
+Inspect the selected transport through `app.realtime.transport`
+(`'disabled'`, `'memory'`, or `'redis'`). The deploy manifest exposes the
+configured value as `app.manifest.realtimeTransport`.
 
-## Cron is not a worker
+## Standalone job handlers
 
-`j.cron()` uses a five-field UTC schedule. In production Bunderhost owns the
-clock and sends a signed request to
-`POST /api/_bunderstack/cron/:name`, waking a scale-to-zero web application as
-needed. It does not create an always-on worker.
-
-For local standalone development only:
+When extracting handler logic into separate files, annotate `ctx` with
+`BunderstackJobContext`:
 
 ```ts
-const scheduler = await app.startCronScheduler()
-// await scheduler.close() during shutdown
+// src/server/jobs/generate-resume.ts
+import type { BunderstackJobContext } from 'bunderstack'
+
+export async function generateResume(
+  adaptationId: string,
+  ctx: BunderstackJobContext,
+) {
+  const url = await ctx.storage.getUrl(`adaptations/${adaptationId}/resume.pdf`)
+  await ctx.email.send({ ... })
+}
 ```
 
-Long cron work should enqueue a queue job and return quickly. Bunderhost reads
-`app.manifest.background`: any queue job creates one always-on worker Machine;
-cron-only applications remain web-only. Preview background delivery is disabled
-by default. `BUNDERSTACK_CRON_SECRET` is injected by the platform in production
-and must never be exposed to clients.
+## Retries and failures
+
+A handler that throws is retried with jittered exponential backoff until
+`retries` is exhausted, then the row is marked `failed` with its error and
+`onFailed` fires once. Failed rows are never reaped, so they remain queryable
+in `_bunderstack_jobs`. Succeeded rows are removed after 24 hours.
+
+Long cron work should enqueue a queue job and return quickly rather than
+holding its lease for minutes.

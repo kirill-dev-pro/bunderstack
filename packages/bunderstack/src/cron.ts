@@ -1,2 +1,3 @@
 export { cronMatches, parseCron } from './jobs/cron'
-export { signScheduleRequest, verifyScheduleRequest } from './jobs/cron-auth'
+export { floorSlot, slotsDue, CRON_PREFIX, SLOT_MS } from './jobs/slots'
+export type { CatchUp } from './jobs/slots'
