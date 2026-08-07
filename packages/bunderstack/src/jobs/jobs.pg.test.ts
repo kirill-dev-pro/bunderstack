@@ -100,3 +100,28 @@ test('pg: failure retries then fails with onFailed', async () => {
   expect(rows[0]?.lastError).toContain('pg boom')
   expect(failed).toBe(true)
 })
+
+test('pg: cron slots materialize and run through the queue execution path', async () => {
+  const runs: Date[] = []
+  const defs: JobsDefs = {
+    everyMinute: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      handler: async ({ scheduledFor }) => {
+        runs.push(scheduledFor)
+      },
+    },
+  }
+  const r = runner(defs)
+  // Target slot 2026-08-07 10:00:00 UTC = 1770372000000 ms
+  const slotMs = 1_770_372_000_000
+  await r.tick(slotMs)
+  expect(runs).toEqual([new Date(slotMs)])
+  const rows = await (db as unknown as PgDatabase<never>)
+    .select()
+    .from(bunderstackJobsPg)
+    .where(eq(bunderstackJobsPg.type, 'cron:everyMinute'))
+  expect(rows).toHaveLength(1)
+  expect(rows[0]?.status).toBe('succeeded')
+  expect(rows[0]?.dedupeKey).toBeNull()
+})
