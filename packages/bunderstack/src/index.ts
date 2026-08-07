@@ -59,7 +59,7 @@ import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
-type AuthInstance = ReturnType<typeof createAuth>
+export type AuthInstance = ReturnType<typeof createAuth>
 
 function waitForWorkerShutdown(
   signal: AbortSignal,

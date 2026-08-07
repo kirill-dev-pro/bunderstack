@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 
-import { validateCustomRoutes } from './routes'
+import { validateCustomRoutes, createRouteContext } from './routes'
 
 const ok = (path: string, tables: string[] = ['posts']) =>
   validateCustomRoutes([{ method: 'POST', path }], tables)
@@ -58,3 +58,61 @@ test('every colliding route is reported, not just the first', () => {
     ),
   ).toThrow(/health[\s\S]*posts/)
 })
+
+test('createRouteContext exposes the framework facades', () => {
+  const ctx = createRouteContext({
+    db: 'DB' as never,
+    env: { NODE_ENV: 'test' } as never,
+    storage: 'STORAGE' as never,
+    email: 'EMAIL' as never,
+    jobs: 'JOBS' as never,
+    realtime: 'REALTIME' as never,
+    auth: 'AUTH' as never,
+    authResolver: undefined,
+  })
+  expect(ctx.db).toBe('DB' as never)
+  expect(ctx.storage).toBe('STORAGE' as never)
+  expect(ctx.jobs).toBe('JOBS' as never)
+  expect(typeof ctx.getSession).toBe('function')
+  expect(typeof ctx.getUser).toBe('function')
+})
+
+test('getSession returns nulls when no auth resolver is configured', async () => {
+  const ctx = createRouteContext({
+    db: 'DB' as never,
+    env: {} as never,
+    storage: 'S' as never,
+    email: 'E' as never,
+    jobs: 'J' as never,
+    realtime: 'R' as never,
+    auth: 'A' as never,
+    authResolver: undefined,
+  })
+  const session = await ctx.getSession(new Request('http://local/x'))
+  expect(session).toEqual({ user: null, activeOrganizationId: null })
+  expect(await ctx.getUser(new Request('http://local/x'))).toBeNull()
+})
+
+test('getSession is lazy — building the context resolves nothing', () => {
+  let calls = 0
+  const authResolver = {
+    api: {
+      getSession: async () => {
+        calls++
+        return null
+      },
+    },
+  }
+  createRouteContext({
+    db: 'DB' as never,
+    env: {} as never,
+    storage: 'S' as never,
+    email: 'E' as never,
+    jobs: 'J' as never,
+    realtime: 'R' as never,
+    auth: 'A' as never,
+    authResolver: authResolver as never,
+  })
+  expect(calls).toBe(0)
+})
+
