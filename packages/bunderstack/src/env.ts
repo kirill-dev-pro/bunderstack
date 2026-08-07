@@ -10,6 +10,10 @@ export type EnvConfigInput = {
   runtimeEnv?: Record<string, unknown>
 }
 
+export type BunderstackRole = 'all' | 'web' | 'worker'
+
+const ROLES: readonly BunderstackRole[] = ['all', 'web', 'worker']
+
 /** Vars bunderstack itself consumes, always validated. */
 export type BaseEnv = {
   NODE_ENV?: string
@@ -19,7 +23,7 @@ export type BaseEnv = {
   REDIS_URL?: string
   RESEND_API_KEY?: string
   SMTP_URL?: string
-  BUNDERSTACK_CRON_SECRET?: string
+  BUNDERSTACK_ROLE: BunderstackRole
 }
 
 type InferVars<T> =
@@ -53,8 +57,6 @@ export type ValidateEnvOptions = {
   source?: Record<string, string | undefined>
   /** Dialect-aware DATABASE_URL fallback; createBunderstack passes it. */
   defaultDatabaseUrl?: string
-  /** Require the platform schedule secret for an application with cron work. */
-  cronConfigured?: boolean
 }
 
 const DEV_AUTH_SECRET = 'dev-secret-change-in-prod'
@@ -109,18 +111,17 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     REDIS_URL: source.REDIS_URL,
     RESEND_API_KEY: source.RESEND_API_KEY,
     SMTP_URL: source.SMTP_URL,
-    BUNDERSTACK_CRON_SECRET: source.BUNDERSTACK_CRON_SECRET,
+    BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
   }
   if (isProduction && !source.AUTH_SECRET) {
     issues.push('AUTH_SECRET: required in production')
   }
   if (
-    isProduction &&
-    options.cronConfigured &&
-    !source.BUNDERSTACK_CRON_SECRET
+    source.BUNDERSTACK_ROLE !== undefined &&
+    !ROLES.includes(source.BUNDERSTACK_ROLE as BunderstackRole)
   ) {
     issues.push(
-      'BUNDERSTACK_CRON_SECRET: required when cron is configured in production',
+      `BUNDERSTACK_ROLE: must be one of ${ROLES.join(', ')} (got "${String(source.BUNDERSTACK_ROLE)}")`,
     )
   }
   if (options.emailProvider === 'resend' && !source.RESEND_API_KEY) {

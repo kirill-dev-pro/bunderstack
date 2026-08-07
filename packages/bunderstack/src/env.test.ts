@@ -37,24 +37,30 @@ test('AUTH_SECRET is required in production', () => {
   }
 })
 
-test('BUNDERSTACK_CRON_SECRET is required for production cron', () => {
-  expect(() =>
-    validateEnv(undefined, {
-      cronConfigured: true,
-      source: { NODE_ENV: 'production', AUTH_SECRET: 'auth-secret' },
-    }),
-  ).toThrow(/BUNDERSTACK_CRON_SECRET/)
+test('BUNDERSTACK_ROLE defaults to all', () => {
+  const env = validateEnv(undefined, { source: { DATABASE_URL: 'file::memory:' } })
+  expect(env.BUNDERSTACK_ROLE).toBe('all')
+})
 
+test('BUNDERSTACK_ROLE accepts web and worker', () => {
+  expect(
+    validateEnv(undefined, {
+      source: { DATABASE_URL: 'file::memory:', BUNDERSTACK_ROLE: 'web' },
+    }).BUNDERSTACK_ROLE,
+  ).toBe('web')
+  expect(
+    validateEnv(undefined, {
+      source: { DATABASE_URL: 'file::memory:', BUNDERSTACK_ROLE: 'worker' },
+    }).BUNDERSTACK_ROLE,
+  ).toBe('worker')
+})
+
+test('an unknown BUNDERSTACK_ROLE fails validation', () => {
   expect(() =>
     validateEnv(undefined, {
-      cronConfigured: true,
-      source: {
-        NODE_ENV: 'production',
-        AUTH_SECRET: 'auth-secret',
-        BUNDERSTACK_CRON_SECRET: 'cron-secret',
-      },
+      source: { DATABASE_URL: 'file::memory:', BUNDERSTACK_ROLE: 'both' },
     }),
-  ).not.toThrow()
+  ).toThrow(/BUNDERSTACK_ROLE/)
 })
 
 test('RESEND_API_KEY required only when email provider is resend', () => {
