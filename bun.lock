@@ -227,7 +227,7 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.15.2",
+      "version": "0.16.0",
       "bin": {
         "bunderstack": "./src/cli.ts",
       },
@@ -270,7 +270,7 @@
     },
     "packages/bunderstack-query": {
       "name": "bunderstack-query",
-      "version": "0.13.0",
+      "version": "0.16.0",
       "devDependencies": {
         "@tanstack/query-core": "^5.101.1",
         "@tanstack/react-query": "^5.101.1",
@@ -303,7 +303,7 @@
     },
     "packages/bunderstack-start": {
       "name": "bunderstack-start",
-      "version": "0.13.0",
+      "version": "0.16.0",
       "dependencies": {
         "bunderstack-sync": "workspace:*",
       },
@@ -327,7 +327,7 @@
     },
     "packages/bunderstack-sync": {
       "name": "bunderstack-sync",
-      "version": "0.13.0",
+      "version": "0.16.0",
       "dependencies": {
         "bunderstack-query": "workspace:*",
       },
