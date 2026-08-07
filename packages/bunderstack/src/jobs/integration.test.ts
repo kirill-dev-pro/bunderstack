@@ -81,32 +81,15 @@ test('tRPC ctx exposes the jobs facade', async () => {
   expect(res.status).toBe(200)
 })
 
-test('explicit local cron scheduler runs declared cron handlers', async () => {
-  const runs: Date[] = []
-  const realtimeStates: boolean[] = []
+test('the built-in storage sweep is registered as an ordinary cron', async () => {
   const app = await createBunderstack({
-    schema: { notes },
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    realtime: true,
-    jobs: (j) =>
-      j.define({
-        everyMinute: j.cron({
-          schedule: '* * * * *',
-          handler: ({ scheduledFor }, ctx) => {
-            runs.push(scheduledFor)
-            realtimeStates.push(ctx.realtime.enabled)
-          },
-        }),
-      }),
-  })
-  await provision(app, { force: true })
-
-  const scheduler = await app.startCronScheduler()
-  expect(runs).toHaveLength(1)
-  expect(runs[0]!.getTime() % 60_000).toBe(0)
-  expect(realtimeStates).toEqual([true])
-
-  await scheduler.close()
+    storage: { local: './uploads', defaultBucket: 'files', buckets: { files: {} } },
+  } as never)
+  expect(app.manifest.background.cron.map((c) => c.name)).toContain(
+    'bunderstack:storage-sweep',
+  )
   await app.close()
 })
 
@@ -127,36 +110,6 @@ test('runWorker owns the application lifecycle until its signal aborts', async (
 
   await running
   expect(app.status).toBe('closed')
-})
-
-test('storage maintenance endpoint is mounted without user job declarations', async () => {
-  const previous = process.env.BUNDERSTACK_CRON_SECRET
-  process.env.BUNDERSTACK_CRON_SECRET = 'test-secret'
-  try {
-    const app = await createBunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-    })
-    await provision(app, { force: true })
-    const slot = Math.floor(Date.now() / 60_000) * 60_000
-    const response = await app.handler(
-      new Request(
-        'http://localhost/api/_bunderstack/maintenance/storage-sweep',
-        {
-          method: 'POST',
-          headers: {
-            'X-Bunderstack-Cron-Slot': String(slot),
-            'X-Bunderstack-Cron-Signature': 'sha256=invalid',
-          },
-        },
-      ),
-    )
-    expect(response.status).toBe(401)
-    await app.close()
-  } finally {
-    if (previous === undefined) delete process.env.BUNDERSTACK_CRON_SECRET
-    else process.env.BUNDERSTACK_CRON_SECRET = previous
-  }
 })
 
 test('an app without jobs still has a facade; enqueue throws', async () => {
@@ -197,11 +150,9 @@ test('introspection mode boots with jobs configured', async () => {
     })
     expect(app.manifest).toBeDefined()
     const worker = await app.startWorker()
-    const cron = await app.startCronScheduler()
     await app.runWorker()
     expect(runs).toBe(0)
     await worker.close()
-    await cron.close()
     await app.close()
   } finally {
     if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT

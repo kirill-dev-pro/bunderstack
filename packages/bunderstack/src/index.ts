@@ -11,8 +11,6 @@ import type {
   EnqueueOptions,
   JobsDefs,
   JobsFacade,
-  LocalCronScheduler,
-  LocalCronSchedulerOptions,
   StartWorkerOptions,
   WorkerHandle,
 } from './jobs/index'
@@ -37,10 +35,7 @@ import { withInternalTables } from './internal-tables'
 import {
   createJobsBuilder,
   createJobRunner,
-  buildCronRouter,
   enqueueJob,
-  runCronSlot,
-  startLocalCronScheduler,
   startJobWorker,
   validateJobsDefs,
 } from './jobs/index'
@@ -138,11 +133,6 @@ export type AppRunWorkerOptions = AppStartWorkerOptions & {
    */
   allowProcessLocalRealtime?: boolean
 }
-export type AppStartCronSchedulerOptions = Pick<
-  LocalCronSchedulerOptions,
-  'onError'
->
-
 /** Bucket names declared in a storage config; `string` when unknowable. */
 export type BucketNamesOf<TStorage> = TStorage extends {
   buckets: infer B extends Record<string, unknown>
@@ -178,10 +168,6 @@ export type BunderstackApp<
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
   /** Run a queue worker until aborted, then close the application. */
   runWorker(options?: AppRunWorkerOptions): Promise<void>
-  /** Start local delivery for declared cron tasks (for development only). */
-  startCronScheduler(
-    options?: AppStartCronSchedulerOptions,
-  ): Promise<LocalCronScheduler>
   close(): Promise<void>
   /** True when this process is running the background tick loop. */
   readonly backgroundRunning: boolean
@@ -518,25 +504,41 @@ export async function createBunderstack<
         })
       },
     }
-    const jobRunner = jobsDefs
+    const storageConfigured = Boolean(options.storage)
+    // The storage sweep used to be a hardcoded maintenance route. It is an
+    // ordinary cron now, so it inherits retries, timeout and onFailed.
+    const resolvedDefs: JobsDefs | undefined = storageConfigured
+      ? {
+          ...(jobsDefs ?? {}),
+          'bunderstack:storage-sweep': {
+            kind: 'cron',
+            schedule: '0 4 * * *',
+            handler: async () => {
+              await storage.sweep()
+            },
+          },
+        }
+      : jobsDefs
+
+    const jobRunner = resolvedDefs
       ? createJobRunner({
           db,
-          defs: jobsDefs,
+          defs: resolvedDefs,
           ctx: { db: userDb, env, email, storage, realtime },
         })
       : undefined
     const jobs = {
       async enqueue(name: string, input?: unknown, opts?: EnqueueOptions) {
-        if (!jobsDefs) {
+        if (!resolvedDefs) {
           throw new Error(
             '[bunderstack] no jobs configured — add a `jobs` key to createBunderstack',
           )
         }
-        const result = await enqueueJob(db, jobsDefs, name, input, opts)
+        const result = await enqueueJob(db, resolvedDefs, name, input, opts)
         return result
       },
       tick(now?: number) {
-        return jobRunner ? jobRunner.tick(now) : Promise.resolve()
+        return jobRunner ? jobRunner.tick(now) : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)
@@ -563,48 +565,6 @@ export async function createBunderstack<
       const unregister = lifecycle.add(() => handle.close())
       void handle.closed.finally(unregister)
       return handle
-    }
-    const startCronScheduler = async (
-      options: AppStartCronSchedulerOptions = {},
-    ): Promise<LocalCronScheduler> => {
-      if (introspect) {
-        return { tick: async () => {}, close: async () => {} }
-      }
-      const cron = Object.entries(jobsDefs ?? {}).flatMap(
-        ([name, definition]) =>
-          definition.kind === 'cron'
-            ? [{ name, schedule: definition.schedule }]
-            : [],
-      )
-      if (cron.length === 0) {
-        throw new Error('[bunderstack] no cron tasks configured')
-      }
-      if (lifecycle.status !== 'ready') {
-        throw new Error('[bunderstack] application lifecycle is closed')
-      }
-      const scheduler = startLocalCronScheduler({
-        cron,
-        onError: options.onError,
-        runSlot: async (name, slot) => {
-          await runCronSlot({
-            db,
-            defs: jobsDefs!,
-            ctx: { db: userDb, env, email, storage, realtime },
-            name,
-            slot,
-            now: Date.now(),
-          })
-        },
-      })
-      const unregister = lifecycle.add(() => scheduler.close())
-      try {
-        await scheduler.tick()
-      } catch (error) {
-        unregister()
-        await scheduler.close()
-        throw error
-      }
-      return scheduler
     }
     const runWorker = async (
       options: AppRunWorkerOptions = {},
@@ -655,22 +615,12 @@ export async function createBunderstack<
             }),
           })
       : undefined
-    const cronRouter = env.BUNDERSTACK_CRON_SECRET
-      ? buildCronRouter({
-          db,
-          defs: jobsDefs ?? {},
-          ctx: { db: userDb, env, email, storage, realtime },
-          secret: env.BUNDERSTACK_CRON_SECRET,
-          storage,
-        })
-      : undefined
     const { handler, router } = buildHandler({
       crudRouter,
       authHandler: (req) => auth.handler(req),
       storageRouter,
       realtimeRouter,
       trpcHandler,
-      cronRouter,
       rateLimit: options.rateLimit,
     })
 
@@ -680,7 +630,7 @@ export async function createBunderstack<
       env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
     const autoStart =
       options.background?.autoStart ??
-      (roleWantsWorker && !introspect && jobsDefs !== undefined)
+      (roleWantsWorker && !introspect && resolvedDefs !== undefined)
     let backgroundRunning = false
     if (autoStart) {
       await startWorker()
@@ -710,7 +660,6 @@ export async function createBunderstack<
       jobs: jobs as never,
       startWorker,
       runWorker,
-      startCronScheduler,
       close: () => lifecycle.close(),
       backgroundRunning,
       get status() {
@@ -726,7 +675,7 @@ export async function createBunderstack<
         envConfig: options.env as EnvConfigInput | undefined,
         emailProvider: emailProviderTag(options.email),
         realtime: Boolean(config.realtime),
-        jobs: jobsDefs,
+        jobs: resolvedDefs,
       }),
     }
 
@@ -777,11 +726,7 @@ export type {
 } from './email'
 export { createTRPC } from './trpc'
 export type { BunderstackTRPC, TRPCContext } from './trpc'
-export {
-  createJobsBuilder,
-  signScheduleRequest,
-  verifyScheduleRequest,
-} from './jobs/index'
+export { createJobsBuilder } from './jobs/index'
 export type {
   BunderstackJobContext,
   BunderstackJobsBuilder,
@@ -797,8 +742,6 @@ export type {
   JobsRuntimeFacade,
   QueueJobDefinition,
   QueueJobKeys,
-  LocalCronScheduler,
-  LocalCronSchedulerOptions,
   RunWorkerOptions,
   StartWorkerOptions,
   WorkerHandle,
