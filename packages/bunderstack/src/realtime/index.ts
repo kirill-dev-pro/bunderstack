@@ -5,6 +5,7 @@ import {
   checkAccessSync,
   resolveSession,
   rowMatchesScope,
+  tableEntryForName,
   type AccessUser,
   type AuthSessionResolver,
   type ResolvedAccess,
@@ -55,15 +56,6 @@ export type RealtimeBroker = {
   ): void | Promise<void>
 }
 
-function tableEntry(
-  access: ResolvedAccess,
-  tableName: string,
-): ResolvedTableAccess | undefined {
-  for (const entry of access.values()) {
-    if (entry.tableName === tableName) return entry
-  }
-  return undefined
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -166,7 +158,7 @@ export function createRealtimeBroker(opts: {
     record: Record<string, unknown>,
     id: unknown,
   ): boolean {
-    const entry = tableEntry(opts.access, table)
+    const entry = tableEntryForName(opts.access, table)
     if (!entry) return false
     const topicMatch =
       s.subscriptions.has(table) ||
@@ -232,7 +224,7 @@ export function createRealtimeBroker(opts: {
       subscribers.delete(id)
     },
     publish(table, action, record) {
-      const entry = tableEntry(opts.access, table)
+      const entry = tableEntryForName(opts.access, table)
       if (!entry) return
       const eventId = nextId++
       buffer.push({ eventId, table, action, record })

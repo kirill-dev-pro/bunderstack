@@ -103,6 +103,24 @@ export type ResolvedTableAccess = {
 
 export type ResolvedAccess = Map<string, ResolvedTableAccess>
 
+/**
+ * Look up a table's resolved access by its physical table name.
+ *
+ * `ResolvedAccess` is keyed by schema export name, not table name, so every
+ * consumer that starts from a physical name needs this scan. It lives here so
+ * CRUD, realtime, and route validation cannot drift apart on which tables they
+ * consider enabled.
+ */
+export function tableEntryForName(
+  access: ResolvedAccess,
+  tableName: string,
+): ResolvedTableAccess | undefined {
+  for (const entry of access.values()) {
+    if (entry.tableName === tableName) return entry
+  }
+  return undefined
+}
+
 const DEFAULT_READONLY = [
   'id',
   'createdAt',

@@ -14,6 +14,7 @@ import {
   type AuthSessionResolver,
   type CrudOperation,
   type ResolvedAccess,
+  tableEntryForName,
   type ResolvedTableAccess,
   type ScopeMap,
   type ScopeResolver,
@@ -38,15 +39,6 @@ export type CrudRouterOptions<
   realtime?: RealtimeFacade<TSchema>
 }
 
-function tableEntryForName(
-  access: ResolvedAccess,
-  tableName: string,
-): ResolvedTableAccess | undefined {
-  for (const entry of access.values()) {
-    if (entry.tableName === tableName) return entry
-  }
-  return undefined
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

@@ -6,7 +6,7 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 import { getTableName, isTable } from 'drizzle-orm'
 
-import type { ResolvedAccess, ResolvedTableAccess, TableAccessInput } from './access'
+import type { TableAccessInput } from './access'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -19,7 +19,11 @@ import type {
 import type { StorageConfigInput } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
 
-import { resolveAccessUser, validateAndResolveAccess } from './access'
+import {
+  resolveAccessUser,
+  tableEntryForName,
+  validateAndResolveAccess,
+} from './access'
 import {
   createAuth,
   toAuthSessionResolver,
@@ -64,15 +68,6 @@ import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
 
-function tableEntryForName(
-  access: ResolvedAccess,
-  tableName: string,
-): ResolvedTableAccess | undefined {
-  for (const entry of access.values()) {
-    if (entry.tableName === tableName) return entry
-  }
-  return undefined
-}
 
 function waitForWorkerShutdown(
   signal: AbortSignal,

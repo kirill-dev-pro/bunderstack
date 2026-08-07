@@ -12,9 +12,9 @@ import type { RealtimeAction, RealtimeBroker } from './index'
 import {
   checkAccessSync,
   rowMatchesScope,
+  tableEntryForName,
   type AccessUser,
   type ResolvedAccess,
-  type ResolvedTableAccess,
 } from '../access'
 
 export type RedisLike = {
@@ -43,15 +43,6 @@ type WireEvent = {
   table: string
   action: RealtimeAction
   record: Record<string, unknown>
-}
-
-function tableEntry(
-  access: ResolvedAccess,
-  name: string,
-): ResolvedTableAccess | undefined {
-  for (const entry of access.values())
-    if (entry.tableName === name) return entry
-  return undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -109,7 +100,7 @@ export function createRedisRealtimeBroker(opts: {
     table: string,
     record: Record<string, unknown>,
   ): boolean {
-    const entry = tableEntry(opts.access, table)
+    const entry = tableEntryForName(opts.access, table)
     if (!entry) return false
     const id = record['id']
     const topicMatch =
@@ -208,7 +199,7 @@ export function createRedisRealtimeBroker(opts: {
       subscribers.delete(id)
     },
     async publish(table, action, record) {
-      if (!tableEntry(opts.access, table)) return
+      if (!tableEntryForName(opts.access, table)) return
       try {
         const client = getRedis()
         const eventId = await client.incr(counterKey)
