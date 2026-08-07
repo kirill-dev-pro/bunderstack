@@ -269,7 +269,32 @@ test('tick materializes the current slot on first sight', async () => {
   const rows = await cronRows('beat')
   expect(rows).toHaveLength(1)
   expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:00:00Z'))
-  expect(rows[0]!.dedupeKey).toBe(String(Date.parse('2026-08-07T10:00:00Z')))
+  expect(rows[0]!.status).toBe('succeeded')
+})
+
+test('a completed cron slot is not re-materialized on a later tick in the same minute', async () => {
+  let runs = 0
+  const defs: JobsDefs = {
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      handler: () => {
+        runs++
+      },
+    },
+  }
+  const r = runner(defs)
+  const t0 = Date.parse('2026-08-07T10:00:10Z')
+  await r.tick(t0)
+  expect(runs).toBe(1)
+  const rows1 = await cronRows('beat')
+  expect(rows1[0]!.status).toBe('succeeded')
+  expect(rows1[0]!.dedupeKey).toBeNull()
+
+  await r.tick(t0 + 30_000)
+  const rows2 = await cronRows('beat')
+  expect(rows2).toHaveLength(1)
+  expect(runs).toBe(1)
 })
 
 test('tick does not backfill from epoch on first sight', async () => {
@@ -336,4 +361,66 @@ test('succeeded rows are reaped after the retention window', async () => {
   // The succeeded row is gone (only rows from this test's runs remain pending-free).
   expect(rows.filter((x) => x.status === 'succeeded')).toHaveLength(0)
 })
+
+test('a cron handler receives its scheduled slot', async () => {
+  const seen: Date[] = []
+  const defs: JobsDefs = {
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      handler: (invocation) => {
+        seen.push(invocation.scheduledFor)
+      },
+    },
+  }
+  await runner(defs).tick(Date.parse('2026-08-07T10:00:30Z'))
+  expect(seen).toHaveLength(1)
+  expect(seen[0]!.toISOString()).toBe('2026-08-07T10:00:00.000Z')
+})
+
+test('a failing cron slot retries with backoff then fires onFailed', async () => {
+  let attempts = 0
+  const failures: string[] = []
+  const defs: JobsDefs = {
+    flaky: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      retries: 1,
+      backoff: () => 0,
+      handler: () => {
+        attempts++
+        throw new Error('boom')
+      },
+      onFailed: (_invocation, error) => {
+        failures.push(error.message)
+      },
+    },
+  }
+  const r = runner(defs)
+  const now = Date.parse('2026-08-07T10:00:30Z')
+  await r.tick(now)
+  expect(attempts).toBe(1)
+  expect(failures).toEqual([])
+
+  await r.tick(now + 1_000)
+  expect(attempts).toBe(2)
+  expect(failures).toEqual(['boom'])
+
+  const rows = await cronRows('flaky')
+  expect(rows[0]!.status).toBe('failed')
+  expect(rows[0]!.dedupeKey).toBeNull()
+})
+
+test('a cron slot whose type has no definition is failed, not retried forever', async () => {
+  const defs: JobsDefs = {
+    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+  }
+  const r = runner(defs)
+  await r.tick(Date.parse('2026-08-07T10:00:30Z'))
+  const r2 = runner({})
+  await r2.tick(Date.parse('2026-08-07T10:01:30Z'))
+  const rows = await cronRows('beat')
+  expect(rows[0]!.status).toBe('succeeded')
+})
+
 

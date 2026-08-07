@@ -4,7 +4,7 @@ import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
-import type { AnyJobDefinition, JobsDefs, JobsRuntimeFacade } from './define'
+import type { AnyBackgroundDefinition, JobsDefs, JobsRuntimeFacade } from './define'
 
 import { jobsTableFor } from '../internal-tables'
 import { parseCron } from './cron'
@@ -20,14 +20,29 @@ type JobRow = {
   type: string
   payloadJson: string
   attempts: number
+  runAt: number
 }
 
 function toError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err))
 }
 
-function maxAttempts(def: AnyJobDefinition): number {
+function maxAttempts(def: AnyBackgroundDefinition): number {
   return 1 + (def.retries ?? DEFAULT_RETRIES)
+}
+
+/** Resolve a stored row type back to its definition. Cron rows carry the
+ *  reserved prefix; queue rows use the definition key verbatim. */
+function definitionFor(
+  defs: JobsDefs,
+  type: string,
+): AnyBackgroundDefinition | undefined {
+  if (type.startsWith(CRON_PREFIX)) {
+    const def = defs[type.slice(CRON_PREFIX.length)]
+    return def?.kind === 'cron' ? def : undefined
+  }
+  const def = defs[type]
+  return def?.kind === 'job' ? def : undefined
 }
 
 /** Terminal queue rows release their dedupe key. */
@@ -44,6 +59,15 @@ export function createJobRunner(deps: {
   const { db, defs } = deps
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
+
+  /** Cron rows carry no payload — their handler input is the slot itself. */
+  function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
+    if (def.kind === 'cron') {
+      return { scheduledFor: new Date(Number(row.runAt)) }
+    }
+    const raw = JSON.parse(row.payloadJson)
+    return def.input ? def.input.parse(raw) : undefined
+  }
 
   /**
    * The watermark is the newest slot we already stored for this cron. When no
@@ -83,20 +107,17 @@ export function createJobRunner(deps: {
   }
 
   async function fireOnFailed(
-    def: AnyJobDefinition,
-    payloadJson: string,
+    def: AnyBackgroundDefinition,
+    input: unknown,
     error: Error,
   ) {
     if (!def.onFailed) return
-    let input: unknown
     try {
-      const raw = JSON.parse(payloadJson)
-      input = def.input ? def.input.parse(raw) : undefined
-    } catch {
-      input = undefined // payload unusable; the hook still gets the error
-    }
-    try {
-      await def.onFailed(input, error, ctx as never)
+      await (def.onFailed as (i: unknown, e: Error, c: unknown) => unknown)(
+        input,
+        error,
+        ctx,
+      )
     } catch (hookErr) {
       console.error('[bunderstack] onFailed hook threw:', hookErr)
     }
@@ -111,6 +132,7 @@ export function createJobRunner(deps: {
         payloadJson: t.payloadJson,
         attempts: t.attempts,
         lastError: t.lastError,
+        runAt: t.runAt,
       })
       .from(t)
       .where(
@@ -121,9 +143,9 @@ export function createJobRunner(deps: {
         ),
       )
     for (const row of expired) {
-      const def = defs[row.type]
+      const def = definitionFor(defs, row.type)
       const error = new Error('lease expired (worker crashed or timed out)')
-      if (!def || def.kind !== 'job') {
+      if (!def) {
         await db
           .update(t)
           .set({
@@ -147,7 +169,7 @@ export function createJobRunner(deps: {
             ...terminalPatch(),
           })
           .where(eq(t.id, row.id))
-        await fireOnFailed(def, row.payloadJson, error)
+        await fireOnFailed(def, resolveInput(def, row), error)
       } else {
         await db
           .update(t)
@@ -208,6 +230,7 @@ export function createJobRunner(deps: {
         type: t.type,
         payloadJson: t.payloadJson,
         attempts: t.attempts,
+        runAt: t.runAt,
       })
     return rows
   }
@@ -215,11 +238,14 @@ export function createJobRunner(deps: {
   // `now` is the tick's injected clock: retry runAt math uses it so tests can
   // drive backoff deterministically. finishedAt uses the real clock (a handler
   // may run long past the tick's start).
-  async function runJob(row: JobRow, def: AnyJobDefinition, now: number) {
+  async function runJob(
+    row: JobRow,
+    def: AnyBackgroundDefinition,
+    now: number,
+  ) {
     let input: unknown
     try {
-      const raw = JSON.parse(row.payloadJson)
-      input = def.input ? def.input.parse(raw) : undefined
+      input = resolveInput(def, row)
     } catch (err) {
       // Stored payload no longer parses (schema drift): retrying can't help.
       const e = toError(err)
@@ -233,11 +259,11 @@ export function createJobRunner(deps: {
           ...terminalPatch(),
         })
         .where(eq(t.id, row.id))
-      await fireOnFailed(def, row.payloadJson, e)
+      await fireOnFailed(def, undefined, e)
       return
     }
     try {
-      await def.handler(input, ctx as never)
+      await (def.handler as (i: unknown, c: unknown) => unknown)(input, ctx)
       await db
         .update(t)
         .set({
@@ -270,18 +296,17 @@ export function createJobRunner(deps: {
             ...terminalPatch(),
           })
           .where(eq(t.id, row.id))
-        await fireOnFailed(def, row.payloadJson, e)
+        await fireOnFailed(def, input, e)
       }
     }
   }
 
   async function runClaimable(now: number) {
     const work: Promise<void>[] = []
-    for (const [type, candidate] of Object.entries(defs)) {
-      if (candidate.kind !== 'job') continue
-      const def = candidate
+    for (const [name, def] of Object.entries(defs)) {
+      const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
       let limit = CLAIM_BATCH
-      if (def.concurrency !== undefined) {
+      if (def.kind === 'job' && def.concurrency !== undefined) {
         const runningRows = await db
           .select({ id: t.id })
           .from(t)

@@ -52,11 +52,11 @@ test('enqueue inserts a pending row with parsed payload', async () => {
 
 test('unknown queue job name throws', async () => {
   await expect(enqueueJob(db, defs, 'nope', {})).rejects.toThrow(
-    /unknown queue job/,
+    /unknown background task/,
   )
 })
 
-test('cron declarations cannot be enqueued', async () => {
+test('cron declarations can be enqueued', async () => {
   const cronDefs: JobsDefs = {
     hourly: {
       kind: 'cron',
@@ -64,9 +64,15 @@ test('cron declarations cannot be enqueued', async () => {
       handler: async () => {},
     },
   }
-  await expect(enqueueJob(db, cronDefs, 'hourly', undefined)).rejects.toThrow(
-    /unknown queue job/,
-  )
+  const { id } = await enqueueJob(db, cronDefs, 'hourly', undefined, {
+    dedupeKey: '12345',
+  })
+  expect(id.startsWith('job_')).toBe(true)
+  const rows = await db
+    .select()
+    .from(bunderstackJobs)
+    .where(eq(bunderstackJobs.id, id))
+  expect(rows[0]?.type).toBe('cron:hourly')
 })
 
 test('payload failing zod parse throws at the enqueue site', async () => {
