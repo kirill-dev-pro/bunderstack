@@ -20,23 +20,10 @@ export type BetterAuthConfig = Omit<
   'database'
 >
 
-export const BunderstackOptionsSchema = z.object({
-  schema: z.record(z.string(), z.unknown()),
-  access: z.record(z.string(), z.unknown()).optional(),
-  database: z
-    .object({
-      adapter: z.unknown(),
-      url: z.string().optional(),
-      authToken: z.string().optional(),
-      migrations: z.string().optional(),
-    })
-    .optional(),
-  auth: z.record(z.string(), z.unknown()).optional(),
-  // Loose: bucket access/scope hold functions that can't survive strict zod
-  // (mirrors how `access` is loose). Resolution happens in resolveBuckets.
-  storage: z.unknown().optional(),
-  envSource: z.record(z.string(), z.string().optional()).optional(),
-  background: z.object({ autoStart: z.boolean().optional() }).optional(),
+// Only the union-shaped options need runtime validation: they are the ones a
+// JavaScript caller can plausibly get wrong in a way that fails confusingly
+// downstream. Everything else is either typed-only or read raw from `options`.
+const RuntimeOptionsSchema = z.object({
   rateLimit: z
     .union([
       z.boolean(),
@@ -75,21 +62,7 @@ export type BunderstackConfig<
     | StorageConfigInput
     | undefined,
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
-> = Omit<
-  z.input<typeof BunderstackOptionsSchema>,
-  | 'schema'
-  | 'access'
-  | 'auth'
-  | 'authResolver'
-  | 'storage'
-  | 'env'
-  | 'email'
-  | 'trpc'
-  | 'jobs'
-  | 'database'
-  | 'envSource'
-  | 'background'
-> & {
+> = {
   schema: TSchema
   access?: TAccess
   database: {
@@ -152,7 +125,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     string | undefined
   >,
 ): ResolvedConfig {
-  const parsed = BunderstackOptionsSchema.parse(options)
+  const parsed = RuntimeOptionsSchema.parse(options)
   // Self-validate when the caller didn't pass a pre-validated env, so
   // resolveConfig stays usable standalone.
   const resolvedEnv =
@@ -171,14 +144,14 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       adapter,
       url:
         platformSource['BUNDERSTACK_DATABASE_URL'] ??
-        parsed.database?.url ??
+        options.database?.url ??
         resolvedEnv.DATABASE_URL ??
         defaultUrl,
       authToken:
         platformSource['BUNDERSTACK_DATABASE_AUTH_TOKEN'] ??
-        parsed.database?.authToken ??
+        options.database?.authToken ??
         resolvedEnv.DATABASE_AUTH_TOKEN,
-      migrations: parsed.database?.migrations ?? './migrations',
+      migrations: options.database?.migrations ?? './migrations',
     },
     auth: (() => {
       const authInput = options.auth ?? {}

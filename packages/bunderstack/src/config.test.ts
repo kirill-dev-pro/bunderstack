@@ -200,3 +200,72 @@ test('Bunderhost-injected REDIS_URL overrides hardcoded application Redis URL', 
 
   expect(resolved).toBe('redis://bunderhost-injected:6379')
 })
+
+test('resolveConfig still reads database overrides from options', () => {
+  const resolved = resolveConfig(
+    {
+      schema: {},
+      database: {
+        adapter: { dialect: 'sqlite' } as never,
+        url: 'file:./explicit.db',
+        authToken: 'tok',
+        migrations: './custom-migrations',
+      },
+    } as never,
+    { DATABASE_URL: 'file:./ignored.db' } as never,
+    {},
+  )
+  expect(resolved.database.url).toBe('file:./explicit.db')
+  expect(resolved.database.authToken).toBe('tok')
+  expect(resolved.database.migrations).toBe('./custom-migrations')
+})
+
+test('resolveConfig still passes realtime through', () => {
+  const resolved = resolveConfig(
+    {
+      schema: {},
+      database: { adapter: { dialect: 'sqlite' } as never },
+      realtime: { keepaliveMs: 5_000, redis: 'redis://localhost:6379' },
+    } as never,
+    { DATABASE_URL: 'file::memory:' } as never,
+    {},
+  )
+  expect(resolved.realtime).toEqual({
+    keepaliveMs: 5_000,
+    redis: 'redis://localhost:6379',
+  })
+})
+
+test('a malformed realtime option still throws', () => {
+  expect(() =>
+    resolveConfig(
+      {
+        schema: {},
+        database: { adapter: { dialect: 'sqlite' } as never },
+        realtime: { keepaliveMs: 'soon' },
+      } as never,
+      { DATABASE_URL: 'file::memory:' } as never,
+      {},
+    ),
+  ).toThrow()
+})
+
+test('a malformed rateLimit option still throws', () => {
+  expect(() =>
+    resolveConfig(
+      {
+        schema: {},
+        database: { adapter: { dialect: 'sqlite' } as never },
+        rateLimit: { max: 'lots' },
+      } as never,
+      { DATABASE_URL: 'file::memory:' } as never,
+      {},
+    ),
+  ).toThrow()
+})
+
+test('BunderstackOptionsSchema is no longer exported', async () => {
+  const mod = await import('./config')
+  expect('BunderstackOptionsSchema' in mod).toBe(false)
+})
+
