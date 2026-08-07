@@ -464,5 +464,49 @@ test('a worker that lost its lease cannot mark a re-claimed row succeeded', asyn
   expect(Number(row!.lockedUntil)).toBe(now + 100_000)
 })
 
+test('tick reports what it did', async () => {
+  const defs: JobsDefs = {
+    ok: { kind: 'job', handler: () => {} },
+    bad: {
+      kind: 'job',
+      retries: 0,
+      handler: () => {
+        throw new Error('nope')
+      },
+    },
+  }
+  await enqueueJob(db, defs, 'ok', undefined)
+  await enqueueJob(db, defs, 'bad', undefined)
+
+  const result = await runner(defs).tick(Date.now())
+  expect(result.claimed).toBe(2)
+  expect(result.ran).toBe(1)
+  expect(result.failed).toBe(1)
+})
+
+test('the reap runs at most hourly', async () => {
+  const defs: JobsDefs = { ok: { kind: 'job', handler: () => {} } }
+  const r = runner(defs)
+  const now = Date.parse('2026-08-07T10:00:00Z')
+  await r.tick(now)
+
+  const stale = Date.parse('2026-08-05T10:00:00Z')
+  await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'old' })
+  await db
+    .update(bunderstackJobs)
+    .set({ status: 'succeeded', finishedAt: stale, dedupeKey: null })
+    .where(eq(bunderstackJobs.type, 'ok'))
+
+  // Within the hour: no reap.
+  await r.tick(now + 60_000)
+  expect(await db.select().from(bunderstackJobs)).not.toHaveLength(0)
+
+  // Past the hour: reaped.
+  await r.tick(now + 3_600_001)
+  const remaining = await db.select().from(bunderstackJobs)
+  expect(remaining.filter((row) => row.status === 'succeeded')).toHaveLength(0)
+})
+
+
 
 

@@ -4,7 +4,12 @@ import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
-import type { AnyBackgroundDefinition, JobsDefs, JobsRuntimeFacade } from './define'
+import type {
+  AnyBackgroundDefinition,
+  JobsDefs,
+  JobsRuntimeFacade,
+  TickResult,
+} from './define'
 
 import { jobsTableFor } from '../internal-tables'
 import { parseCron } from './cron'
@@ -14,6 +19,7 @@ import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
 
 const CLAIM_BATCH = 10
 const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
+const REAP_INTERVAL_MS = 60 * 60_000
 
 type JobRow = {
   id: string
@@ -59,6 +65,7 @@ export function createJobRunner(deps: {
   const { db, defs } = deps
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
+  let lastReapAt = 0
 
   /** Cron rows carry no payload — their handler input is the slot itself. */
   function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
@@ -243,7 +250,7 @@ export function createJobRunner(deps: {
     def: AnyBackgroundDefinition,
     now: number,
     leaseUntil: number,
-  ) {
+  ): Promise<'ran' | 'failed' | 'lost'> {
     let input: unknown
     try {
       input = resolveInput(def, row)
@@ -261,9 +268,9 @@ export function createJobRunner(deps: {
         })
         .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
         .returning({ id: t.id })
-      if (!updated[0]) return
+      if (!updated[0]) return 'lost'
       await fireOnFailed(def, undefined, e)
-      return
+      return 'failed'
     }
     try {
       await (def.handler as (i: unknown, c: unknown) => unknown)(input, ctx)
@@ -277,7 +284,8 @@ export function createJobRunner(deps: {
         })
         .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
         .returning({ id: t.id })
-      if (!updated[0]) return
+      if (!updated[0]) return 'lost'
+      return 'ran'
     } catch (err) {
       const e = toError(err)
       if (Number(row.attempts) < maxAttempts(def)) {
@@ -291,7 +299,7 @@ export function createJobRunner(deps: {
           })
           .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
           .returning({ id: t.id })
-        if (!updated[0]) return
+        if (!updated[0]) return 'lost'
       } else {
         const updated = await db
           .update(t)
@@ -304,14 +312,16 @@ export function createJobRunner(deps: {
           })
           .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
           .returning({ id: t.id })
-        if (!updated[0]) return
+        if (!updated[0]) return 'lost'
         await fireOnFailed(def, input, e)
       }
+      return 'failed'
     }
   }
 
-  async function runClaimable(now: number) {
-    const work: Promise<void>[] = []
+  async function runClaimable(now: number): Promise<TickResult> {
+    const work: Promise<'ran' | 'failed' | 'lost'>[] = []
+    let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
       let limit = CLAIM_BATCH
@@ -326,17 +336,28 @@ export function createJobRunner(deps: {
       }
       const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
       const claimed = await claim(type, limit, now, leaseUntil)
+      totalClaimed += claimed.length
       for (const row of claimed) work.push(runJob(row, def, now, leaseUntil))
     }
-    await Promise.all(work)
+    const outcomes = await Promise.all(work)
+    let ran = 0
+    let failed = 0
+    for (const outcome of outcomes) {
+      if (outcome === 'ran') ran++
+      else if (outcome === 'failed') failed++
+    }
+    return { claimed: totalClaimed, ran, failed }
   }
 
   return {
-    async tick(now: number = Date.now()) {
+    async tick(now: number = Date.now()): Promise<TickResult> {
       await materializeCronSlots(now)
       await recoverExpiredLeases(now)
-      await reapSucceeded(now)
-      await runClaimable(now)
+      if (now - lastReapAt >= REAP_INTERVAL_MS) {
+        lastReapAt = now
+        await reapSucceeded(now)
+      }
+      return runClaimable(now)
     },
     setJobsFacade(f: JobsRuntimeFacade) {
       ctx.jobs = f

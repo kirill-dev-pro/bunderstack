@@ -23,6 +23,15 @@ export type EnqueueOptions = {
   runAt?: Date | number
 }
 
+export type TickResult = {
+  /** Rows moved from pending to running this tick. */
+  claimed: number
+  /** Handlers that completed successfully. */
+  ran: number
+  /** Handlers that threw, whether or not they will be retried. */
+  failed: number
+}
+
 /**
  * The untyped runtime facade. Handler ctx and tRPC ctx expose this shape;
  * `app.jobs` narrows `enqueue` to the declared job names/payloads.
@@ -34,7 +43,7 @@ export type JobsRuntimeFacade = {
     opts?: EnqueueOptions,
   ): Promise<{ id: string }>
   /** Run one poll cycle deterministically (tests). `now` defaults to Date.now(). */
-  tick(now?: number): Promise<void>
+  tick(now?: number): Promise<TickResult>
 }
 
 import type { RealtimeFacade } from '../realtime/facade'
