@@ -7,7 +7,6 @@ import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
 import {
-  bunderstackCronRuns,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
@@ -187,11 +186,6 @@ function systemTables() {
     {
       exportName: '_system.jobs',
       physicalName: getTableName(bunderstackJobs),
-      system: true,
-    },
-    {
-      exportName: '_system.scheduledRuns',
-      physicalName: getTableName(bunderstackCronRuns),
       system: true,
     },
   ]

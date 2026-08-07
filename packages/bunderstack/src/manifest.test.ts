@@ -51,11 +51,6 @@ test('buildManifest describes deployment requirements deterministically', () => 
       migrationsDirectory: './migrations',
       tables: [
         {
-          exportName: '_system.scheduledRuns',
-          physicalName: '_bunderstack_cron_runs',
-          system: true,
-        },
-        {
           exportName: '_system.idempotency',
           physicalName: '_bunderstack_idempotency',
           system: true,

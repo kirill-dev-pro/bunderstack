@@ -12,7 +12,6 @@ import {
 import { detectDialect } from './dialect'
 import {
   bunderstackFilesPg,
-  bunderstackCronRunsPg,
   bunderstackIdempotencyPg,
   bunderstackJobsPg,
 } from './internal-tables-pg'
@@ -74,43 +73,22 @@ export const bunderstackJobs = sqliteTable(
   ],
 )
 
-export const bunderstackCronRuns = sqliteTable(
-  '_bunderstack_cron_runs',
-  {
-    taskId: text('task_id').notNull(),
-    scheduledAt: integer('scheduled_at').notNull(),
-    status: text('status').notNull(),
-    attempts: integer('attempts').notNull().default(0),
-    lockedUntil: integer('locked_until'),
-    lastError: text('last_error'),
-    startedAt: integer('started_at'),
-    finishedAt: integer('finished_at'),
-  },
-  (t) => [
-    primaryKey({ columns: [t.taskId, t.scheduledAt] }),
-    index('bcr_claim').on(t.status, t.lockedUntil),
-  ],
-)
-
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
-  bunderstackCronRuns,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   'bunderstack_file_meta',
   '_bunderstack_idempotency',
   '_bunderstack_jobs',
-  '_bunderstack_cron_runs',
 ])
 
 export const INTERNAL_TABLES_PG = {
   bunderstackFiles: bunderstackFilesPg,
   bunderstackIdempotency: bunderstackIdempotencyPg,
   bunderstackJobs: bunderstackJobsPg,
-  bunderstackCronRuns: bunderstackCronRunsPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -121,10 +99,6 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
     [bunderstackIdempotency, bunderstackIdempotencyPg],
   ],
   [getTableName(bunderstackJobs), [bunderstackJobs, bunderstackJobsPg]],
-  [
-    getTableName(bunderstackCronRuns),
-    [bunderstackCronRuns, bunderstackCronRunsPg],
-  ],
 ])
 
 /** Internal file-meta table matching the db's dialect. */
@@ -140,11 +114,6 @@ export function idempotencyTableFor(db: unknown) {
 /** Internal jobs table matching the db's dialect. */
 export function jobsTableFor(db: unknown) {
   return is(db, PgDatabase) ? bunderstackJobsPg : bunderstackJobs
-}
-
-/** Internal cron-run table matching the db's dialect. */
-export function cronRunsTableFor(db: unknown) {
-  return is(db, PgDatabase) ? bunderstackCronRunsPg : bunderstackCronRuns
 }
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(
