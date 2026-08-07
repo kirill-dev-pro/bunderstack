@@ -79,7 +79,12 @@ export type BunderstackConfig<
   authResolver?: AuthSessionResolver
   storage?: TStorage
   env?: TEnv
-  envSource?: Record<string, string | undefined>
+  /**
+   * Stand-in for `process.env`. Feeds both env validation and platform
+   * overrides, so tests and embedders have one injection point instead of
+   * three.
+   */
+  processEnv?: Record<string, string | undefined>
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
   // `trpc` is intentionally NOT declared here: createBunderstack intersects

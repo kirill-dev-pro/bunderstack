@@ -221,7 +221,7 @@ test('role=all starts the background loop', async () => {
     database: { url: ':memory:', adapter: libsql() },
     env: undefined,
     jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
-    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
+    processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)
   expect(app.backgroundRunning).toBe(true)
   await app.close()
@@ -232,7 +232,7 @@ test('role=web does not start the background loop', async () => {
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
-    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
+    processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
   } as never)
   expect(app.backgroundRunning).toBe(false)
   await app.close()
@@ -244,9 +244,36 @@ test('background.autoStart false wins over role=all', async () => {
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     background: { autoStart: false },
-    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
+    processEnv: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)
   expect(app.backgroundRunning).toBe(false)
   await app.close()
 })
+
+test('processEnv feeds platform overrides as well as env vars', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { adapter: libsql() },
+    processEnv: {
+      DATABASE_URL: 'file::memory:',
+      BUNDERSTACK_DATABASE_URL: 'file::memory:',
+      BUNDERSTACK_ROLE: 'web',
+    },
+  } as never)
+  expect(app.env.BUNDERSTACK_ROLE).toBe('web')
+  await app.close()
+})
+
+test('envSource is no longer accepted', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { adapter: libsql() },
+    envSource: { BUNDERSTACK_ROLE: 'worker' },
+    processEnv: { DATABASE_URL: 'file::memory:' },
+  } as never)
+  // envSource is ignored entirely; the role falls back to its default.
+  expect(app.env.BUNDERSTACK_ROLE).toBe('all')
+  await app.close()
+})
+
 

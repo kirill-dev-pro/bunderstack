@@ -333,9 +333,9 @@ export async function createBunderstack<
     emailProvider: emailProviderTag(options.email),
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-    source: options.envSource,
+    source: options.processEnv,
   })
-  const config = resolveConfig(options, env)
+  const config = resolveConfig(options, env, options.processEnv)
   // Adapters use Drizzle mocks during deployment introspection, so the database
   // and Redis below never touch external services.
   const introspect = process.env.BUNDERSTACK_INTROSPECT === '1'
