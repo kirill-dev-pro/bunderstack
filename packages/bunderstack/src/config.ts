@@ -87,10 +87,12 @@ export type BunderstackConfig<
   processEnv?: Record<string, string | undefined>
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
-  // `trpc` is intentionally NOT declared here: createBunderstack intersects
-  // its own inference-friendly `trpc` declaration (router | builder callback)
-  // so the callback's `t` parameter gets contextual typing. `jobs` follows the
-  // same pattern (defs map | builder callback receiving `j`).
+  /**
+   * Custom Hono routes, mounted at root ahead of bunderstack's own. Declared as
+   * a callback because routes in a separate file cannot import the app that is
+   * still being constructed — the same reason `trpc` takes a builder.
+   */
+  routes?: (ctx: never) => unknown
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:

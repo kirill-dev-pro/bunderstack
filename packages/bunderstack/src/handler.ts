@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
+  customRouter?: Hono
   crudRouter: Hono
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
@@ -18,6 +19,10 @@ export function buildHandler(parts: HandlerParts): {
 } {
   const app = new Hono()
   const checkRateLimit = createRateLimiter(parts.rateLimit)
+
+  // Registered ahead of everything so custom routes can sit in front of the
+  // core app. Collisions are rejected at construction, not silently shadowed.
+  if (parts.customRouter) app.route('/', parts.customRouter)
 
   const health = (c: { json: (data: unknown) => Response }) =>
     c.json({ status: 'ok' })

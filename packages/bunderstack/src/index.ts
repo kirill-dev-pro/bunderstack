@@ -4,7 +4,9 @@ import type { Hono as HonoType } from 'hono'
 
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
-import type { TableAccessInput } from './access'
+import { getTableName, isTable } from 'drizzle-orm'
+
+import type { ResolvedAccess, ResolvedTableAccess, TableAccessInput } from './access'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -52,6 +54,7 @@ import {
 } from './realtime/facade'
 import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
 import { createRedisRealtimeBroker } from './realtime/redis'
+import { createRouteContext, validateCustomRoutes } from './routes'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
@@ -60,6 +63,16 @@ import { sweepOrphans } from './storage/sweep'
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
+
+function tableEntryForName(
+  access: ResolvedAccess,
+  tableName: string,
+): ResolvedTableAccess | undefined {
+  for (const entry of access.values()) {
+    if (entry.tableName === tableName) return entry
+  }
+  return undefined
+}
 
 function waitForWorkerShutdown(
   signal: AbortSignal,
@@ -615,7 +628,31 @@ export async function createBunderstack<
             }),
           })
       : undefined
+    const customRouter = options.routes
+      ? (() => {
+          const routeCtx = createRouteContext({
+            db: userDb,
+            env,
+            storage,
+            email,
+            jobs,
+            realtime,
+            auth,
+            authResolver,
+          })
+          const built = (
+            options.routes as (ctx: unknown) => import('hono').Hono
+          )(routeCtx)
+          const enabledTables = Object.values(options.schema)
+            .filter((table) => isTable(table))
+            .map((table) => getTableName(table))
+            .filter((name) => tableEntryForName(resolvedAccess, name)?.enabled)
+          validateCustomRoutes(built.routes, enabledTables)
+          return built
+        })()
+      : undefined
     const { handler, router } = buildHandler({
+      customRouter,
       crudRouter,
       authHandler: (req) => auth.handler(req),
       storageRouter,
@@ -788,3 +825,10 @@ export type {
   RealtimeTransport,
   SchemaTable,
 } from './realtime/facade'
+
+export type {
+  BunderstackRouteContext,
+  RouteContext,
+  RoutesBuilder,
+} from './routes'
+
