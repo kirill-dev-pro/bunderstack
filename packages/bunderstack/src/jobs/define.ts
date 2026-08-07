@@ -9,6 +9,8 @@ import type { StorageFacade } from '../index'
 
 import { parseCron } from './cron'
 
+import { CRON_PREFIX, type CatchUp } from './slots'
+
 export const DEFAULT_RETRIES = 3
 export const DEFAULT_TIMEOUT_MS = 60_000
 
@@ -66,7 +68,7 @@ export type QueueJobDefinition<
   retries?: number
   /** Delay before retry N (1-based). Default exponential: 1s, 2s, 4s, … */
   backoff?: ((attempt: number) => number) | { baseMs?: number; factor?: number }
-  /** Max simultaneous `running` rows of this type, enforced cross-replica. */
+  /** Max simultaneous `running` rows of this type, enforced per worker. */
   concurrency?: number
   /** Lease duration in ms; an expired lease sends the job back to pending. */
   timeout?: number
@@ -91,8 +93,24 @@ export type CronDefinition<
 > = {
   kind: 'cron'
   schedule: TSchedule
+  /** Attempts after the first failure. Default 3 (so 4 total attempts). */
+  retries?: number
+  /** Delay before retry N (1-based). Default exponential: 1s, 2s, 4s, … */
+  backoff?: ((attempt: number) => number) | { baseMs?: number; factor?: number }
+  /** Lease duration in ms; an expired lease sends the slot back to pending. */
+  timeout?: number
+  /** How missed slots are handled on wake. Default 'latest'. */
+  catchUp?: CatchUp
+  /** How far back catch-up looks, in ms. Default 1 hour. */
+  catchUpWindow?: number
   handler: (
     invocation: CronInvocation,
+    ctx: JobContext<TSchema, TEnvResult>,
+  ) => Promise<void> | void
+  /** Fires once, after the final attempt fails. Errors here are logged, never retried. */
+  onFailed?: (
+    invocation: CronInvocation,
+    error: Error,
     ctx: JobContext<TSchema, TEnvResult>,
   ) => Promise<void> | void
 }
@@ -111,6 +129,10 @@ export type JobDefinition<
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyJobDefinition = QueueJobDefinition<any, any, any>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyBackgroundDefinition =
+  | QueueJobDefinition<any, any, any>
+  | CronDefinition<any, any, any>
 export type JobsDefs = BackgroundDefs
 
 export type QueueJobKeys<TDefs extends BackgroundDefs> = {
@@ -129,17 +151,37 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
     if (typeof def.handler !== 'function') {
       throw new Error(`[bunderstack] background task "${name}" has no handler`)
     }
-    if (def.kind === 'cron') {
-      parseCron(def.schedule)
-      continue
+    if (def.kind === 'job' && name.startsWith(CRON_PREFIX)) {
+      throw new Error(
+        `[bunderstack] job "${name}": the "${CRON_PREFIX}" prefix is reserved for cron tasks`,
+      )
     }
     if (
       def.retries !== undefined &&
       (def.retries < 0 || !Number.isInteger(def.retries))
     ) {
       throw new Error(
-        `[bunderstack] job "${name}": retries must be a non-negative integer`,
+        `[bunderstack] background task "${name}": retries must be a non-negative integer`,
       )
+    }
+    if (def.timeout !== undefined && def.timeout <= 0) {
+      throw new Error(
+        `[bunderstack] background task "${name}": timeout must be positive`,
+      )
+    }
+    if (def.kind === 'cron') {
+      parseCron(def.schedule)
+      if ((def as { concurrency?: number }).concurrency !== undefined) {
+        throw new Error(
+          `[bunderstack] cron "${name}": concurrency is not supported for cron tasks — slots are already unique`,
+        )
+      }
+      if (def.catchUpWindow !== undefined && def.catchUpWindow <= 0) {
+        throw new Error(
+          `[bunderstack] cron "${name}": catchUpWindow must be positive`,
+        )
+      }
+      continue
     }
     if (
       def.concurrency !== undefined &&
@@ -149,22 +191,27 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
         `[bunderstack] job "${name}": concurrency must be a positive integer`,
       )
     }
-    if (def.timeout !== undefined && def.timeout <= 0) {
-      throw new Error(`[bunderstack] job "${name}": timeout must be positive`)
-    }
   }
 }
 
 /** @deprecated Use validateBackgroundDefs. */
 export const validateJobsDefs = validateBackgroundDefs
 
-/** Delay in ms before retry `attempt` (1-based = the attempt that just failed). */
-export function backoffMs(def: AnyJobDefinition, attempt: number): number {
+/**
+ * Delay in ms before retry `attempt` (1-based = the attempt that just failed).
+ * Jittered by ±20% so a shared outage does not retry every job in lockstep.
+ * A caller-supplied backoff function is returned verbatim — the caller owns it.
+ */
+export function backoffMs(
+  def: AnyBackgroundDefinition,
+  attempt: number,
+): number {
   const b = def.backoff
   if (typeof b === 'function') return b(attempt)
   const baseMs = b?.baseMs ?? 1000
   const factor = b?.factor ?? 2
-  return baseMs * factor ** (attempt - 1)
+  const flat = baseMs * factor ** (attempt - 1)
+  return Math.round(flat * (0.8 + Math.random() * 0.4))
 }
 
 /**
