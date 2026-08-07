@@ -183,6 +183,8 @@ export type BunderstackApp<
     options?: AppStartCronSchedulerOptions,
   ): Promise<LocalCronScheduler>
   close(): Promise<void>
+  /** True when this process is running the background tick loop. */
+  readonly backgroundRunning: boolean
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
   /** Deploy-time introspection: what this app needs provisioned. */
@@ -345,9 +347,7 @@ export async function createBunderstack<
     emailProvider: emailProviderTag(options.email),
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-    // Storage orphan cleanup is also a signed platform schedule, so every
-    // production app has scheduled delivery even without user-defined cron.
-    cronConfigured: true,
+    source: options.envSource,
   })
   const config = resolveConfig(options, env)
   // Adapters use Drizzle mocks during deployment introspection, so the database
@@ -674,6 +674,19 @@ export async function createBunderstack<
       rateLimit: options.rateLimit,
     })
 
+    // Topology is a deployment concern: the role decides whether this process
+    // runs background work, so application code never has to.
+    const roleWantsWorker =
+      env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
+    const autoStart =
+      options.background?.autoStart ??
+      (roleWantsWorker && !introspect && jobsDefs !== undefined)
+    let backgroundRunning = false
+    if (autoStart) {
+      await startWorker()
+      backgroundRunning = true
+    }
+
     const app: BunderstackApp<
       TSchema,
       TAccess,
@@ -699,6 +712,7 @@ export async function createBunderstack<
       runWorker,
       startCronScheduler,
       close: () => lifecycle.close(),
+      backgroundRunning,
       get status() {
         return lifecycle.status
       },

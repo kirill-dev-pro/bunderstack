@@ -35,14 +35,8 @@ export const BunderstackOptionsSchema = z.object({
   // Loose: bucket access/scope hold functions that can't survive strict zod
   // (mirrors how `access` is loose). Resolution happens in resolveBuckets.
   storage: z.unknown().optional(),
-  // Loose: holds zod schemas. Validation happens in validateEnv.
-  env: z.unknown().optional(),
-  // Loose: provider may be a function/adapter. Resolution happens in createEmail.
-  email: z.unknown().optional(),
-  // Loose: a tRPC router or builder callback. Resolved in createBunderstack.
-  trpc: z.unknown().optional(),
-  // Loose: holds handler functions and zod schemas. Resolved in createBunderstack.
-  jobs: z.unknown().optional(),
+  envSource: z.record(z.string(), z.string().optional()).optional(),
+  background: z.object({ autoStart: z.boolean().optional() }).optional(),
   rateLimit: z
     .union([
       z.boolean(),
@@ -93,6 +87,8 @@ export type BunderstackConfig<
   | 'trpc'
   | 'jobs'
   | 'database'
+  | 'envSource'
+  | 'background'
 > & {
   schema: TSchema
   access?: TAccess
@@ -110,6 +106,8 @@ export type BunderstackConfig<
   authResolver?: AuthSessionResolver
   storage?: TStorage
   env?: TEnv
+  envSource?: Record<string, string | undefined>
+  background?: { autoStart?: boolean }
   email?: EmailConfigInput
   // `trpc` is intentionally NOT declared here: createBunderstack intersects
   // its own inference-friendly `trpc` declaration (router | builder callback)

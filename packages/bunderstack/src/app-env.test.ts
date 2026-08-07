@@ -214,3 +214,39 @@ test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports rea
     else process.env.REDIS_URL = prevRedis
   }
 })
+
+test('role=all starts the background loop', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    env: undefined,
+    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
+  } as never)
+  expect(app.backgroundRunning).toBe(true)
+  await app.close()
+})
+
+test('role=web does not start the background loop', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
+  } as never)
+  expect(app.backgroundRunning).toBe(false)
+  await app.close()
+})
+
+test('background.autoStart false wins over role=all', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    background: { autoStart: false },
+    envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
+  } as never)
+  expect(app.backgroundRunning).toBe(false)
+  await app.close()
+})
+
