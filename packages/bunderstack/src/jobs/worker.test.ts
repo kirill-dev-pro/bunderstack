@@ -423,4 +423,46 @@ test('a cron slot whose type has no definition is failed, not retried forever', 
   expect(rows[0]!.status).toBe('succeeded')
 })
 
+test('a worker that lost its lease cannot mark a re-claimed row succeeded', async () => {
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let startedResolve: (() => void) | undefined
+  const started = new Promise<void>((resolve) => {
+    startedResolve = resolve
+  })
+  const defs: JobsDefs = {
+    slow: {
+      kind: 'job',
+      timeout: 10,
+      handler: async () => {
+        startedResolve?.()
+        await gate
+      },
+    },
+  }
+  const { id } = await enqueueJob(db, defs, 'slow', undefined)
+
+  const first = runner(defs)
+  const now = Date.now()
+  const running = first.tick(now)
+
+  await started
+
+  // Steal the lease the way lease recovery would after the timeout elapses.
+  await db
+    .update(bunderstackJobs)
+    .set({ status: 'running', lockedUntil: now + 100_000, attempts: 2 })
+    .where(eq(bunderstackJobs.id, id))
+
+  release!()
+  await running
+
+  const row = await rowById(id)
+  expect(row!.status).toBe('running')
+  expect(Number(row!.lockedUntil)).toBe(now + 100_000)
+})
+
+
 

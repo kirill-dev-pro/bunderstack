@@ -242,6 +242,7 @@ export function createJobRunner(deps: {
     row: JobRow,
     def: AnyBackgroundDefinition,
     now: number,
+    leaseUntil: number,
   ) {
     let input: unknown
     try {
@@ -249,7 +250,7 @@ export function createJobRunner(deps: {
     } catch (err) {
       // Stored payload no longer parses (schema drift): retrying can't help.
       const e = toError(err)
-      await db
+      const updated = await db
         .update(t)
         .set({
           status: 'failed',
@@ -258,13 +259,15 @@ export function createJobRunner(deps: {
           lastError: e.message,
           ...terminalPatch(),
         })
-        .where(eq(t.id, row.id))
+        .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+        .returning({ id: t.id })
+      if (!updated[0]) return
       await fireOnFailed(def, undefined, e)
       return
     }
     try {
       await (def.handler as (i: unknown, c: unknown) => unknown)(input, ctx)
-      await db
+      const updated = await db
         .update(t)
         .set({
           status: 'succeeded',
@@ -272,11 +275,13 @@ export function createJobRunner(deps: {
           lockedUntil: null,
           ...terminalPatch(),
         })
-        .where(eq(t.id, row.id))
+        .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+        .returning({ id: t.id })
+      if (!updated[0]) return
     } catch (err) {
       const e = toError(err)
       if (Number(row.attempts) < maxAttempts(def)) {
-        await db
+        const updated = await db
           .update(t)
           .set({
             status: 'pending',
@@ -284,9 +289,11 @@ export function createJobRunner(deps: {
             runAt: now + backoffMs(def, Number(row.attempts)),
             lastError: e.message,
           })
-          .where(eq(t.id, row.id))
+          .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+          .returning({ id: t.id })
+        if (!updated[0]) return
       } else {
-        await db
+        const updated = await db
           .update(t)
           .set({
             status: 'failed',
@@ -295,7 +302,9 @@ export function createJobRunner(deps: {
             lastError: e.message,
             ...terminalPatch(),
           })
-          .where(eq(t.id, row.id))
+          .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+          .returning({ id: t.id })
+        if (!updated[0]) return
         await fireOnFailed(def, input, e)
       }
     }
@@ -317,7 +326,7 @@ export function createJobRunner(deps: {
       }
       const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
       const claimed = await claim(type, limit, now, leaseUntil)
-      for (const row of claimed) work.push(runJob(row, def, now))
+      for (const row of claimed) work.push(runJob(row, def, now, leaseUntil))
     }
     await Promise.all(work)
   }
