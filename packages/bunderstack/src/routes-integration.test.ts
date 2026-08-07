@@ -59,3 +59,42 @@ test('a colliding custom route fails at construction', async () => {
     }),
   ).rejects.toThrow(/auth/)
 })
+
+test('custom routes are rate limited', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { adapter: libsql() },
+    processEnv: { DATABASE_URL: 'file::memory:', BUNDERSTACK_ROLE: 'web' },
+    rateLimit: { windowMs: 60_000, max: 2 },
+    routes: () => {
+      const r = new Hono()
+      r.get('/webhooks/burst', (c) => c.text('ok'))
+      return r
+    },
+  } as never)
+
+  const hit = () =>
+    app.handler(
+      new Request('http://local/webhooks/burst', {
+        headers: { 'x-forwarded-for': '203.0.113.9' },
+      }),
+    )
+  expect((await hit()).status).toBe(200)
+  expect((await hit()).status).toBe(200)
+  expect((await hit()).status).toBe(429)
+  await app.close()
+})
+
+test('a custom route wins on a path bunderstack does not own', async () => {
+  const app = await appWith(() => {
+    const r = new Hono()
+    r.get('/api/webhooks/status', (c) => c.json({ mine: true }))
+    return r
+  })
+  const res = await app.handler(
+    new Request('http://local/api/webhooks/status'),
+  )
+  expect(await res.json()).toEqual({ mine: true })
+  await app.close()
+})
+
