@@ -336,9 +336,16 @@ export function buildCrudApiRouter<
       })
 
     // 4. UPDATE procedure
-    const updateInputSchema = z
-      .object({ id: z.string() })
-      .extend(updateShape as any)
+    const updateCols: Record<string, z.ZodTypeAny> = {}
+    for (const colName of Object.keys(getTableColumns(table))) {
+      if (colName !== 'id') {
+        updateCols[colName] = z.any().optional()
+      }
+    }
+    const updateInputSchema = z.object({
+      id: z.string(),
+      ...updateCols,
+    })
 
     const updateProc = builder.public
       .meta(

@@ -54,5 +54,5 @@ export function createTRPCClient<TApp extends AnyBunderstackApp>(
       })
       return trpcProxy
     },
-  }) as TRPCBunderstackClient<TApp>
+  }) as unknown as TRPCBunderstackClient<TApp>
 }

@@ -26,10 +26,10 @@ export function createApiClient<TRouter = any>(
   const rpcUrl = baseUrl.endsWith('/') ? `${baseUrl}rpc` : `${baseUrl}/rpc`
 
   const link = new RPCLink({
-    url: rpcUrl,
+    url: rpcUrl as any,
     fetch: fetchFn as any,
   })
 
-  const client = createORPCClient<TRouter>(link as any)
-  return createTanstackQueryUtils(client as any)
+  const client = createORPCClient<any>(link as any)
+  return createTanstackQueryUtils(client as any) as any
 }

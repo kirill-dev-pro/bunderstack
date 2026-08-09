@@ -16,22 +16,19 @@ const posts = pgTable('posts', {
 const schema = { posts }
 
 async function setupApp() {
-  const client = new PGlite()
-  await client.exec('CREATE TABLE posts (id TEXT PRIMARY KEY, title TEXT NOT NULL);')
-
   return await createBunderstack({
     schema,
-    database: { adapter: pglite({ client }) },
-    processEnv: { DATABASE_URL: 'memory', BUNDERSTACK_ROLE: 'web' },
+    database: { adapter: pglite() },
+    processEnv: { DATABASE_URL: 'file:./test-api-client.pglite', BUNDERSTACK_ROLE: 'web' },
     access: {
       posts: { crud: true, list: 'public', get: 'public' },
     },
-    api: (o) => ({
+    api: (o: any) => ({
       stats: {
         get: o.public
           .meta(openapi({ method: 'GET', path: '/api/stats' }))
           .input(z.object({ id: z.string() }))
-          .handler(async ({ input }) => ({ id: input.id, totalPosts: 42 })),
+          .handler(async ({ input }: { input: { id: string } }) => ({ id: input.id, totalPosts: 42 })),
       },
     }),
   } as any)

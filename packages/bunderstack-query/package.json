@@ -55,6 +55,8 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
+    "@orpc/client": "2.0.0-beta.26",
+    "@orpc/tanstack-query": "2.0.0-beta.26",
     "@tanstack/react-query": "^5.101.0",
     "@trpc/client": "^11.0.0",
     "@trpc/server": "^11.0.0",
@@ -64,6 +66,12 @@
     "typescript": ">=5"
   },
   "peerDependenciesMeta": {
+    "@orpc/client": {
+      "optional": true
+    },
+    "@orpc/tanstack-query": {
+      "optional": true
+    },
     "@trpc/client": {
       "optional": true
     },

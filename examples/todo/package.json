@@ -30,6 +30,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@orpc/openapi": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

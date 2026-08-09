@@ -356,7 +356,7 @@ test('succeeded rows are reaped after the retention window', async () => {
   const t0 = Date.now()
   await enqueueJob(db, defs, 'ok', undefined)
   await r.tick(t0)
-  await r.tick(t0 + 25 * 60 * 60 * 1000) // > 24h later
+  await r.tick(t0 + 25 * 60 * 60 * 1000 + 10_000) // > 24h later
   const rows = await db.select().from(bunderstackJobs)
   // The succeeded row is gone (only rows from this test's runs remain pending-free).
   expect(rows.filter((x) => x.status === 'succeeded')).toHaveLength(0)

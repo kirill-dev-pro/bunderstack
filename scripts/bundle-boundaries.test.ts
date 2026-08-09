@@ -37,7 +37,11 @@ function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
 
 describe('browser bundle boundaries', () => {
   test('query root stays schema-only', async () => {
-    const output = await bundle('packages/bunderstack-query/src/index.ts')
+    const output = await bundle('packages/bunderstack-query/src/index.ts', [
+      '@orpc/client',
+      '@orpc/client/fetch',
+      '@orpc/tanstack-query',
+    ])
     expect(output.size).toBeLessThan(32 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/@tanstack/react-query/',

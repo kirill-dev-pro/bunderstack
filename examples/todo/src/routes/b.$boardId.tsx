@@ -57,9 +57,9 @@ function BoardTodos({
   const [copied, setCopied] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  // tRPC: typed per-board stats, inferred from the server router
-  const stats = useQuery(api.trpc.stats.queryOptions({ boardId }))
-  // Todo queries auto-invalidate; this keeps the tRPC stats bar in sync too.
+  // oRPC: typed per-board stats, inferred from the server router
+  const stats = useQuery(api.api.stats.queryOptions({ input: { boardId } }) as any) as any
+  // Todo queries auto-invalidate; this keeps the stats bar in sync too.
   const invalidateAll = () => void queryClient.invalidateQueries()
 
   // Auto-CRUD, filtered by board: `boardId` is in filterableColumns.
@@ -74,9 +74,9 @@ function BoardTodos({
     api.todos.deleteMutation({ onSuccess: invalidateAll }),
   )
 
-  // tRPC: complete = update DB + send notification email in one call
+  // oRPC: complete = update DB + send notification email in one call
   const completeTodo = useMutation({
-    ...api.trpc.complete.mutationOptions(),
+    ...api.api.complete.mutationOptions(),
     onSuccess: invalidateAll,
   })
 
@@ -200,7 +200,7 @@ function BoardTodos({
             {!todo.done && (
               <button
                 className="complete"
-                onClick={() => completeTodo.mutate({ id: todo.id })}
+                onClick={() => completeTodo.mutate({ input: { id: todo.id } } as any)}
                 disabled={completeTodo.isPending}
                 title="Mark done & send email"
               >

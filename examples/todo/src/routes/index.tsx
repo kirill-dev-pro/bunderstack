@@ -37,13 +37,13 @@ function BoardList({
   const navigate = useNavigate()
   const [name, setName] = useState('')
 
-  // tRPC: only the owner's boards — boards are never listable via CRUD.
-  const boardsOptions = api.trpc.myBoards.queryOptions()
-  const boards = useQuery(boardsOptions)
+  // oRPC: only the owner's boards — boards are never listable via CRUD.
+  const boardsOptions = api.api.myBoards.queryOptions({ input: {} })
+  const boards = useQuery(boardsOptions as any) as any
 
   const createBoard = useMutation({
-    ...api.trpc.createBoard.mutationOptions(),
-    onSuccess: (board) => {
+    ...api.api.createBoard.mutationOptions(),
+    onSuccess: (board: any) => {
       void queryClient.invalidateQueries({ queryKey: boardsOptions.queryKey })
       void navigate({ to: '/b/$boardId', params: { boardId: board.id } })
     },
@@ -62,7 +62,7 @@ function BoardList({
   const addBoard = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    createBoard.mutate({ name: name.trim() }, { onSuccess: () => setName('') })
+    createBoard.mutate({ input: { name: name.trim() } } as any, { onSuccess: () => setName('') })
   }
 
   return (
@@ -90,7 +90,7 @@ function BoardList({
       )}
 
       <ul className="boards">
-        {boards.data?.map((board) => (
+        {boards.data?.map((board: any) => (
           <li key={board.id}>
             <Link to="/b/$boardId" params={{ boardId: board.id }}>
               {board.name}

@@ -128,6 +128,8 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@orpc/openapi": "2.0.0-beta.26",
+        "@orpc/server": "2.0.0-beta.26",
         "@tanstack/react-router-devtools": "^1.167.0",
         "@types/node": "^22.0.0",
         "@types/react": "^19.0.0",
@@ -208,6 +210,8 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@orpc/openapi": "2.0.0-beta.26",
+        "@orpc/server": "2.0.0-beta.26",
         "@tanstack/devtools-vite": "^0.8.0",
         "@tanstack/react-devtools": "^0.10.7",
         "@tanstack/react-query-devtools": "^5.101.0",
@@ -293,6 +297,8 @@
         "zod": "^4.4.3",
       },
       "peerDependencies": {
+        "@orpc/client": "2.0.0-beta.26",
+        "@orpc/tanstack-query": "2.0.0-beta.26",
         "@tanstack/react-query": "^5.101.0",
         "@trpc/client": "^11.0.0",
         "@trpc/server": "^11.0.0",
@@ -302,6 +308,8 @@
         "typescript": ">=5",
       },
       "optionalPeers": [
+        "@orpc/client",
+        "@orpc/tanstack-query",
         "@trpc/client",
         "@trpc/server",
         "@trpc/tanstack-react-query",
