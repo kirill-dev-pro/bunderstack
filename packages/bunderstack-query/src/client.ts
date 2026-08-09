@@ -51,11 +51,18 @@ export function lazyRecord<T>(create: (key: string) => T): Record<string, T> {
   })
 }
 
+import { createApiClient } from './api'
+
+export type BunderstackClient<TApp extends AnyBunderstackApp> = RestBunderstackClient<TApp> & {
+  api: any
+}
+
 export function createClient<TApp extends AnyBunderstackApp>(
   options: ClientOptions = {},
-): RestBunderstackClient<TApp> {
+): BunderstackClient<TApp> {
   const baseUrl = options.baseUrl ?? '/api'
   const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
+  let apiInstance: any = undefined
 
   const files = lazyRecord((bucket) => {
     const bucketClient = createBucketClient({ bucket, baseUrl, fetch: fetchFn })
@@ -77,14 +84,20 @@ export function createClient<TApp extends AnyBunderstackApp>(
     }
   })
 
-  return new Proxy({} as RestBunderstackClient<TApp>, {
+  return new Proxy({} as BunderstackClient<TApp>, {
     get(_target, prop) {
       if (typeof prop !== 'string' || PROXY_SKIP.has(prop)) return undefined
+      if (prop === 'api') {
+        if (!apiInstance) {
+          apiInstance = createApiClient(options)
+        }
+        return apiInstance
+      }
       if (prop === 'files') return files
       return (tables as Record<string, unknown>)[prop]
     },
     has(_target, prop) {
       return typeof prop === 'string' && !PROXY_SKIP.has(prop)
     },
-  }) as RestBunderstackClient<TApp>
+  }) as BunderstackClient<TApp>
 }

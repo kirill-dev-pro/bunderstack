@@ -38,6 +38,11 @@
     "test": "bun test"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@orpc/client": "2.0.0-beta.26",
+    "@orpc/openapi": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
+    "@orpc/tanstack-query": "2.0.0-beta.26",
     "@tanstack/query-core": "^5.101.1",
     "@tanstack/react-query": "^5.101.1",
     "@trpc/client": "^11.0.0",

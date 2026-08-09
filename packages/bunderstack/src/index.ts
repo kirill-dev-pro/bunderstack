@@ -721,7 +721,9 @@ export async function createBunderstack<
     const rpcHandler = new RPCHandler(nativeRouter)
 
     const apiHandler = async (req: Request): Promise<Response | null> => {
-      const url = new URL(req.url)
+      const urlString = typeof req === 'string' ? (req as string) : req.url
+      if (!urlString) return null
+      const url = new URL(urlString, 'http://localhost')
       if (url.pathname === '/api/openapi.json' && req.method === 'GET') {
         return new Response(JSON.stringify(combinedOpenAPISpec), {
           headers: { 'Content-Type': 'application/json' },

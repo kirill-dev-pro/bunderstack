@@ -276,6 +276,11 @@
       "name": "bunderstack-query",
       "version": "0.16.0",
       "devDependencies": {
+        "@electric-sql/pglite": "^0.5.4",
+        "@orpc/client": "2.0.0-beta.26",
+        "@orpc/openapi": "2.0.0-beta.26",
+        "@orpc/server": "2.0.0-beta.26",
+        "@orpc/tanstack-query": "2.0.0-beta.26",
         "@tanstack/query-core": "^5.101.1",
         "@tanstack/react-query": "^5.101.1",
         "@trpc/client": "^11.0.0",
@@ -467,7 +472,7 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@electric-sql/pglite": ["@electric-sql/pglite@0.3.16", "", {}, "sha512-mZkZfOd9OqTMHsK+1cje8OSzfAQcpD7JmILXTl5ahdempjUDdmg4euf1biDex5/LfQIDJ3gvCu6qDgdnDxfJmA=="],
+    "@electric-sql/pglite": ["@electric-sql/pglite@0.5.4", "", {}, "sha512-yYZUyyXrHU7tPlCjwZQJ6hIG9DscdCCn7Uk0mYKwC1FeHX286AbcmFveMiRBEak8e9iPupjsoVImN3yJZVed2g=="],
 
     "@emnapi/core": ["@emnapi/core@1.11.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ=="],
 
@@ -676,6 +681,8 @@
     "@orpc/server": ["@orpc/server@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/contract": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/aws-lambda": "^0.7.1", "@standardserver/core": "^0.7.1", "@standardserver/fastify": "^0.7.1", "@standardserver/fetch": "^0.7.1", "@standardserver/node": "^0.7.1", "@standardserver/peer": "^0.7.1", "cookie": "^2.0.1" }, "peerDependencies": { "crossws": ">=0.3.4", "fastify": ">=5.6.1" }, "optionalPeers": ["crossws", "fastify"] }, "sha512-IBvwkJkCkPMxOLd2A2Js2baTXc4FE//W+wnXrMXkdNXarwjId9AJ+NJngxHitjepQKqc2fnqvWlMDvypS3WdQg=="],
 
     "@orpc/shared": ["@orpc/shared@2.0.0-beta.26", "", { "dependencies": { "@standardserver/shared": "^0.7.1", "radash": "^12.1.1", "type-fest": "^5.3.1" }, "peerDependencies": { "@opentelemetry/api": ">=1.9.0" }, "optionalPeers": ["@opentelemetry/api"] }, "sha512-rbzPz6fSE+5WWn1uesSnekBIy4aJFx0ocGI3EcWVAu8l0ILLjdufof6A2E9RwvRSZeEefIE9D7iadW044YCBSw=="],
+
+    "@orpc/tanstack-query": ["@orpc/tanstack-query@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/contract": "2.0.0-beta.26", "@orpc/openapi": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26" }, "peerDependencies": { "@tanstack/query-core": ">=5.80.2" } }, "sha512-DsU4s801FsJykyAZ1vLjWy4qXGK+ZFEWy6YfQcIV2AZn2+5NGOWZgZ9woY1A4YK75DsABUkw7nK3zArVLYFCvg=="],
 
     "@orpc/zod": ["@orpc/zod@2.0.0-beta.26", "", { "dependencies": { "@orpc/json-schema": "2.0.0-beta.26", "json-schema-typed": "^8.0.2" }, "peerDependencies": { "zod": ">=4.3.5" } }, "sha512-NOLmnyvF5J/9twWk7ffgoHD6ObEI+Gth4VqI9M/TonpLt0pp9MWVllWuNfxvWJLOCPwfVmmD84ayU9i5TzssJQ=="],
 

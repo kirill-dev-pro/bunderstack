@@ -128,7 +128,8 @@ export function createBunderstackQueryClient<
 }
 
 export { createClient, lazyRecord, PROXY_SKIP } from './client'
-export type { RestBunderstackClient, ClientOptions } from './client'
+export type { RestBunderstackClient, ClientOptions, BunderstackClient } from './client'
+export { createApiClient } from './api'
 export { MAX_LIST_LIMIT } from './table-client'
 export type {
   AnyBunderstackApp,
