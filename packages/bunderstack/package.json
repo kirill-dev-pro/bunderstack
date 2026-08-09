@@ -65,6 +65,9 @@
   "devDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
+    "@orpc/openapi": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
+    "@orpc/zod": "2.0.0-beta.26",
     "@trpc/server": "^11.0.0",
     "@types/nodemailer": "^6",
     "better-auth": "^1.0.0",
