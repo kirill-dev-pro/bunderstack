@@ -9,4 +9,4 @@ Branch: `experiment/orpc-api`
 - Task 3: complete (commits 68e7187, review clean)
 - Task 4: complete (commits e2ab4ed, review clean)
 - Task 5: complete (commits 91e5a36, review clean)
-- Task 6: pending
+- Task 6: complete (commits 76363bd, review clean)
