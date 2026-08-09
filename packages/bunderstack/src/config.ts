@@ -2,13 +2,15 @@
 import { betterAuth } from 'better-auth'
 import { z } from 'zod'
 
+import type { AnyRouter } from '@orpc/server'
 import type { AuthSessionResolver, TableAccessInput } from './access'
+import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
 import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
-import { validateEnv, type BaseEnv, type EnvConfigInput } from './env'
+import { validateEnv, type BaseEnv, type EnvConfigInput, type ValidatedEnv } from './env'
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,
@@ -62,6 +64,7 @@ export type BunderstackConfig<
     | StorageConfigInput
     | undefined,
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
+  TCustomApiRouter extends AnyRouter | undefined = AnyRouter | undefined,
 > = {
   schema: TSchema
   access?: TAccess
@@ -96,7 +99,9 @@ export type BunderstackConfig<
   /**
    * Unified oRPC API builder callback.
    */
-  api?: (o: any) => Record<string, unknown>
+  api?: (
+    builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+  ) => TCustomApiRouter
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:
@@ -126,8 +131,20 @@ export type ResolvedConfig = {
       }
 }
 
-export function resolveConfig<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema>,
+export function resolveConfig<
+  TSchema extends Record<string, unknown>,
+  TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TStorage extends StorageConfigInput | undefined = undefined,
+  TEnv extends EnvConfigInput | undefined = undefined,
+  TCustomApiRouter extends AnyRouter | undefined = undefined,
+>(
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  >,
   env?: BaseEnv,
   // Platform-injected overrides (Bunderhost & co.) beat code-level config so
   // apps with hardcoded local urls deploy unchanged.

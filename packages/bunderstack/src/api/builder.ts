@@ -1,4 +1,4 @@
-import { os, ORPCError } from '@orpc/server'
+import { os, ORPCError, type AnyRouter } from '@orpc/server'
 import type { AccessUser } from '../access'
 import type { ApiContext } from './context'
 
@@ -37,3 +37,15 @@ export function createApiBuilder<
     protected: protectedProc,
   }
 }
+
+export type BunderstackApiBuilder<
+  TSchema extends Record<string, unknown>,
+  TEnv = Record<string, unknown>,
+> = ReturnType<typeof createApiBuilder<TSchema, TEnv>>
+
+export type ApiFactory<
+  TSchema extends Record<string, unknown>,
+  TEnv,
+  TCustomApiRouter extends AnyRouter,
+> = (builder: BunderstackApiBuilder<TSchema, TEnv>) => TCustomApiRouter
+

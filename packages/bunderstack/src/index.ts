@@ -1,5 +1,6 @@
 // src/index.ts
 import type { AnyRouter } from '@trpc/server'
+import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 import type { Hono as HonoType } from 'hono'
 
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
@@ -165,6 +166,7 @@ export type BunderstackApp<
   TEnv extends EnvConfigInput | undefined = undefined,
   TRouter = undefined,
   TJobsDefs extends JobsDefs | undefined = undefined,
+  TApiRouter = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
@@ -202,6 +204,7 @@ export type BunderstackApp<
     access: TAccess
     buckets: TBuckets
     trpc: TRouter
+    api: TApiRouter
   }
 }
 
@@ -221,8 +224,15 @@ export function createBunderstack<
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter = AnyRouter,
   const TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     /** Builder callback receiving the pre-wired `t` instance. */
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
     /** Builder callback receiving the pre-wired `j` instance. */
@@ -235,7 +245,8 @@ export function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     TRouter,
-    TJobsDefs
+    TJobsDefs,
+    TCustomApiRouter
   >
 >
 export function createBunderstack<
@@ -246,8 +257,15 @@ export function createBunderstack<
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter = AnyRouter,
   const TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     /** Builder callback receiving the pre-wired `t` instance. */
     trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
     /** Prebuilt job definitions (escape hatch for multi-file setups). */
@@ -260,7 +278,8 @@ export function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     TRouter,
-    TJobsDefs
+    TJobsDefs,
+    TCustomApiRouter
   >
 >
 export function createBunderstack<
@@ -271,8 +290,15 @@ export function createBunderstack<
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter | undefined = undefined,
   const TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     /** Prebuilt tRPC router (escape hatch for multi-file setups). */
     trpc?: TRouter
     /** Builder callback receiving the pre-wired `j` instance. */
@@ -285,7 +311,8 @@ export function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     TRouter,
-    TJobsDefs
+    TJobsDefs,
+    TCustomApiRouter
   >
 >
 export function createBunderstack<
@@ -296,8 +323,15 @@ export function createBunderstack<
   const TEnv extends EnvConfigInput | undefined = undefined,
   TRouter extends AnyRouter | undefined = undefined,
   const TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     /** Prebuilt tRPC router (escape hatch for multi-file setups). */
     trpc?: TRouter
     /** Prebuilt job definitions (escape hatch for multi-file setups). */
@@ -310,7 +344,8 @@ export function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     TRouter,
-    TJobsDefs
+    TJobsDefs,
+    TCustomApiRouter
   >
 >
 export async function createBunderstack<
@@ -319,8 +354,15 @@ export async function createBunderstack<
     undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     trpc?:
       | AnyRouter
       | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)
@@ -335,7 +377,8 @@ export async function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     AnyRouter | undefined,
-    JobsDefs | undefined
+    JobsDefs | undefined,
+    TCustomApiRouter
   >
 > {
   const dialect = detectDialect(options.schema)
@@ -788,7 +831,8 @@ export async function createBunderstack<
       BucketNamesOf<TStorage>,
       TEnv,
       AnyRouter | undefined,
-      JobsDefs | undefined
+      JobsDefs | undefined,
+      TCustomApiRouter
     > = {
       handler,
       // Internal tables live on the runtime db but stay out of the public type.
@@ -939,4 +983,8 @@ export type {
   RouteContext,
   RoutesBuilder,
 } from './routes'
+
+export { createApiBuilder } from './api/builder'
+export type { BunderstackApiBuilder, ApiFactory } from './api/builder'
+
 
