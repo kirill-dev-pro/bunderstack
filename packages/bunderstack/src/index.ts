@@ -64,6 +64,16 @@ import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
 import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
+import { OpenAPIGenerator } from '@orpc/openapi'
+import { OpenAPIHandler } from '@orpc/openapi/fetch'
+import { RPCHandler } from '@orpc/server/fetch'
+
+import { createApiBuilder } from './api/builder'
+import { createApiContext } from './api/context'
+import { buildCrudApiRouter } from './api/crud-router'
+import { mergeOpenAPISpecs } from './api/openapi'
+import { buildApiRegistry } from './api/registry'
+
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
@@ -650,6 +660,102 @@ export async function createBunderstack<
           return built
         })()
       : undefined
+
+    const crudApiRouter = buildCrudApiRouter(options.schema, userDb, {
+      access: resolvedAccess,
+      idempotency: options.idempotency,
+      realtime,
+    })
+
+    const customApiRouter = options.api
+      ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
+      : undefined
+
+    function mergeRouters(
+      target: Record<string, any>,
+      source?: Record<string, any>,
+    ): Record<string, any> {
+      if (!source) return { ...target }
+      const result: Record<string, any> = { ...target }
+      for (const [k, v] of Object.entries(source)) {
+        if (
+          result[k] &&
+          typeof result[k] === 'object' &&
+          v &&
+          typeof v === 'object' &&
+          !('~orpc' in result[k]) &&
+          !('~orpc' in v)
+        ) {
+          result[k] = mergeRouters(result[k], v)
+        } else if (result[k] !== undefined) {
+          result[`${k}__collision`] = v
+        } else {
+          result[k] = v
+        }
+      }
+      return result
+    }
+
+    const nativeRouter = mergeRouters(crudApiRouter, customApiRouter)
+
+    const authOpenAPISpec =
+      auth.api &&
+      'generateOpenAPISchema' in auth.api &&
+      typeof auth.api.generateOpenAPISchema === 'function'
+        ? await auth.api.generateOpenAPISchema()
+        : undefined
+
+    await buildApiRegistry({
+      nativeRouter,
+      foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
+    })
+
+    const openapiGenerator = new OpenAPIGenerator()
+    const nativeOpenAPISpec = await openapiGenerator.generate(nativeRouter)
+    const combinedOpenAPISpec = mergeOpenAPISpecs({
+      nativeSpec: nativeOpenAPISpec,
+      authSpec: authOpenAPISpec,
+    })
+
+    const openapiHandler = new OpenAPIHandler({ router: nativeRouter })
+    const rpcHandler = new RPCHandler(nativeRouter)
+
+    const apiHandler = async (req: Request): Promise<Response | null> => {
+      const url = new URL(req.url)
+      if (url.pathname === '/api/openapi.json' && req.method === 'GET') {
+        return new Response(JSON.stringify(combinedOpenAPISpec), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      const apiCtx = createApiContext(
+        {
+          db: userDb,
+          env,
+          storage,
+          email,
+          jobs,
+          realtime,
+          auth,
+          authResolver,
+        },
+        req,
+      )
+
+      if (url.pathname.startsWith('/api/rpc')) {
+        const res = await rpcHandler.handle(req, {
+          prefix: '/api/rpc',
+          context: apiCtx,
+        })
+        if (res.matched) return res.response
+      }
+
+      const openapiRes = await openapiHandler.handle(req, { context: apiCtx })
+      if (openapiRes.matched) return openapiRes.response
+
+      return null
+    }
+
     const { handler, router } = buildHandler({
       customRouter,
       crudRouter,
@@ -657,6 +763,7 @@ export async function createBunderstack<
       storageRouter,
       realtimeRouter,
       trpcHandler,
+      apiHandler,
       rateLimit: options.rateLimit,
     })
 

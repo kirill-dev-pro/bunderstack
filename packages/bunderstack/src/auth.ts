@@ -1,6 +1,7 @@
 // src/auth.ts
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { openAPI } from 'better-auth/plugins'
 
 import type { AuthSessionResolver } from './access'
 import type { BetterAuthConfig } from './config'
@@ -13,8 +14,12 @@ export function createAuth(
   dialect: Dialect,
   userSchema?: Record<string, unknown>,
 ) {
+  const hasOpenApi = cfg.plugins?.some((p: any) => p.id === 'open-api')
+  const plugins = hasOpenApi ? cfg.plugins : [...(cfg.plugins || []), openAPI()]
+
   return betterAuth({
     ...cfg,
+    plugins,
     database: drizzleAdapter(db as Parameters<typeof drizzleAdapter>[0], {
       provider: dialect === 'pg' ? 'pg' : 'sqlite',
       ...(userSchema ? { schema: userSchema } : {}),

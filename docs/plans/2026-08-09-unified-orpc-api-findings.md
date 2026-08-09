@@ -21,3 +21,14 @@
   - `OpenAPIHandler` maps path parameters (`{id}`) and request body into oRPC procedure `input` seamlessly.
   - `successStatus: 201` for `create` and `successStatus: 204` for `delete` preserve expected HTTP status codes.
   - Returned list structure contains `items` and `data` arrays, preserving full compatibility with Bunderstack's pagination format.
+
+## Task 4 Evaluation: Custom API, RPC Transport & Combined OpenAPI
+
+- **Status**: GO (Viable)
+- **Observations**:
+  - `createBunderstack({ api: (o) => ({ ... }) })` successfully mounts custom oRPC procedures alongside generated CRUD procedures.
+  - RPC transport is mounted under `/api/rpc/*` using `@orpc/server/fetch`'s `RPCHandler`.
+  - Better Auth's `openAPI()` plugin is automatically included in `createAuth` when auth is configured, producing operation definitions for auth routes.
+  - `mergeOpenAPISpecs` deterministically combines native oRPC OpenAPI schemas and Better Auth's OpenAPI schema into a valid OpenAPI 3.1 specification at `/api/openapi.json`.
+  - Prefix rewriting prefixes Better Auth endpoints under `/api/auth/*` without duplication.
+  - Route registry validation (`buildApiRegistry`) catches any handle, operationId, exact method/path, or parameter path ambiguity collisions between custom routes, CRUD, and foreign specs at application construction time.

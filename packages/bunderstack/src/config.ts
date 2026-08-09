@@ -93,6 +93,10 @@ export type BunderstackConfig<
    * still being constructed — the same reason `trpc` takes a builder.
    */
   routes?: (ctx: never) => unknown
+  /**
+   * Unified oRPC API builder callback.
+   */
+  api?: (o: any) => Record<string, unknown>
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   realtime?:

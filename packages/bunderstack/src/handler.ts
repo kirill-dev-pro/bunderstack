@@ -10,6 +10,7 @@ interface HandlerParts {
   storageRouter?: Hono
   realtimeRouter?: Hono
   trpcHandler?: (req: Request) => Promise<Response>
+  apiHandler?: (req: Request) => Promise<Response | null>
   rateLimit?: boolean | RateLimitConfig
 }
 
@@ -52,6 +53,10 @@ export function buildHandler(parts: HandlerParts): {
   const handler = async (req: Request): Promise<Response> => {
     const limited = await checkRateLimit(req)
     if (limited) return limited
+    if (parts.apiHandler) {
+      const apiRes = await parts.apiHandler(req)
+      if (apiRes) return apiRes
+    }
     return inner(req)
   }
   return { handler, router: app }
