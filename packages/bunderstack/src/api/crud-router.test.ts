@@ -3,6 +3,7 @@ import { pgTable, text, integer } from 'drizzle-orm/pg-core'
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
+import { OpenAPIGenerator } from '@orpc/openapi'
 import { createApiContext } from './context'
 import { buildCrudApiRouter } from './crud-router'
 import { validateAndResolveAccess } from '../access'
@@ -90,8 +91,9 @@ test('buildCrudApiRouter creates endpoints for list, get, create, update, delete
   expect(listRes.matched).toBe(true)
   expect(listRes.response!.status).toBe(200)
   const listData = (await listRes.response!.json()) as any
-  expect(listData.data).toHaveLength(1)
-  expect(listData.data[0].id).toBe('p1')
+  expect(listData.items).toHaveLength(1)
+  expect(listData.items[0].id).toBe('p1')
+  expect(listData.data).toBeUndefined()
 
   // 3. Get single post (GET /api/posts/p1)
   const getReq = new Request('http://localhost/api/posts/p1', { method: 'GET' })
@@ -124,6 +126,52 @@ test('buildCrudApiRouter creates endpoints for list, get, create, update, delete
 
   expect(deleteRes.matched).toBe(true)
   expect(deleteRes.response!.status).toBe(204)
+})
+
+test('buildCrudApiRouter validates input shapes on update and produces concrete OpenAPI schema', async () => {
+  const db = await setupTestDb()
+  const access = validateAndResolveAccess(schema, {
+    posts: {
+      crud: true,
+      create: 'public',
+      update: 'public',
+    },
+  })
+
+  const crudRouter = buildCrudApiRouter(schema, db, { access })
+  const openapiHandler = new OpenAPIHandler({ router: crudRouter })
+  const mockDeps = createMockDeps(db)
+
+  // Seed p1
+  const createReq = new Request('http://localhost/api/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'p1', title: 'Post' }),
+  })
+  await openapiHandler.handle(createReq, { context: createApiContext(mockDeps, createReq) })
+
+  // Invalid column type (likes must be integer, passed invalid string)
+  const invalidUpdateReq = new Request('http://localhost/api/posts/p1', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ likes: 'not-an-integer' }),
+  })
+  const invalidUpdateCtx = createApiContext(mockDeps, invalidUpdateReq)
+  const invalidRes = await openapiHandler.handle(invalidUpdateReq, { context: invalidUpdateCtx })
+  expect(invalidRes.matched).toBe(true)
+  expect(invalidRes.response!.status).toBe(400)
+
+  // Verify OpenAPI generator schema describes concrete column types
+  const generator = new OpenAPIGenerator()
+  const spec = await generator.generate(crudRouter)
+  const patchOperation = spec.paths?.['/api/posts/{id}']?.patch
+  expect(patchOperation).toBeDefined()
+  const requestBody = patchOperation?.requestBody
+  expect(requestBody).toBeDefined()
+  if (requestBody && 'content' in requestBody) {
+    const requestBodySchema = requestBody.content?.['application/json']?.schema
+    expect(requestBodySchema).toBeDefined()
+  }
 })
 
 test('buildCrudApiRouter respects access control and session', async () => {

@@ -1,5 +1,6 @@
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { z } from 'zod'
+import type { InferRouterInputs, InferRouterOutputs } from '@orpc/server'
 import { createBunderstack } from '../index'
 import { pglite } from '../database/pglite'
 
@@ -14,14 +15,22 @@ const posts = pgTable('posts', {
   title: text('title').notNull(),
 })
 
-const app = await createBunderstack({
-  schema: { posts },
+const privateNotes = pgTable('private_notes', {
+  id: text('id').primaryKey(),
+  content: text('content').notNull(),
+})
+
+const typedApp = await createBunderstack({
+  schema: { posts, privateNotes },
   database: { adapter: pglite() },
   processEnv: {
-    DATABASE_URL: 'file:./api-types.pglite',
+    DATABASE_URL: 'file:./crud-api-types.pglite',
     BUNDERSTACK_ROLE: 'web',
   },
-  access: { posts: { crud: true, list: 'public' } },
+  access: {
+    posts: { crud: true, list: 'public', create: 'public' },
+    privateNotes: { crud: false },
+  },
   api: (o) => ({
     stats: o.protected
       .input(z.object({ period: z.enum(['day', 'week']) }))
@@ -38,5 +47,16 @@ const app = await createBunderstack({
   }),
 })
 
-type ApiCarrier = NonNullable<typeof app.$inferClient>['api']
-type _ApiWasCaptured = Expect<Equal<'stats' extends keyof ApiCarrier ? true : false, true>>
+type Api = NonNullable<typeof typedApp.$inferClient>['api']
+
+type _HasPosts = Expect<Equal<'posts' extends keyof Api ? true : false, true>>
+type _HidesPrivateNotes = Expect<Equal<'privateNotes' extends keyof Api ? true : false, false>>
+type _HasStats = Expect<Equal<'stats' extends keyof Api ? true : false, true>>
+
+type PostsInputs = InferRouterInputs<Api>['posts']
+type PostsOutputs = InferRouterOutputs<Api>['posts']
+
+type _CreateInput = Expect<Equal<PostsInputs['create'], typeof posts.$inferInsert>>
+type _GetInput = Expect<Equal<PostsInputs['get'], { id: string }>>
+type _UpdateInput = Expect<Equal<PostsInputs['update'], { id: string; title?: string }>>
+type _ListItems = Expect<Equal<PostsOutputs['list']['items'], Array<{ id: string; title: string }>>>

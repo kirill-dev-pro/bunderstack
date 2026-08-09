@@ -68,16 +68,24 @@ import { sweepOrphans } from './storage/sweep'
 import { OpenAPIGenerator } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { RPCHandler } from '@orpc/server/fetch'
+import { ZodToJsonSchemaConverter } from '@orpc/zod'
 
 import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
 import { buildApiRegistry } from './api/registry'
+import type {
+  CrudApiRouterFor,
+  ExposedApiTables,
+  MergeApiRouterTypes,
+  UnifiedApiRouter,
+} from './api/types'
 
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
+
 
 
 function waitForWorkerShutdown(
@@ -166,7 +174,7 @@ export type BunderstackApp<
   TEnv extends EnvConfigInput | undefined = undefined,
   TRouter = undefined,
   TJobsDefs extends JobsDefs | undefined = undefined,
-  TApiRouter = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
@@ -204,7 +212,7 @@ export type BunderstackApp<
     access: TAccess
     buckets: TBuckets
     trpc: TRouter
-    api: TApiRouter
+    api: UnifiedApiRouter<CrudApiRouterFor<TSchema, TAccess>, TCustomApiRouter>
   }
 }
 
@@ -753,7 +761,9 @@ export async function createBunderstack<
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
     })
 
-    const openapiGenerator = new OpenAPIGenerator()
+    const openapiGenerator = new OpenAPIGenerator({
+      converters: [new ZodToJsonSchemaConverter()],
+    })
     const nativeOpenAPISpec = await openapiGenerator.generate(nativeRouter)
     const combinedOpenAPISpec = mergeOpenAPISpecs({
       nativeSpec: nativeOpenAPISpec,
@@ -986,5 +996,12 @@ export type {
 
 export { createApiBuilder } from './api/builder'
 export type { BunderstackApiBuilder, ApiFactory } from './api/builder'
+export type {
+  CrudApiRouterFor,
+  ExposedApiTables,
+  MergeApiRouterTypes,
+  UnifiedApiRouter,
+} from './api/types'
+export type { TableCrudProcedures } from './api/crud-router'
 
 
