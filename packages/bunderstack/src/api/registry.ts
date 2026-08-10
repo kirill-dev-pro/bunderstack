@@ -1,4 +1,5 @@
 import { getOpenAPIMeta } from '@orpc/openapi'
+import { collisionForBunderstackPath } from '../routes'
 
 export interface ApiRegistryEntry {
   handle: string
@@ -249,6 +250,16 @@ export async function buildApiRegistry(
   }
 
   const errors: string[] = []
+
+  for (const entry of entries) {
+    if (entry.source !== 'native') continue
+    const reason = collisionForBunderstackPath(entry.path, [])
+    if (reason) {
+      errors.push(
+        `Reserved route collision on ${entry.method} ${entry.path}: native handle "${entry.handle}" conflicts because ${reason}`,
+      )
+    }
+  }
 
   // Check duplicate handles
   const handleMap = new Map<string, ApiRegistryEntry>()

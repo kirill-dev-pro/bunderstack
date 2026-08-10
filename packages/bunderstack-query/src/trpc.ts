@@ -16,6 +16,7 @@ import {
   type ClientOptions,
   type RestBunderstackClient,
 } from './client'
+import { createFetch } from './fetch'
 
 export type TRPCBunderstackClient<TApp extends AnyBunderstackApp> =
   RestBunderstackClient<TApp> & {
@@ -28,13 +29,13 @@ export type TRPCBunderstackClient<TApp extends AnyBunderstackApp> =
 
 function createTRPCClientTransport(options: ClientOptions) {
   const baseUrl = options.baseUrl ?? '/api'
-  const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
+  const fetch = createFetch(options.fetch)
   return _createTRPCClient<AnyRouter>({
     links: [
       httpBatchLink({
         url: `${baseUrl}/trpc`,
         transformer: superjson,
-        fetch: fetchFn,
+        fetch,
       }),
     ],
   })

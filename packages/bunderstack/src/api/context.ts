@@ -32,6 +32,8 @@ export interface ApiContext<
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
   request: Request
+  resHeaders: Headers
+  getRawBody: () => Promise<string>
   getSession: () => Promise<{
     user: AccessUser | null
     activeOrganizationId: string | null
@@ -45,6 +47,8 @@ export function createApiContext<
   deps: ApiContextDeps<TSchema, TEnv>,
   request: Request,
 ): ApiContext<TSchema, TEnv> {
+  const rawBodyRequest = request.clone()
+  let rawBodyPromise: Promise<string> | undefined
   let sessionPromise:
     | Promise<{ user: AccessUser | null; activeOrganizationId: string | null }>
     | undefined
@@ -56,6 +60,11 @@ export function createApiContext<
     return sessionPromise
   }
 
+  const getRawBody = () => {
+    if (!rawBodyPromise) rawBodyPromise = rawBodyRequest.text()
+    return rawBodyPromise
+  }
+
   return {
     db: deps.db,
     env: deps.env,
@@ -65,6 +74,8 @@ export function createApiContext<
     realtime: deps.realtime,
     auth: deps.auth,
     request,
+    resHeaders: new Headers(),
+    getRawBody,
     getSession,
   }
 }

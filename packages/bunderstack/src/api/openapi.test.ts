@@ -19,7 +19,7 @@ async function setupApp(api?: any, accessOverrides?: any, auth?: any) {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'file:./test-openapi.pglite', BUNDERSTACK_ROLE: 'web' },
+    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
     access: {
       posts: { crud: true, list: 'public', get: 'public', ...accessOverrides },
     },
@@ -76,6 +76,17 @@ test('custom route colliding with CRUD prevents application construction', async
       },
     })),
   ).rejects.toThrow(/collision|registry/i)
+})
+
+test('custom api procedure colliding with a framework endpoint prevents application construction', async () => {
+  await expect(
+    setupApp((o: any) => ({
+      shadowOpenAPI: o.public
+        .meta(openapi({ method: 'GET', path: '/api/openapi.json' }))
+        .input(z.object({}).optional())
+        .handler(async () => ({ shadow: true })),
+    })),
+  ).rejects.toThrow(/reserved|collision|openapi\.json/i)
 })
 
 test('auth OpenAPI paths and security metadata are included in combined OpenAPI document', async () => {
@@ -148,4 +159,3 @@ test('mergeOpenAPISpecs accepts equal duplicate components and rejects unequal d
     mergeOpenAPISpecs({ nativeSpec, authSpec: authSpecUnequal }),
   ).toThrow(/component collision/i)
 })
-

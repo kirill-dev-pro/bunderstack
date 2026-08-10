@@ -239,3 +239,26 @@ test('buildApiRegistry fails when distinct handles share the same explicit opera
   )
 })
 
+test('buildApiRegistry rejects native procedures on framework-reserved paths', async () => {
+  for (const path of [
+    '/health',
+    '/api/health',
+    '/api/openapi.json',
+    '/api/realtime',
+    '/api/rpc/stats',
+    '/api/trpc/stats',
+    '/api/files/avatar.png',
+    '/files/avatar.png',
+  ]) {
+    const nativeRouter = {
+      shadow: os
+        .meta(openapi({ method: 'GET', path: path as `/${string}` }))
+        .input(z.object({}).optional())
+        .handler(async () => ({ shadow: true })),
+    }
+
+    await expect(buildApiRegistry({ nativeRouter })).rejects.toThrow(
+      new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    )
+  }
+})

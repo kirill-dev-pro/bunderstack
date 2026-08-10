@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { InferRouterInputs, InferRouterOutputs } from '@orpc/server'
 import { createBunderstack } from '../index'
 import { pglite } from '../database/pglite'
+import type { ExposedApiTables } from './types'
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
@@ -20,11 +21,27 @@ const privateNotes = pgTable('private_notes', {
   content: text('content').notNull(),
 })
 
+const ownedPosts = pgTable('owned_posts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+})
+
+type ImplicitTables = ExposedApiTables<
+  { posts: typeof posts; ownedPosts: typeof ownedPosts },
+  undefined
+>
+type _ImplicitAccessHidesUnownedTable = Expect<
+  Equal<'posts' extends ImplicitTables ? true : false, false>
+>
+type _ImplicitAccessIncludesConventionTable = Expect<
+  Equal<'ownedPosts' extends ImplicitTables ? true : false, true>
+>
+
 const typedApp = await createBunderstack({
   schema: { posts, privateNotes },
   database: { adapter: pglite() },
   processEnv: {
-    DATABASE_URL: 'file:./crud-api-types.pglite',
+    DATABASE_URL: 'memory://',
     BUNDERSTACK_ROLE: 'web',
   },
   access: {

@@ -67,15 +67,6 @@
     "typescript": ">=5"
   },
   "peerDependenciesMeta": {
-    "@orpc/client": {
-      "optional": true
-    },
-    "@orpc/server": {
-      "optional": true
-    },
-    "@orpc/tanstack-query": {
-      "optional": true
-    },
     "@trpc/client": {
       "optional": true
     },

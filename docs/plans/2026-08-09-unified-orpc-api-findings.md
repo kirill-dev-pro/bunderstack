@@ -51,15 +51,25 @@
   - Removed explicit `any` / `{ context: any; input: any }` annotations from `examples/todo` and `examples/twitter-tanstack`.
   - Added root verification command `bun run test:orpc-contract`.
 
+### Final Corrective Pass: Contract and Runtime Guardrails
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Aligned `ExposedApiTables<TSchema, undefined>` with runtime access resolution: only tables following the `userId` convention are exposed when explicit access rules are absent.
+  - Applied the shared Bunderstack route collision validator to native oRPC procedures, reserving built-in health, OpenAPI, RPC, auth, tRPC, files, and realtime URLs at application construction time.
+  - Marked the oRPC and `drizzle-zod` runtime imports as mandatory peers and added package-boundary assertions for their metadata.
+  - Preserved the exact raw request body for oRPC idempotency hashing, including whitespace differences, instead of reconstructing JSON from parsed input.
+  - Replaced public client `fetch` escape hatches with a request-typed adapter while preserving relative URLs for the standard browser fetch path.
+  - Converted oRPC/OpenAPI tests to in-memory PGlite databases so verification leaves no generated database directories in the worktree.
+
 ---
 
 ## Suite Verification Summary
 
-- **Unit & Integration Tests**: `bun run test` (507 pass, 0 fail across 69 files).
+- **Unit & Integration Tests**: `bun run test` (607 pass, 1 skip, 0 fail across 89 files).
 - **ORPC Contract Generation**: `bun run test:orpc-contract` (1 pass, 0 fail).
 - **TypeScript Typechecks**: `bun run typecheck:all` (0 errors across packages and 5 examples).
 - **Dependency Boundaries**: `bun run test:boundaries` (9 pass, 0 fail).
-- **Browser Bundle Boundaries**: `bun run test:bundles` (21 pass, 0 fail).
+- **Browser Bundle Boundaries**: `bun run test:bundles` (2 pass, 0 fail).
 
 ---
 

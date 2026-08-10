@@ -102,19 +102,7 @@
     "@libsql/client": {
       "optional": true
     },
-    "@orpc/openapi": {
-      "optional": true
-    },
-    "@orpc/server": {
-      "optional": true
-    },
-    "@orpc/zod": {
-      "optional": true
-    },
     "drizzle-kit": {
-      "optional": true
-    },
-    "drizzle-zod": {
       "optional": true
     },
     "nodemailer": {

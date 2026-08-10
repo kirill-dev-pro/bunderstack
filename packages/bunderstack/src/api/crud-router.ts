@@ -183,7 +183,7 @@ export function buildTableCrudProcedures<
       const idempotencyKey = context.request.headers
         .get('Idempotency-Key')
         ?.trim()
-      const rawBody = JSON.stringify(input)
+      const rawBody = await context.getRawBody()
 
       try {
         const res = await operations.create(
@@ -194,11 +194,7 @@ export function buildTableCrudProcedures<
           execCtx,
         )
         if (res.type === 'replay') {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if ((context as any).resHeaders) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ;(context as any).resHeaders.set('Idempotency-Replayed', 'true')
-          }
+          context.resHeaders.set('Idempotency-Replayed', 'true')
           return res.record as any
         }
         return res.record as any

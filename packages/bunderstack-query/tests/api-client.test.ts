@@ -17,7 +17,7 @@ async function setupApp() {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'file:./test-api-client.pglite', BUNDERSTACK_ROLE: 'web' },
+    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
     access: {
       posts: { crud: true, list: 'public', get: 'public' },
     },
@@ -57,4 +57,3 @@ test('createClient provides unified orpc api queryOptions for CRUD and custom pr
 
   await app.close()
 })
-

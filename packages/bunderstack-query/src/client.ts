@@ -16,11 +16,12 @@ import {
   createBucketClient,
 } from './bucket-client'
 import { attachMutationOptions } from './mutation-options'
+import { createFetch, type RequestFetch } from './fetch'
 import { createTableClient } from './table-client'
 
 export type ClientOptions = {
   baseUrl?: string
-  fetch?: (input: any, init?: any) => Promise<Response>
+  fetch?: RequestFetch
   queryClient?: QueryClient
 }
 
@@ -64,11 +65,11 @@ export function createClient<TApp extends AnyBunderstackApp>(
   options: ClientOptions = {},
 ): BunderstackClient<TApp> {
   const baseUrl = options.baseUrl ?? '/api'
-  const fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
-  let apiInstance: any = undefined
+  const fetch = createFetch(options.fetch)
+  let apiInstance: ApiQueryUtils<InferApiRouter<TApp>> | undefined
 
   const files = lazyRecord((bucket) => {
-    const bucketClient = createBucketClient({ bucket, baseUrl, fetch: fetchFn })
+    const bucketClient = createBucketClient({ bucket, baseUrl, fetch })
     return {
       ...bucketClient,
       ...attachBucketMutationOptions(bucketClient, options.queryClient),
@@ -79,7 +80,7 @@ export function createClient<TApp extends AnyBunderstackApp>(
     const tableClient = createTableClient({
       tableName,
       baseUrl,
-      fetch: fetchFn,
+      fetch,
     })
     return {
       ...tableClient,
@@ -92,7 +93,7 @@ export function createClient<TApp extends AnyBunderstackApp>(
       if (typeof prop !== 'string' || PROXY_SKIP.has(prop)) return undefined
       if (prop === 'api') {
         if (!apiInstance) {
-          apiInstance = createApiClient(options)
+          apiInstance = createApiClient<InferApiRouter<TApp>>(options)
         }
         return apiInstance
       }

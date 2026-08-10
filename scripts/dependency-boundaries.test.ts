@@ -178,6 +178,28 @@ describe('published dependency boundaries', () => {
     expect(pkg.peerDependenciesMeta.nodemailer.optional).toBe(true)
     expect(pkg.peerDependencies.typescript).toBe('>=5')
     expect(pkg.peerDependenciesMeta.typescript.optional).toBe(true)
+
+    for (const dependency of [
+      '@orpc/openapi',
+      '@orpc/server',
+      '@orpc/zod',
+      'drizzle-zod',
+    ]) {
+      expect(pkg.peerDependencies[dependency]).toBeDefined()
+      expect(pkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
+    }
+
+    const queryPkg = await Bun.file(
+      join(repoRoot, 'packages/bunderstack-query/package.json'),
+    ).json()
+    for (const dependency of [
+      '@orpc/client',
+      '@orpc/server',
+      '@orpc/tanstack-query',
+    ]) {
+      expect(queryPkg.peerDependencies[dependency]).toBeDefined()
+      expect(queryPkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
+    }
   })
 
   test('published package source does not disable TypeScript checking', async () => {

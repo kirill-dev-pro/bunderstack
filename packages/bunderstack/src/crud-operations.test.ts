@@ -481,4 +481,32 @@ describe('Hono and oRPC Adapter Parity', () => {
       code: 'IDEMPOTENCY_CONFLICT',
     })
   })
+
+  it('both adapters hash the exact request body for idempotency conflicts', async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-user-id': 'u1',
+      'x-org-id': 'org1',
+      'Idempotency-Key': 'raw-body-key',
+    }
+
+    const compactBody = '{"id":"raw1","title":"Raw body"}'
+    const formattedBody = '{ "id": "raw1", "title": "Raw body" }'
+
+    const first = await executeTransports('/api/posts', {
+      method: 'POST',
+      headers,
+      body: compactBody,
+    })
+    expect(first.honoRes.status).toBe(201)
+    expect(first.orpcRes.status).toBe(201)
+
+    const second = await executeTransports('/api/posts', {
+      method: 'POST',
+      headers,
+      body: formattedBody,
+    })
+    expect(second.honoRes.status).toBe(409)
+    expect(second.orpcRes.status).toBe(409)
+  })
 })

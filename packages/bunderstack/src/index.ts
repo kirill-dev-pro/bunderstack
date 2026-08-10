@@ -769,8 +769,8 @@ export async function createBunderstack<
       fetchInterceptors: [
         async (options) => {
           const res = await options.next()
-          if (res.matched && (options.context as any)?.resHeaders) {
-            ;(options.context as any).resHeaders.forEach((v: string, k: string) =>
+          if (res.matched && options.context.resHeaders) {
+            options.context.resHeaders.forEach((v: string, k: string) =>
               res.response.headers.set(k, v),
             )
           }
@@ -790,23 +790,19 @@ export async function createBunderstack<
         })
       }
 
-      const resHeaders = new Headers()
-      const apiCtx = {
-        ...createApiContext(
-          {
-            db: userDb,
-            env,
-            storage,
-            email,
-            jobs,
-            realtime,
-            auth,
-            authResolver,
-          },
-          req,
-        ),
-        resHeaders,
-      }
+      const apiCtx = createApiContext(
+        {
+          db: userDb,
+          env,
+          storage,
+          email,
+          jobs,
+          realtime,
+          auth,
+          authResolver,
+        },
+        req,
+      )
 
       if (url.pathname.startsWith('/api/rpc')) {
         const res = await rpcHandler.handle(req, {
@@ -1021,6 +1017,5 @@ export {
   normalizeForeignOpenAPISpec,
 } from './api/registry'
 export { mergeOpenAPISpecs } from './api/openapi'
-
 
 

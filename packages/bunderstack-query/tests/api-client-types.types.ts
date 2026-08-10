@@ -3,7 +3,18 @@ import { z } from 'zod'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { pglite } from 'bunderstack/database/pglite'
-import { createClient } from '../src/index'
+import { createClient, type ClientOptions } from '../src/index'
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false
+type Expect<T extends true> = T
+type IsAny<T> = 0 extends 1 & T ? true : false
+
+type FetchInput = Parameters<NonNullable<ClientOptions['fetch']>>[0]
+type _FetchInputIsTyped = Expect<Equal<IsAny<FetchInput>, false>>
+type _FetchReceivesRequest = Expect<Equal<FetchInput, Request>>
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -21,7 +32,7 @@ async function setupApp() {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'file:./test-api-client-types.pglite', BUNDERSTACK_ROLE: 'web' },
+    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
     access: {
       posts: { crud: true, list: 'public', get: 'public' },
       privateNotes: { crud: false },

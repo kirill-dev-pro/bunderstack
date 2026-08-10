@@ -21,33 +21,35 @@ const privateNotes = pgTable('private_notes', {
 const schema = { posts, privateNotes }
 
 async function setupApp() {
-  const dbFile = `./test-openapi-gen.pglite`
-  return {
-    dbFile,
-    app: await createBunderstack({
-      schema,
-      database: { adapter: pglite() },
-      processEnv: {
-        DATABASE_URL: `file:${dbFile}`,
-        BUNDERSTACK_ROLE: 'web',
+  return await createBunderstack({
+    schema,
+    database: { adapter: pglite() },
+    processEnv: {
+      DATABASE_URL: 'memory://',
+      BUNDERSTACK_ROLE: 'web',
+    },
+    access: {
+      posts: {
+        crud: true,
+        list: 'public',
+        get: 'public',
+        create: 'public',
+        update: 'public',
       },
-      access: {
-        posts: { crud: true, list: 'public', get: 'public', create: 'public', update: 'public' },
-        privateNotes: { crud: false },
-      },
-      api: (o) => ({
-        stats: o.public
-          .meta(openapi({ method: 'GET', path: '/api/stats' }))
-          .input(z.object({ period: z.string() }))
-          .output(z.object({ totalPosts: z.number() }))
-          .handler(async () => ({ totalPosts: 42 })),
-      }),
+      privateNotes: { crud: false },
+    },
+    api: (o) => ({
+      stats: o.public
+        .meta(openapi({ method: 'GET', path: '/api/stats' }))
+        .input(z.object({ period: z.string() }))
+        .output(z.object({ totalPosts: z.number() }))
+        .handler(async () => ({ totalPosts: 42 })),
     }),
-  }
+  })
 }
 
 test('reproducible openapi-typescript client generation and type verification', async () => {
-  const { app, dbFile } = await setupApp()
+  const app = await setupApp()
   const res = await app.handler(new Request('http://localhost/api/openapi.json'))
   expect(res.status).toBe(200)
 
@@ -119,6 +121,5 @@ test('reproducible openapi-typescript client generation and type verification', 
   } finally {
     await rm(tmpDir, { recursive: true, force: true })
     await app.close()
-    await rm(dbFile, { recursive: true, force: true }).catch(() => {})
   }
 })

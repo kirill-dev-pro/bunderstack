@@ -5,10 +5,6 @@ import type { TableCrudProcedures } from './crud-router'
 type AuthTableName = 'user' | 'session' | 'account' | 'verification'
 type InferSelect<T> = T extends { $inferSelect: infer R } ? R : never
 
-type CrudApiTableKey<TSchema> = {
-  [K in keyof TSchema & string]: K extends AuthTableName ? never : K
-}[keyof TSchema & string]
-
 type DisabledKeys<TAccess> = {
   [K in keyof TAccess & string]: TAccess[K] extends { crud: false } ? K : never
 }[keyof TAccess & string]
@@ -36,7 +32,7 @@ type ConventionKeys<TSchema> = {
 }[keyof TSchema & string]
 
 export type ExposedApiTables<TSchema, TAccess> = [TAccess] extends [undefined]
-  ? CrudApiTableKey<TSchema>
+  ? ConventionKeys<TSchema>
   :
       | ExplicitKeys<TSchema, TAccess>
       | Exclude<

@@ -275,11 +275,7 @@
       "optionalPeers": [
         "@electric-sql/pglite",
         "@libsql/client",
-        "@orpc/openapi",
-        "@orpc/server",
-        "@orpc/zod",
         "drizzle-kit",
-        "drizzle-zod",
         "nodemailer",
         "postgres",
         "typescript",
@@ -318,9 +314,6 @@
         "typescript": ">=5",
       },
       "optionalPeers": [
-        "@orpc/client",
-        "@orpc/server",
-        "@orpc/tanstack-query",
         "@trpc/client",
         "@trpc/server",
         "@trpc/tanstack-react-query",

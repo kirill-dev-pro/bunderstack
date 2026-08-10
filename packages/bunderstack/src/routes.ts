@@ -3,13 +3,25 @@
 /** A route as Hono reports it on `app.routes`. */
 export type DeclaredRoute = { method: string; path: string }
 
-const RESERVED_EXACT = ['/health', '/api/health', '/api/realtime'] as const
+const RESERVED_EXACT = [
+  '/health',
+  '/api/health',
+  '/api/openapi.json',
+  '/api/realtime',
+  '/api/rpc',
+  '/api/auth',
+  '/api/trpc',
+  '/api/files',
+  '/files',
+] as const
 
 const RESERVED_PREFIXES = [
+  '/api/rpc/',
   '/api/auth/',
   '/api/trpc/',
   '/api/files/',
   '/files/',
+  '/api/realtime/',
 ] as const
 
 /** The first path segment under `/api/`, or undefined when not under it. */
@@ -18,11 +30,10 @@ function apiSegment(path: string): string | undefined {
   return path.slice('/api/'.length).split('/')[0]
 }
 
-function collisionFor(
-  route: DeclaredRoute,
+export function collisionForBunderstackPath(
+  path: string,
   tableNames: readonly string[],
 ): string | undefined {
-  const { path } = route
   if (RESERVED_EXACT.includes(path as (typeof RESERVED_EXACT)[number])) {
     return `it is reserved by bunderstack`
   }
@@ -40,6 +51,13 @@ function collisionFor(
     return `it collides with the generated CRUD route for table "${segment}"`
   }
   return undefined
+}
+
+function collisionFor(
+  route: DeclaredRoute,
+  tableNames: readonly string[],
+): string | undefined {
+  return collisionForBunderstackPath(route.path, tableNames)
 }
 
 /**
@@ -134,4 +152,3 @@ export function createRouteContext<
     getUser: (request) => resolveAccessUser(deps.authResolver, request.headers),
   }
 }
-
