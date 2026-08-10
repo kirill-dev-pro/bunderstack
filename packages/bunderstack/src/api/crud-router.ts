@@ -111,6 +111,7 @@ export function buildTableCrudProcedures<
         method: 'GET',
         path: `/api/${name}`,
         summary: `List ${name}`,
+        tags: [name],
       }),
     )
     .input(listQuerySchema)
@@ -140,6 +141,7 @@ export function buildTableCrudProcedures<
         method: 'GET',
         path: `/api/${name}/{id}`,
         summary: `Get ${name} by ID`,
+        tags: [name],
       }),
     )
     .input(z.object({ id: z.string() }))
@@ -168,6 +170,7 @@ export function buildTableCrudProcedures<
         method: 'POST',
         path: `/api/${name}`,
         summary: `Create ${name}`,
+        tags: [name],
         successStatus: 201,
       }),
     )
@@ -213,6 +216,7 @@ export function buildTableCrudProcedures<
         method: 'PATCH',
         path: `/api/${name}/{id}`,
         summary: `Update ${name}`,
+        tags: [name],
       }),
     )
     .input(updateInputSchema)
@@ -244,6 +248,7 @@ export function buildTableCrudProcedures<
         method: 'DELETE',
         path: `/api/${name}/{id}`,
         summary: `Delete ${name}`,
+        tags: [name],
         successStatus: 204,
       }),
     )

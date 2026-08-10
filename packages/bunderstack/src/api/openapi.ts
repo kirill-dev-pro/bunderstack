@@ -143,5 +143,19 @@ export function mergeOpenAPISpecs(
     merged.components[category] = mergedCat
   }
 
+  // Ensure all tags used in path operations are declared in merged.tags
+  for (const pathItem of Object.values(merged.paths)) {
+    if (!pathItem || typeof pathItem !== 'object') continue
+    for (const [key, op] of Object.entries(pathItem as Record<string, any>)) {
+      if (HTTP_METHODS.has(key.toUpperCase()) && op && typeof op === 'object' && Array.isArray(op.tags)) {
+        for (const tagName of op.tags) {
+          if (tagName && tagName !== 'Default' && !merged.tags.some((t: any) => t.name === tagName)) {
+            merged.tags.push({ name: tagName, description: `${tagName} operations` })
+          }
+        }
+      }
+    }
+  }
+
   return merged
 }
