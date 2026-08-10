@@ -37,14 +37,22 @@ export function mergeOpenAPISpecs(
       for (const [routePath, authPathItem] of Object.entries(authSpec.paths)) {
         if (!authPathItem || typeof authPathItem !== 'object') continue
 
-        const clonedPathItem = JSON.parse(JSON.stringify(authPathItem)) as Record<string, any>
+        const clonedPathItem = JSON.parse(
+          JSON.stringify(authPathItem),
+        ) as Record<string, any>
 
         // Normalize tags for Better Auth operations (replace generic "Default" with "Auth")
         if (routePath.startsWith('/api/auth')) {
           for (const [methodKey, operation] of Object.entries(clonedPathItem)) {
-            if (HTTP_METHODS.has(methodKey.toUpperCase()) && operation && typeof operation === 'object') {
+            if (
+              HTTP_METHODS.has(methodKey.toUpperCase()) &&
+              operation &&
+              typeof operation === 'object'
+            ) {
               if (Array.isArray(operation.tags)) {
-                operation.tags = operation.tags.map((t: string) => (t === 'Default' ? 'Auth' : t))
+                operation.tags = operation.tags.map((t: string) =>
+                  t === 'Default' ? 'Auth' : t,
+                )
                 if (!operation.tags.includes('Auth')) {
                   operation.tags.unshift('Auth')
                 }
@@ -108,7 +116,10 @@ export function mergeOpenAPISpecs(
     }
     if (Array.isArray(authSpec.tags)) {
       for (const tag of authSpec.tags) {
-        if (tag.name !== 'Default' && !merged.tags.some((t: any) => t.name === tag.name)) {
+        if (
+          tag.name !== 'Default' &&
+          !merged.tags.some((t: any) => t.name === tag.name)
+        ) {
           merged.tags.push(tag)
         }
       }
@@ -147,10 +158,22 @@ export function mergeOpenAPISpecs(
   for (const pathItem of Object.values(merged.paths)) {
     if (!pathItem || typeof pathItem !== 'object') continue
     for (const [key, op] of Object.entries(pathItem as Record<string, any>)) {
-      if (HTTP_METHODS.has(key.toUpperCase()) && op && typeof op === 'object' && Array.isArray(op.tags)) {
+      if (
+        HTTP_METHODS.has(key.toUpperCase()) &&
+        op &&
+        typeof op === 'object' &&
+        Array.isArray(op.tags)
+      ) {
         for (const tagName of op.tags) {
-          if (tagName && tagName !== 'Default' && !merged.tags.some((t: any) => t.name === tagName)) {
-            merged.tags.push({ name: tagName, description: `${tagName} operations` })
+          if (
+            tagName &&
+            tagName !== 'Default' &&
+            !merged.tags.some((t: any) => t.name === tagName)
+          ) {
+            merged.tags.push({
+              name: tagName,
+              description: `${tagName} operations`,
+            })
           }
         }
       }

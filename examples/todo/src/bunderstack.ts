@@ -169,6 +169,13 @@ export const app = await createBunderstack({
     stats: o.protected
       .meta(openapi({ method: 'GET', path: '/api/board-stats', tags: ['boards'] }))
       .input(z.object({ boardId: z.string() }))
+      .output(
+        z.object({
+          total: z.number(),
+          done: z.number(),
+          pending: z.number(),
+        }),
+      )
       .handler(async ({ context, input }) => {
         const all = await context.db
           .select()
@@ -186,6 +193,7 @@ export const app = await createBunderstack({
     complete: o.protected
       .meta(openapi({ method: 'POST', path: '/api/complete-todo', tags: ['todos'] }))
       .input(z.object({ id: z.string() }))
+      .output(z.object({ ok: z.boolean() }))
       .handler(async ({ context, input }) => {
         const todo = await context.db
           .select()
