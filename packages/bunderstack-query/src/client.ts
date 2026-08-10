@@ -1,13 +1,16 @@
 import type { QueryClient } from '@tanstack/react-query'
 
+import type { ApiQueryUtils } from './api'
 import type {
   AnyBunderstackApp,
+  InferApiRouter,
   InferBuckets,
   InferSchema,
   InferTables,
 } from './infer'
 import type { FilesQueryClient, TableQueryOptionsForKey } from './types'
 
+import { createApiClient } from './api'
 import {
   attachBucketMutationOptions,
   createBucketClient,
@@ -17,7 +20,7 @@ import { createTableClient } from './table-client'
 
 export type ClientOptions = {
   baseUrl?: string
-  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  fetch?: (input: any, init?: any) => Promise<Response>
   queryClient?: QueryClient
 }
 
@@ -51,11 +54,11 @@ export function lazyRecord<T>(create: (key: string) => T): Record<string, T> {
   })
 }
 
-import { createApiClient } from './api'
+export type BunderstackClient<TApp extends AnyBunderstackApp> =
+  RestBunderstackClient<TApp> & {
+    api: ApiQueryUtils<InferApiRouter<TApp>>
+  }
 
-export type BunderstackClient<TApp extends AnyBunderstackApp> = RestBunderstackClient<TApp> & {
-  api: any
-}
 
 export function createClient<TApp extends AnyBunderstackApp>(
   options: ClientOptions = {},

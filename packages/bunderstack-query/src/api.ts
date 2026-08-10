@@ -1,15 +1,23 @@
+import type { AnyRouter, RouterClient } from '@orpc/server'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
-import { createTanstackQueryUtils } from '@orpc/tanstack-query'
+import {
+  createTanstackQueryUtils,
+  type RouterUtils,
+} from '@orpc/tanstack-query'
 
 export interface ApiClientOptions {
   baseUrl?: string
-  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  fetch?: (input: any, init?: any) => Promise<Response>
 }
 
-export function createApiClient<TRouter = any>(
+export type ApiQueryUtils<TRouter extends AnyRouter> = RouterUtils<
+  RouterClient<TRouter>
+>
+
+export function createApiClient<TRouter extends AnyRouter = AnyRouter>(
   options: ApiClientOptions = {},
-) {
+): ApiQueryUtils<TRouter> {
   const baseUrl = options.baseUrl ?? '/api'
   const userFetch = options.fetch
 
@@ -30,6 +38,7 @@ export function createApiClient<TRouter = any>(
     fetch: fetchFn as any,
   })
 
-  const client = createORPCClient<any>(link as any)
-  return createTanstackQueryUtils(client as any) as any
+  const client = createORPCClient<RouterClient<TRouter>>(link as any)
+  return createTanstackQueryUtils(client) as unknown as ApiQueryUtils<TRouter>
 }
+

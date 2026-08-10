@@ -1,3 +1,4 @@
+import type { AnyRouter } from '@orpc/server'
 import type { ExposedApiTables } from 'bunderstack/api'
 
 /** Shape of the `$inferClient` phantom `createBunderstack` puts on the app. */
@@ -5,8 +6,9 @@ export type ClientCarrier = {
   schema: Record<string, unknown>
   access: unknown
   buckets: string
-  // Optional: apps built before the trpc feature still match.
+  // Optional: apps built before the trpc/api feature still match.
   trpc?: unknown
+  api?: AnyRouter
 }
 
 export type AnyBunderstackApp = { $inferClient?: ClientCarrier | undefined }
@@ -25,6 +27,11 @@ export type InferTrpcRouter<TApp extends AnyBunderstackApp> = Exclude<
   undefined
 >
 
+export type InferApiRouter<TApp extends AnyBunderstackApp> = Exclude<
+  InferCarrier<TApp>['api'],
+  undefined
+>
+
 export type ExposedTables<
   TSchema extends Record<string, unknown>,
   TAccess = undefined,
@@ -36,3 +43,4 @@ export type InferTables<TApp extends AnyBunderstackApp> = ExposedTables<
 > &
   keyof InferSchema<TApp> &
   string
+

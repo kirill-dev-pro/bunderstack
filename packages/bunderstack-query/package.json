@@ -56,6 +56,7 @@
   },
   "peerDependencies": {
     "@orpc/client": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
     "@orpc/tanstack-query": "2.0.0-beta.26",
     "@tanstack/react-query": "^5.101.0",
     "@trpc/client": "^11.0.0",
@@ -67,6 +68,9 @@
   },
   "peerDependenciesMeta": {
     "@orpc/client": {
+      "optional": true
+    },
+    "@orpc/server": {
       "optional": true
     },
     "@orpc/tanstack-query": {

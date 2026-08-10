@@ -1,4 +1,3 @@
-import { test, expect } from 'bun:test'
 import { openapi } from '@orpc/openapi'
 import { z } from 'zod'
 import { pgTable, text } from 'drizzle-orm/pg-core'
@@ -11,15 +10,21 @@ const posts = pgTable('posts', {
   title: text('title').notNull(),
 })
 
-const schema = { posts }
+const privateNotes = pgTable('private_notes', {
+  id: text('id').primaryKey(),
+  content: text('content').notNull(),
+})
+
+const schema = { posts, privateNotes }
 
 async function setupApp() {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'file:./test-api-client.pglite', BUNDERSTACK_ROLE: 'web' },
+    processEnv: { DATABASE_URL: 'file:./test-api-client-types.pglite', BUNDERSTACK_ROLE: 'web' },
     access: {
       posts: { crud: true, list: 'public', get: 'public' },
+      privateNotes: { crud: false },
     },
     api: (o) => ({
       stats: {
@@ -32,29 +37,28 @@ async function setupApp() {
   })
 }
 
-test('createClient provides unified orpc api queryOptions for CRUD and custom procedures', async () => {
+async function testTypes() {
   const app = await setupApp()
-
   const client = createClient<typeof app>({
     baseUrl: 'http://localhost/api',
     fetch: app.handler,
   })
 
-  // CRUD procedure queryOptions
-  const listOpts = client.api.posts.list.queryOptions({ input: {} })
-  expect(listOpts.queryKey).toBeDefined()
-  expect(listOpts.queryFn).toBeDefined()
-
-  // Custom procedure queryOptions
-  const statsOpts = client.api.stats.get.queryOptions({ input: { id: 'stat_1' } })
-  expect(statsOpts.queryKey).toBeDefined()
-  expect(statsOpts.queryFn).toBeDefined()
-
-  // Execute queryFn with TanStack Query context
   const queryContext = { signal: new AbortController().signal } as any
-  const statsResult = await statsOpts.queryFn(queryContext)
-  expect(statsResult).toEqual({ id: 'stat_1', totalPosts: 42 })
 
-  await app.close()
-})
+  client.api.stats.get.queryOptions({ input: { id: 'ok' } })
 
+  // @ts-expect-error id is required
+  client.api.stats.get.queryOptions({ input: {} })
+
+  // @ts-expect-error totalPosts is a number
+  const wrongOutput: string = await client.api.stats.get.queryOptions({
+    input: { id: 'ok' },
+  }).queryFn(queryContext)
+
+  // @ts-expect-error route does not exist
+  client.api.missing.get.queryOptions({ input: {} })
+
+  // @ts-expect-error disabled CRUD table is not exposed
+  client.api.privateNotes.list.queryOptions({ input: {} })
+}
