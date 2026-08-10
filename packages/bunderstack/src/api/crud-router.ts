@@ -56,6 +56,18 @@ function scopeFor(
   return resolver ? resolver(ctx) : undefined
 }
 
+function omitIdShape<T extends Record<string, z.ZodTypeAny>>(
+  shape: T,
+): Omit<T, 'id'> {
+  const rest: Record<string, z.ZodTypeAny> = {}
+  for (const [k, v] of Object.entries(shape)) {
+    if (k !== 'id') {
+      rest[k] = v
+    }
+  }
+  return rest as Omit<T, 'id'>
+}
+
 export type BuildTableCrudProceduresArgs<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
@@ -66,20 +78,6 @@ export type BuildTableCrudProceduresArgs<
   idempotency: IdempotencyConfig | null
   realtime?: RealtimeFacade<TSchema>
   builder: ReturnType<typeof createApiBuilder<TSchema>>
-}
-
-function getZodObjectSchema(schema: z.ZodTypeAny): z.ZodObject<any> | undefined {
-  if (schema instanceof z.ZodObject) return schema
-  if (schema && typeof schema === 'object' && 'shape' in schema && typeof (schema as any).shape === 'object') {
-    return schema as any
-  }
-  if (schema && typeof schema === 'object' && '_def' in schema && (schema as any)._def) {
-    const def = (schema as any)._def
-    if (def.schema) return getZodObjectSchema(def.schema)
-    if (def.in) return getZodObjectSchema(def.in)
-    if (def.out) return getZodObjectSchema(def.out)
-  }
-  return undefined
 }
 
 export function buildTableCrudProcedures<
@@ -93,25 +91,9 @@ export function buildTableCrudProcedures<
   const selectSchema = createSelectSchema(table)
   const insertSchema = createInsertSchema(table)
 
-  const rawInsertObject = getZodObjectSchema(insertSchema as any)
-  const mutableUpdateShape: Record<string, z.ZodTypeAny> = {}
-  if (rawInsertObject) {
-    const { id: _id, ...restShape } = rawInsertObject.shape
-    for (const [k, v] of Object.entries(restShape)) {
-      mutableUpdateShape[k] = (v as z.ZodTypeAny).optional()
-    }
-  } else {
-    for (const colName of Object.keys(getTableColumns(table))) {
-      if (colName !== 'id') {
-        mutableUpdateShape[colName] = z.any().optional()
-      }
-    }
-  }
-
-  const updateInputSchema = z.object({
-    id: z.string(),
-    ...mutableUpdateShape,
-  })
+  const updateInputSchema = z
+    .object({ id: z.string() })
+    .extend(omitIdShape(insertSchema.partial().shape))
 
   const listQuerySchema = z
     .object({

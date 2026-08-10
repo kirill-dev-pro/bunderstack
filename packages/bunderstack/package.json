@@ -49,7 +49,8 @@
     "./blueprint": "./src/blueprint.ts",
     "./trpc": "./src/trpc.ts",
     "./cron": "./src/cron.ts",
-    "./email/smtp": "./src/email/smtp.ts"
+    "./email/smtp": "./src/email/smtp.ts",
+    "./api": "./src/api/types.ts"
   },
   "scripts": {
     "test": "bun test",
