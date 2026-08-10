@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync && bun test --cwd packages/bunderstack-start && bun test scripts/",
+    "test:orpc-contract": "bun test packages/bunderstack/src/api/openapi-client-generation.test.ts && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json",
     "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "test:bundles": "bun test scripts/bundle-boundaries.test.ts",
     "typecheck": "bunx tsc --noEmit -p packages/bunderstack/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-sync/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-start/tsconfig.json",
@@ -31,9 +32,10 @@
   "devDependencies": {
     "@types/bun": "^1.3.14",
     "nodemailer": "^9.0.3",
+    "openapi-typescript": "7.13.0",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
-    "typescript": "^7.0.1-rc"
+    "typescript": "^5.8.0"
   },
   "overrides": {
     "@tanstack/db": "0.6.16",

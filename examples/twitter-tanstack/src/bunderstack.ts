@@ -56,7 +56,7 @@ export const app = await createBunderstack({
           .object({ limit: z.number().int().min(1).max(50).default(20) })
           .optional(),
       )
-      .handler(async ({ context, input }: { context: any; input: any }) => {
+      .handler(async ({ context, input }) => {
         const limit = input?.limit ?? 20
         const rows = await context.db
           .select({

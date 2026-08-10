@@ -136,7 +136,7 @@ export const app = await createBunderstack({
     myBoards: o.protected
       .meta(openapi({ method: 'GET', path: '/api/my-boards' }))
       .input(z.object({}).optional())
-      .handler(async ({ context }: { context: any }) =>
+      .handler(async ({ context }) =>
         context.db
           .select()
           .from(schema.boards)
@@ -154,7 +154,7 @@ export const app = await createBunderstack({
         }),
       )
       .input(z.object({ name: z.string().min(1) }))
-      .handler(async ({ context, input }: { context: any; input: { name: string } }) => {
+      .handler(async ({ context, input }) => {
         const [board] = await context.db
           .insert(schema.boards)
           .values({
@@ -168,7 +168,7 @@ export const app = await createBunderstack({
     stats: o.protected
       .meta(openapi({ method: 'GET', path: '/api/board-stats' }))
       .input(z.object({ boardId: z.string() }))
-      .handler(async ({ context, input }: { context: any; input: { boardId: string } }) => {
+      .handler(async ({ context, input }) => {
         const all = await context.db
           .select()
           .from(schema.todos)
@@ -177,15 +177,15 @@ export const app = await createBunderstack({
 
         return {
           total: all.length,
-          done: all.filter((t: any) => t.done).length,
-          pending: all.filter((t: any) => !t.done).length,
+          done: all.filter((t) => t.done).length,
+          pending: all.filter((t) => !t.done).length,
         }
       }),
 
     complete: o.protected
       .meta(openapi({ method: 'POST', path: '/api/complete-todo' }))
       .input(z.object({ id: z.string() }))
-      .handler(async ({ context, input }: { context: any; input: { id: string } }) => {
+      .handler(async ({ context, input }) => {
         const todo = await context.db
           .select()
           .from(schema.todos)

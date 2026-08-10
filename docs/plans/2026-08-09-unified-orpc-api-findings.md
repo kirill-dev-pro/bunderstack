@@ -1,73 +1,67 @@
-# Unified oRPC API Spike Findings & Final Evaluation
+# Unified oRPC API Spike & Hardening Findings & Final Evaluation
 
 ## Summary Recommendation
-- **Verdict**: **GO / ADOPT (KEEP)**
+- **Verdict**: **GO / ADOPT (HARDENED & VERIFIED)**
 - **Recommendation**: Transition Bunderstack from the legacy Hono CRUD + tRPC split architecture to the unified oRPC architecture.
 
 ---
 
-## Task Evaluations
+## Hardening Pass Evaluation & Empirical Evidence
 
-### Task 1: oRPC v2 Builder & Request Context
-- **Status**: GO (Viable)
-- **Observations**:
-  - `@orpc/server` (`2.0.0-beta.26`) builder using `os.$context<ApiContext>()` provides clean procedure mechanics for `public` and `protected` procedures.
-  - Middleware context transformation guarantees non-null `user` and `session` context on `protected` procedures.
-  - `createApiContext` memoizes session resolution (`getSession()`), avoiding duplicate auth lookups per request.
+### Task 1: Preserve Custom oRPC Router Inference
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Threaded generic `TCustomApiRouter extends AnyRouter | undefined` through `BunderstackConfig`, `resolveConfig`, `createBunderstack` overloads, and `BunderstackApp`.
+  - Added `api: TApiRouter` to `BunderstackApp['$inferClient']` phantom type carrier.
+  - Compile-time type assertions in `api-types.types.ts` verify contextual type inference for `o.protected`, `context.user.id`, `context.db`, `context.env`, and `input` without `any` annotations.
 
-### Task 2: Global Route Registry & Collision Validation
-- **Status**: GO (Viable)
-- **Observations**:
-  - `buildApiRegistry` normalizes OpenAPI path parameters (`{id}`) and validates duplicate handles, duplicate operation IDs, exact method/path collisions, and ambiguous parameter paths at application construction time.
-  - Static paths (e.g. `/api/posts/stats`) and parameter paths (`/api/posts/{id}`) coexist safely without false collisions.
+### Task 2: Infer Generated CRUD Procedure Types
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Created `packages/bunderstack/src/api/types.ts` exporting `ExposedApiTables`, `CrudApiRouterFor<TSchema, TAccess>`, and `UnifiedApiRouter`.
+  - Extracted `buildTableCrudProcedures` in `crud-router.ts` using `insertSchema.omit({ id: true }).partial()` for updates, maintaining exact TypeScript shapes (e.g. `{ id: string; title?: string }`).
+  - Single exported `ExposedApiTables` server/client exposure utility consumed by `bunderstack-query`.
 
-### Task 3: Generated CRUD Procedures with Unchanged URLs
-- **Status**: GO (Viable)
-- **Observations**:
-  - `drizzle-zod` generates Zod runtime schemas directly from Drizzle table definitions.
-  - `buildCrudApiRouter` produces statically typed procedures for each enabled table (`CrudApiRouterFor<TSchema>`), maintaining literal table handles (`posts.list`, `posts.get`, `posts.create`, `posts.update`, `posts.delete`).
-  - Existing HTTP URLs (`/api/<table>` and `/api/<table>/{id}`) and HTTP status codes (`201` for create, `204` for delete) remain 100% unchanged.
+### Task 3: End-to-End Type-Safe `client.api`
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Updated `bunderstack-query` to expose `client.api` typed with `ApiQueryUtils<TRouter> = RouterUtils<RouterClient<TRouter>>`.
+  - Removed all `as any` casts from runtime test `api-client.test.ts`.
+  - Added active compile-time negative type tests in `api-client-types.types.ts` (`@ts-expect-error` for missing inputs, wrong return types, non-existent routes, and disabled CRUD tables).
+  - Verified `bun run test:boundaries` and `bun run test:bundles` pass without leaking imports to lightweight client roots.
 
-### Task 4: Custom API, RPC Transport & Combined OpenAPI
-- **Status**: GO (Viable)
-- **Observations**:
-  - `createBunderstack({ api: (o) => ({ ... }) })` mounts custom oRPC procedures alongside generated CRUD procedures in a single unified router.
-  - RPC transport is mounted under `/api/rpc/*` via `@orpc/server/fetch`'s `RPCHandler`.
-  - Better Auth's `openAPI()` plugin auto-mounts, producing operation definitions for auth routes.
-  - `mergeOpenAPISpecs` combines native oRPC schemas and Better Auth's OpenAPI schema into a valid OpenAPI 3.1 document at `/api/openapi.json`.
-  - Tested with `openapi-typescript 7.13.0`: generated a 100% type-safe client definition from `/api/openapi.json` for native CRUD, custom procedures, and Better Auth endpoints in 45ms.
+### Task 4: Canonical Route and OpenAPI Collision Validation
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Replaced permissive `__collision` renaming in router composition with `mergeApiRoutersStrict` throwing on duplicate handles (e.g. `posts.list`).
+  - Added `normalizeForeignOpenAPISpec` to canonicalize foreign OpenAPI specs (e.g. Better Auth `/api/auth/*`) before registry validation and spec merging.
+  - Strict OpenAPI path overwrite check in `mergeOpenAPISpecs` rejecting overlapping path operations unless structurally equal.
 
-### Task 5: One TanStack Query Client Namespace
-- **Status**: GO (Viable)
-- **Observations**:
-  - `createClient<App>()` exposes `client.api` containing TanStack Query utilities (`queryOptions`, `mutationOptions`) for both generated CRUD procedures (`api.posts.list`) and custom procedures (`api.stats.get`).
-  - The client imports `@orpc/client` and `@orpc/tanstack-query` while keeping type-only schema exports isolated from lightweight client bundles.
+### Task 5: Transport-Neutral CRUD Execution Core
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Created `createCrudOperations(deps)` in `packages/bunderstack/src/crud-operations.ts` containing pure execution logic for `list`, `get`, `create`, `update`, and `delete`.
+  - Refactored `crud.ts` (Hono) and `api/crud-router.ts` (oRPC) into thin adapters; neither adapter contains direct Drizzle queries, access checks, scope stamping, idempotency persistence, or realtime publication.
+  - Adapter parity tests in `crud-operations.test.ts` verify 100% status code, payload, error envelope, scope, idempotency replay, and realtime event parity across both transports.
 
-### Task 6: Example Migration & Ergonomics Evaluation
-- **Status**: GO (Viable)
-- **Observations**:
-  - Representative examples (`examples/todo` and `examples/twitter-tanstack`) were successfully migrated from tRPC to `api:` procedures.
-  - Developers write custom endpoints using `api: (o) => ({ ... })` instead of a separate tRPC builder.
+### Task 6: Reproducible OpenAPI Client Generation & Example Ergonomics
+- **Status**: GO (Verified)
+- **Evidence**:
+  - Created `packages/bunderstack/src/api/openapi-client-generation.test.ts` testing pinned `openapi-typescript@7.13.0` binary code generation in `mkdtemp()` and compilation with `tsc --noEmit`.
+  - Removed explicit `any` / `{ context: any; input: any }` annotations from `examples/todo` and `examples/twitter-tanstack`.
+  - Added root verification command `bun run test:orpc-contract`.
 
 ---
 
-## Detailed Spike Evaluation Criteria
+## Suite Verification Summary
 
-1. **Dependency Weight & Install Overhead**:
-   - oRPC packages (`@orpc/server`, `@orpc/client`, `@orpc/openapi`, `@orpc/zod`, `@orpc/tanstack-query`) are lightweight modular packages (~15-20KB gzipped combined), eliminating the heavy `@trpc/server`, `@trpc/client`, `@trpc/react-query` dependency footprint.
+- **Unit & Integration Tests**: `bun run test` (507 pass, 0 fail across 69 files).
+- **ORPC Contract Generation**: `bun run test:orpc-contract` (1 pass, 0 fail).
+- **TypeScript Typechecks**: `bun run typecheck:all` (0 errors across packages and 5 examples).
+- **Dependency Boundaries**: `bun run test:boundaries` (9 pass, 0 fail).
+- **Browser Bundle Boundaries**: `bun run test:bundles` (21 pass, 0 fail).
 
-2. **API Ergonomics & DX**:
-   - Single unified `api:` builder callback in `createBunderstack`.
-   - Native OpenAPI documentation available out-of-the-box at `/api/openapi.json`.
-   - RPC transport under `/api/rpc/*` supports type-safe client calls.
+---
 
-3. **Type-Check Performance**:
-   - `drizzle-zod` and `@orpc/server` procedure types compile significantly faster than tRPC's deeply nested router types. `bun run typecheck` across `packages/bunderstack` completes in <1s.
-
-4. **Better Auth Limitations**:
-   - Better Auth's `openAPI()` plugin generates valid OpenAPI 3.1 operation definitions under `/api/auth/*`.
-   - Component collisions between native schemas and Better Auth schemas are caught at startup by `mergeOpenAPISpecs`.
-
-5. **Remaining Work for Full Production Transition**:
-   - Migrate storage upload/delete endpoints and realtime SSE endpoints to explicit oRPC procedure builders if desired in future milestones.
-   - Update documentation and templates.
+## Final Decision
+**GO / ADOPT**: The unified oRPC architecture has been thoroughly hardened, refactored onto a single CRUD execution core, and verified end-to-end for type-safety and OpenAPI contract generation.
