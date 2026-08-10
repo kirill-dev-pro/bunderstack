@@ -1,3 +1,4 @@
+import { openapi } from '@orpc/openapi'
 import { anonymous } from 'better-auth/plugins'
 /**
  * bunderstack.ts — app entry point, showcasing every feature:
@@ -16,11 +17,17 @@ import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { and, desc, eq, lt } from 'drizzle-orm'
-import { openapi } from '@orpc/openapi'
 import { z } from 'zod'
 
 import { access } from './access'
 import * as schema from './schema'
+
+const boardSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  ownerId: z.string(),
+  createdAt: z.date(),
+})
 
 /** Demo-tuned retention for the archive cron — short so the effect is
  *  visible in a live demo. A real app would use something like 30 days. */
@@ -134,8 +141,11 @@ export const app = await createBunderstack({
   // oRPC custom procedures mounted alongside CRUD
   api: (o) => ({
     myBoards: o.protected
-      .meta(openapi({ method: 'GET', path: '/api/my-boards', tags: ['boards'] }))
+      .meta(
+        openapi({ method: 'GET', path: '/api/my-boards', tags: ['boards'] }),
+      )
       .input(z.object({}).optional())
+      .output(z.array(boardSchema))
       .handler(async ({ context }) =>
         context.db
           .select()
@@ -155,6 +165,7 @@ export const app = await createBunderstack({
         }),
       )
       .input(z.object({ name: z.string().min(1) }))
+      .output(boardSchema)
       .handler(async ({ context, input }) => {
         const [board] = await context.db
           .insert(schema.boards)
@@ -167,7 +178,9 @@ export const app = await createBunderstack({
       }),
 
     stats: o.protected
-      .meta(openapi({ method: 'GET', path: '/api/board-stats', tags: ['boards'] }))
+      .meta(
+        openapi({ method: 'GET', path: '/api/board-stats', tags: ['boards'] }),
+      )
       .input(z.object({ boardId: z.string() }))
       .output(
         z.object({
@@ -191,7 +204,13 @@ export const app = await createBunderstack({
       }),
 
     complete: o.protected
-      .meta(openapi({ method: 'POST', path: '/api/complete-todo', tags: ['todos'] }))
+      .meta(
+        openapi({
+          method: 'POST',
+          path: '/api/complete-todo',
+          tags: ['todos'],
+        }),
+      )
       .input(z.object({ id: z.string() }))
       .output(z.object({ ok: z.boolean() }))
       .handler(async ({ context, input }) => {
