@@ -74,7 +74,12 @@ import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
-import { buildApiRegistry } from './api/registry'
+import {
+  buildApiRegistry,
+  mergeApiRoutersStrict,
+  normalizeApiPath,
+  normalizeForeignOpenAPISpec,
+} from './api/registry'
 import type {
   CrudApiRouterFor,
   ExposedApiTables,
@@ -722,39 +727,24 @@ export async function createBunderstack<
       ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
       : undefined
 
-    function mergeRouters(
-      target: Record<string, any>,
-      source?: Record<string, any>,
-    ): Record<string, any> {
-      if (!source) return { ...target }
-      const result: Record<string, any> = { ...target }
-      for (const [k, v] of Object.entries(source)) {
-        if (
-          result[k] &&
-          typeof result[k] === 'object' &&
-          v &&
-          typeof v === 'object' &&
-          !('~orpc' in result[k]) &&
-          !('~orpc' in v)
-        ) {
-          result[k] = mergeRouters(result[k], v)
-        } else if (result[k] !== undefined) {
-          result[`${k}__collision`] = v
-        } else {
-          result[k] = v
-        }
-      }
-      return result
-    }
+    const nativeRouter = mergeApiRoutersStrict(
+      crudApiRouter as Record<string, unknown>,
+      customApiRouter as Record<string, unknown> | undefined,
+    ) as any
 
-    const nativeRouter = mergeRouters(crudApiRouter, customApiRouter)
-
-    const authOpenAPISpec =
+    const authOpenAPISpecRaw =
       auth.api &&
       'generateOpenAPISchema' in auth.api &&
       typeof auth.api.generateOpenAPISchema === 'function'
         ? await auth.api.generateOpenAPISchema()
         : undefined
+
+    const authOpenAPISpec = authOpenAPISpecRaw
+      ? normalizeForeignOpenAPISpec(authOpenAPISpecRaw, {
+          prefix: '/api/auth',
+          source: 'auth',
+        })
+      : undefined
 
     await buildApiRegistry({
       nativeRouter,
@@ -1003,5 +993,13 @@ export type {
   UnifiedApiRouter,
 } from './api/types'
 export type { TableCrudProcedures } from './api/crud-router'
+export {
+  buildApiRegistry,
+  mergeApiRoutersStrict,
+  normalizeApiPath,
+  normalizeForeignOpenAPISpec,
+} from './api/registry'
+export { mergeOpenAPISpecs } from './api/openapi'
+
 
 

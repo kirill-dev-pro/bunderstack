@@ -1,3 +1,13 @@
+const HTTP_METHODS = new Set([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+])
+
 export interface MergeOpenAPISpecsOptions {
   nativeSpec: Record<string, any>
   authSpec?: Record<string, any>
@@ -15,25 +25,50 @@ export function mergeOpenAPISpecs(
       version: '1.0.0',
       ...(nativeSpec.info || {}),
     },
-    paths: { ...(nativeSpec.paths || {}) },
+    paths: JSON.parse(JSON.stringify(nativeSpec.paths || {})),
     components: {},
     security: [...(nativeSpec.security || [])],
     tags: [...(nativeSpec.tags || [])],
   }
 
   if (authSpec) {
-    // 1. Rewrite auth paths
+    // Merge paths and check for overwrite collisions
     if (authSpec.paths && typeof authSpec.paths === 'object') {
-      for (const [rawPath, pathItem] of Object.entries(authSpec.paths)) {
-        let targetPath = rawPath
-        if (!targetPath.startsWith('/api/auth')) {
-          targetPath = '/api/auth' + (targetPath.startsWith('/') ? targetPath : '/' + targetPath)
+      for (const [routePath, authPathItem] of Object.entries(authSpec.paths)) {
+        if (!authPathItem || typeof authPathItem !== 'object') continue
+
+        if (!(routePath in merged.paths)) {
+          merged.paths[routePath] = JSON.parse(JSON.stringify(authPathItem))
+        } else {
+          const existingPathItem = merged.paths[routePath]
+          const incomingPathItem = authPathItem as Record<string, any>
+
+          for (const [key, authVal] of Object.entries(incomingPathItem)) {
+            const upperKey = key.toUpperCase()
+            const isOperation = HTTP_METHODS.has(upperKey)
+
+            if (key in existingPathItem) {
+              const existingVal = existingPathItem[key]
+              if (JSON.stringify(existingVal) !== JSON.stringify(authVal)) {
+                if (isOperation) {
+                  throw new Error(
+                    `[bunderstack] OpenAPI path overwrite collision: operation "${upperKey} ${routePath}"`,
+                  )
+                } else {
+                  throw new Error(
+                    `[bunderstack] OpenAPI path property collision on "${routePath}": key "${key}"`,
+                  )
+                }
+              }
+            } else {
+              existingPathItem[key] = JSON.parse(JSON.stringify(authVal))
+            }
+          }
         }
-        merged.paths[targetPath] = pathItem
       }
     }
 
-    // 2. Merge security metadata
+    // Merge security metadata
     if (Array.isArray(authSpec.security)) {
       for (const sec of authSpec.security) {
         if (
@@ -46,7 +81,7 @@ export function mergeOpenAPISpecs(
       }
     }
 
-    // 3. Merge tags
+    // Merge tags
     if (Array.isArray(authSpec.tags)) {
       for (const tag of authSpec.tags) {
         if (!merged.tags.some((t: any) => t.name === tag.name)) {

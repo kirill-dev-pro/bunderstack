@@ -5,16 +5,22 @@ export interface ApiRegistryEntry {
   operationId: string
   method: string
   path: string
-  source: 'native' | 'foreign'
+  source: string
 }
 
 export interface ApiRegistry {
   entries: ApiRegistryEntry[]
 }
 
+export interface ForeignSpecEntry {
+  spec: Record<string, unknown>
+  prefix?: string
+  source?: string
+}
+
 export interface BuildApiRegistryOptions {
   nativeRouter?: Record<string, unknown>
-  foreignSpecs?: Array<Record<string, unknown>>
+  foreignSpecs?: Array<Record<string, unknown> | ForeignSpecEntry>
 }
 
 const HTTP_METHODS = new Set([
@@ -26,6 +32,96 @@ const HTTP_METHODS = new Set([
   'HEAD',
   'OPTIONS',
 ])
+
+export function normalizeApiPath(path: string, prefix?: string): string {
+  let cleanPath = path.startsWith('/') ? path : '/' + path
+  if (prefix) {
+    let cleanPrefix = prefix.startsWith('/') ? prefix : '/' + prefix
+    if (cleanPrefix.endsWith('/')) {
+      cleanPrefix = cleanPrefix.slice(0, -1)
+    }
+    if (cleanPath === cleanPrefix || cleanPath.startsWith(cleanPrefix + '/')) {
+      // Path already starts with prefix
+    } else {
+      cleanPath = cleanPrefix + cleanPath
+    }
+  }
+  return cleanPath.replace(/\/+/g, '/')
+}
+
+export interface ForeignSpecOptions {
+  prefix?: string
+  source?: string
+}
+
+export function normalizeForeignOpenAPISpec(
+  spec: Record<string, unknown>,
+  options: ForeignSpecOptions = {},
+): Record<string, unknown> {
+  const prefix = options.prefix
+  const source = options.source
+  const cloned: Record<string, unknown> = JSON.parse(JSON.stringify(spec))
+
+  if (cloned.paths && typeof cloned.paths === 'object') {
+    const normalizedPaths: Record<string, unknown> = {}
+    for (const [routePath, pathItem] of Object.entries(
+      cloned.paths as Record<string, unknown>,
+    )) {
+      const canonicalPath = normalizeApiPath(routePath, prefix)
+      normalizedPaths[canonicalPath] = pathItem
+    }
+    cloned.paths = normalizedPaths
+  }
+
+  if (source) {
+    cloned['x-bunderstack-source'] = source
+  }
+
+  return cloned
+}
+
+export function mergeApiRoutersStrict(
+  target: Record<string, unknown>,
+  source?: Record<string, unknown>,
+  prefix: string[] = [],
+): Record<string, unknown> {
+  if (!source) return { ...target }
+  const result: Record<string, unknown> = { ...target }
+
+  for (const [key, val] of Object.entries(source)) {
+    const currentPath = [...prefix, key]
+    const handle = currentPath.join('.')
+    const targetVal = result[key]
+
+    if (targetVal !== undefined) {
+      const isTargetNamespace =
+        typeof targetVal === 'object' &&
+        targetVal !== null &&
+        !('~orpc' in targetVal)
+
+      const isSourceNamespace =
+        typeof val === 'object' &&
+        val !== null &&
+        !('~orpc' in val)
+
+      if (isTargetNamespace && isSourceNamespace) {
+        result[key] = mergeApiRoutersStrict(
+          targetVal as Record<string, unknown>,
+          val as Record<string, unknown>,
+          currentPath,
+        )
+      } else {
+        throw new Error(
+          `[bunderstack] Router merge collision at handle "${handle}": duplicate procedure or namespace collision`,
+        )
+      }
+    } else {
+      result[key] = val
+    }
+  }
+
+  return result
+}
 
 function normalizePathSegments(path: string): string[] {
   return path.split('/').filter(Boolean)
@@ -56,16 +152,17 @@ function walkNativeRouter(
     if (!value || typeof value !== 'object') continue
     const currentSegments = [...pathSegments, key]
 
-    // oRPC procedure check
     if ('~orpc' in value) {
-      const meta = getOpenAPIMeta(value as any) || {}
+      const meta = (getOpenAPIMeta(value as any) || {}) as Record<string, unknown>
       const handle = currentSegments.join('.')
-      const method = (meta.method || 'GET').toUpperCase()
-      const routePath = meta.path || '/' + currentSegments.join('/')
+      const method = ((meta.method as string) || 'GET').toUpperCase()
+      const routePath = (meta.path as string) || '/' + currentSegments.join('/')
+      const operationId =
+        typeof meta.operationId === 'string' ? meta.operationId : handle
 
       entries.push({
         handle,
-        operationId: handle,
+        operationId,
         method,
         path: routePath,
         source: 'native',
@@ -84,13 +181,30 @@ function walkNativeRouter(
 }
 
 function extractForeignEntries(
-  specs: Array<Record<string, unknown>>,
+  specs: Array<Record<string, unknown> | ForeignSpecEntry>,
 ): ApiRegistryEntry[] {
   const entries: ApiRegistryEntry[] = []
 
-  for (const spec of specs) {
-    if (!spec || typeof spec.paths !== 'object' || !spec.paths) continue
-    const paths = spec.paths as Record<string, Record<string, unknown>>
+  for (const item of specs) {
+    if (!item) continue
+    let specObj: Record<string, unknown>
+    let source = 'foreign'
+
+    if ('spec' in item && typeof item.spec === 'object' && item.spec !== null) {
+      const entry = item as ForeignSpecEntry
+      source = entry.source || 'foreign'
+      specObj = normalizeForeignOpenAPISpec(entry.spec, {
+        prefix: entry.prefix,
+        source,
+      })
+    } else {
+      const rawSpec = item as Record<string, unknown>
+      source = (rawSpec['x-bunderstack-source'] as string) || 'foreign'
+      specObj = normalizeForeignOpenAPISpec(rawSpec, { source })
+    }
+
+    if (!specObj || typeof specObj.paths !== 'object' || !specObj.paths) continue
+    const paths = specObj.paths as Record<string, Record<string, unknown>>
 
     for (const [routePath, pathItem] of Object.entries(paths)) {
       if (!pathItem || typeof pathItem !== 'object') continue
@@ -101,18 +215,18 @@ function extractForeignEntries(
         if (!operation || typeof operation !== 'object') continue
 
         const op = operation as Record<string, unknown>
+        const handle = `foreign:${source}:${uppercaseMethod}:${routePath}`
         const operationId =
           typeof op.operationId === 'string'
             ? op.operationId
-            : `${uppercaseMethod.toLowerCase()}:${routePath}`
-        const handle = operationId
+            : handle
 
         entries.push({
           handle,
           operationId,
           method: uppercaseMethod,
           path: routePath,
-          source: 'foreign',
+          source,
         })
       }
     }
@@ -155,7 +269,7 @@ export async function buildApiRegistry(
     const existing = opIdMap.get(entry.operationId)
     if (existing) {
       errors.push(
-        `Duplicate operation ID "${entry.operationId}": collision between ${existing.source} (${existing.method} ${existing.path}) and ${entry.source} (${entry.method} ${entry.path})`,
+        `Duplicate operation ID "${entry.operationId}": collision between ${existing.source} (${existing.handle}) and ${entry.source} (${entry.handle})`,
       )
     } else {
       opIdMap.set(entry.operationId, entry)

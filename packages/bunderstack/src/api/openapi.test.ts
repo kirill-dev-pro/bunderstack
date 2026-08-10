@@ -93,3 +93,59 @@ test('auth OpenAPI paths and security metadata are included in combined OpenAPI 
 
   await app.close()
 })
+
+test('mergeOpenAPISpecs rejects path overwrites when operations differ', async () => {
+  const { mergeOpenAPISpecs } = await import('./openapi')
+  const nativeSpec = {
+    paths: {
+      '/api/auth/sign-in/email': {
+        post: { summary: 'Native sign in' },
+      },
+    },
+  }
+  const authSpec = {
+    paths: {
+      '/api/auth/sign-in/email': {
+        post: { summary: 'Auth spec sign in' },
+      },
+    },
+  }
+  expect(() => mergeOpenAPISpecs({ nativeSpec, authSpec })).toThrow(
+    /path overwrite collision|operation "POST \/api\/auth\/sign-in\/email"/i,
+  )
+})
+
+test('mergeOpenAPISpecs accepts equal duplicate components and rejects unequal duplicate components', async () => {
+  const { mergeOpenAPISpecs } = await import('./openapi')
+  const nativeSpec = {
+    components: {
+      schemas: {
+        User: { type: 'object', properties: { id: { type: 'string' } } },
+        Session: { type: 'object' },
+      },
+    },
+  }
+  const authSpecEqual = {
+    components: {
+      schemas: {
+        User: { type: 'object', properties: { id: { type: 'string' } } },
+      },
+    },
+  }
+  const authSpecUnequal = {
+    components: {
+      schemas: {
+        User: { type: 'object', properties: { id: { type: 'number' } } },
+      },
+    },
+  }
+
+  const merged = mergeOpenAPISpecs({ nativeSpec, authSpec: authSpecEqual })
+  expect(merged.components.schemas.User).toBeDefined()
+  expect(merged.components.schemas.Session).toBeDefined()
+
+  expect(() =>
+    mergeOpenAPISpecs({ nativeSpec, authSpec: authSpecUnequal }),
+  ).toThrow(/component collision/i)
+})
+

@@ -66,28 +66,32 @@ test('buildApiRegistry allows static and parameter routes at the same path level
 })
 
 test('buildApiRegistry fails on duplicate handles', async () => {
-  const nativeRouter = {
-    posts: {
-      list: os
-        .meta(openapi({ method: 'GET', path: '/api/posts' }))
-        .input(z.object({}))
-        .handler(async () => []),
-    },
-  }
-
   const foreignSpecs = [
     {
-      paths: {
-        '/api/other-posts': {
-          get: {
-            operationId: 'posts.list',
+      spec: {
+        paths: {
+          '/api/auth/me': {
+            get: { summary: 'Get current user' },
           },
         },
       },
+      prefix: '/api/auth',
+      source: 'auth',
+    },
+    {
+      spec: {
+        paths: {
+          '/api/auth/me': {
+            get: { summary: 'Get current user duplicate' },
+          },
+        },
+      },
+      prefix: '/api/auth',
+      source: 'auth',
     },
   ]
 
-  expect(buildApiRegistry({ nativeRouter, foreignSpecs })).rejects.toThrow(
+  expect(buildApiRegistry({ foreignSpecs })).rejects.toThrow(
     /duplicate handle/i,
   )
 })
@@ -164,3 +168,74 @@ test('buildApiRegistry fails on ambiguous parameter paths', async () => {
     /ambiguous parameter path|collision/i,
   )
 })
+
+test('mergeApiRoutersStrict fails on duplicate handle even with different path', async () => {
+  const { mergeApiRoutersStrict } = await import('./registry')
+  const crud = {
+    posts: {
+      list: os
+        .meta(openapi({ method: 'GET', path: '/api/posts' }))
+        .handler(async () => []),
+    },
+  }
+  const custom = {
+    posts: {
+      list: os
+        .meta(openapi({ method: 'GET', path: '/api/archive-posts' }))
+        .handler(async () => []),
+    },
+  }
+
+  expect(() => mergeApiRoutersStrict(crud, custom)).toThrow(/posts\.list/)
+})
+
+test('buildApiRegistry fails on post-prefix auth collision', async () => {
+  const nativeRouter = {
+    auth: {
+      signIn: {
+        email: os
+          .meta(openapi({ method: 'POST', path: '/api/auth/sign-in/email' }))
+          .handler(async () => null),
+      },
+    },
+  }
+  const foreignSpecs = [
+    {
+      spec: {
+        paths: {
+          '/sign-in/email': {
+            post: {
+              operationId: 'auth.signInEmail',
+            },
+          },
+        },
+      },
+      prefix: '/api/auth',
+      source: 'auth',
+    },
+  ]
+
+  await expect(
+    buildApiRegistry({ nativeRouter, foreignSpecs }),
+  ).rejects.toThrow(/POST \/api\/auth\/sign-in\/email/)
+})
+
+test('buildApiRegistry fails when distinct handles share the same explicit operationId', async () => {
+  const nativeRouter = {
+    posts: {
+      list: os
+        .meta(openapi({ method: 'GET', path: '/api/posts', operationId: 'customOp' }))
+        .input(z.object({}))
+        .handler(async () => []),
+      archive: os
+        .meta(openapi({ method: 'GET', path: '/api/archive-posts', operationId: 'customOp' }))
+        .input(z.object({}))
+        .handler(async () => []),
+    },
+  }
+
+  await expect(buildApiRegistry({ nativeRouter })).rejects.toThrow(
+    /duplicate operation ID "customOp"/i,
+  )
+})
+
