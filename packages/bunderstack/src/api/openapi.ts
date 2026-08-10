@@ -37,11 +37,29 @@ export function mergeOpenAPISpecs(
       for (const [routePath, authPathItem] of Object.entries(authSpec.paths)) {
         if (!authPathItem || typeof authPathItem !== 'object') continue
 
+        const clonedPathItem = JSON.parse(JSON.stringify(authPathItem)) as Record<string, any>
+
+        // Normalize tags for Better Auth operations (replace generic "Default" with "Auth")
+        if (routePath.startsWith('/api/auth')) {
+          for (const [methodKey, operation] of Object.entries(clonedPathItem)) {
+            if (HTTP_METHODS.has(methodKey.toUpperCase()) && operation && typeof operation === 'object') {
+              if (Array.isArray(operation.tags)) {
+                operation.tags = operation.tags.map((t: string) => (t === 'Default' ? 'Auth' : t))
+                if (!operation.tags.includes('Auth')) {
+                  operation.tags.unshift('Auth')
+                }
+              } else {
+                operation.tags = ['Auth']
+              }
+            }
+          }
+        }
+
         if (!(routePath in merged.paths)) {
-          merged.paths[routePath] = JSON.parse(JSON.stringify(authPathItem))
+          merged.paths[routePath] = clonedPathItem
         } else {
           const existingPathItem = merged.paths[routePath]
-          const incomingPathItem = authPathItem as Record<string, any>
+          const incomingPathItem = clonedPathItem
 
           for (const [key, authVal] of Object.entries(incomingPathItem)) {
             const upperKey = key.toUpperCase()
@@ -82,9 +100,15 @@ export function mergeOpenAPISpecs(
     }
 
     // Merge tags
+    if (!merged.tags.some((t: any) => t.name === 'Auth')) {
+      merged.tags.push({
+        name: 'Auth',
+        description: 'Authentication and session management',
+      })
+    }
     if (Array.isArray(authSpec.tags)) {
       for (const tag of authSpec.tags) {
-        if (!merged.tags.some((t: any) => t.name === tag.name)) {
+        if (tag.name !== 'Default' && !merged.tags.some((t: any) => t.name === tag.name)) {
           merged.tags.push(tag)
         }
       }

@@ -134,7 +134,7 @@ export const app = await createBunderstack({
   // oRPC custom procedures mounted alongside CRUD
   api: (o) => ({
     myBoards: o.protected
-      .meta(openapi({ method: 'GET', path: '/api/my-boards' }))
+      .meta(openapi({ method: 'GET', path: '/api/my-boards', tags: ['boards'] }))
       .input(z.object({}).optional())
       .handler(async ({ context }) =>
         context.db
@@ -150,6 +150,7 @@ export const app = await createBunderstack({
         openapi({
           method: 'POST',
           path: '/api/create-board',
+          tags: ['boards'],
           successStatus: 201,
         }),
       )
@@ -166,7 +167,7 @@ export const app = await createBunderstack({
       }),
 
     stats: o.protected
-      .meta(openapi({ method: 'GET', path: '/api/board-stats' }))
+      .meta(openapi({ method: 'GET', path: '/api/board-stats', tags: ['boards'] }))
       .input(z.object({ boardId: z.string() }))
       .handler(async ({ context, input }) => {
         const all = await context.db
@@ -183,7 +184,7 @@ export const app = await createBunderstack({
       }),
 
     complete: o.protected
-      .meta(openapi({ method: 'POST', path: '/api/complete-todo' }))
+      .meta(openapi({ method: 'POST', path: '/api/complete-todo', tags: ['todos'] }))
       .input(z.object({ id: z.string() }))
       .handler(async ({ context, input }) => {
         const todo = await context.db

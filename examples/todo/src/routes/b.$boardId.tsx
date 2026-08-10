@@ -75,10 +75,11 @@ function BoardTodos({
   )
 
   // oRPC: complete = update DB + send notification email in one call
-  const completeTodo = useMutation({
-    ...api.api.complete.mutationOptions(),
-    onSuccess: invalidateAll,
-  })
+  const completeTodo = useMutation(
+    api.api.complete.mutationOptions({
+      onSuccess: invalidateAll,
+    }),
+  )
 
   const addTodo = async (e: React.FormEvent) => {
     e.preventDefault()
