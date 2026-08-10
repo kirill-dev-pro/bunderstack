@@ -760,7 +760,24 @@ export async function createBunderstack<
       authSpec: authOpenAPISpec,
     })
 
-    const openapiHandler = new OpenAPIHandler({ router: nativeRouter })
+    const openapiHandler = new OpenAPIHandler(nativeRouter, {
+      customErrorResponseBodyEncoder: (error: any) => ({
+        error: error.message,
+        code: error.data?.code ?? error.code,
+        ...(error.data?.details !== undefined ? { details: error.data.details } : {}),
+      }),
+      fetchInterceptors: [
+        async (options) => {
+          const res = await options.next()
+          if (res.matched && (options.context as any)?.resHeaders) {
+            ;(options.context as any).resHeaders.forEach((v: string, k: string) =>
+              res.response.headers.set(k, v),
+            )
+          }
+          return res
+        },
+      ],
+    })
     const rpcHandler = new RPCHandler(nativeRouter)
 
     const apiHandler = async (req: Request): Promise<Response | null> => {
@@ -773,19 +790,23 @@ export async function createBunderstack<
         })
       }
 
-      const apiCtx = createApiContext(
-        {
-          db: userDb,
-          env,
-          storage,
-          email,
-          jobs,
-          realtime,
-          auth,
-          authResolver,
-        },
-        req,
-      )
+      const resHeaders = new Headers()
+      const apiCtx = {
+        ...createApiContext(
+          {
+            db: userDb,
+            env,
+            storage,
+            email,
+            jobs,
+            realtime,
+            auth,
+            authResolver,
+          },
+          req,
+        ),
+        resHeaders,
+      }
 
       if (url.pathname.startsWith('/api/rpc')) {
         const res = await rpcHandler.handle(req, {

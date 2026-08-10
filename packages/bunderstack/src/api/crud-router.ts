@@ -1,34 +1,22 @@
-import { eq, getTableColumns, getTableName, isTable, type Table } from 'drizzle-orm'
+import { getTableColumns, getTableName, isTable, type Table } from 'drizzle-orm'
 import { createSelectSchema, createInsertSchema } from 'drizzle-zod'
-import { os, ORPCError } from '@orpc/server'
+import { ORPCError } from '@orpc/server'
 import { openapi } from '@orpc/openapi'
 import { z } from 'zod'
 
 import {
-  checkAccess,
-  rowMatchesScope,
-  sanitizeWriteBody,
-  stampScope,
   tableEntryForName,
-  type AccessContext,
-  type CrudOperation,
   type ResolvedAccess,
-  type ResolvedTableAccess,
-  type ScopeMap,
-  type ScopeResolver,
   type TableAccessInput,
 } from '../access'
 import type { AnyDb } from '../dialect'
-import { ListQueryError } from '../errors'
 import {
-  lookupIdempotency,
-  resolveIdempotencyConfig,
-  storeIdempotency,
-  type IdempotencyConfig,
-} from '../idempotency'
-import { executeList, parseListParams } from '../list-query'
+  createCrudOperations,
+  CrudOperationError,
+  type CrudOperations,
+} from '../crud-operations'
+import type { IdempotencyConfig } from '../idempotency'
 import type { RealtimeFacade } from '../realtime/facade'
-import { buildScopeWhere } from '../scope'
 import { createApiBuilder } from './builder'
 import type { CrudApiRouterFor } from './types'
 
@@ -38,22 +26,6 @@ export type CrudApiRouterOptions<
   access: ResolvedAccess
   idempotency?: boolean | IdempotencyConfig
   realtime?: RealtimeFacade<TSchema>
-}
-
-async function enforce(
-  operation: CrudOperation,
-  access: ResolvedTableAccess,
-  ctx: Parameters<typeof checkAccess>[1],
-) {
-  const rule = access[operation]
-  return await checkAccess(rule, ctx, access.ownerColumn)
-}
-
-function scopeFor(
-  resolver: ScopeResolver | undefined,
-  ctx: AccessContext,
-): ScopeMap | undefined {
-  return resolver ? resolver(ctx) : undefined
 }
 
 function omitIdShape<T extends Record<string, z.ZodTypeAny>>(
@@ -68,15 +40,30 @@ function omitIdShape<T extends Record<string, z.ZodTypeAny>>(
   return rest as Omit<T, 'id'>
 }
 
+function toORPCError(err: CrudOperationError): ORPCError<any, any> {
+  const codeMap: Record<number, string> = {
+    400: 'BAD_REQUEST',
+    401: 'UNAUTHORIZED',
+    403: 'FORBIDDEN',
+    404: 'NOT_FOUND',
+    409: 'CONFLICT',
+  }
+  const code = codeMap[err.status] ?? 'INTERNAL_SERVER_ERROR'
+  return new ORPCError(code as any, {
+    message: err.message,
+    data: {
+      code: err.code,
+      details: err.details,
+    },
+  })
+}
+
 export type BuildTableCrudProceduresArgs<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
 > = {
   table: TTable
-  tableAccess: ResolvedTableAccess
-  db: AnyDb
-  idempotency: IdempotencyConfig | null
-  realtime?: RealtimeFacade<TSchema>
+  operations: CrudOperations
   builder: ReturnType<typeof createApiBuilder<TSchema>>
 }
 
@@ -84,9 +71,8 @@ export function buildTableCrudProcedures<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
 >(args: BuildTableCrudProceduresArgs<TSchema, TTable>) {
-  const { table, tableAccess, db, idempotency, realtime, builder } = args
+  const { table, operations, builder } = args
   const name = getTableName(table)
-  const idCol = getTableColumns(table)['id']
 
   const selectSchema = createSelectSchema(table)
   const insertSchema = createInsertSchema(table)
@@ -131,55 +117,17 @@ export function buildTableCrudProcedures<
     .output(listOutputSchema)
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
-      const user = session.user
-      const activeOrganizationId = session.activeOrganizationId
-      const accessSession = { activeOrganizationId }
-
-      const denied = await enforce('list', tableAccess, {
-        user,
-        session: accessSession,
+      const execCtx = {
         request: context.request,
-      })
-      if (!denied.allowed) {
-        throw new ORPCError(
-          denied.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          { message: 'Forbidden' },
-        )
+        user: session.user,
+        session: { activeOrganizationId: session.activeOrganizationId },
       }
-
       try {
-        const urlObj = new URL(context.request.url)
-        if (input) {
-          if (input.limit !== undefined)
-            urlObj.searchParams.set('limit', String(input.limit))
-          if (input.cursor) urlObj.searchParams.set('cursor', input.cursor)
-          if (input.sort) urlObj.searchParams.set('sort', input.sort)
-          if (input.filter) urlObj.searchParams.set('filter', input.filter)
-          if (input.count) urlObj.searchParams.set('count', input.count)
-        }
-
-        const params = parseListParams(urlObj, tableAccess)
-        const scope = scopeFor(tableAccess.readScope, {
-          user,
-          session: accessSession,
-          request: context.request,
-        })
-        const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
-        const result = await executeList(
-          db,
-          table,
-          tableAccess,
-          params,
-          idCol,
-          scopeWhere,
-        )
+        const result = await operations.list(name, input, execCtx)
         return result as any
       } catch (err) {
-        if (err instanceof ListQueryError) {
-          throw new ORPCError('BAD_REQUEST', {
-            message: err.message,
-            data: err.details,
-          })
+        if (err instanceof CrudOperationError) {
+          throw toORPCError(err)
         }
         throw err
       }
@@ -198,47 +146,19 @@ export function buildTableCrudProcedures<
     .output(selectSchema)
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
-      const user = session.user
-      const activeOrganizationId = session.activeOrganizationId
-      const accessSession = { activeOrganizationId }
-
-      const rawId = input.id
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-
-      const rows = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!rows[0]) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
-      }
-
-      const denied = await enforce('get', tableAccess, {
-        user,
-        session: accessSession,
+      const execCtx = {
         request: context.request,
-        row: rows[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        throw new ORPCError(
-          denied.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          { message: 'Forbidden' },
-        )
+        user: session.user,
+        session: { activeOrganizationId: session.activeOrganizationId },
       }
-
-      const scope = scopeFor(tableAccess.readScope, {
-        user,
-        session: accessSession,
-        request: context.request,
-      })
-      if (
-        scope &&
-        !rowMatchesScope(rows[0] as Record<string, unknown>, scope)
-      ) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
+      try {
+        return (await operations.get(name, input.id, execCtx)) as any
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          throw toORPCError(err)
+        }
+        throw err
       }
-
-      return rows[0]
     })
 
   // 3. CREATE procedure
@@ -255,79 +175,39 @@ export function buildTableCrudProcedures<
     .output(selectSchema)
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
-      const user = session.user
-      const activeOrganizationId = session.activeOrganizationId
-      const accessSession = { activeOrganizationId }
-
-      const denied = await enforce('create', tableAccess, {
-        user,
-        session: accessSession,
+      const execCtx = {
         request: context.request,
-      })
-      if (!denied.allowed) {
-        throw new ORPCError(
-          denied.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          { message: 'Forbidden' },
-        )
+        user: session.user,
+        session: { activeOrganizationId: session.activeOrganizationId },
       }
-
       const idempotencyKey = context.request.headers
         .get('Idempotency-Key')
         ?.trim()
       const rawBody = JSON.stringify(input)
-      if (idempotency && idempotencyKey) {
-        const lookup = await lookupIdempotency(
-          db,
+
+      try {
+        const res = await operations.create(
           name,
-          idempotencyKey,
+          input,
           rawBody,
-          idempotency,
-        )
-        if (lookup.type === 'conflict') {
-          throw new ORPCError('CONFLICT', {
-            message: 'Idempotency key reused with different body',
-          })
-        }
-        if (lookup.type === 'replay') {
-          return JSON.parse(lookup.response)
-        }
-      }
-
-      const values = sanitizeWriteBody(
-        input,
-        tableAccess,
-        'create',
-        user?.id ?? null,
-      )
-
-      const scope = scopeFor(tableAccess.writeScope, {
-        user,
-        session: accessSession,
-        request: context.request,
-        body: input as Record<string, unknown>,
-      })
-      const stamped = scope ? stampScope(values, scope) : values
-
-      const rows = await (db as any)
-        .insert(table)
-        .values(stamped)
-        .returning()
-      const created = rows[0]
-      void realtime?.publish(table as never, 'create', created as never)
-
-      if (idempotency && idempotencyKey) {
-        await storeIdempotency(
-          db,
-          name,
           idempotencyKey,
-          rawBody,
-          201,
-          created,
-          idempotency,
+          execCtx,
         )
+        if (res.type === 'replay') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((context as any).resHeaders) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(context as any).resHeaders.set('Idempotency-Replayed', 'true')
+          }
+          return res.record as any
+        }
+        return res.record as any
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          throw toORPCError(err)
+        }
+        throw err
       }
-
-      return created
     })
 
   // 4. UPDATE procedure
@@ -343,72 +223,22 @@ export function buildTableCrudProcedures<
     .output(selectSchema)
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
-      const user = session.user
-      const activeOrganizationId = session.activeOrganizationId
-      const accessSession = { activeOrganizationId }
+      const execCtx = {
+        request: context.request,
+        user: session.user,
+        session: { activeOrganizationId: session.activeOrganizationId },
+      }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { id: rawId, ...body } = input as any
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-
-      const existing = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!existing[0]) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
+      try {
+        return (await operations.update(name, rawId, body, execCtx)) as any
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          throw toORPCError(err)
+        }
+        throw err
       }
-
-      const readScope = scopeFor(tableAccess.readScope, {
-        user,
-        session: accessSession,
-        request: context.request,
-      })
-      if (
-        readScope &&
-        !rowMatchesScope(existing[0] as Record<string, unknown>, readScope)
-      ) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
-      }
-
-      const denied = await enforce('update', tableAccess, {
-        user,
-        session: accessSession,
-        request: context.request,
-        row: existing[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        throw new ORPCError(
-          denied.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          { message: 'Forbidden' },
-        )
-      }
-
-      const values = sanitizeWriteBody(
-        body,
-        tableAccess,
-        'update',
-        user?.id ?? null,
-      )
-
-      const writeScope = scopeFor(tableAccess.writeScope, {
-        user,
-        session: accessSession,
-        request: context.request,
-        body,
-      })
-      const stamped = writeScope ? stampScope(values, writeScope) : values
-
-      const rows = await (db as any)
-        .update(table)
-        .set(stamped)
-        .where(eq(idCol as any, id))
-        .returning()
-      if (!rows[0]) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
-      }
-
-      void realtime?.publish(table as never, 'update', rows[0] as never)
-      return rows[0]
     })
 
   // 5. DELETE procedure
@@ -425,49 +255,20 @@ export function buildTableCrudProcedures<
     .output(z.undefined())
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
-      const user = session.user
-      const activeOrganizationId = session.activeOrganizationId
-      const accessSession = { activeOrganizationId }
-
-      const rawId = input.id
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-
-      const existing = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!existing[0]) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
-      }
-
-      const scope = scopeFor(tableAccess.readScope, {
-        user,
-        session: accessSession,
+      const execCtx = {
         request: context.request,
-      })
-      if (
-        scope &&
-        !rowMatchesScope(existing[0] as Record<string, unknown>, scope)
-      ) {
-        throw new ORPCError('NOT_FOUND', { message: 'Not found' })
+        user: session.user,
+        session: { activeOrganizationId: session.activeOrganizationId },
       }
-
-      const denied = await enforce('delete', tableAccess, {
-        user,
-        session: accessSession,
-        request: context.request,
-        row: existing[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        throw new ORPCError(
-          denied.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          { message: 'Forbidden' },
-        )
+      try {
+        await operations.delete(name, input.id, execCtx)
+        return undefined
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          throw toORPCError(err)
+        }
+        throw err
       }
-
-      await (db as any).delete(table).where(eq(idCol as any, id))
-      void realtime?.publish(table as never, 'delete', existing[0] as never)
-      return undefined
     })
 
   return {
@@ -491,9 +292,15 @@ export function buildCrudApiRouter<
   db: AnyDb,
   options: CrudApiRouterOptions<TSchema>,
 ): CrudApiRouterFor<TSchema, TAccess> {
-  const { access, realtime } = options
-  const idempotency = resolveIdempotencyConfig(options.idempotency)
+  const { access, realtime, idempotency } = options
   const builder = createApiBuilder<TSchema>()
+  const operations = createCrudOperations({
+    schema,
+    db,
+    access,
+    idempotency,
+    realtime,
+  })
 
   const routerObj: Record<string, unknown> = {}
 
@@ -509,10 +316,7 @@ export function buildCrudApiRouter<
 
     const procedures = buildTableCrudProcedures({
       table: table as Table,
-      tableAccess,
-      db,
-      idempotency,
-      realtime,
+      operations,
       builder,
     })
 

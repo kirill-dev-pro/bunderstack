@@ -1,34 +1,19 @@
-import { eq, getTableColumns, getTableName, isTable } from 'drizzle-orm'
+import { getTableColumns, getTableName, isTable } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
 import type { AnyDb } from './dialect'
 import type { RealtimeFacade } from './realtime/facade'
 
 import {
-  checkAccess,
   resolveSession,
-  rowMatchesScope,
-  stampScope,
-  sanitizeWriteBody,
-  type AccessUser,
-  type AuthSessionResolver,
-  type CrudOperation,
-  type ResolvedAccess,
   tableEntryForName,
-  type ResolvedTableAccess,
-  type ScopeMap,
-  type ScopeResolver,
-  type AccessContext,
+  type AuthSessionResolver,
+  type ResolvedAccess,
 } from './access'
-import { ErrorCode, apiError, ListQueryError } from './errors'
-import {
-  lookupIdempotency,
-  resolveIdempotencyConfig,
-  storeIdempotency,
-  type IdempotencyConfig,
-} from './idempotency'
-import { executeList, parseListParams } from './list-query'
-import { buildScopeWhere } from './scope'
+import { createCrudOperations, CrudOperationError } from './crud-operations'
+import { ErrorCode, apiError } from './errors'
+import type { IdempotencyConfig } from './idempotency'
 
 export type CrudRouterOptions<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -39,34 +24,21 @@ export type CrudRouterOptions<
   realtime?: RealtimeFacade<TSchema>
 }
 
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-async function enforce(
-  operation: CrudOperation,
-  access: ResolvedTableAccess,
-  ctx: Parameters<typeof checkAccess>[1],
-) {
-  const rule = access[operation]
-  const result = await checkAccess(rule, ctx, access.ownerColumn)
-  return result
-}
-
 export function buildCrudRouter<TSchema extends Record<string, unknown>>(
   schema: TSchema,
   db: AnyDb,
   options: CrudRouterOptions<TSchema>,
 ): Hono {
   const router = new Hono()
-  const { auth, access, realtime } = options
-  const idempotency = resolveIdempotencyConfig(options.idempotency)
+  const { auth, access, realtime, idempotency } = options
 
-  const scopeFor = (
-    resolver: ScopeResolver | undefined,
-    ctx: AccessContext,
-  ): ScopeMap | undefined => (resolver ? resolver(ctx) : undefined)
+  const operations = createCrudOperations({
+    schema,
+    db,
+    access,
+    idempotency,
+    realtime,
+  })
 
   for (const table of Object.values(schema)) {
     if (!isTable(table)) continue
@@ -83,41 +55,23 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         auth,
         c.req.raw.headers,
       )
-      const session = { activeOrganizationId }
-      const denied = await enforce('list', tableAccess, {
-        user,
-        session,
+      const ctx = {
         request: c.req.raw,
-      })
-      if (!denied.allowed) {
-        return apiError(
-          c,
-          ErrorCode.FORBIDDEN,
-          'Forbidden',
-          denied.status === 401 ? 401 : 403,
-        )
+        user,
+        session: { activeOrganizationId },
       }
-
       try {
-        const params = parseListParams(new URL(c.req.url), tableAccess)
-        const scope = scopeFor(tableAccess.readScope, {
-          user,
-          session,
-          request: c.req.raw,
-        })
-        const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
-        const result = await executeList(
-          db,
-          table,
-          tableAccess,
-          params,
-          idCol,
-          scopeWhere,
-        )
+        const result = await operations.list(name, new URL(c.req.url), ctx)
         return c.json(result)
       } catch (err) {
-        if (err instanceof ListQueryError) {
-          return apiError(c, err.code, err.message, 400, err.details)
+        if (err instanceof CrudOperationError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            err.status as ContentfulStatusCode,
+            err.details,
+          )
         }
         throw err
       }
@@ -128,46 +82,26 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         auth,
         c.req.raw.headers,
       )
-      const session = { activeOrganizationId }
-      const rawId = c.req.param('id')
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!rows[0]) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-
-      const denied = await enforce('get', tableAccess, {
-        user,
-        session,
+      const ctx = {
         request: c.req.raw,
-        row: rows[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        return apiError(
-          c,
-          ErrorCode.FORBIDDEN,
-          'Forbidden',
-          denied.status === 401 ? 401 : 403,
-        )
-      }
-
-      const scope = scopeFor(tableAccess.readScope, {
         user,
-        session,
-        request: c.req.raw,
-      })
-      if (
-        scope &&
-        !rowMatchesScope(rows[0] as Record<string, unknown>, scope)
-      ) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
+        session: { activeOrganizationId },
       }
-
-      return c.json(rows[0])
+      try {
+        const row = await operations.get(name, c.req.param('id'), ctx)
+        return c.json(row)
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            err.status as ContentfulStatusCode,
+            err.details,
+          )
+        }
+        throw err
+      }
     })
 
     router.post(`/${name}`, async (c) => {
@@ -175,19 +109,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         auth,
         c.req.raw.headers,
       )
-      const session = { activeOrganizationId }
-      const denied = await enforce('create', tableAccess, {
-        user,
-        session,
+      const ctx = {
         request: c.req.raw,
-      })
-      if (!denied.allowed) {
-        return apiError(
-          c,
-          ErrorCode.FORBIDDEN,
-          'Forbidden',
-          denied.status === 401 ? 401 : 403,
-        )
+        user,
+        session: { activeOrganizationId },
       }
 
       const rawBody = await c.req.text()
@@ -197,70 +122,39 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       } catch {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
-      if (!isRecord(body)) {
-        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
-      }
 
       const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
-      if (idempotency && idempotencyKey) {
-        const lookup = await lookupIdempotency(
-          db,
+
+      try {
+        const result = await operations.create(
           name,
-          idempotencyKey,
+          body,
           rawBody,
-          idempotency,
+          idempotencyKey,
+          ctx,
         )
-        if (lookup.type === 'conflict') {
-          return apiError(
-            c,
-            ErrorCode.IDEMPOTENCY_CONFLICT,
-            'Idempotency key reused with different body',
-            409,
-          )
-        }
-        if (lookup.type === 'replay') {
-          return new Response(lookup.response, {
-            status: lookup.status,
+        if (result.type === 'replay') {
+          return new Response(result.body, {
+            status: result.status,
             headers: {
               'Content-Type': 'application/json',
               'Idempotency-Replayed': 'true',
             },
           })
         }
+        return c.json(result.record, 201)
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            err.status as ContentfulStatusCode,
+            err.details,
+          )
+        }
+        throw err
       }
-
-      const values = sanitizeWriteBody(
-        body,
-        tableAccess,
-        'create',
-        user?.id ?? null,
-      )
-
-      const scope = scopeFor(tableAccess.writeScope, {
-        user,
-        session,
-        request: c.req.raw,
-        body: body as Record<string, unknown>,
-      })
-      const stamped = scope ? stampScope(values, scope) : values
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).insert(table).values(stamped).returning()
-      const created = rows[0]
-      void realtime?.publish(table as never, 'create', created as never)
-
-      if (idempotency && idempotencyKey) {
-        await storeIdempotency(
-          db,
-          name,
-          idempotencyKey,
-          rawBody,
-          201,
-          created,
-          idempotency,
-        )
-      }
-
-      return c.json(created, 201)
     })
 
     router.patch(`/${name}/:id`, async (c) => {
@@ -268,43 +162,10 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         auth,
         c.req.raw.headers,
       )
-      const session = { activeOrganizationId }
-      const rawId = c.req.param('id')
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!existing[0]) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-
-      const readScope = scopeFor(tableAccess.readScope, {
-        user,
-        session,
+      const ctx = {
         request: c.req.raw,
-      })
-      if (
-        readScope &&
-        !rowMatchesScope(existing[0] as Record<string, unknown>, readScope)
-      ) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-
-      const denied = await enforce('update', tableAccess, {
         user,
-        session,
-        request: c.req.raw,
-        row: existing[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        return apiError(
-          c,
-          ErrorCode.FORBIDDEN,
-          'Forbidden',
-          denied.status === 401 ? 401 : 403,
-        )
+        session: { activeOrganizationId },
       }
 
       let body: unknown
@@ -313,36 +174,27 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
       } catch {
         return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON', 400)
       }
-      if (!isRecord(body)) {
-        return apiError(c, ErrorCode.VALIDATION_ERROR, 'Invalid JSON body', 400)
+
+      try {
+        const updated = await operations.update(
+          name,
+          c.req.param('id'),
+          body,
+          ctx,
+        )
+        return c.json(updated)
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            err.status as ContentfulStatusCode,
+            err.details,
+          )
+        }
+        throw err
       }
-
-      const values = sanitizeWriteBody(
-        body,
-        tableAccess,
-        'update',
-        user?.id ?? null,
-      )
-
-      const writeScope = scopeFor(tableAccess.writeScope, {
-        user,
-        session,
-        request: c.req.raw,
-        body: body as Record<string, unknown>,
-      })
-      const stamped = writeScope ? stampScope(values, writeScope) : values
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any)
-        .update(table)
-        .set(stamped)
-        .where(eq(idCol as any, id))
-        .returning()
-      if (!rows[0]) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-      void realtime?.publish(table as never, 'update', rows[0] as never)
-      return c.json(rows[0])
     })
 
     router.delete(`/${name}/:id`, async (c) => {
@@ -350,49 +202,27 @@ export function buildCrudRouter<TSchema extends Record<string, unknown>>(
         auth,
         c.req.raw.headers,
       )
-      const session = { activeOrganizationId }
-      const rawId = c.req.param('id')
-      const id = isNaN(Number(rawId)) ? rawId : Number(rawId)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any)
-        .select()
-        .from(table)
-        .where(eq(idCol as any, id))
-      if (!existing[0]) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-
-      const scope = scopeFor(tableAccess.readScope, {
-        user,
-        session,
+      const ctx = {
         request: c.req.raw,
-      })
-      if (
-        scope &&
-        !rowMatchesScope(existing[0] as Record<string, unknown>, scope)
-      ) {
-        return apiError(c, ErrorCode.NOT_FOUND, 'Not found', 404)
-      }
-
-      const denied = await enforce('delete', tableAccess, {
         user,
-        session,
-        request: c.req.raw,
-        row: existing[0] as Record<string, unknown>,
-      })
-      if (!denied.allowed) {
-        return apiError(
-          c,
-          ErrorCode.FORBIDDEN,
-          'Forbidden',
-          denied.status === 401 ? 401 : 403,
-        )
+        session: { activeOrganizationId },
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).delete(table).where(eq(idCol as any, id))
-      void realtime?.publish(table as never, 'delete', existing[0] as never)
-      return new Response(null, { status: 204 })
+      try {
+        await operations.delete(name, c.req.param('id'), ctx)
+        return new Response(null, { status: 204 })
+      } catch (err) {
+        if (err instanceof CrudOperationError) {
+          return apiError(
+            c,
+            err.code,
+            err.message,
+            err.status as ContentfulStatusCode,
+            err.details,
+          )
+        }
+        throw err
+      }
     })
   }
 
