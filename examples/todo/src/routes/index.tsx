@@ -39,11 +39,11 @@ function BoardList({
 
   // oRPC: only the owner's boards — boards are never listable via CRUD.
   const boardsOptions = api.api.myBoards.queryOptions({ input: {} })
-  const boards = useQuery(boardsOptions as any) as any
+  const boards = useQuery(boardsOptions)
 
   const createBoard = useMutation({
     ...api.api.createBoard.mutationOptions(),
-    onSuccess: (board: any) => {
+    onSuccess: (board) => {
       void queryClient.invalidateQueries({ queryKey: boardsOptions.queryKey })
       void navigate({ to: '/b/$boardId', params: { boardId: board.id } })
     },
@@ -62,7 +62,7 @@ function BoardList({
   const addBoard = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    createBoard.mutate({ input: { name: name.trim() } } as any, { onSuccess: () => setName('') })
+    createBoard.mutate({ name: name.trim() }, { onSuccess: () => setName('') })
   }
 
   return (
@@ -90,7 +90,7 @@ function BoardList({
       )}
 
       <ul className="boards">
-        {boards.data?.map((board: any) => (
+        {boards.data?.map((board) => (
           <li key={board.id}>
             <Link to="/b/$boardId" params={{ boardId: board.id }}>
               {board.name}

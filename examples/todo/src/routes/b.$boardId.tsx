@@ -58,7 +58,7 @@ function BoardTodos({
   const fileInput = useRef<HTMLInputElement>(null)
 
   // oRPC: typed per-board stats, inferred from the server router
-  const stats = useQuery(api.api.stats.queryOptions({ input: { boardId } }) as any) as any
+  const stats = useQuery(api.api.stats.queryOptions({ input: { boardId } }))
   // Todo queries auto-invalidate; this keeps the stats bar in sync too.
   const invalidateAll = () => void queryClient.invalidateQueries()
 
@@ -200,7 +200,7 @@ function BoardTodos({
             {!todo.done && (
               <button
                 className="complete"
-                onClick={() => completeTodo.mutate({ input: { id: todo.id } } as any)}
+                onClick={() => completeTodo.mutate({ id: todo.id })}
                 disabled={completeTodo.isPending}
                 title="Mark done & send email"
               >
