@@ -1,11 +1,10 @@
 import { createClient } from '@libsql/client'
-// packages/bunderstack/src/crud-scope.test.ts
-import { describe, it, expect, beforeAll } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
-import { buildCrudRouter } from './crud'
+import { createCrudOperations, CrudOperationError } from './crud-operations'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
@@ -14,18 +13,7 @@ const boards = sqliteTable('boards', {
 })
 const schema = { boards }
 
-function authFor(orgId: string | null) {
-  return {
-    api: {
-      getSession: async () => ({
-        user: { id: 'u_1', email: 'a@b.c', name: 'A' },
-        session: { activeOrganizationId: orgId },
-      }),
-    },
-  }
-}
-
-async function makeRouter(orgId: string | null) {
+async function makeOperations(orgId: string | null) {
   const client = createClient({ url: ':memory:' })
   await client.execute(
     'CREATE TABLE boards (id text primary key, organization_id text not null, title text not null)',
@@ -42,58 +30,59 @@ async function makeRouter(orgId: string | null) {
       update: 'authenticated',
       delete: 'authenticated',
       scope: {
-        read: (ctx) => ({
-          organizationId: ctx.session?.activeOrganizationId ?? '',
+        read: (context) => ({
+          organizationId: context.session?.activeOrganizationId ?? '',
         }),
-        write: (ctx) => ({
-          organizationId: ctx.session?.activeOrganizationId ?? '',
+        write: (context) => ({
+          organizationId: context.session?.activeOrganizationId ?? '',
         }),
       },
     },
   })
-  return buildCrudRouter(schema, db as never, {
-    auth: authFor(orgId) as never,
-    access,
-  })
+  return {
+    operations: createCrudOperations({ schema, db: db as never, access }),
+    context: {
+      request: new Request('http://x/api/boards'),
+      user: { id: 'u_1', email: 'a@b.c', name: 'A' },
+      session: { activeOrganizationId: orgId },
+    },
+  }
 }
 
-describe('crud scope', () => {
+describe('crud scope operations', () => {
   it('list only returns rows in the active org', async () => {
-    const router = await makeRouter('org_1')
-    const res = await router.fetch(new Request('http://x/boards'))
-    const body = (await res.json()) as { items: { id: string }[] }
-    expect(body.items.map((b) => b.id)).toEqual(['b1'])
+    const { operations, context } = await makeOperations('org_1')
+    const result = await operations.list('boards', undefined, context)
+    expect(result.items.map((board) => board.id)).toEqual(['b1'])
   })
-  it('get of an out-of-scope row is 404', async () => {
-    const router = await makeRouter('org_1')
-    const res = await router.fetch(new Request('http://x/boards/b2'))
-    expect(res.status).toBe(404)
+
+  it('get of an out-of-scope row is NOT_FOUND', async () => {
+    const { operations, context } = await makeOperations('org_1')
+    const error = await operations
+      .get('boards', 'b2', context)
+      .catch((value) => value)
+    expect(error).toBeInstanceOf(CrudOperationError)
+    expect(error.code).toBe('NOT_FOUND')
   })
+
   it('create stamps the active org, ignoring a spoofed organizationId', async () => {
-    const router = await makeRouter('org_1')
-    const res = await router.fetch(
-      new Request('http://x/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: 'b3',
-          title: 'New',
-          organizationId: 'org_2',
-        }),
-      }),
+    const { operations, context } = await makeOperations('org_1')
+    const result = await operations.create(
+      'boards',
+      { id: 'b3', title: 'New', organizationId: 'org_2' },
+      undefined,
+      undefined,
+      context,
     )
-    const body = (await res.json()) as { organizationId: string }
-    expect(body.organizationId).toBe('org_1')
+    expect(result.record.organizationId).toBe('org_1')
   })
-  it('update of an out-of-scope row is 404', async () => {
-    const router = await makeRouter('org_1')
-    const res = await router.fetch(
-      new Request('http://x/boards/b2', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Hacked' }),
-      }),
-    )
-    expect(res.status).toBe(404)
+
+  it('update of an out-of-scope row is NOT_FOUND', async () => {
+    const { operations, context } = await makeOperations('org_1')
+    const error = await operations
+      .update('boards', 'b2', { title: 'Hacked' }, context)
+      .catch((value) => value)
+    expect(error).toBeInstanceOf(CrudOperationError)
+    expect(error.code).toBe('NOT_FOUND')
   })
 })

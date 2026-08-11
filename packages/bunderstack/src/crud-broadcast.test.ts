@@ -1,11 +1,11 @@
 import { createClient } from '@libsql/client'
 // packages/bunderstack/src/crud-broadcast.test.ts
-import { describe, it, expect } from 'bun:test'
+import { it, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
-import { buildCrudRouter } from './crud'
+import { createCrudOperations } from './crud-operations'
 import { createRealtimeFacade } from './realtime/facade'
 import { createRealtimeBroker } from './realtime/index'
 
@@ -15,15 +15,6 @@ const boards = sqliteTable('boards', {
   title: text('title').notNull(),
 })
 const schema = { boards }
-const auth = {
-  api: {
-    getSession: async () => ({
-      user: { id: 'u_1', email: 'a@b.c' },
-      session: { activeOrganizationId: 'org_1' },
-    }),
-  },
-}
-
 it('publishes a create event after insert', async () => {
   const client = createClient({ url: ':memory:' })
   await client.execute(
@@ -54,17 +45,22 @@ it('publishes a create event after insert', async () => {
     subscriptions: new Set(['boards']),
   })
 
-  const router = buildCrudRouter(schema, db as never, {
-    auth: auth as never,
+  const operations = createCrudOperations({
+    schema,
+    db: db as never,
     access,
     realtime: createRealtimeFacade<typeof schema>(broker),
   })
-  await router.fetch(
-    new Request('http://x/boards', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: 'b1', title: 'X' }),
-    }),
+  await operations.create(
+    'boards',
+    { id: 'b1', title: 'X' },
+    undefined,
+    undefined,
+    {
+      request: new Request('http://x/api/boards'),
+      user: { id: 'u_1', email: 'a@b.c' },
+      session: { activeOrganizationId: 'org_1' },
+    },
   )
 
   expect(received).toContainEqual({

@@ -1,6 +1,14 @@
-import { eq, getTableColumns, getTableName, isTable, type Table } from 'drizzle-orm'
+import {
+  eq,
+  getTableColumns,
+  getTableName,
+  isTable,
+  type Table,
+} from 'drizzle-orm'
+
 import type { AnyDb } from './dialect'
 import type { RealtimeFacade } from './realtime/facade'
+
 import {
   checkAccess,
   rowMatchesScope,
@@ -13,7 +21,13 @@ import {
   type ScopeMap,
   type ScopeResolver,
 } from './access'
-import { ErrorCode, ListQueryError, type ErrorCodeValue } from './errors'
+import {
+  BunderstackError,
+  ErrorCode,
+  ListQueryError,
+  type BunderstackErrorCode,
+  type ErrorCodeValue,
+} from './errors'
 import {
   lookupIdempotency,
   resolveIdempotencyConfig,
@@ -29,14 +43,34 @@ export interface CrudExecutionContext {
   session: { activeOrganizationId: string | null }
 }
 
-export class CrudOperationError extends Error {
+function errorCodeForStatus(status: number): BunderstackErrorCode {
+  if (status === 401) return 'UNAUTHORIZED'
+  if (status === 403) return 'FORBIDDEN'
+  if (status === 404) return 'NOT_FOUND'
+  if (status === 409) return 'CONFLICT'
+  if (status === 413) return 'PAYLOAD_TOO_LARGE'
+  if (status === 429) return 'RATE_LIMITED'
+  return 'VALIDATION_ERROR'
+}
+
+export class CrudOperationError extends BunderstackError {
   constructor(
-    readonly status: number,
-    readonly code: ErrorCodeValue,
+    status: number,
+    readonly legacyCode: ErrorCodeValue,
     message: string,
-    readonly details?: unknown,
+    details?: unknown,
   ) {
-    super(message)
+    const code = errorCodeForStatus(status)
+    super(
+      code,
+      message,
+      legacyCode === code
+        ? details
+        : {
+            code: legacyCode,
+            ...(details === undefined ? {} : { details }),
+          },
+    )
     this.name = 'CrudOperationError'
   }
 }
@@ -53,7 +87,12 @@ export type CrudOperationsDeps<
 
 export type CreateResult =
   | { type: 'created'; status: 201; record: Record<string, unknown> }
-  | { type: 'replay'; status: number; body: string; record: Record<string, unknown> }
+  | {
+      type: 'replay'
+      status: number
+      body: string
+      record: Record<string, unknown>
+    }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -111,7 +150,11 @@ export function createCrudOperations<
     ): Promise<ListResult<Record<string, unknown>>> {
       const { table, tableAccess, idCol } = resolveTable(tableName)
 
-      const denied = await checkAccess(tableAccess.list, ctx, tableAccess.ownerColumn)
+      const denied = await checkAccess(
+        tableAccess.list,
+        ctx,
+        tableAccess.ownerColumn,
+      )
       if (!denied.allowed) {
         throw new CrudOperationError(
           denied.status === 401 ? 401 : 403,
@@ -202,7 +245,11 @@ export function createCrudOperations<
     ): Promise<CreateResult> {
       const { table, tableAccess } = resolveTable(tableName)
 
-      const denied = await checkAccess(tableAccess.create, ctx, tableAccess.ownerColumn)
+      const denied = await checkAccess(
+        tableAccess.create,
+        ctx,
+        tableAccess.ownerColumn,
+      )
       if (!denied.allowed) {
         throw new CrudOperationError(
           denied.status === 401 ? 401 : 403,

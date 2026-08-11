@@ -1,13 +1,23 @@
+import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 // src/index.ts
 import type { AnyRouter } from '@trpc/server'
-import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 import type { Hono as HonoType } from 'hono'
 
+import { OpenAPIGenerator } from '@orpc/openapi'
+import { OpenAPIHandler } from '@orpc/openapi/fetch'
+import { RPCHandler } from '@orpc/server/fetch'
+import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
+import { ZodToJsonSchemaConverter } from '@orpc/zod'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-
 import { getTableName, isTable } from 'drizzle-orm'
 
 import type { TableAccessInput } from './access'
+import type {
+  CrudApiRouterFor,
+  ExposedApiTables,
+  MergeApiRouterTypes,
+  UnifiedApiRouter,
+} from './api/types'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -25,6 +35,16 @@ import {
   tableEntryForName,
   validateAndResolveAccess,
 } from './access'
+import { createApiBuilder } from './api/builder'
+import { createApiContext } from './api/context'
+import { buildCrudApiRouter } from './api/crud-router'
+import { mergeOpenAPISpecs } from './api/openapi'
+import {
+  buildApiRegistry,
+  mergeApiRoutersStrict,
+  normalizeApiPath,
+  normalizeForeignOpenAPISpec,
+} from './api/registry'
 import {
   createAuth,
   toAuthSessionResolver,
@@ -32,11 +52,11 @@ import {
 } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveRealtimeRedisUrl } from './config'
-import { buildCrudRouter } from './crud'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import { BUNDERSTACK_ERROR_STATUS_MAP } from './errors'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
 import {
@@ -65,33 +85,9 @@ import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
 import { buildBucketStorageRouter } from './storage/router'
 import { sweepOrphans } from './storage/sweep'
-import { OpenAPIGenerator } from '@orpc/openapi'
-import { OpenAPIHandler } from '@orpc/openapi/fetch'
-import { RPCHandler } from '@orpc/server/fetch'
-import { ZodToJsonSchemaConverter } from '@orpc/zod'
-
-import { createApiBuilder } from './api/builder'
-import { createApiContext } from './api/context'
-import { buildCrudApiRouter } from './api/crud-router'
-import { mergeOpenAPISpecs } from './api/openapi'
-import {
-  buildApiRegistry,
-  mergeApiRoutersStrict,
-  normalizeApiPath,
-  normalizeForeignOpenAPISpec,
-} from './api/registry'
-import type {
-  CrudApiRouterFor,
-  ExposedApiTables,
-  MergeApiRouterTypes,
-  UnifiedApiRouter,
-} from './api/types'
-
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
-
-
 
 function waitForWorkerShutdown(
   signal: AbortSignal,
@@ -507,12 +503,6 @@ export async function createBunderstack<
       broker,
       runtimeRealtimeTransport,
     )
-    const crudRouter = buildCrudRouter(options.schema, userDb, {
-      auth: authResolver,
-      access: resolvedAccess,
-      idempotency: options.idempotency,
-      realtime,
-    })
     const realtimeRouter = broker
       ? buildRealtimeRouter(broker, {
           auth: authResolver,
@@ -612,7 +602,9 @@ export async function createBunderstack<
         return result
       },
       tick(now?: number) {
-        return jobRunner ? jobRunner.tick(now) : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
+        return jobRunner
+          ? jobRunner.tick(now)
+          : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)
@@ -752,7 +744,10 @@ export async function createBunderstack<
     })
 
     const openapiGenerator = new OpenAPIGenerator({
-      converters: [new ZodToJsonSchemaConverter()],
+      converters: [
+        new ValibotToJsonSchemaConverter(),
+        new ZodToJsonSchemaConverter(),
+      ],
     })
     const nativeOpenAPISpec = await openapiGenerator.generate(nativeRouter)
     const combinedOpenAPISpec = mergeOpenAPISpecs({
@@ -761,10 +756,13 @@ export async function createBunderstack<
     })
 
     const openapiHandler = new OpenAPIHandler(nativeRouter, {
+      errorStatusMap: BUNDERSTACK_ERROR_STATUS_MAP,
       customErrorResponseBodyEncoder: (error: any) => ({
         error: error.message,
         code: error.data?.code ?? error.code,
-        ...(error.data?.details !== undefined ? { details: error.data.details } : {}),
+        ...(error.data?.details !== undefined
+          ? { details: error.data.details }
+          : {}),
       }),
       fetchInterceptors: [
         async (options) => {
@@ -820,7 +818,6 @@ export async function createBunderstack<
 
     const { handler, router } = buildHandler({
       customRouter,
-      crudRouter,
       authHandler: (req) => auth.handler(req),
       storageRouter,
       realtimeRouter,
@@ -1017,5 +1014,3 @@ export {
   normalizeForeignOpenAPISpec,
 } from './api/registry'
 export { mergeOpenAPISpecs } from './api/openapi'
-
-

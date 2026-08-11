@@ -48,6 +48,8 @@ export function createApiContext<
   deps: ApiContextDeps<TSchema, TEnv>,
   request: Request,
 ): ApiContext<TSchema, TEnv> {
+  // Reserve the body stream before a transport codec consumes `request`.
+  const rawBodyRequest = request.clone()
   let rawBodyPromise: Promise<string> | undefined
   let sessionPromise:
     | Promise<{ user: AccessUser | null; activeOrganizationId: string | null }>
@@ -61,7 +63,7 @@ export function createApiContext<
   }
 
   const getRawBody = () => {
-    if (!rawBodyPromise) rawBodyPromise = request.clone().text()
+    if (!rawBodyPromise) rawBodyPromise = rawBodyRequest.text()
     return rawBodyPromise
   }
 

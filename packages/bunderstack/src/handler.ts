@@ -5,7 +5,6 @@ import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
   customRouter?: Hono
-  crudRouter: Hono
   authHandler?: (req: Request) => Promise<Response>
   storageRouter?: Hono
   realtimeRouter?: Hono
@@ -29,7 +28,6 @@ export function buildHandler(parts: HandlerParts): {
     c.json({ status: 'ok' })
   app.get('/health', health)
   app.get('/api/health', health)
-  app.route('/api', parts.crudRouter)
 
   if (parts.authHandler) {
     app.all('/api/auth/*', (c) => parts.authHandler!(c.req.raw))

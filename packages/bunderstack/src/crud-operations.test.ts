@@ -1,14 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { pgTable, text } from 'drizzle-orm/pg-core'
 import { PGlite } from '@electric-sql/pglite'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { pgTable, text } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/pglite'
-import { Hono } from 'hono'
-import { OpenAPIHandler } from '@orpc/openapi/fetch'
 
 import { validateAndResolveAccess } from './access'
-import { buildCrudRouter } from './crud'
-import { buildCrudApiRouter } from './api/crud-router'
-import { createApiContext } from './api/context'
 import { createCrudOperations, CrudOperationError } from './crud-operations'
 
 const posts = pgTable('posts', {
@@ -18,7 +13,6 @@ const posts = pgTable('posts', {
   userId: text('user_id'),
   orgId: text('org_id'),
 })
-
 const schema = { posts }
 
 async function setupTestDb() {
@@ -44,14 +38,20 @@ async function setupTestDb() {
   return drizzle(client, { schema })
 }
 
-describe('crud-operations core execution', () => {
-  let db: any
+const publicContext = {
+  request: new Request('http://localhost/api/posts'),
+  user: { id: 'u1', email: 'u1@test.com' },
+  session: { activeOrganizationId: 'org1' },
+}
+
+describe('crud operations', () => {
+  let db: Awaited<ReturnType<typeof setupTestDb>>
 
   beforeEach(async () => {
     db = await setupTestDb()
   })
 
-  it('executes list, get, create, update, delete directly', async () => {
+  it('executes list, get, create, update, and delete directly', async () => {
     const access = validateAndResolveAccess(schema, {
       posts: {
         ownerColumn: 'userId',
@@ -62,451 +62,130 @@ describe('crud-operations core execution', () => {
         delete: 'public',
       },
     })
-    const ops = createCrudOperations({ schema, db, access })
-    const dummyReq = new Request('http://localhost/api/posts')
-    const ctx = {
-      request: dummyReq,
-      user: { id: 'u1', email: 'u1@test.com' },
-      session: { activeOrganizationId: 'org1' },
-    }
+    const operations = createCrudOperations({ schema, db, access })
 
-    // Create
-    const created = await ops.create(
+    const created = await operations.create(
       'posts',
       { id: 'p1', title: 'Title 1' },
       undefined,
       undefined,
-      ctx,
+      publicContext,
     )
-    expect(created.type).toBe('created')
-    expect(created.status).toBe(201)
-    expect(created.record.id).toBe('p1')
-
-    // Get
-    const fetched = await ops.get('posts', 'p1', ctx)
-    expect(fetched.title).toBe('Title 1')
-
-    // List
-    const listRes = await ops.list('posts', undefined, ctx)
-    expect(listRes.items).toHaveLength(1)
-    expect(listRes.items[0]!.id).toBe('p1')
-
-    // Update
-    const updated = await ops.update(
-      'posts',
-      'p1',
-      { title: 'Updated Title' },
-      ctx,
-    )
-    expect(updated.title).toBe('Updated Title')
-
-    // Delete
-    await ops.delete('posts', 'p1', ctx)
-    await expect(ops.get('posts', 'p1', ctx)).rejects.toThrow(
-      CrudOperationError,
-    )
-  })
-
-  it('enforces access control and scopes in operations core', async () => {
-    const access = validateAndResolveAccess(schema, {
-      posts: {
-        ownerColumn: 'userId',
-        list: 'authenticated',
-        get: 'authenticated',
-        create: 'authenticated',
-        update: 'authenticated',
-        delete: 'authenticated',
-        scope: {
-          read: (c) => ({ orgId: c.session?.activeOrganizationId ?? '' }),
-          write: (c) => ({ orgId: c.session?.activeOrganizationId ?? '' }),
-        },
-      },
+    expect(created).toMatchObject({
+      type: 'created',
+      status: 201,
+      record: { id: 'p1', title: 'Title 1' },
     })
-    const ops = createCrudOperations({ schema, db, access })
-    const req = new Request('http://localhost/api/posts')
-    const unauthCtx = {
-      request: req,
-      user: null,
-      session: { activeOrganizationId: null },
-    }
-    const authCtx = {
-      request: req,
-      user: { id: 'u1', email: 'u1@test.com' },
-      session: { activeOrganizationId: 'org_1' },
-    }
 
-    // Unauthenticated create fails
-    await expect(
-      ops.create(
+    expect(await operations.get('posts', 'p1', publicContext)).toMatchObject({
+      id: 'p1',
+      title: 'Title 1',
+    })
+    expect(
+      (await operations.list('posts', undefined, publicContext)).items,
+    ).toHaveLength(1)
+    expect(
+      await operations.update(
         'posts',
-        { id: 'p1', title: 'P1' },
-        undefined,
-        undefined,
-        unauthCtx,
+        'p1',
+        { title: 'Updated' },
+        publicContext,
       ),
-    ).rejects.toThrow(CrudOperationError)
+    ).toMatchObject({ id: 'p1', title: 'Updated' })
 
-    // Authenticated create stamps org_1
-    const created = await ops.create(
-      'posts',
-      { id: 'p1', title: 'P1', orgId: 'spoofed_org' },
-      undefined,
-      undefined,
-      authCtx,
-    )
-    expect(created.record.orgId).toBe('org_1')
-
-    // Different org context gets 404
-    const otherOrgCtx = {
-      request: req,
-      user: { id: 'u2', email: 'u2@test.com' },
-      session: { activeOrganizationId: 'org_2' },
-    }
-    await expect(ops.get('posts', 'p1', otherOrgCtx)).rejects.toThrow(
+    await operations.delete('posts', 'p1', publicContext)
+    await expect(operations.get('posts', 'p1', publicContext)).rejects.toThrow(
       CrudOperationError,
     )
   })
-})
 
-describe('Hono and oRPC Adapter Parity', () => {
-  let honoDb: any
-  let orpcDb: any
-  let honoEvents: any[]
-  let orpcEvents: any[]
-  let honoApp: Hono
-  let openapiHandler: OpenAPIHandler<any>
-  let orpcMockDeps: any
-
-  beforeEach(async () => {
-    honoDb = await setupTestDb()
-    orpcDb = await setupTestDb()
-    honoEvents = []
-    orpcEvents = []
-
+  it('maps unauthenticated and forbidden access to distinct framework codes', async () => {
     const access = validateAndResolveAccess(schema, {
       posts: {
         ownerColumn: 'userId',
-        searchableColumns: ['title', 'content'],
-        filterableColumns: ['userId', 'orgId'],
-        sortableColumns: ['id', 'title'],
-        defaultSort: { column: 'id', order: 'asc' },
-        list: 'authenticated',
-        get: 'authenticated',
         create: 'authenticated',
         update: 'owner',
-        delete: 'owner',
-        scope: {
-          read: (c) => ({ orgId: c.session?.activeOrganizationId ?? '' }),
-          write: (c) => ({ orgId: c.session?.activeOrganizationId ?? '' }),
-        },
       },
     })
+    const operations = createCrudOperations({ schema, db, access })
+    const unauthenticated = { ...publicContext, user: null }
 
-    const honoRealtime = {
-      publish: async (table: any, action: any, record: any) => {
-        honoEvents.push({ table, action, record })
-      },
-    } as any
+    const unauthorized = await operations
+      .create(
+        'posts',
+        { id: 'p1', title: 'Title' },
+        undefined,
+        undefined,
+        unauthenticated,
+      )
+      .catch((value) => value)
+    expect(unauthorized).toBeInstanceOf(CrudOperationError)
+    expect(unauthorized.code).toBe('UNAUTHORIZED')
 
-    const orpcRealtime = {
-      publish: async (table: any, action: any, record: any) => {
-        orpcEvents.push({ table, action, record })
-      },
-    } as any
-
-    const testAuthResolver = {
-      api: {
-        getSession: async ({ headers }: { headers: Headers }) => {
-          const user = headers.get('x-user-id')
-          const org = headers.get('x-org-id')
-          if (!user) return null
-          return {
-            user: { id: user, email: `${user}@test.com` },
-            session: { activeOrganizationId: org },
-            activeOrganizationId: org,
-          }
-        },
-      },
-    }
-
-    // 1. Hono router
-    honoApp = new Hono()
-    honoApp.route(
-      '/api',
-      buildCrudRouter(schema, honoDb, {
-        auth: testAuthResolver as any,
-        access,
-        idempotency: true,
-        realtime: honoRealtime,
-      }),
+    await operations.create(
+      'posts',
+      { id: 'p1', title: 'Title' },
+      undefined,
+      undefined,
+      publicContext,
     )
+    const forbidden = await operations
+      .update(
+        'posts',
+        'p1',
+        { title: 'Changed' },
+        {
+          ...publicContext,
+          user: { id: 'u2', email: 'u2@test.com' },
+        },
+      )
+      .catch((value) => value)
+    expect(forbidden).toBeInstanceOf(CrudOperationError)
+    expect(forbidden.code).toBe('FORBIDDEN')
+  })
 
-    // 2. oRPC router
-    const crudApiRouter = buildCrudApiRouter(schema, orpcDb, {
+  it('replays identical idempotent creates and conflicts on different raw bytes', async () => {
+    const access = validateAndResolveAccess(schema, {
+      posts: { create: 'public' },
+    })
+    const operations = createCrudOperations({
+      schema,
+      db,
       access,
       idempotency: true,
-      realtime: orpcRealtime,
     })
+    const compact = '{"id":"p1","title":"Title"}'
+    const formatted = '{ "id": "p1", "title": "Title" }'
 
-    openapiHandler = new OpenAPIHandler(crudApiRouter as any, {
-      customErrorResponseBodyEncoder: (error: any) => ({
-        error: error.message,
-        code: error.data?.code ?? error.code,
-        ...(error.data?.details !== undefined ? { details: error.data.details } : {}),
-      }),
-      fetchInterceptors: [
-        async (options) => {
-          const res = await options.next()
-          if (res.matched && options.context?.resHeaders) {
-            options.context.resHeaders.forEach((v: string, k: string) =>
-              res.response.headers.set(k, v),
-            )
-          }
-          return res
-        },
-      ],
-    })
+    const created = await operations.create(
+      'posts',
+      JSON.parse(compact),
+      compact,
+      'same-key',
+      publicContext,
+    )
+    expect(created.type).toBe('created')
 
-    orpcMockDeps = {
-      db: orpcDb,
-      env: {},
-      storage: {} as any,
-      email: {} as any,
-      jobs: {} as any,
-      realtime: orpcRealtime,
-      auth: {} as any,
-      authResolver: testAuthResolver,
-    }
-  })
+    const replay = await operations.create(
+      'posts',
+      JSON.parse(compact),
+      compact,
+      'same-key',
+      publicContext,
+    )
+    expect(replay.type).toBe('replay')
 
-  async function executeTransports(path: string, init?: RequestInit) {
-    // Hono
-    const honoReq = new Request(`http://localhost${path}`, init)
-    const honoRes = await honoApp.fetch(honoReq)
-
-    // oRPC
-    const orpcReq = new Request(`http://localhost${path}`, init)
-    const resHeaders = new Headers()
-    const apiCtx = {
-      ...createApiContext(orpcMockDeps, orpcReq),
-      resHeaders,
-    }
-    const orpcResult = await openapiHandler.handle(orpcReq, { context: apiCtx })
-    const orpcRes = orpcResult.response!
-
-    return { honoRes, orpcRes }
-  }
-
-  it('both adapters return 401 unauthenticated and 403 forbidden with matching error envelopes', async () => {
-    // 401 Unauthenticated create
-    const { honoRes: hono401, orpcRes: orpc401 } = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: 'p1', title: 'Post 1' }),
-    })
-
-    expect(hono401.status).toBe(401)
-    expect(orpc401.status).toBe(401)
-    const hono401Body = await hono401.json()
-    const orpc401Body = await orpc401.json()
-    expect(hono401Body).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' })
-    expect(orpc401Body).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' })
-
-    // Seed post as user1 in org1 on both DBs
-    await executeTransports('/api/posts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'user1',
-        'x-org-id': 'org1',
-      },
-      body: JSON.stringify({ id: 'p1', title: 'Post 1' }),
-    })
-
-    // 403 Forbidden update by user2 (not owner)
-    const { honoRes: hono403, orpcRes: orpc403 } = await executeTransports('/api/posts/p1', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'user2',
-        'x-org-id': 'org1',
-      },
-      body: JSON.stringify({ title: 'Hacked' }),
-    })
-
-    expect(hono403.status).toBe(403)
-    expect(orpc403.status).toBe(403)
-    const hono403Body = await hono403.json()
-    const orpc403Body = await orpc403.json()
-    expect(hono403Body).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' })
-    expect(orpc403Body).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' })
-  })
-
-  it('both adapters succeed on CRUD payloads (201 create, 200 get/update, 204 delete) and publish realtime exactly once', async () => {
-    honoEvents.length = 0
-    orpcEvents.length = 0
-
-    // 1. Create (201)
-    const { honoRes: createHono, orpcRes: createOrpc } = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'u1',
-        'x-org-id': 'org1',
-      },
-      body: JSON.stringify({ id: 'p1', title: 'Post 1' }),
-    })
-
-    expect(createHono.status).toBe(201)
-    expect(createOrpc.status).toBe(201)
-    const createdHonoBody = await createHono.json()
-    const createdOrpcBody = await createOrpc.json()
-    expect(createdHonoBody).toEqual(createdOrpcBody)
-    expect(createdHonoBody).toEqual({
-      id: 'p1',
-      title: 'Post 1',
-      content: null,
-      userId: 'u1',
-      orgId: 'org1',
-    })
-
-    // Realtime events published exactly once per transport
-    expect(honoEvents).toHaveLength(1)
-    expect(orpcEvents).toHaveLength(1)
-    expect(honoEvents[0].action).toBe('create')
-    expect(orpcEvents[0].action).toBe('create')
-
-    // 2. Get (200)
-    const { honoRes: getHono, orpcRes: getOrpc } = await executeTransports('/api/posts/p1', {
-      headers: { 'x-user-id': 'u1', 'x-org-id': 'org1' },
-    })
-    expect(getHono.status).toBe(200)
-    expect(getOrpc.status).toBe(200)
-    expect(await getHono.json()).toEqual(await getOrpc.json())
-
-    // 3. Update (200)
-    const { honoRes: updateHono, orpcRes: updateOrpc } = await executeTransports('/api/posts/p1', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'u1',
-        'x-org-id': 'org1',
-      },
-      body: JSON.stringify({ title: 'Updated Post' }),
-    })
-    expect(updateHono.status).toBe(200)
-    expect(updateOrpc.status).toBe(200)
-    const updatedHono = (await updateHono.json()) as any
-    const updatedOrpc = (await updateOrpc.json()) as any
-    expect(updatedHono).toEqual(updatedOrpc)
-    expect(updatedHono.title).toBe('Updated Post')
-
-    // 4. Delete (204)
-    const { honoRes: deleteHono, orpcRes: deleteOrpc } = await executeTransports('/api/posts/p1', {
-      method: 'DELETE',
-      headers: { 'x-user-id': 'u1', 'x-org-id': 'org1' },
-    })
-    expect(deleteHono.status).toBe(204)
-    expect(deleteOrpc.status).toBe(204)
-  })
-
-  it('both adapters enforce scope hiding (404) and scope stamping', async () => {
-    // Create p1 in org1
-    await executeTransports('/api/posts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'u1',
-        'x-org-id': 'org1',
-      },
-      body: JSON.stringify({ id: 'p1', title: 'Post 1', orgId: 'spoofed' }),
-    })
-
-    // Out of scope get (org2 context) gets 404
-    const { honoRes: get404Hono, orpcRes: get404Orpc } = await executeTransports('/api/posts/p1', {
-      headers: { 'x-user-id': 'u1', 'x-org-id': 'org2' },
-    })
-    expect(get404Hono.status).toBe(404)
-    expect(get404Orpc.status).toBe(404)
-  })
-
-  it('both adapters handle idempotency replay and conflicts identically', async () => {
-    const key = 'idem-key-1'
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-user-id': 'u1',
-      'x-org-id': 'org1',
-      'Idempotency-Key': key,
-    }
-
-    // 1st request
-    const { honoRes: res1Hono, orpcRes: res1Orpc } = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ id: 'idem1', title: 'Idem Post' }),
-    })
-
-    expect(res1Hono.status).toBe(201)
-    expect(res1Orpc.status).toBe(201)
-
-    // Replay request with same key and body
-    const { honoRes: replayHono, orpcRes: replayOrpc } = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ id: 'idem1', title: 'Idem Post' }),
-    })
-
-    expect(replayHono.status).toBe(201)
-    expect(replayOrpc.status).toBe(201)
-    expect(replayHono.headers.get('Idempotency-Replayed')).toBe('true')
-    expect(replayOrpc.headers.get('Idempotency-Replayed')).toBe('true')
-
-    // Conflict request with same key and different body
-    const { honoRes: conflictHono, orpcRes: conflictOrpc } = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ id: 'idem1', title: 'Different Title' }),
-    })
-
-    expect(conflictHono.status).toBe(409)
-    expect(conflictOrpc.status).toBe(409)
-    const conflictHonoBody = await conflictHono.json()
-    const conflictOrpcBody = await conflictOrpc.json()
-    expect(conflictHonoBody).toEqual({
-      error: 'Idempotency key reused with different body',
-      code: 'IDEMPOTENCY_CONFLICT',
-    })
-    expect(conflictOrpcBody).toEqual({
-      error: 'Idempotency key reused with different body',
-      code: 'IDEMPOTENCY_CONFLICT',
-    })
-  })
-
-  it('both adapters hash the exact request body for idempotency conflicts', async () => {
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-user-id': 'u1',
-      'x-org-id': 'org1',
-      'Idempotency-Key': 'raw-body-key',
-    }
-
-    const compactBody = '{"id":"raw1","title":"Raw body"}'
-    const formattedBody = '{ "id": "raw1", "title": "Raw body" }'
-
-    const first = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers,
-      body: compactBody,
-    })
-    expect(first.honoRes.status).toBe(201)
-    expect(first.orpcRes.status).toBe(201)
-
-    const second = await executeTransports('/api/posts', {
-      method: 'POST',
-      headers,
-      body: formattedBody,
-    })
-    expect(second.honoRes.status).toBe(409)
-    expect(second.orpcRes.status).toBe(409)
+    const conflict = await operations
+      .create(
+        'posts',
+        JSON.parse(formatted),
+        formatted,
+        'same-key',
+        publicContext,
+      )
+      .catch((value) => value)
+    expect(conflict).toBeInstanceOf(CrudOperationError)
+    expect(conflict.code).toBe('CONFLICT')
+    expect(conflict.details).toEqual({ code: 'IDEMPOTENCY_CONFLICT' })
   })
 })

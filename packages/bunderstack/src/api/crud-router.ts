@@ -1,24 +1,24 @@
 import { getTableColumns, getTableName, isTable, type Table } from 'drizzle-orm'
-import { createSelectSchema, createInsertSchema } from 'drizzle-zod'
-import { ORPCError } from '@orpc/server'
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import {
+  createInsertSchema,
+  createSelectSchema,
+  createUpdateSchema,
+} from 'drizzle-valibot'
+import '@orpc/openapi/extensions/route'
+import * as v from 'valibot'
+
+import type { AnyDb } from '../dialect'
+import type { IdempotencyConfig } from '../idempotency'
+import type { RealtimeFacade } from '../realtime/facade'
+import type { CrudApiRouterFor } from './types'
 
 import {
   tableEntryForName,
   type ResolvedAccess,
   type TableAccessInput,
 } from '../access'
-import type { AnyDb } from '../dialect'
-import {
-  createCrudOperations,
-  CrudOperationError,
-  type CrudOperations,
-} from '../crud-operations'
-import type { IdempotencyConfig } from '../idempotency'
-import type { RealtimeFacade } from '../realtime/facade'
+import { createCrudOperations, type CrudOperations } from '../crud-operations'
 import { createApiBuilder } from './builder'
-import type { CrudApiRouterFor } from './types'
 
 export type CrudApiRouterOptions<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -28,34 +28,10 @@ export type CrudApiRouterOptions<
   realtime?: RealtimeFacade<TSchema>
 }
 
-function omitIdShape<T extends Record<string, z.ZodTypeAny>>(
-  shape: T,
-): Omit<T, 'id'> {
-  const rest: Record<string, z.ZodTypeAny> = {}
-  for (const [k, v] of Object.entries(shape)) {
-    if (k !== 'id') {
-      rest[k] = v
-    }
-  }
-  return rest as Omit<T, 'id'>
-}
-
-function toORPCError(err: CrudOperationError): ORPCError<any, any> {
-  const codeMap: Record<number, string> = {
-    400: 'BAD_REQUEST',
-    401: 'UNAUTHORIZED',
-    403: 'FORBIDDEN',
-    404: 'NOT_FOUND',
-    409: 'CONFLICT',
-  }
-  const code = codeMap[err.status] ?? 'INTERNAL_SERVER_ERROR'
-  return new ORPCError(code as any, {
-    message: err.message,
-    data: {
-      code: err.code,
-      details: err.details,
-    },
-  })
+function strictObject<TEntries extends v.ObjectEntries>(schema: {
+  entries: TEntries
+}) {
+  return v.strictObject(schema.entries)
 }
 
 export type BuildTableCrudProceduresArgs<
@@ -74,46 +50,56 @@ export function buildTableCrudProcedures<
   const { table, operations, builder } = args
   const name = getTableName(table)
 
-  const selectSchema = createSelectSchema(table)
-  const insertSchema = createInsertSchema(table)
+  const selectSchema = strictObject(createSelectSchema(table))
+  const insertSchema = strictObject(createInsertSchema(table))
+  const generatedUpdateSchema = createUpdateSchema(table)
+  const updateBodySchema = v.omit(generatedUpdateSchema, [
+    'id' as keyof typeof generatedUpdateSchema.entries,
+  ])
+  const updateInputSchema = v.strictObject({
+    params: v.strictObject({ id: v.string() }),
+    query: v.optional(v.record(v.string(), v.unknown()), {}),
+    headers: v.optional(v.record(v.string(), v.unknown()), {}),
+    body: strictObject(updateBodySchema),
+  })
 
-  const updateInputSchema = z
-    .object({ id: z.string() })
-    .extend(omitIdShape(insertSchema.partial().shape))
+  const listQuerySchema = v.optional(
+    v.strictObject({
+      limit: v.optional(
+        v.pipe(
+          v.union([v.string(), v.number()]),
+          v.transform(Number),
+          v.number(),
+        ),
+      ),
+      cursor: v.optional(v.string()),
+      sort: v.optional(v.string()),
+      filter: v.optional(v.string()),
+      count: v.optional(v.picklist(['true', 'false'])),
+    }),
+  )
 
-  const listQuerySchema = z
-    .object({
-      limit: z.coerce.number().optional(),
-      cursor: z.string().optional(),
-      sort: z.string().optional(),
-      filter: z.string().optional(),
-      count: z.enum(['true', 'false']).optional(),
-    })
-    .optional()
-
-  const listOutputSchema = z.object({
-    items: z.array(selectSchema),
-    nextCursor: z.string().optional(),
-    hasMore: z.boolean(),
-    total: z.number().optional(),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
-    cursor: z.string().optional(),
-    q: z.string().optional(),
-    sort: z.string().optional(),
-    order: z.string().optional(),
+  const listOutputSchema = v.strictObject({
+    items: v.array(selectSchema),
+    nextCursor: v.optional(v.string()),
+    hasMore: v.boolean(),
+    total: v.optional(v.number()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    q: v.optional(v.string()),
+    sort: v.optional(v.string()),
+    order: v.optional(v.string()),
   })
 
   // 1. LIST procedure
   const list = builder.public
-    .meta(
-      openapi({
-        method: 'GET',
-        path: `/api/${name}`,
-        summary: `List ${name}`,
-        tags: [name],
-      }),
-    )
+    .route({
+      method: 'GET',
+      path: `/api/${name}`,
+      summary: `List ${name}`,
+      tags: [name],
+    })
     .input(listQuerySchema)
     .output(listOutputSchema)
     .handler(async ({ input, context }) => {
@@ -123,28 +109,22 @@ export function buildTableCrudProcedures<
         user: session.user,
         session: { activeOrganizationId: session.activeOrganizationId },
       }
-      try {
-        const result = await operations.list(name, input, execCtx)
-        return result as any
-      } catch (err) {
-        if (err instanceof CrudOperationError) {
-          throw toORPCError(err)
-        }
-        throw err
+      const result = await operations.list(name, input, execCtx)
+      return {
+        ...result,
+        items: result.items as TTable['$inferSelect'][],
       }
     })
 
   // 2. GET procedure
   const get = builder.public
-    .meta(
-      openapi({
-        method: 'GET',
-        path: `/api/${name}/{id}`,
-        summary: `Get ${name} by ID`,
-        tags: [name],
-      }),
-    )
-    .input(z.object({ id: z.string() }))
+    .route({
+      method: 'GET',
+      path: `/api/${name}/{id}`,
+      summary: `Get ${name} by ID`,
+      tags: [name],
+    })
+    .input(v.strictObject({ id: v.string() }))
     .output(selectSchema)
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
@@ -153,27 +133,22 @@ export function buildTableCrudProcedures<
         user: session.user,
         session: { activeOrganizationId: session.activeOrganizationId },
       }
-      try {
-        return (await operations.get(name, input.id, execCtx)) as any
-      } catch (err) {
-        if (err instanceof CrudOperationError) {
-          throw toORPCError(err)
-        }
-        throw err
-      }
+      return (await operations.get(
+        name,
+        input.id,
+        execCtx,
+      )) as TTable['$inferSelect']
     })
 
   // 3. CREATE procedure
   const create = builder.public
-    .meta(
-      openapi({
-        method: 'POST',
-        path: `/api/${name}`,
-        summary: `Create ${name}`,
-        tags: [name],
-        successStatus: 201,
-      }),
-    )
+    .route({
+      method: 'POST',
+      path: `/api/${name}`,
+      summary: `Create ${name}`,
+      tags: [name],
+      successStatus: 201,
+    })
     .input(insertSchema)
     .output(selectSchema)
     .handler(async ({ input, context }) => {
@@ -188,37 +163,29 @@ export function buildTableCrudProcedures<
         ?.trim()
       const rawBody = await context.getRawBody()
 
-      try {
-        const res = await operations.create(
-          name,
-          input,
-          rawBody,
-          idempotencyKey,
-          execCtx,
-        )
-        if (res.type === 'replay') {
-          context.resHeaders.set('Idempotency-Replayed', 'true')
-          return res.record as any
-        }
-        return res.record as any
-      } catch (err) {
-        if (err instanceof CrudOperationError) {
-          throw toORPCError(err)
-        }
-        throw err
+      const res = await operations.create(
+        name,
+        input,
+        rawBody,
+        idempotencyKey,
+        execCtx,
+      )
+      if (res.type === 'replay') {
+        context.resHeaders.set('Idempotency-Replayed', 'true')
+        return res.record as TTable['$inferSelect']
       }
+      return res.record as TTable['$inferSelect']
     })
 
   // 4. UPDATE procedure
   const update = builder.public
-    .meta(
-      openapi({
-        method: 'PATCH',
-        path: `/api/${name}/{id}`,
-        summary: `Update ${name}`,
-        tags: [name],
-      }),
-    )
+    .route({
+      method: 'PATCH',
+      path: `/api/${name}/{id}`,
+      summary: `Update ${name}`,
+      tags: [name],
+      inputStructure: 'detailed',
+    })
     .input(updateInputSchema)
     .output(selectSchema)
     .handler(async ({ input, context }) => {
@@ -229,31 +196,25 @@ export function buildTableCrudProcedures<
         session: { activeOrganizationId: session.activeOrganizationId },
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { id: rawId, ...body } = input as any
-      try {
-        return (await operations.update(name, rawId, body, execCtx)) as any
-      } catch (err) {
-        if (err instanceof CrudOperationError) {
-          throw toORPCError(err)
-        }
-        throw err
-      }
+      return (await operations.update(
+        name,
+        input.params.id,
+        input.body,
+        execCtx,
+      )) as TTable['$inferSelect']
     })
 
   // 5. DELETE procedure
   const deleteProc = builder.public
-    .meta(
-      openapi({
-        method: 'DELETE',
-        path: `/api/${name}/{id}`,
-        summary: `Delete ${name}`,
-        tags: [name],
-        successStatus: 204,
-      }),
-    )
-    .input(z.object({ id: z.string() }))
-    .output(z.undefined())
+    .route({
+      method: 'DELETE',
+      path: `/api/${name}/{id}`,
+      summary: `Delete ${name}`,
+      tags: [name],
+      successStatus: 204,
+    })
+    .input(v.strictObject({ id: v.string() }))
+    .output(v.undefined())
     .handler(async ({ input, context }) => {
       const session = await context.getSession()
       const execCtx = {
@@ -261,15 +222,8 @@ export function buildTableCrudProcedures<
         user: session.user,
         session: { activeOrganizationId: session.activeOrganizationId },
       }
-      try {
-        await operations.delete(name, input.id, execCtx)
-        return undefined
-      } catch (err) {
-        if (err instanceof CrudOperationError) {
-          throw toORPCError(err)
-        }
-        throw err
-      }
+      await operations.delete(name, input.id, execCtx)
+      return undefined
     })
 
   return {
