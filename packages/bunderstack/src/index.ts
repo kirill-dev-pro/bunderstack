@@ -533,7 +533,7 @@ export async function createBunderstack<
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
       reservedCoreHandles: new Set([
         'health',
-        ...(publisher ? ['realtime'] : []),
+        ...(publisher ? ['realtime.changes'] : []),
         ...[...registry.keys()].flatMap((name) =>
           ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
             (operation) => `files.${name}.${operation}`,

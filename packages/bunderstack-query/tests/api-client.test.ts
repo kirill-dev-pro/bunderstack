@@ -1,6 +1,5 @@
 import { test, expect } from 'bun:test'
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { pglite } from 'bunderstack/database/pglite'
@@ -24,8 +23,8 @@ async function setupApp() {
     api: (o) => ({
       stats: {
         get: o.public
-          .meta(openapi({ method: 'GET', path: '/api/stats' }))
-          .input(z.object({ id: z.string() }))
+          .route({ method: 'GET', path: '/api/stats' })
+          .input(v.object({ id: v.string() }))
           .handler(async ({ input }) => ({ id: input.id, totalPosts: 42 })),
       },
     }),
@@ -41,19 +40,40 @@ test('createClient provides unified orpc api queryOptions for CRUD and custom pr
   })
 
   // CRUD procedure queryOptions
-  const listOpts = client.api.posts.list.queryOptions({ input: {} })
+  const listOpts = client.posts.list.queryOptions({ input: {} })
   expect(listOpts.queryKey).toBeDefined()
   expect(listOpts.queryFn).toBeDefined()
 
   // Custom procedure queryOptions
-  const statsOpts = client.api.stats.get.queryOptions({ input: { id: 'stat_1' } })
+  const statsOpts = client.stats.get.queryOptions({ input: { id: 'stat_1' } })
   expect(statsOpts.queryKey).toBeDefined()
   expect(statsOpts.queryFn).toBeDefined()
+  expect(
+    client.posts.create.mutationOptions().mutationFn,
+  ).toBeDefined()
 
   // Execute queryFn with TanStack Query context
   const queryContext = { signal: new AbortController().signal } as any
   const statsResult = await statsOpts.queryFn(queryContext)
   expect(statsResult).toEqual({ id: 'stat_1', totalPosts: 42 })
+  expect(await client.stats.get.call({ id: 'stat_2' })).toEqual({
+    id: 'stat_2',
+    totalPosts: 42,
+  })
 
+  await app.close()
+})
+
+test('file URL helper is attached to the typed bucket namespace', async () => {
+  const app = await createBunderstack({
+    schema,
+    database: { adapter: pglite() },
+    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+    storage: { buckets: { images: {} } },
+  })
+  const client = createClient<typeof app>({ baseUrl: 'http://localhost/api' })
+  expect(client.files.images.url('images/a.b', { w: 100 })).toBe(
+    'http://localhost/api/files/images/a%2Eb?w=100',
+  )
   await app.close()
 })

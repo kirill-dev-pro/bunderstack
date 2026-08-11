@@ -6,9 +6,7 @@ export type ClientCarrier = {
   schema: Record<string, unknown>
   access: unknown
   buckets: string
-  // Optional: apps built before the trpc/api feature still match.
-  trpc?: unknown
-  api?: AnyRouter
+  api: AnyRouter
 }
 
 export type AnyBunderstackApp = { $inferClient?: ClientCarrier | undefined }
@@ -21,16 +19,8 @@ export type InferSchema<TApp extends AnyBunderstackApp> =
 export type InferBuckets<TApp extends AnyBunderstackApp> =
   InferCarrier<TApp>['buckets']
 
-/** The app's tRPC router type, or `never` when it doesn't declare one. */
-export type InferTrpcRouter<TApp extends AnyBunderstackApp> = Exclude<
-  InferCarrier<TApp>['trpc'],
-  undefined
->
-
-export type InferApiRouter<TApp extends AnyBunderstackApp> = Exclude<
-  InferCarrier<TApp>['api'],
-  undefined
->
+export type InferApiRouter<TApp extends AnyBunderstackApp> =
+  InferCarrier<TApp>['api']
 
 export type ExposedTables<
   TSchema extends Record<string, unknown>,
@@ -43,4 +33,3 @@ export type InferTables<TApp extends AnyBunderstackApp> = ExposedTables<
 > &
   keyof InferSchema<TApp> &
   string
-

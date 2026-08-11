@@ -8,7 +8,7 @@ import type { RealtimePublisher } from '../realtime/publisher'
 import { filterRealtimeChanges } from '../realtime/filter'
 import { createApiBuilder } from './builder'
 
-const subscriptionsSchema = v.pipe(
+const tablesSchema = v.pipe(
   v.union([v.string(), v.array(v.string())]),
   v.transform((value) => (Array.isArray(value) ? value : [value])),
 )
@@ -29,21 +29,21 @@ export function buildRealtimeApiRouter(
     Record<string, unknown>
   >()
 
-  const realtime = builder.public
+  const changes = builder.public
     .route({
       method: 'GET',
       path: '/api/realtime',
       summary: 'Subscribe to realtime changes',
       tags: ['realtime'],
-      queryStyles: { subscriptions: 'array' },
+      queryStyles: { tables: 'array' },
     })
-    .input(v.strictObject({ subscriptions: subscriptionsSchema }))
+    .input(v.strictObject({ tables: tablesSchema }))
     .output(eventIterator(changeSchema))
     .handler(({ input, context, signal, lastEventId }) =>
       filterRealtimeChanges(
         publisher.subscribe('change', { signal, lastEventId }),
         {
-          subscriptions: input.subscriptions,
+          subscriptions: input.tables,
           access,
           request: context.request,
           getSession: context.getSession,
@@ -51,5 +51,5 @@ export function buildRealtimeApiRouter(
       ),
     )
 
-  return { realtime }
+  return { realtime: { changes } }
 }

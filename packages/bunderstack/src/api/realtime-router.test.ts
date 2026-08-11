@@ -51,7 +51,7 @@ test('streams Publisher events and resumes through the v2 HTTP handler', async (
   const handler = new OpenAPIHandler({ router })
   const controller = new AbortController()
   const request = new Request(
-    'http://test/api/realtime?subscriptions=boards',
+    'http://test/api/realtime?tables=boards',
     {
       headers: { 'Last-Event-ID': firstId ?? '' },
       signal: controller.signal,

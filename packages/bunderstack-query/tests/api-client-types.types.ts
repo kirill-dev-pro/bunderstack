@@ -1,5 +1,4 @@
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { pglite } from 'bunderstack/database/pglite'
@@ -40,8 +39,8 @@ async function setupApp() {
     api: (o) => ({
       stats: {
         get: o.public
-          .meta(openapi({ method: 'GET', path: '/api/stats' }))
-          .input(z.object({ id: z.string() }))
+          .route({ method: 'GET', path: '/api/stats' })
+          .input(v.object({ id: v.string() }))
           .handler(async ({ input }) => ({ id: input.id, totalPosts: 42 })),
       },
     }),
@@ -57,19 +56,21 @@ async function testTypes() {
 
   const queryContext = { signal: new AbortController().signal } as any
 
-  client.api.stats.get.queryOptions({ input: { id: 'ok' } })
+  client.stats.get.queryOptions({ input: { id: 'ok' } })
+  client.posts.create.mutationOptions()
+  void client.stats.get.call({ id: 'direct' })
 
   // @ts-expect-error id is required
-  client.api.stats.get.queryOptions({ input: {} })
+  client.stats.get.queryOptions({ input: {} })
 
   // @ts-expect-error totalPosts is a number
-  const wrongOutput: string = await client.api.stats.get.queryOptions({
+  const wrongOutput: string = await client.stats.get.queryOptions({
     input: { id: 'ok' },
   }).queryFn(queryContext)
 
   // @ts-expect-error route does not exist
-  client.api.missing.get.queryOptions({ input: {} })
+  client.missing.get.queryOptions({ input: {} })
 
   // @ts-expect-error disabled CRUD table is not exposed
-  client.api.privateNotes.list.queryOptions({ input: {} })
+  client.privateNotes.list.queryOptions({ input: {} })
 }

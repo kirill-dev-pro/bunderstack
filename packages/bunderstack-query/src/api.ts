@@ -32,5 +32,5 @@ export function createApiClient<TRouter extends AnyRouter = AnyRouter>(
   })
 
   const client = createORPCClient<RouterClient<TRouter>>(link)
-  return createTanstackQueryUtils(client) as unknown as ApiQueryUtils<TRouter>
+  return createTanstackQueryUtils(client)
 }
