@@ -35,25 +35,25 @@ export function PostActions({
   const rtCount = retweets.filter((r) => r.postId === postId).length
 
   const likeCreate = useToastMutation(
-    api.likes.createMutation({
+    api.likes.create.mutationOptions({
       onSuccess: () => toast.success('Liked'),
       onError: () => toast.error('Could not like'),
     }),
   )
   const likeDelete = useToastMutation(
-    api.likes.deleteMutation({
+    api.likes.delete.mutationOptions({
       onSuccess: () => toast.success('Unliked'),
       onError: () => toast.error('Could not unlike'),
     }),
   )
   const rtCreate = useToastMutation(
-    api.retweets.createMutation({
+    api.retweets.create.mutationOptions({
       onSuccess: () => toast.success('Reposted'),
       onError: () => toast.error('Could not repost'),
     }),
   )
   const rtDelete = useToastMutation(
-    api.retweets.deleteMutation({
+    api.retweets.delete.mutationOptions({
       onSuccess: () => toast.success('Undone repost'),
       onError: () => toast.error('Could not undo repost'),
     }),
@@ -88,7 +88,7 @@ export function PostActions({
           e.preventDefault()
           e.stopPropagation()
           if (!currentUserId) return
-          if (myRt) rtDelete.mutate(myRt.id)
+          if (myRt) rtDelete.mutate({ id: myRt.id })
           else rtCreate.mutate({ postId })
         }}
       >
@@ -105,7 +105,7 @@ export function PostActions({
           e.preventDefault()
           e.stopPropagation()
           if (!currentUserId) return
-          if (myLike) likeDelete.mutate(myLike.id)
+          if (myLike) likeDelete.mutate({ id: myLike.id })
           else likeCreate.mutate({ postId })
         }}
       >

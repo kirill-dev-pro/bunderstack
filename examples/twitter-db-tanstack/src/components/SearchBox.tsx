@@ -18,14 +18,16 @@ export function SearchBox({ className }: SearchBoxProps) {
 
   const { data: postsData, isFetching: postsFetching } = useQuery(
     {
-      ...api.posts.table.listQuery({ ...SEARCH_LIST_PARAMS, q: term }),
+      queryKey: ['posts', 'search', term],
+      queryFn: () => api.posts.table.list({ ...SEARCH_LIST_PARAMS, q: term }),
       enabled: term.length >= 2,
     },
     queryClient,
   )
   const { data: usersData, isFetching: usersFetching } = useQuery(
     {
-      ...api.user.table.listQuery({ ...SEARCH_LIST_PARAMS, q: term }),
+      queryKey: ['user', 'search', term],
+      queryFn: () => api.user.table.list({ ...SEARCH_LIST_PARAMS, q: term }),
       enabled: term.length >= 2,
     },
     queryClient,

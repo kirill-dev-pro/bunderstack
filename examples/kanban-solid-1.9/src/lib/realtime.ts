@@ -1,21 +1,21 @@
-import { createRealtimeClient } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack-query'
 
-import { queryClient } from './query.ts'
+import { api, queryClient } from './query.ts'
 
 const tables = ['boards', 'lists', 'cards', 'comments', 'activity'] as const
 
-let client: ReturnType<typeof createRealtimeClient> | null = null
+let client: ReturnType<typeof syncRealtime> | null = null
 
 /** Connect SSE only after auth — avoids EventSource on /login. */
 export function getRealtime() {
   if (!client) {
-    client = createRealtimeClient({
-      baseUrl: '/api',
+    client = syncRealtime({
+      api,
       queryClient,
       tables: [...tables],
     })
   }
-  return client
+  return { subscribe: async (_tables: string[]) => {}, close: client.close }
 }
 
 export function closeRealtime() {

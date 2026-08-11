@@ -31,6 +31,7 @@ export type UploadedFile = {
 export type FileBucketHelpers = {
   url(idOrFileId: string, transforms?: FileTransformOptions): string
   upload(file: File): Promise<UploadedFile>
+  delete(idOrFileId: string): Promise<void>
 }
 
 type FileHelpers<TBuckets extends string> = {
@@ -96,12 +97,12 @@ function attachFileHelpers<T extends object>(
         return `${root}/${path}${query ? `?${query}` : ''}`
       }
       const upload = async (file: File): Promise<UploadedFile> => {
-        const prepared = await procedures.prepareUpload.call({
+        const prepared = await procedures.prepareUpload!.call({
           filename: file.name,
           contentType: file.type || undefined,
         })
         if (prepared.mode === 'proxy') {
-          const result = await procedures.upload.call({
+          const result = await procedures.upload!.call({
             params: {},
             query: {},
             headers: {},
@@ -122,11 +123,18 @@ function attachFileHelpers<T extends object>(
         if (!uploaded.ok) {
           throw new Error(`File upload failed (${uploaded.status})`)
         }
-        const result = await procedures.confirmUpload.call({ id: prepared.fileId })
+        const result = await procedures.confirmUpload!.call({ id: prepared.fileId })
         return { ...result, url: url(result.fileId), name: file.name }
       }
 
-      const bucket = Object.assign(Object.create(procedures), { url, upload })
+      const deleteFile = (idOrFileId: string) =>
+        procedures.delete!.call({ path: relativeId(property, idOrFileId) })
+
+      const bucket = Object.assign(Object.create(procedures), {
+        url,
+        upload,
+        delete: deleteFile,
+      })
       buckets.set(property, bucket)
       return bucket
     },

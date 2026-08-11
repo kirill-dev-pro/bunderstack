@@ -15,6 +15,7 @@ import type { CrudApiRouterFor } from './types'
 import {
   tableEntryForName,
   type ResolvedAccess,
+  type ResolvedTableAccess,
   type TableAccessInput,
 } from '../access'
 import { createCrudOperations, type CrudOperations } from '../crud-operations'
@@ -34,6 +35,8 @@ function strictObject<TEntries extends v.ObjectEntries>(schema: {
   return v.strictObject(schema.entries)
 }
 
+type CrudInsert<TTable extends Table> = Partial<TTable['$inferInsert']>
+
 export type BuildTableCrudProceduresArgs<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
@@ -41,17 +44,40 @@ export type BuildTableCrudProceduresArgs<
   table: TTable
   operations: CrudOperations
   builder: ReturnType<typeof createApiBuilder<TSchema>>
+  access: ResolvedTableAccess
 }
 
 export function buildTableCrudProcedures<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
 >(args: BuildTableCrudProceduresArgs<TSchema, TTable>) {
-  const { table, operations, builder } = args
+  const { table, operations, builder, access } = args
   const name = getTableName(table)
 
   const selectSchema = strictObject(createSelectSchema(table))
-  const insertSchema = strictObject(createInsertSchema(table))
+  const generatedInsertSchema = strictObject(createInsertSchema(table))
+  const generatedColumns = Object.keys(generatedInsertSchema.entries)
+  const columns = getTableColumns(table)
+  const serverManagedColumns = [
+    ...access.readonlyColumns,
+    ...(access.writeScope && generatedColumns.includes('organizationId')
+      ? ['organizationId']
+      : []),
+    ...Object.entries(columns)
+      .filter(([, column]) => !column.notNull || column.hasDefault)
+      .map(([column]) => column),
+  ].filter((column) => generatedColumns.includes(column))
+  const insertEntries: Record<string, v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>> = {
+    ...generatedInsertSchema.entries,
+  }
+  for (const column of serverManagedColumns) {
+    const schema = insertEntries[column]
+    if (schema) insertEntries[column] = v.optional(schema)
+  }
+  const insertSchema = v.strictObject(insertEntries) as unknown as v.GenericSchema<
+    CrudInsert<TTable>,
+    CrudInsert<TTable>
+  >
   const generatedUpdateSchema = createUpdateSchema(table)
   const updateBodySchema = v.omit(generatedUpdateSchema, [
     'id' as keyof typeof generatedUpdateSchema.entries,
@@ -285,6 +311,7 @@ export function buildCrudApiRouter<
       table: table as Table,
       operations,
       builder,
+      access: tableAccess,
     })
 
     routerObj[tableKey] = procedures

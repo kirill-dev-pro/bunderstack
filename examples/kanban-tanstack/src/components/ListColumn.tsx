@@ -46,7 +46,7 @@ export function ListColumn({
   const { setNodeRef, isOver } = useDroppable({ id: list.id })
 
   const createCard = useToastMutation({
-    ...api.cards.createMutation({
+    ...api.cards.create.mutationOptions({
       onSuccess: () => {
         setTitle('')
         setAdding(false)

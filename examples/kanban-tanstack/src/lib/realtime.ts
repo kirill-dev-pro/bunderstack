@@ -1,20 +1,16 @@
-import { createRealtimeClient } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack-query'
 
-import { queryClient } from '~/api-client'
+import { api, queryClient } from '~/api-client'
 
-const tables = ['boards', 'lists', 'cards', 'comments', 'activity'] as const
-
-let client: ReturnType<typeof createRealtimeClient> | null = null
+const tables = ['boards', 'lists', 'cards', 'comments', 'activity', 'attachments', 'reactions']
+let client: ReturnType<typeof syncRealtime> | null = null
 
 export function getRealtime() {
-  if (!client) {
-    client = createRealtimeClient({
-      baseUrl: '/api',
-      queryClient,
-      tables: [...tables],
-    })
+  client ??= syncRealtime({ api, queryClient, tables })
+  return {
+    subscribe: async (_tables: string[]) => {},
+    close: () => client?.close(),
   }
-  return client
 }
 
 export function closeRealtime() {

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type * as schema from '~/schema'
 
-import { api } from '~/api-client'
+import { api, listInput } from '~/api-client'
 import { ActivityList } from '~/components/ActivityList'
 import { AttachmentGallery } from '~/components/AttachmentGallery'
 import { ReactionBar } from '~/components/ReactionBar'
@@ -47,12 +47,12 @@ export function CardDialog({
   const [uploading, setUploading] = useState(false)
 
   const { data: card } = useQuery({
-    ...api.cards.getQuery(cardId ?? ''),
+    ...api.cards.get.queryOptions({ input: { id: cardId ?? '' } }),
     enabled: !!cardId,
   })
 
   const { data: comments, refetch: refetchComments } = useQuery({
-    ...api.comments.listQuery({ cardId: cardId ?? '', limit: 100 }),
+    ...api.comments.list.queryOptions({ input: listInput({ cardId: cardId ?? '', limit: 100 }) }),
     enabled: !!cardId,
   })
 
@@ -80,20 +80,20 @@ export function CardDialog({
   }, [cardId])
 
   const updateCard = useToastMutation({
-    ...api.cards.updateMutation(),
+    ...api.cards.update.mutationOptions(),
     successMessage: 'Card saved',
   })
 
   const addComment = useToastMutation({
-    ...api.comments.createMutation(),
+    ...api.comments.create.mutationOptions(),
   })
 
   const addAttachment = useToastMutation({
-    ...api.attachments.createMutation(),
+    ...api.attachments.create.mutationOptions(),
   })
 
   const logActivity = useToastMutation({
-    ...api.activity.createMutation(),
+    ...api.activity.create.mutationOptions(),
   })
 
   function logCardActivity(type: string, data?: Record<string, unknown>) {
@@ -184,7 +184,7 @@ export function CardDialog({
                     const next = (title || card.title).trim()
                     if (next && next !== card.title) {
                       updateCard.mutate(
-                        { id: card.id, data: { title: next } },
+                        { params: { id: card.id }, query: {}, headers: {}, body: { title: next } },
                         {
                           onSuccess: () =>
                             logCardActivity('updated', { field: 'title' }),
@@ -228,7 +228,7 @@ export function CardDialog({
                     onClick={() => {
                       const description = desc || card.description || ''
                       updateCard.mutate(
-                        { id: card.id, data: { description } },
+                        { params: { id: card.id }, query: {}, headers: {}, body: { description } },
                         {
                           onSuccess: () =>
                             logCardActivity('updated', {
@@ -400,7 +400,7 @@ export function CardDialog({
                       const raw = e.target.value
                       const assigneeId = raw ? asTypeId('user', raw) : null
                       updateCard.mutate(
-                        { id: card.id, data: { assigneeId } },
+                        { params: { id: card.id }, query: {}, headers: {}, body: { assigneeId } },
                         {
                           onSuccess: () =>
                             logCardActivity('assigned', { assigneeId }),

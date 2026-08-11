@@ -46,7 +46,11 @@ async function executionContext(
 }
 
 function headersRecord(headers: Headers): Record<string, string> {
-  return Object.fromEntries(headers.entries())
+  const result: Record<string, string> = {}
+  headers.forEach((value, key) => {
+    result[key] = value
+  })
+  return result
 }
 
 function buildBucketProcedures(

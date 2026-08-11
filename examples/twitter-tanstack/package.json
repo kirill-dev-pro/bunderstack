@@ -21,8 +21,6 @@
   "dependencies": {
     "@knadh/oat": "^0.6.2",
     "@libsql/client": "^0.14.0",
-    "@orpc/openapi": "2.0.0-beta.26",
-    "@orpc/server": "2.0.0-beta.26",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
@@ -30,11 +28,9 @@
     "bunderstack": "workspace:*",
     "bunderstack-query": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "superjson": "^2.2.0",
-    "zod": "^4.4.3"
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.0",

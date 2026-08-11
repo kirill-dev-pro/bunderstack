@@ -1,8 +1,8 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createIsomorphicFn } from '@tanstack/react-start'
-import { createBunderstackQueryClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack-query'
 
-import type * as schema from './schema'
+import type { App } from './bunderstack'
 
 const isomorphicFetch = createIsomorphicFn()
   .client((input: RequestInfo | URL, init?: RequestInit) =>
@@ -27,20 +27,21 @@ export const queryClient = new QueryClient({
 
 export const listParams = { limit: 100, offset: 0 } as const
 
-const apiBuilder = createBunderstackQueryClient<typeof schema>()
-
-export const api = apiBuilder.with({
+export const api = createClient<App>({
   queryClient,
-  fetch: isomorphicFetch,
-  tables: [
-    'boards',
-    'lists',
-    'cards',
-    'comments',
-    'activity',
-    'attachments',
-    'reactions',
-    'user',
-  ] as const,
-  buckets: ['attachments', 'avatars'] as const,
+  fetch: (request) => isomorphicFetch(request),
 })
+
+export function listInput(params: Record<string, any>) {
+  const { limit, offset, cursor, sort, order, q, count, ...filters } = params
+  return { limit, offset, cursor, sort, order, q, count, filters } as {
+    limit?: number
+    offset?: number
+    cursor?: string
+    sort?: string
+    order?: 'asc' | 'desc'
+    q?: string
+    count?: boolean
+    filters?: Record<string, unknown>
+  }
+}

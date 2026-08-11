@@ -61,7 +61,7 @@ const EDUCATIONAL_POSTS: Array<{
   {
     author: 'bob@example.com',
     title: 'bunderstack-query',
-    body: 'createBunderstackQueryClient exposes listQuery, createMutation, etc. Wire useQuery/useMutation directly — no custom hooks layer.',
+    body: 'createClient exposes typed oRPC call and queryOptions helpers from one root. Wire useQuery/useMutation directly — no custom hooks layer.',
   },
   {
     author: 'bob@example.com',

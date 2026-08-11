@@ -40,7 +40,7 @@ export type BunderstackSyncClient<TApp extends AnyBunderstackApp> = {
   >
 } & {
   files: BunderstackClient<TApp>['files']
-  realtime: { close(): void } | undefined
+  realtime: { close(): void; subscribe(tables: string[]): Promise<void> } | undefined
 }
 
 export function createSyncClient<TApp extends AnyBunderstackApp>(
@@ -58,7 +58,12 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
       if (property === 'files') return api.files
       if (property === 'realtime') {
         return realtimeEnabled
-          ? { close: () => realtimeHandles.forEach((handle) => handle.close()) }
+          ? {
+              close: () => realtimeHandles.forEach((handle) => handle.close()),
+              subscribe: async (names: string[]) => {
+                for (const name of names) void (result as any)[name]
+              },
+            }
           : undefined
       }
       if (['then', 'toJSON', 'constructor', '$$typeof'].includes(property)) return undefined

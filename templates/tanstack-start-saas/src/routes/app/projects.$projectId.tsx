@@ -26,8 +26,8 @@ function ProjectDetailPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [projRes, taskRes] = await Promise.all([
-        api.projects.table.list(),
-        api.tasks.table.list(),
+        api.projects.list.call({ limit: 100 }),
+        api.tasks.list.call({ limit: 100 }),
       ])
       const found = (projRes.items ?? []).find((p: any) => p.id === projectId)
       setProject(found ?? null)
@@ -39,7 +39,6 @@ function ProjectDetailPage() {
 
   React.useEffect(() => {
     void loadData()
-    void api.realtime?.subscribe(['tasks', 'projects'])
   }, [api, loadData])
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -49,16 +48,7 @@ function ProjectDetailPage() {
     setIsTaskPending(true)
 
     try {
-      const res = await fetch('/api/trpc/tasks.add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, title: taskTitle }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error?.message || 'Failed to add task')
-      }
+      await api.addTask.call({ projectId, title: taskTitle })
 
       setTaskTitle('')
       void loadData()
@@ -71,15 +61,8 @@ function ProjectDetailPage() {
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      const res = await fetch('/api/trpc/tasks.complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      })
-
-      if (res.ok) {
-        void loadData()
-      }
+      await api.completeTask.call({ taskId })
+      void loadData()
     } catch {
       // silent fail
     }
@@ -92,20 +75,9 @@ function ProjectDetailPage() {
     setUploadMessage(null)
 
     try {
-      const formData = new FormData()
-      formData.append('file', uploadFile)
-
-      const res = await fetch(`/api/storage/project-files/upload?projectId=${projectId}`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (res.ok) {
-        setUploadMessage('Attachment uploaded successfully')
-        setUploadFile(null)
-      } else {
-        setUploadMessage('File uploaded (mock storage saved)')
-      }
+      await api.files['project-files'].upload(uploadFile)
+      setUploadMessage('Attachment uploaded successfully')
+      setUploadFile(null)
     } catch {
       setUploadMessage('Upload request completed')
     } finally {

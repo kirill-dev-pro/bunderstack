@@ -1,8 +1,7 @@
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { desc, eq, sql } from 'drizzle-orm'
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { access } from './access'
 import * as schema from './schema'
@@ -50,11 +49,9 @@ export const app = await createBunderstack({
   },
   api: (o) => ({
     feed: o.public
-      .meta(openapi({ method: 'GET', path: '/api/feed' }))
+      .route({ method: 'GET', path: '/api/feed' })
       .input(
-        z
-          .object({ limit: z.number().int().min(1).max(50).default(20) })
-          .optional(),
+        v.optional(v.object({ limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(50)), 20) })),
       )
       .handler(async ({ context, input }) => {
         const limit = input?.limit ?? 20
@@ -78,3 +75,5 @@ export const app = await createBunderstack({
       }),
   }),
 })
+
+export type App = typeof app

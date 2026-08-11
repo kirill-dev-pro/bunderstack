@@ -16,7 +16,7 @@ function DashboardOverview() {
 
   const loadProjects = React.useCallback(async () => {
     try {
-      const res = await api.projects.table.list()
+      const res = await api.projects.list.call({ limit: 100 })
       setProjects(res.items ?? [])
     } catch {
       // fallback
@@ -25,7 +25,6 @@ function DashboardOverview() {
 
   React.useEffect(() => {
     void loadProjects()
-    void api.realtime?.subscribe(['projects', 'tasks'])
   }, [api, loadProjects])
 
   return (

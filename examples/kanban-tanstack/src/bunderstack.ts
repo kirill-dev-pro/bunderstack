@@ -68,3 +68,4 @@ export const app = await createBunderstack({
 await provision(app)
 
 export const { db, auth } = app
+export type App = typeof app

@@ -8,5 +8,5 @@ const api = createClient<typeof app>({ fetch: isomorphicFetch })
 
 /** Posts + authors + like counts in one call via the feed procedure. */
 export function useFeed(limit = 20) {
-  return useQuery(api.api.feed.queryOptions({ input: { limit } }))
+  return useQuery(api.feed.queryOptions({ input: { limit } }))
 }

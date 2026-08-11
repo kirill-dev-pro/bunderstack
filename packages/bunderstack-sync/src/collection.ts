@@ -8,11 +8,29 @@ import {
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
 const MAX_LIST_LIMIT = 200
 
+type TableListResult<TRow> = {
+  items: TRow[]
+  hasMore: boolean
+  nextCursor?: string
+  total?: number
+  limit?: number
+  offset?: number
+}
+
 type TableProcedures<TRow, TCreate, TUpdate> = {
-  list: { call(input?: Record<string, unknown>): Promise<{ items: TRow[]; hasMore: boolean; nextCursor?: string }> }
+  list: { call(input?: Record<string, unknown>): Promise<TableListResult<TRow>> }
+  get: { call(input: { id: string }): Promise<TRow> }
   create: { call(input: TCreate): Promise<TRow> }
   update: { call(input: { params: { id: string }; query: {}; headers: {}; body: TUpdate }): Promise<TRow> }
   delete: { call(input: { id: string }): Promise<void> }
+}
+
+export type DirectTableApi<TRow, TCreate, TUpdate> = {
+  list(input?: Record<string, unknown>): Promise<TableListResult<TRow>>
+  get(id: string | number): Promise<TRow>
+  create(input: TCreate): Promise<TRow>
+  update(id: string | number, input: TUpdate): Promise<TRow>
+  delete(id: string | number): Promise<void>
 }
 
 export type TableCollectionConfig = {
@@ -74,6 +92,16 @@ export function createTableCollection<
   TUpdate = Partial<TRow>,
 >(config: TableCollectionConfig) {
   const table = config.procedures as TableProcedures<TRow, TCreate, TUpdate>
+  const direct: DirectTableApi<TRow, TCreate, TUpdate> = {
+    list(input = {}) {
+      const { limit, offset, cursor, sort, order, q, count, ...filters } = input
+      return table.list.call({ limit, offset, cursor, sort, order, q, count, filters })
+    },
+    get: (id) => table.get.call({ id: String(id) }),
+    create: (input) => table.create.call(input),
+    update: (id, input) => table.update.call({ params: { id: String(id) }, query: {}, headers: {}, body: input }),
+    delete: (id) => table.delete.call({ id: String(id) }),
+  }
 
   const collection = createCollection(
     queryCollectionOptions<TRow>({
@@ -280,7 +308,7 @@ export function createTableCollection<
     for (const entry of registry) apply(entry.collection, entry.matches)
   }
 
-  /** Refetch the base collection plus every scoped/byIds view (gap recovery). */
+  /** Refetch the base collection plus every scoped/byIds view after reconnect. */
   async function refetchAll() {
     await Promise.all([
       collection.utils.refetch(),
@@ -290,6 +318,7 @@ export function createTableCollection<
 
   return {
     collection,
+    table: direct,
     scopedCollection,
     collectionByIds,
     applyRealtimeEvent,
@@ -320,6 +349,7 @@ export type TableCollection<
     Record<string, any>,
     StandardSchema<TRow>
   >
+  table: DirectTableApi<TRow, TCreate, TUpdate>
   scopedCollection: (
     options?: ScopedCollectionOptions,
   ) => ScopedCollection<TRow>

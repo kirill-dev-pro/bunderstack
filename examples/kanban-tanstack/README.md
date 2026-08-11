@@ -9,7 +9,7 @@ A Trello-like kanban board on **TanStack Start + React**, showcasing Bunderstack
 - Auto-CRUD at `/api/:table` with scope enforced on every operation
 - File uploads at `POST /api/files/attachments` with image thumbnails on cards and comments
 - Emoji reactions on cards and comments
-- Realtime via `GET/POST /api/realtime` — broadcast-on-write with cache sync
+- Realtime via the typed `api.realtime.changes` iterator — broadcast-on-write with cache sync
 - TanStack Start full-stack pattern: `src/routes/api/$.tsx` → `app.handler`
 - `@dnd-kit` drag-and-drop, Oat UI, `@tanstack/react-query` + `bunderstack-query`
 
@@ -80,9 +80,9 @@ bun run --cwd examples/kanban-tanstack start
 
 ## Realtime flow
 
-1. After login, the client opens `GET /api/realtime` (SSE) and receives `{ clientId }`
-2. `POST /api/realtime` with `{ clientId, subscriptions: ['boards', 'lists', 'cards', 'comments', 'attachments', 'reactions', 'activity'] }`
-3. CRUD writes broadcast events; `bunderstack-query` invalidates TanStack Query cache
+1. `syncRealtime` calls `api.realtime.changes` with the subscribed table names
+2. oRPC Publisher streams access-filtered row changes and resumable event metadata
+3. `bunderstack-query` patches details and invalidates affected TanStack Query caches
 
 ## Compared to `kanban-solid-1.9`
 

@@ -97,6 +97,36 @@ test('OpenAPI document is opt-in', async () => {
   await app.close()
 })
 
+test('unsupported Standard Schema only requires a converter when OpenAPI is enabled', async () => {
+  const customSchema = {
+    '~standard': {
+      version: 1,
+      vendor: 'custom-test-schema',
+      validate: (value: unknown) => ({ value }),
+    },
+  }
+  const customApi = (o: any) => ({
+    customInput: o.public
+      .route({ method: 'POST', path: '/api/custom-input' })
+      .input(customSchema)
+      .handler(({ input }: { input: unknown }) => ({ input })),
+  })
+
+  const app = await setupApp(customApi, undefined, undefined, false)
+  const response = await app.handler(
+    new Request('http://localhost/api/rpc/customInput', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ json: { works: true } }),
+    }),
+  )
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ json: { input: { works: true } } })
+  await app.close()
+
+  await expect(setupApp(customApi)).rejects.toThrow(/customInput|custom-test-schema|converter/i)
+})
+
 test('auth OpenAPI paths and security metadata are included in combined OpenAPI document', async () => {
   const app = await setupApp(undefined, undefined, {
     secret: 'test-secret-12345678901234567890',

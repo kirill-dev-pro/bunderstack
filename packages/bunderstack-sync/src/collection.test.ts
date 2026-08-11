@@ -19,6 +19,7 @@ function fetchMockFactory(options?: {
   const calls: { method: string; id?: string; body?: unknown }[] = []
   const procedures = {
     list: { call: async () => ({ items: [...db.values()], hasMore: false }) },
+    get: { call: async ({ id }: { id: string }) => db.get(id)! },
     create: { call: async (body: Card) => {
       calls.push({ method: 'POST', body })
       const created = { id: createdId, title: body.title }

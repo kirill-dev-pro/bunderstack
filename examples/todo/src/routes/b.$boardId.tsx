@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { asTypeId } from 'bunderstack/typeid'
+import { asTypeId, generate } from 'bunderstack/typeid'
 import { useRef, useState } from 'react'
 
 import { LoginGate } from '~/components/LoginGate'
@@ -17,7 +17,7 @@ function BoardPage() {
 
   // Auto-CRUD get: `public` in access.ts, so the board name renders even
   // before the visitor signs in.
-  const board = useQuery(api.boards.getQuery(boardId))
+  const board = useQuery(api.boards.get.queryOptions({ input: { id: boardId } }))
 
   if (board.isLoading) return <p className="page">Loading…</p>
   if (!board.data) {
@@ -58,25 +58,25 @@ function BoardTodos({
   const fileInput = useRef<HTMLInputElement>(null)
 
   // oRPC: typed per-board stats, inferred from the server router
-  const stats = useQuery(api.api.stats.queryOptions({ input: { boardId } }))
+  const stats = useQuery(api.stats.queryOptions({ input: { boardId } }))
   // Todo queries auto-invalidate; this keeps the stats bar in sync too.
   const invalidateAll = () => void queryClient.invalidateQueries()
 
   // Auto-CRUD, filtered by board: `boardId` is in filterableColumns.
-  const todos = useQuery(api.todos.listQuery({ boardId, limit: 100 }))
+  const todos = useQuery(api.todos.list.queryOptions({ input: { filters: { boardId }, limit: 100 } }))
   const createTodo = useMutation(
-    api.todos.createMutation({ onSuccess: invalidateAll }),
+    api.todos.create.mutationOptions({ onSuccess: invalidateAll }),
   )
   const toggleTodo = useMutation(
-    api.todos.updateMutation({ onSuccess: invalidateAll }),
+    api.todos.update.mutationOptions({ onSuccess: invalidateAll }),
   )
   const deleteTodo = useMutation(
-    api.todos.deleteMutation({ onSuccess: invalidateAll }),
+    api.todos.delete.mutationOptions({ onSuccess: invalidateAll }),
   )
 
   // oRPC: complete = update DB + send notification email in one call
   const completeTodo = useMutation(
-    api.api.complete.mutationOptions({
+    api.complete.mutationOptions({
       onSuccess: invalidateAll,
     }),
   )
@@ -88,6 +88,7 @@ function BoardTodos({
     const uploaded = file ? await api.files.images.upload(file) : null
     createTodo.mutate(
       {
+        id: generate('todo'),
         title: title.trim(),
         boardId: asTypeId('board', boardId),
         authorName: userName,
@@ -173,7 +174,7 @@ function BoardTodos({
               type="checkbox"
               checked={todo.done}
               onChange={() =>
-                toggleTodo.mutate({ id: todo.id, data: { done: !todo.done } })
+                toggleTodo.mutate({ params: { id: todo.id }, query: {}, headers: {}, body: { done: !todo.done } })
               }
             />
             {/* Storage transforms: sharp resizes on the fly via ?w=&format= */}
@@ -210,7 +211,7 @@ function BoardTodos({
             )}
             <button
               className="remove"
-              onClick={() => deleteTodo.mutate(todo.id)}
+              onClick={() => deleteTodo.mutate({ id: todo.id })}
             >
               ×
             </button>

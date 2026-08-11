@@ -1,5 +1,5 @@
 import type { ValidatedEnv } from 'bunderstack/env'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 /**
  * Declared environment. These names reach the deployment blueprint, which is
@@ -8,17 +8,17 @@ import { z } from 'zod'
  */
 export const envSchema = {
   server: {
-    EMAIL_FROM: z.string().min(1).default('Relay <hello@example.com>'),
-    RESEND_API_KEY: z.string().optional(),
-    REDIS_URL: z.string().optional(),
+    EMAIL_FROM: v.optional(v.pipe(v.string(), v.minLength(1)), 'Relay <hello@example.com>'),
+    RESEND_API_KEY: v.optional(v.string()),
+    REDIS_URL: v.optional(v.string()),
   },
   client: {
-    PUBLIC_APP_NAME: z.string().min(1).default('Relay'),
+    PUBLIC_APP_NAME: v.optional(v.pipe(v.string(), v.minLength(1)), 'Relay'),
   },
 }
 
 /**
- * The validated env as jobs and procedures receive it. Job and tRPC builders
+ * The validated env as jobs and procedures receive it. Builders
  * declared in their own modules need this to match the entry's inference.
  */
 export type RelayEnv = ValidatedEnv<typeof envSchema>

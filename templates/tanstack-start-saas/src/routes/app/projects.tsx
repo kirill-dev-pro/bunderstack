@@ -21,7 +21,7 @@ function ProjectsPage() {
 
   const loadProjects = React.useCallback(async () => {
     try {
-      const res = await api.projects.table.list()
+      const res = await api.projects.list.call({ limit: 100 })
       setProjects(res.items ?? [])
     } catch {
       // fallback
@@ -30,7 +30,6 @@ function ProjectsPage() {
 
   React.useEffect(() => {
     void loadProjects()
-    void api.realtime?.subscribe(['projects'])
   }, [api, loadProjects])
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -40,27 +39,16 @@ function ProjectsPage() {
     setIsPending(true)
 
     try {
-      const res = await fetch('/api/trpc/projects.create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, clientName }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error?.message || 'Failed to create project')
-      }
-
-      const created = await res.json()
+      const created = await api.createProject.call({ name, clientName })
       setName('')
       setClientName('')
 
       void loadProjects()
 
-      if (created?.result?.data?.id) {
+      if (created.id) {
         await navigate({
           to: '/app/projects/$projectId' as any,
-          params: { projectId: created.result.data.id } as any,
+          params: { projectId: created.id } as any,
         })
       }
     } catch (err: unknown) {

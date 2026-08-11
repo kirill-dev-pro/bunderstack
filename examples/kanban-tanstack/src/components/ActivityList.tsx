@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import type * as schema from '~/schema'
 
-import { api } from '~/api-client'
+import { api, listInput } from '~/api-client'
 
 type Activity = InferSelect<typeof schema.activity>
 type Board = InferSelect<typeof schema.boards>
@@ -109,7 +109,7 @@ export function ActivityList({
   if (cardId) params.cardId = cardId
 
   const { data, isLoading } = useQuery({
-    ...api.activity.listQuery(params),
+    ...api.activity.list.queryOptions({ input: listInput(params) }),
     enabled: enabled && !!(boardId || cardId),
   })
 

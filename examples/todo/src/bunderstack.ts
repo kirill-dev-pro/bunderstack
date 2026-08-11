@@ -1,4 +1,3 @@
-import { openapi } from '@orpc/openapi'
 import { anonymous } from 'better-auth/plugins'
 /**
  * bunderstack.ts — app entry point, showcasing every feature:
@@ -17,16 +16,16 @@ import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { and, desc, eq, lt } from 'drizzle-orm'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { access } from './access'
 import * as schema from './schema'
 
-const boardSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  ownerId: z.string(),
-  createdAt: z.date(),
+const boardSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  ownerId: v.string(),
+  createdAt: v.date(),
 })
 
 /** Demo-tuned retention for the archive cron — short so the effect is
@@ -57,13 +56,13 @@ export const app = await createBunderstack({
   // Server vars must NOT start with PUBLIC_; client vars MUST.
   env: {
     server: {
-      NOTIFY_COMPLETED: z
-        .enum(['true', 'false'])
-        .default('true')
-        .transform((v) => v === 'true'),
+      NOTIFY_COMPLETED: v.optional(
+        v.pipe(v.picklist(['true', 'false']), v.transform((value) => value === 'true')),
+        'true',
+      ),
     },
     client: {
-      PUBLIC_APP_NAME: z.string().default('Todo Example'),
+      PUBLIC_APP_NAME: v.optional(v.string(), 'Todo Example'),
     },
   },
 
@@ -86,7 +85,7 @@ export const app = await createBunderstack({
   },
 
   // Realtime: SSE endpoint + broadcast-on-write for every CRUD change.
-  // The client subscribes via createRealtimeClient (see router.tsx).
+  // The client consumes the typed Publisher iterator (see router.tsx).
   realtime: true,
 
   // Background work is declarative. Queue jobs run in an explicit worker
@@ -94,7 +93,7 @@ export const app = await createBunderstack({
   jobs: (j) =>
     j.define({
       celebrateBoardComplete: j.job({
-        input: z.object({ boardId: z.string() }),
+        input: v.object({ boardId: v.string() }),
         retries: 3,
         handler: async (input, ctx) => {
           const boardId = asTypeId('board', input.boardId)
@@ -140,12 +139,33 @@ export const app = await createBunderstack({
 
   // oRPC custom procedures mounted alongside CRUD
   api: (o) => ({
-    myBoards: o.protected
-      .meta(
-        openapi({ method: 'GET', path: '/api/my-boards', tags: ['boards'] }),
+    // Third-party POSTs use the same graph. `getRawBody()` preserves the exact
+    // bytes needed by signature schemes without resolving an auth session.
+    exampleWebhook: o.webhook
+      .route({
+        method: 'POST',
+        path: '/webhooks/example',
+        inputStructure: 'detailed',
+      })
+      .input(
+        v.object({
+          params: v.optional(v.object({}), {}),
+          query: v.optional(v.record(v.string(), v.unknown()), {}),
+          headers: v.record(v.string(), v.unknown()),
+          body: v.record(v.string(), v.unknown()),
+        }),
       )
-      .input(z.object({}).optional())
-      .output(z.array(boardSchema))
+      .handler(async ({ context, input }) => ({
+        received: true,
+        signatureMatches:
+          input.headers['x-example-signature'] ===
+          (await context.getRawBody()),
+      })),
+
+    myBoards: o.protected
+      .route({ method: 'GET', path: '/api/my-boards', tags: ['boards'] })
+      .input(v.optional(v.object({})))
+      .output(v.array(boardSchema))
       .handler(async ({ context }) =>
         context.db
           .select()
@@ -156,15 +176,8 @@ export const app = await createBunderstack({
       ),
 
     createBoard: o.protected
-      .meta(
-        openapi({
-          method: 'POST',
-          path: '/api/create-board',
-          tags: ['boards'],
-          successStatus: 201,
-        }),
-      )
-      .input(z.object({ name: z.string().min(1) }))
+      .route({ method: 'POST', path: '/api/create-board', tags: ['boards'], successStatus: 201 })
+      .input(v.object({ name: v.pipe(v.string(), v.minLength(1)) }))
       .output(boardSchema)
       .handler(async ({ context, input }) => {
         const [board] = await context.db
@@ -178,15 +191,13 @@ export const app = await createBunderstack({
       }),
 
     stats: o.protected
-      .meta(
-        openapi({ method: 'GET', path: '/api/board-stats', tags: ['boards'] }),
-      )
-      .input(z.object({ boardId: z.string() }))
+      .route({ method: 'GET', path: '/api/board-stats', tags: ['boards'] })
+      .input(v.object({ boardId: v.string() }))
       .output(
-        z.object({
-          total: z.number(),
-          done: z.number(),
-          pending: z.number(),
+        v.object({
+          total: v.number(),
+          done: v.number(),
+          pending: v.number(),
         }),
       )
       .handler(async ({ context, input }) => {
@@ -204,15 +215,9 @@ export const app = await createBunderstack({
       }),
 
     complete: o.protected
-      .meta(
-        openapi({
-          method: 'POST',
-          path: '/api/complete-todo',
-          tags: ['todos'],
-        }),
-      )
-      .input(z.object({ id: z.string() }))
-      .output(z.object({ ok: z.boolean() }))
+      .route({ method: 'POST', path: '/api/complete-todo', tags: ['todos'] })
+      .input(v.object({ id: v.string() }))
+      .output(v.object({ ok: v.boolean() }))
       .handler(async ({ context, input }) => {
         const todo = await context.db
           .select()

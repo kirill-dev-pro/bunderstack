@@ -9,10 +9,8 @@ import { onMount, For, createMemo } from 'solid-js'
 
 import { CardDialog } from '../components/CardDialog.tsx'
 import { ListColumn } from '../components/ListColumn.tsx'
-import { tableClients } from '../lib/query.ts'
+import { api } from '../lib/query.ts'
 import { getRealtime } from '../lib/realtime.ts'
-
-const { lists: listsC, cards: cardsC, activity: activityC } = tableClients
 
 export function Board() {
   const params = useParams()
@@ -24,10 +22,14 @@ export function Board() {
   })
 
   const lists = useQuery(() => ({
-    ...listsC.listQuery({ boardId: boardId(), limit: 100 }),
+    ...api.lists.list.queryOptions({
+      input: { filters: { boardId: boardId() }, limit: 100 },
+    }),
   }))
   const cards = useQuery(() => ({
-    ...cardsC.listQuery({ boardId: boardId(), limit: 500 }),
+    ...api.cards.list.queryOptions({
+      input: { filters: { boardId: boardId() }, limit: 200 },
+    }),
   }))
 
   const cardsByList = createMemo(() => {
@@ -49,14 +51,19 @@ export function Board() {
       (c) => c.id !== cardId,
     )
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
-    await cardsC.update(cardId, { listId: targetListId, position: newPos })
-    await activityC.create({
+    await api.cards.update.call({
+      params: { id: cardId },
+      query: {},
+      headers: {},
+      body: { listId: targetListId, position: newPos },
+    })
+    await api.activity.create.call({
       boardId: boardId(),
       cardId,
       type: 'moved',
       data: { listId: targetListId },
     })
-    qc.invalidateQueries({ queryKey: cardsC.keys.list({ boardId: boardId() }) })
+    qc.invalidateQueries({ queryKey: api.cards.key({ type: 'query' }) })
   }
 
   return (

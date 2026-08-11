@@ -88,7 +88,10 @@ type ExpectedUpdateInput = {
 }
 
 type _CreateInput = Expect<
-  Equal<PostsInputs['create'], typeof posts.$inferInsert>
+  Equal<
+    PostsInputs['create'],
+    Partial<typeof posts.$inferInsert>
+  >
 >
 type _GetInput = Expect<Equal<PostsInputs['get'], { id: string }>>
 type _UpdateInputToExpected = Expect<

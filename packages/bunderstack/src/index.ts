@@ -1,7 +1,7 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 // src/index.ts
 
-import { OpenAPIGenerator } from '@orpc/openapi'
+import { OpenAPIGenerator, OpenAPIGeneratorError } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { RPCHandler } from '@orpc/server/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
@@ -13,6 +13,7 @@ import type {
   MergeApiRouterTypes,
   UnifiedApiRouter,
 } from './api/types'
+import type { RealtimeApiRouter } from './api/realtime-router'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -202,7 +203,10 @@ export type BunderstackApp<
     schema: TSchema
     access: TAccess
     buckets: TBuckets
-    api: UnifiedApiRouter<CrudApiRouterFor<TSchema, TAccess>, TCustomApiRouter>
+    api: MergeApiRouterTypes<
+      UnifiedApiRouter<CrudApiRouterFor<TSchema, TAccess>, TCustomApiRouter>,
+      RealtimeApiRouter
+    >
   }
 }
 
@@ -545,7 +549,22 @@ export async function createBunderstack<
     const combinedOpenAPISpec = options.openapi
       ? mergeOpenAPISpecs({
           nativeSpec: await new OpenAPIGenerator({
-            converters: [new ValibotToJsonSchemaConverter()],
+            converters: [
+              new ValibotToJsonSchemaConverter(),
+              {
+                condition: (schema: any) =>
+                  Boolean(
+                    schema?.['~standard'] &&
+                      !schema['~standard'].jsonSchema,
+                  ),
+                convert: (schema: any) => {
+                  const vendor = schema?.['~standard']?.vendor ?? 'unknown'
+                  throw new OpenAPIGeneratorError(
+                    `No JSON Schema converter is configured for Standard Schema vendor "${vendor}"`,
+                  )
+                },
+              },
+            ],
           }).generate(nativeRouter),
           authSpec: authOpenAPISpec,
         })
@@ -703,6 +722,8 @@ export async function createBunderstack<
 }
 
 export { MAX_LIST_LIMIT } from './list-query'
+export { BunderstackError } from './errors'
+export type { BunderstackErrorCode } from './errors'
 export { resolveConfig } from './config'
 export type {
   BetterAuthConfig,

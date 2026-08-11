@@ -13,8 +13,8 @@ function AdminProjectsPage() {
 
   React.useEffect(() => {
     let active = true
-    api.projects.table
-      .list()
+    api.projects.list
+      .call({ limit: 100 })
       .then((res: { items: any[] }) => {
         if (active) {
           setProjects(res.items || [])

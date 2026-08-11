@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { EyeIcon, EyeOffIcon, Lock, Mail } from 'lucide-react'
 import * as React from 'react'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
@@ -10,8 +10,8 @@ import { Input } from '~/components/ui/input'
 import { signIn } from '~/lib/auth-client'
 
 export const Route = createFileRoute('/login')({
-  validateSearch: z.object({
-    redirect: z.string().optional(),
+  validateSearch: v.object({
+    redirect: v.optional(v.string()),
   }),
   component: LoginPage,
 })

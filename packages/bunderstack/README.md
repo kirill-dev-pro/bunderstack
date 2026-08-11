@@ -1,164 +1,51 @@
 # bunderstack
 
-A batteries-included backend framework for Bun. Point it at a Drizzle schema
-and get CRUD APIs, auth, file storage, realtime, typed custom endpoints
-(tRPC), email, and validated env — all from a single config object and a
-single `Request → Response` handler.
+The server package for Bunderstack's unified, type-safe oRPC backend.
 
 ```sh
-bun add bunderstack better-auth drizzle-orm hono zod @libsql/client
+bun add bunderstack better-auth drizzle-orm valibot @libsql/client
 ```
 
 ```ts
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
+import * as v from 'valibot'
 import * as schema from './schema'
 
-const app = await createBunderstack({
+export const app = await createBunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url: 'file:./data.db',
-  },
-  auth: { emailAndPassword: { enabled: true } },
-  access: {
-    posts: { ownerColumn: 'userId', list: 'public', create: 'authenticated' },
-  },
+  database: { adapter: libsql(), url: 'file:./data.db' },
+  access: { posts: { crud: true } },
+  realtime: true,
+  api: (o) => ({
+    ping: o.public
+      .route({ method: 'GET', path: '/api/ping' })
+      .input(v.optional(v.object({})))
+      .handler(() => ({ ok: true })),
+  }),
 })
 
 Bun.serve({ fetch: app.handler })
+export type App = typeof app
 ```
 
-Full documentation and examples:
-[github.com/kirill-dev-pro/bunderstack](https://github.com/kirill-dev-pro/bunderstack)
+CRUD, custom procedures, webhooks, file buckets, health, and the Publisher
+event iterator form one router. Validation accepts Standard Schema; internal
+generated schemas use Valibot. OpenAPI is opt-in with `openapi: true`.
 
-## Platform deployment contract
-
-Deployment platforms (like Bunderhost) integrate with any bunderstack app
-through env vars alone — no code changes required.
-
-### Overrides (beat code-level config)
-
-| Var                                                                 | Effect                                                                                          |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `BUNDERSTACK_DATABASE_URL`                                          | Database URL; wins over `database.url` in code                                                  |
-| `BUNDERSTACK_DATABASE_AUTH_TOKEN`                                   | Auth token for the database                                                                     |
-| `BUNDERSTACK_S3_ENDPOINT`                                           | Forces ALL buckets onto this S3 backend (code-level `local`/per-bucket `s3` blocks are ignored) |
-| `BUNDERSTACK_S3_BUCKET`                                             | Physical bucket name (logical buckets become key prefixes)                                      |
-| `BUNDERSTACK_S3_ACCESS_KEY_ID` / `BUNDERSTACK_S3_SECRET_ACCESS_KEY` | Credentials                                                                                     |
-| `BUNDERSTACK_S3_REGION`                                             | Region (default `auto`)                                                                         |
-| `BUNDERSTACK_S3_PUBLIC_URL`                                         | Public base URL for `visibility: 'public'` buckets                                              |
-
-Plain `DATABASE_URL` / `S3_*` vars keep their usual role: fallbacks that
-code-level config wins over.
-
-### Committed deployment blueprint
-
-Generate a deterministic, provider-neutral declaration that a host can read
-without importing the application at deploy time. Version 1 supports TanStack
-Start apps and records database tables and migration mode, storage buckets,
-environment requirements, realtime, jobs, cron, and maintenance schedules.
-
-```sh
-bunx bunderstack blueprint
-bunx bunderstack blueprint --check
-```
-
-The command imports `src/bunderstack.ts` by default (or
-`package.json#bunderstack.entry`) with `BUNDERSTACK_INTROSPECT=1`, so it never
-opens external database, storage, or realtime connections. Commit the generated
-`bunderstack.blueprint.yaml`; CI should run the `--check` form. The public
-`bunderstack/blueprint` module exposes the strict parser and conversion helpers
-for hosts and other tooling.
-
-Real database clients belong to the app. Call `await app.close()` when a
-standalone process or test is finished; it closes the real libSQL, PGlite,
-postgres.js, or Bun SQL client selected by `database.adapter`. Introspection
-mocks own no client, so there is nothing to close for that database path.
-
-### Background runtime
-
-Declaring jobs does not start a worker. Queue jobs (`j.job()`) are processed by
-an explicit worker process:
+Generated CRUD writes publish automatically. After a custom write commits,
+publish its complete returned row with:
 
 ```ts
-import { app } from './bunderstack'
-
-await app.runWorker()
+await context.realtime.publish(schema.posts, 'update', post)
 ```
 
-Most applications need none of this: background work runs in-process by
-default. Set `BUNDERSTACK_ROLE` to `web` or `worker` to split it across
-processes without changing code.
+Use the in-memory Publisher for one process or configure
+`realtime: { redis: process.env.REDIS_URL! }` for multi-process delivery and
+replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
-If a queue handler calls `ctx.realtime.publish()`, the web and worker processes
-must share a realtime transport. Configure `REDIS_URL` (or
-`realtime: { redis: "redis://..." }`). `realtime: true` without Redis uses a
-process-local memory broker and is suitable only when the worker is embedded
-with `app.startWorker()`.
-
-Since 0.9.0, `app.runWorker()` rejects that unsafe combination by default. If
-queue handlers never publish realtime events, acknowledge the process-local
-behavior with `app.runWorker({ allowProcessLocalRealtime: true })`.
-
-Inspect the active runtime with `app.realtime.transport` (`'disabled'`,
-`'memory'`, or `'redis'`). The generated blueprint declares only whether
-realtime is required; the host chooses its shared transport and injects its
-runtime configuration.
-
-```ts
-const app = await createBunderstack({
-  // ...
-  realtime: { redis: process.env.REDIS_URL! },
-})
-```
-
-```bash
-REDIS_URL=redis://localhost:6379 bun src/server.ts
-REDIS_URL=redis://localhost:6379 bun src/worker.ts
-```
-
-Cron tasks (`j.cron()`) are materialized as job rows keyed by their slot, so
-they run through the same loop, retries, and timeouts as queue jobs. There is
-no separate cron process and no signed dispatch endpoint.
-
-### Publishing custom writes to realtime
-
-Generated CRUD publishes automatically. Writes made directly through `app.db`
-or `ctx.db` are explicit: publish the complete row returned by Drizzle after the
-write commits.
-
-```ts
-const [avatar] = await ctx.db
-  .update(schema.avatars)
-  .set({ status: 'completed' })
-  .where(eq(schema.avatars.id, avatarId))
-  .returning()
-
-await ctx.realtime.publish(schema.avatars, 'update', avatar)
-```
-
-The same typed facade is available as `app.realtime`, in tRPC context, and in
-queue-job and cron context. Passing the Drizzle table makes a table-name typo a
-type error and constrains the record to that table's select model.
-
-Publish after an enclosing transaction resolves, not from inside it. The full
-row is required because realtime access filtering may inspect its `id`, owner,
-or read-scope columns. Subscriber access checks, Redis fan-out, and replay are
-applied automatically by the existing broker. When server realtime is not
-configured, `realtime.enabled` is `false` and `publish()` is a no-op.
-
-## Shipping TypeScript source
-
-This package publishes raw TypeScript (`exports` point at `.ts` files). Bun
-consumes it natively. If a Node-based bundler or SSR server processes it,
-make sure the package is bundled rather than externalized — e.g. in Vite:
-
-```ts
-ssr: {
-  noExternal: [/^bunderstack/]
-}
-```
+See the [workspace documentation](../../README.md) for webhooks, clients,
+storage, collections, lifecycle, and complete examples.
 
 ## License
 

@@ -34,7 +34,7 @@ function paginatedProcedureFactory() {
       nextCursor: hasMore ? items[items.length - 1]!.id : undefined,
     }
   }
-  return { procedures: { list: { call: list }, create: { call: async (v: any) => v }, update: { call: async ({ body }: any) => body }, delete: { call: async () => {} } }, calls, rows }
+  return { procedures: { list: { call: list }, get: { call: async ({ id }: { id: string }) => rows.find((row) => row.id === id)! }, create: { call: async (v: any) => v }, update: { call: async ({ body }: any) => body }, delete: { call: async () => {} } }, calls, rows }
 }
 
 function makeTable(procedures: ReturnType<typeof paginatedProcedureFactory>['procedures']) {

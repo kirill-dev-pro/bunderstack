@@ -35,7 +35,7 @@ export function FollowButton({
   )
 
   const followMutation = useToastMutation(
-    api.follows.createMutation({
+    api.follows.create.mutationOptions({
       onSuccess: () => {
         toast.success('Following')
       },
@@ -46,7 +46,7 @@ export function FollowButton({
   )
 
   const unfollowMutation = useToastMutation(
-    api.follows.deleteMutation({
+    api.follows.delete.mutationOptions({
       onSuccess: () => {
         toast.success('Unfollowed')
       },
@@ -67,7 +67,7 @@ export function FollowButton({
       disabled={pending}
       onClick={() => {
         if (existing) {
-          unfollowMutation.mutate(existing.id)
+          unfollowMutation.mutate({ id: existing.id })
         } else {
           followMutation.mutate({ followingId: targetUserId })
         }

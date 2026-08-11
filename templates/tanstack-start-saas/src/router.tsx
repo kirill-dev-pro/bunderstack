@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import type { SessionUser } from 'bunderstack-start'
 
-import { createApi, createQueryClient, type SyncApi } from './api'
+import { connectRealtime, createApi, createQueryClient, type SyncApi } from './api'
 import { routeTree } from './routeTree.gen'
 
 export type RouterContext = {
@@ -14,6 +14,7 @@ export type RouterContext = {
 export function getRouter() {
   const queryClient = createQueryClient()
   const api = createApi(queryClient)
+  connectRealtime(api, queryClient)
 
   const router = createRouter({
     routeTree,

@@ -53,3 +53,7 @@ export function buildRealtimeApiRouter(
 
   return { realtime: { changes } }
 }
+
+export type RealtimeApiRouter = NonNullable<
+  ReturnType<typeof buildRealtimeApiRouter>
+>

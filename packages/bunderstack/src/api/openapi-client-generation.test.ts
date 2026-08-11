@@ -28,6 +28,10 @@ async function setupApp() {
       BUNDERSTACK_ROLE: 'web',
     },
     openapi: true,
+    storage: {
+      local: true,
+      buckets: { images: { visibility: 'public' } },
+    },
     access: {
       posts: {
         crud: true,
@@ -62,6 +66,10 @@ test('reproducible openapi-typescript client generation and type verification', 
   // Custom procedure present
   expect(spec.paths['/api/stats']).toBeDefined()
   expect(spec.paths['/api/stats'].get).toBeDefined()
+
+  // Generated storage procedures are part of the same mobile-facing spec
+  expect(spec.paths['/api/files/images/presign'].post).toBeDefined()
+  expect(spec.paths['/api/files/images'].post).toBeDefined()
 
   // Auth paths under /api/auth/* exactly once
   const authPaths = Object.keys(spec.paths).filter((p) => p.startsWith('/api/auth/'))
@@ -103,10 +111,15 @@ test('reproducible openapi-typescript client generation and type verification', 
       type StatsResponse = paths['/api/stats']['get']['responses']['200']['content']['application/json']
       const statsResp: StatsResponse = { totalPosts: 10 }
 
+      // Type-check generated storage procedure
+      type PrepareImageUpload = paths['/api/files/images/presign']['post']
+      type PrepareImageBody = PrepareImageUpload['requestBody']['content']['application/json']
+      const imageInput: PrepareImageBody = { filename: 'avatar.png', contentType: 'image/png' }
+
       // Type-check Auth route
       type AuthSignInPath = paths['/api/auth/sign-in/email']['post']
 
-      if (postInput.title !== 'Test Post' || statsResp.totalPosts !== 10) {
+      if (postInput.title !== 'Test Post' || statsResp.totalPosts !== 10 || imageInput.filename !== 'avatar.png') {
         throw new Error('Type assertion failed')
       }
     `

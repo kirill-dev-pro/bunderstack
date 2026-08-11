@@ -17,12 +17,11 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { asTypeId } from 'bunderstack'
-import { BunderstackApiError } from 'bunderstack-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import type * as schema from '~/schema'
 
-import { api, listParams, queryClient } from '~/api-client'
+import { api, listInput, listParams, queryClient } from '~/api-client'
 import { BoardSettingsDialog } from '~/components/BoardSettingsDialog'
 import { CardDialog } from '~/components/CardDialog'
 import { cardCoverFromAttachments, KanbanCard } from '~/components/KanbanCard'
@@ -55,20 +54,20 @@ export const Route = createFileRoute('/boards/$boardId')({
     const boardId = parseBoardIdParam(params.boardId)
     try {
       const board = await queryClient.ensureQueryData(
-        api.boards.getQuery(boardId),
+        api.boards.get.queryOptions({ input: { id: boardId } }),
       )
       await Promise.all([
         queryClient.ensureQueryData(
-          api.lists.listQuery({ boardId, ...listParams }),
+          api.lists.list.queryOptions({ input: listInput({ boardId, ...listParams }) }),
         ),
         queryClient.ensureQueryData(
-          api.cards.listQuery({ boardId, limit: 500 }),
+          api.cards.list.queryOptions({ input: listInput({ boardId, limit: 500 }) }),
         ),
-        queryClient.ensureQueryData(api.user.listQuery(listParams)),
+        queryClient.ensureQueryData(api.user.list.queryOptions({ input: listInput(listParams) })),
       ])
       return board
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404)
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
         throw notFound()
       throw err
     }
@@ -95,21 +94,21 @@ function BoardPage() {
   }, [])
 
   const { data: listsData, isLoading: listsLoading } = useQuery(
-    api.lists.listQuery({ boardId, ...listParams }),
+    api.lists.list.queryOptions({ input: listInput({ boardId, ...listParams }) }),
   )
   const { data: cardsData } = useQuery(
-    api.cards.listQuery({ boardId, limit: 500 }),
+    api.cards.list.queryOptions({ input: listInput({ boardId, limit: 500 }) }),
   )
   const { data: commentsData } = useQuery(
-    api.comments.listQuery({ limit: 500 }),
+    api.comments.list.queryOptions({ input: listInput({ limit: 500 }) }),
   )
   const { data: attachmentsData } = useQuery(
-    api.attachments.listQuery({ limit: 500 }),
+    api.attachments.list.queryOptions({ input: listInput({ limit: 500 }) }),
   )
   const { data: reactionsData } = useQuery(
-    api.reactions.listQuery({ limit: 500 }),
+    api.reactions.list.queryOptions({ input: listInput({ limit: 500 }) }),
   )
-  const { data: usersData } = useQuery(api.user.listQuery(listParams))
+  const { data: usersData } = useQuery(api.user.list.queryOptions({ input: listInput(listParams) }))
 
   const { data: members } = useQuery({
     queryKey: ['org-members', boardId],
@@ -194,11 +193,11 @@ function BoardPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const moveCard = useToastMutation({
-    ...api.cards.updateMutation(),
+    ...api.cards.update.mutationOptions(),
   })
 
   const logMove = useToastMutation({
-    ...api.activity.createMutation(),
+    ...api.activity.create.mutationOptions(),
   })
 
   const sensors = useSensors(
@@ -232,7 +231,7 @@ function BoardPage() {
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
 
     moveCard.mutate(
-      { id: cardId, data: { listId: targetListId, position: newPos } },
+      { params: { id: cardId }, query: {}, headers: {}, body: { listId: targetListId, position: newPos } },
       {
         onSuccess: () => {
           logMove.mutate({
@@ -249,7 +248,7 @@ function BoardPage() {
 
   const [newListTitle, setNewListTitle] = useState('')
   const createList = useToastMutation({
-    ...api.lists.createMutation({
+    ...api.lists.create.mutationOptions({
       onSuccess: () => setNewListTitle(''),
     }),
     successMessage: 'List created',

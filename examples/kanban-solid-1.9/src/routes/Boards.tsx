@@ -3,11 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/solid-query'
 import { createSignal, For, onMount } from 'solid-js'
 
 import { authClient } from '../lib/auth-client.ts'
-import { tableClients } from '../lib/query.ts'
+import { api } from '../lib/query.ts'
 import { getRealtime } from '../lib/realtime.ts'
 import { closeRealtime } from '../lib/realtime.ts'
-
-const boardsClient = tableClients.boards
 
 export function Boards() {
   const qc = useQueryClient()
@@ -19,16 +17,18 @@ export function Boards() {
     if (first)
       await authClient.organization.setActive({ organizationId: first.id })
     await getRealtime().subscribe(['boards'])
-    qc.invalidateQueries({ queryKey: boardsClient.keys.lists() })
+    qc.invalidateQueries({ queryKey: api.boards.key({ type: 'query' }) })
   })
 
-  const boards = useQuery(() => boardsClient.listQuery({ limit: 50 }))
+  const boards = useQuery(() =>
+    api.boards.list.queryOptions({ input: { limit: 50 } }),
+  )
 
   const create = useMutation(() => ({
-    mutationFn: () => boardsClient.create({ title: title() }),
+    mutationFn: () => api.boards.create.call({ title: title() }),
     onSuccess: () => {
       setTitle('')
-      qc.invalidateQueries({ queryKey: boardsClient.keys.lists() })
+      qc.invalidateQueries({ queryKey: api.boards.key({ type: 'query' }) })
     },
   }))
 
