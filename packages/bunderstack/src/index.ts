@@ -7,7 +7,6 @@ import { OpenAPIGenerator } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { RPCHandler } from '@orpc/server/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
-import { ZodToJsonSchemaConverter } from '@orpc/zod'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 import { getTableName, isTable } from 'drizzle-orm'
 
@@ -40,6 +39,7 @@ import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
 import { buildRealtimeApiRouter } from './api/realtime-router'
+import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
 import {
   buildApiRegistry,
@@ -185,7 +185,6 @@ export type BunderstackApp<
   db: DbFor<TSchema>
   auth: AuthInstance
   storage: StorageFacade
-  router: HonoType
   /** Raw tRPC router when the config declared one — escape hatch. */
   trpcRouter?: AnyRouter
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
@@ -693,20 +692,15 @@ export async function createBunderstack<
       ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
       : undefined
 
-    const crudAndStorageRouter = mergeApiRoutersStrict(
-      crudApiRouter as Record<string, unknown>,
-      storageApiRouter as Record<string, unknown>,
-    )
-    const generatedApiRouter = mergeApiRoutersStrict(
-      crudAndStorageRouter,
-      realtimeApiRouter as Record<string, unknown> | undefined,
-    )
-    const nativeRouter = mergeApiRoutersStrict(
-      generatedApiRouter,
-      customApiRouter as Record<string, unknown> | undefined,
-    ) as any
+    const nativeRouter = buildApiRouter({
+      crud: crudApiRouter as Record<string, unknown>,
+      storage: storageApiRouter as Record<string, unknown>,
+      realtime: realtimeApiRouter as Record<string, unknown> | undefined,
+      custom: customApiRouter as Record<string, unknown> | undefined,
+    }) as any
 
     const authOpenAPISpecRaw =
+      options.openapi &&
       auth.api &&
       'generateOpenAPISchema' in auth.api &&
       typeof auth.api.generateOpenAPISchema === 'function'
@@ -724,6 +718,7 @@ export async function createBunderstack<
       nativeRouter,
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
       reservedCoreHandles: new Set([
+        'health',
         ...(publisher ? ['realtime'] : []),
         ...[...registry.keys()].flatMap((name) =>
           ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
@@ -733,17 +728,14 @@ export async function createBunderstack<
       ]),
     })
 
-    const openapiGenerator = new OpenAPIGenerator({
-      converters: [
-        new ValibotToJsonSchemaConverter(),
-        new ZodToJsonSchemaConverter(),
-      ],
-    })
-    const nativeOpenAPISpec = await openapiGenerator.generate(nativeRouter)
-    const combinedOpenAPISpec = mergeOpenAPISpecs({
-      nativeSpec: nativeOpenAPISpec,
-      authSpec: authOpenAPISpec,
-    })
+    const combinedOpenAPISpec = options.openapi
+      ? mergeOpenAPISpecs({
+          nativeSpec: await new OpenAPIGenerator({
+            converters: [new ValibotToJsonSchemaConverter()],
+          }).generate(nativeRouter),
+          authSpec: authOpenAPISpec,
+        })
+      : undefined
 
     const openapiHandler = new OpenAPIHandler(nativeRouter, {
       errorStatusMap: BUNDERSTACK_ERROR_STATUS_MAP,
@@ -772,7 +764,11 @@ export async function createBunderstack<
       const urlString = typeof req === 'string' ? (req as string) : req.url
       if (!urlString) return null
       const url = new URL(urlString, 'http://localhost')
-      if (url.pathname === '/api/openapi.json' && req.method === 'GET') {
+      if (
+        combinedOpenAPISpec &&
+        url.pathname === '/api/openapi.json' &&
+        req.method === 'GET'
+      ) {
         return new Response(JSON.stringify(combinedOpenAPISpec), {
           headers: { 'Content-Type': 'application/json' },
         })
@@ -806,10 +802,8 @@ export async function createBunderstack<
       return null
     }
 
-    const { handler, router } = buildHandler({
-      customRouter,
+    const handler = buildHandler({
       authHandler: (req) => auth.handler(req),
-      trpcHandler,
       apiHandler,
       rateLimit: options.rateLimit,
     })
@@ -841,7 +835,6 @@ export async function createBunderstack<
       db: userDb,
       auth,
       storage,
-      router,
       env,
       email,
       realtime,
@@ -857,7 +850,6 @@ export async function createBunderstack<
         return lifecycle.status
       },
       signal: lifecycle.signal,
-      trpcRouter,
       manifest: buildManifest({
         schema: options.schema,
         dialect,

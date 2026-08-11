@@ -1,50 +1,30 @@
 // src/handler.ts
-import { Hono } from 'hono'
-
 import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
-  customRouter?: Hono
   authHandler?: (req: Request) => Promise<Response>
-  trpcHandler?: (req: Request) => Promise<Response>
   apiHandler?: (req: Request) => Promise<Response | null>
   rateLimit?: boolean | RateLimitConfig
 }
 
-export function buildHandler(parts: HandlerParts): {
-  handler: (req: Request) => Promise<Response>
-  router: Hono
-} {
-  const app = new Hono()
+export function buildHandler(parts: HandlerParts): (req: Request) => Promise<Response> {
   const checkRateLimit = createRateLimiter(parts.rateLimit)
 
-  // Registered ahead of everything so custom routes can sit in front of the
-  // core app. Collisions are rejected at construction, not silently shadowed.
-  if (parts.customRouter) app.route('/', parts.customRouter)
-
-  const health = (c: { json: (data: unknown) => Response }) =>
-    c.json({ status: 'ok' })
-  app.get('/health', health)
-  app.get('/api/health', health)
-
-  if (parts.authHandler) {
-    app.all('/api/auth/*', (c) => parts.authHandler!(c.req.raw))
-  }
-
-  if (parts.trpcHandler) {
-    app.all('/api/trpc/*', (c) => parts.trpcHandler!(c.req.raw))
-  }
-
-  const inner = (req: Request): Promise<Response> =>
-    Promise.resolve(app.fetch(req))
-  const handler = async (req: Request): Promise<Response> => {
+  return async (req: Request): Promise<Response> => {
     const limited = await checkRateLimit(req)
     if (limited) return limited
+
+    const pathname = new URL(req.url).pathname
+    if (
+      parts.authHandler &&
+      (pathname === '/api/auth' || pathname.startsWith('/api/auth/'))
+    ) {
+      return parts.authHandler(req)
+    }
     if (parts.apiHandler) {
       const apiRes = await parts.apiHandler(req)
       if (apiRes) return apiRes
     }
-    return inner(req)
+    return new Response('Not Found', { status: 404 })
   }
-  return { handler, router: app }
 }

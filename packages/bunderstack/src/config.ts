@@ -53,6 +53,7 @@ const RuntimeOptionsSchema = z.object({
       }),
     ])
     .optional(),
+  openapi: z.boolean().optional(),
 })
 
 export type BunderstackConfig<
@@ -104,6 +105,8 @@ export type BunderstackConfig<
   ) => TCustomApiRouter
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
+  /** Generate and serve `/api/openapi.json`. Disabled by default. */
+  openapi?: boolean
   realtime?:
     | boolean
     | {
