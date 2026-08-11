@@ -3,8 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { pgTable, text } from 'drizzle-orm/pg-core'
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { createBunderstack } from '../index'
 import { pglite } from '../database/pglite'
 
@@ -28,6 +27,7 @@ async function setupApp() {
       DATABASE_URL: 'memory://',
       BUNDERSTACK_ROLE: 'web',
     },
+    openapi: true,
     access: {
       posts: {
         crud: true,
@@ -40,9 +40,9 @@ async function setupApp() {
     },
     api: (o) => ({
       stats: o.public
-        .meta(openapi({ method: 'GET', path: '/api/stats' }))
-        .input(z.object({ period: z.string() }))
-        .output(z.object({ totalPosts: z.number() }))
+        .route({ method: 'GET', path: '/api/stats' })
+        .input(v.object({ period: v.string() }))
+        .output(v.object({ totalPosts: v.number() }))
         .handler(async () => ({ totalPosts: 42 })),
     }),
   })

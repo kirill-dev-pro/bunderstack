@@ -3,7 +3,7 @@ import { test, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
 import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { DatabaseAdapter } from './database/adapter'
 import type { BunderstackJobsBuilder } from './jobs/define'
@@ -27,7 +27,7 @@ test('createBunderstack exposes typed app.env', async () => {
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
-    env: { server: { MY_API_KEY: z.string() } },
+    env: { server: { MY_API_KEY: v.string() } },
   })
   const key: string = app.env.MY_API_KEY
   expect(key).toBe('k-1')
@@ -40,7 +40,7 @@ test('createBunderstack refuses to boot on invalid env', async () => {
     createBunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter: libsql() },
-      env: { server: { MISSING_REQUIRED: z.string() } },
+      env: { server: { MISSING_REQUIRED: v.string() } },
     }),
   ).rejects.toThrow(BunderstackEnvError)
 })
@@ -73,7 +73,7 @@ test('app.close closes the database exactly once', async () => {
 
 test('initialization failure closes the database and preserves the cause', async () => {
   let closeCount = 0
-  const initializationError = new Error('tRPC initialization failed')
+  const initializationError = new Error('API initialization failed')
   const adapter: DatabaseAdapter = {
     dialect: 'sqlite',
     driver: 'libsql',
@@ -93,7 +93,7 @@ test('initialization failure closes the database and preserves the cause', async
     await createBunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter },
-      trpc: () => {
+      api: () => {
         throw initializationError
       },
     })
@@ -107,7 +107,7 @@ test('initialization failure closes the database and preserves the cause', async
 
 test('initialization and cleanup failures are preserved in an AggregateError', async () => {
   let closeCount = 0
-  const initializationError = new Error('tRPC initialization failed')
+  const initializationError = new Error('API initialization failed')
   const cleanupError = new Error('database cleanup failed')
   const adapter: DatabaseAdapter = {
     dialect: 'sqlite',
@@ -129,7 +129,7 @@ test('initialization and cleanup failures are preserved in an AggregateError', a
     await createBunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter },
-      trpc: () => {
+      api: () => {
         throw initializationError
       },
     })
@@ -152,7 +152,7 @@ test('app.manifest describes the declaration', async () => {
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
-    env: { server: { WEBHOOK_SECRET: z.string().optional() } },
+    env: { server: { WEBHOOK_SECRET: v.optional(v.string()) } },
     storage: {
       local: './tmp-manifest-uploads',
       buckets: { avatars: { visibility: 'public' } },
@@ -201,7 +201,7 @@ test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports rea
     const app = await createBunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter: libsql() },
-      env: { server: { STRIPE_KEY: z.string() } },
+      env: { server: { STRIPE_KEY: v.string() } },
       realtime: true,
     })
     expect(app.manifest.environment).toEqual([
@@ -276,5 +276,3 @@ test('envSource is no longer accepted', async () => {
   expect(app.env.BUNDERSTACK_ROLE).toBe('all')
   await app.close()
 })
-
-

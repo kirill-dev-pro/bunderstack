@@ -1,6 +1,3 @@
-import type { Context } from 'hono'
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
-
 import { ORPCError, os, type ErrorMap } from '@orpc/server'
 import * as v from 'valibot'
 
@@ -90,7 +87,7 @@ export const mapBunderstackErrors = os
     }
   })
 
-/** @deprecated Legacy Hono error codes; removed with the old transports. */
+/** @deprecated Legacy internal error codes retained for list-query compatibility. */
 export const ErrorCode = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   FORBIDDEN: 'FORBIDDEN',
@@ -102,27 +99,6 @@ export const ErrorCode = {
 } as const
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode]
-
-export type ApiErrorBody = {
-  error: string
-  code?: ErrorCodeValue
-  details?: unknown
-}
-
-export function apiError(
-  c: Context,
-  code: ErrorCodeValue,
-  message: string,
-  status: ContentfulStatusCode,
-  details?: unknown,
-) {
-  const body: ApiErrorBody = {
-    error: message,
-    code,
-    ...(details ? { details } : {}),
-  }
-  return c.json(body, status)
-}
 
 export class ListQueryError extends Error {
   readonly code: ErrorCodeValue

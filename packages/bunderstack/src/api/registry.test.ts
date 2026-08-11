@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { os } from '@orpc/server'
 import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { buildApiRegistry } from './registry'
 
 test('buildApiRegistry collects and normalizes native and foreign routes', async () => {
@@ -9,11 +9,11 @@ test('buildApiRegistry collects and normalizes native and foreign routes', async
     posts: {
       list: os
         .meta(openapi({ method: 'GET', path: '/api/posts' }))
-        .input(z.object({ limit: z.number().optional() }))
+        .input(v.object({ limit: v.optional(v.number()) }))
         .handler(async () => []),
       get: os
         .meta(openapi({ method: 'GET', path: '/api/posts/{id}' }))
-        .input(z.object({ id: z.string() }))
+        .input(v.object({ id: v.string() }))
         .handler(async () => null),
     },
   }
@@ -52,11 +52,11 @@ test('buildApiRegistry allows static and parameter routes at the same path level
     users: {
       me: os
         .meta(openapi({ method: 'GET', path: '/api/users/me' }))
-        .input(z.object({}))
+        .input(v.object({}))
         .handler(async () => null),
       get: os
         .meta(openapi({ method: 'GET', path: '/api/users/{id}' }))
-        .input(z.object({ id: z.string() }))
+        .input(v.object({ id: v.string() }))
         .handler(async () => null),
     },
   }
@@ -101,7 +101,7 @@ test('buildApiRegistry fails on duplicate operation IDs', async () => {
     posts: {
       list: os
         .meta(openapi({ method: 'GET', path: '/api/posts' }))
-        .input(z.object({}))
+        .input(v.object({}))
         .handler(async () => []),
     },
   }
@@ -128,7 +128,7 @@ test('buildApiRegistry fails on exact method and path collision across native an
     posts: {
       get: os
         .meta(openapi({ method: 'GET', path: '/api/posts/{id}' }))
-        .input(z.object({ id: z.string() }))
+        .input(v.object({ id: v.string() }))
         .handler(async () => null),
     },
   }
@@ -155,11 +155,11 @@ test('buildApiRegistry fails on ambiguous parameter paths', async () => {
     users: {
       getById: os
         .meta(openapi({ method: 'GET', path: '/api/users/{id}' }))
-        .input(z.object({ id: z.string() }))
+        .input(v.object({ id: v.string() }))
         .handler(async () => null),
       getBySlug: os
         .meta(openapi({ method: 'GET', path: '/api/users/{slug}' }))
-        .input(z.object({ slug: z.string() }))
+        .input(v.object({ slug: v.string() }))
         .handler(async () => null),
     },
   }
@@ -225,11 +225,11 @@ test('buildApiRegistry fails when distinct handles share the same explicit opera
     posts: {
       list: os
         .meta(openapi({ method: 'GET', path: '/api/posts', operationId: 'customOp' }))
-        .input(z.object({}))
+        .input(v.object({}))
         .handler(async () => []),
       archive: os
         .meta(openapi({ method: 'GET', path: '/api/archive-posts', operationId: 'customOp' }))
-        .input(z.object({}))
+        .input(v.object({}))
         .handler(async () => []),
     },
   }
@@ -241,19 +241,17 @@ test('buildApiRegistry fails when distinct handles share the same explicit opera
 
 test('buildApiRegistry rejects native procedures on framework-reserved paths', async () => {
   for (const path of [
-    '/health',
     '/api/health',
     '/api/openapi.json',
     '/api/realtime',
     '/api/rpc/stats',
-    '/api/trpc/stats',
+    '/api/auth/stats',
     '/api/files/avatar.png',
-    '/files/avatar.png',
   ]) {
     const nativeRouter = {
       shadow: os
         .meta(openapi({ method: 'GET', path: path as `/${string}` }))
-        .input(z.object({}).optional())
+        .input(v.optional(v.object({})))
         .handler(async () => ({ shadow: true })),
     }
 

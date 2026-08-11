@@ -1,6 +1,6 @@
 // src/config.ts
 import { betterAuth } from 'better-auth'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { AnyRouter } from '@orpc/server'
 import type { AuthSessionResolver, TableAccessInput } from './access'
@@ -25,35 +25,35 @@ export type BetterAuthConfig = Omit<
 // Only the union-shaped options need runtime validation: they are the ones a
 // JavaScript caller can plausibly get wrong in a way that fails confusingly
 // downstream. Everything else is either typed-only or read raw from `options`.
-const RuntimeOptionsSchema = z.object({
-  rateLimit: z
-    .union([
-      z.boolean(),
-      z.object({
-        windowMs: z.number().optional(),
-        max: z.number().optional(),
+const RuntimeOptionsSchema = v.object({
+  rateLimit: v.optional(
+    v.union([
+      v.boolean(),
+      v.object({
+        windowMs: v.optional(v.number()),
+        max: v.optional(v.number()),
       }),
-    ])
-    .optional(),
-  idempotency: z
-    .union([z.boolean(), z.object({ ttlMs: z.number().optional() })])
-    .optional(),
-  realtime: z
-    .union([
-      z.boolean(),
-      z.object({
-        keepaliveMs: z.number().optional(),
-        bufferSize: z.number().optional(),
-        redis: z
-          .union([
-            z.string(),
-            z.object({ url: z.string(), token: z.string().optional() }),
-          ])
-          .optional(),
+    ]),
+  ),
+  idempotency: v.optional(
+    v.union([v.boolean(), v.object({ ttlMs: v.optional(v.number()) })]),
+  ),
+  realtime: v.optional(
+    v.union([
+      v.boolean(),
+      v.object({
+        bufferSize: v.optional(v.number()),
+        resumeSeconds: v.optional(v.number()),
+        redis: v.optional(
+          v.union([
+            v.string(),
+            v.object({ url: v.string(), token: v.optional(v.string()) }),
+          ]),
+        ),
       }),
-    ])
-    .optional(),
-  openapi: z.boolean().optional(),
+    ]),
+  ),
+  openapi: v.optional(v.boolean()),
 })
 
 export type BunderstackConfig<
@@ -77,8 +77,8 @@ export type BunderstackConfig<
   }
   auth?: BetterAuthConfig
   /**
-   * Reuse an application-owned session reader for CRUD, realtime, storage,
-   * and tRPC while keeping Bunderstack's auth handler available.
+   * Reuse an application-owned session reader for the unified API while
+   * keeping Bunderstack's auth handler available.
    */
   authResolver?: AuthSessionResolver
   storage?: TStorage
@@ -92,12 +92,6 @@ export type BunderstackConfig<
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
   /**
-   * Custom Hono routes, mounted at root ahead of bunderstack's own. Declared as
-   * a callback because routes in a separate file cannot import the app that is
-   * still being constructed — the same reason `trpc` takes a builder.
-   */
-  routes?: (ctx: never) => unknown
-  /**
    * Unified oRPC API builder callback.
    */
   api?: (
@@ -110,8 +104,8 @@ export type BunderstackConfig<
   realtime?:
     | boolean
     | {
-        keepaliveMs?: number
         bufferSize?: number
+        resumeSeconds?: number
         redis?: string | { url: string; token?: string }
       }
 }
@@ -128,8 +122,8 @@ export type ResolvedConfig = {
   realtime?:
     | boolean
     | {
-        keepaliveMs?: number
         bufferSize?: number
+        resumeSeconds?: number
         redis?: string | { url: string; token?: string }
       }
 }
@@ -156,7 +150,7 @@ export function resolveConfig<
     string | undefined
   >,
 ): ResolvedConfig {
-  const parsed = RuntimeOptionsSchema.parse(options)
+  const parsed = v.parse(RuntimeOptionsSchema, options)
   // Self-validate when the caller didn't pass a pre-validated env, so
   // resolveConfig stays usable standalone.
   const resolvedEnv =

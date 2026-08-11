@@ -1,5 +1,4 @@
 import { test, expect } from 'bun:test'
-import { Hono } from 'hono'
 
 import { createRateLimiter } from './rate-limit'
 

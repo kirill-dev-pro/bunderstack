@@ -225,13 +225,13 @@ test('resolveConfig still passes realtime through', () => {
     {
       schema: {},
       database: { adapter: { dialect: 'sqlite' } as never },
-      realtime: { keepaliveMs: 5_000, redis: 'redis://localhost:6379' },
+      realtime: { resumeSeconds: 300, redis: 'redis://localhost:6379' },
     } as never,
     { DATABASE_URL: 'file::memory:' } as never,
     {},
   )
   expect(resolved.realtime).toEqual({
-    keepaliveMs: 5_000,
+    resumeSeconds: 300,
     redis: 'redis://localhost:6379',
   })
 })
@@ -242,7 +242,7 @@ test('a malformed realtime option still throws', () => {
       {
         schema: {},
         database: { adapter: { dialect: 'sqlite' } as never },
-        realtime: { keepaliveMs: 'soon' },
+        realtime: { resumeSeconds: 'soon' },
       } as never,
       { DATABASE_URL: 'file::memory:' } as never,
       {},
@@ -268,4 +268,3 @@ test('BunderstackOptionsSchema is no longer exported', async () => {
   const mod = await import('./config')
   expect('BunderstackOptionsSchema' in mod).toBe(false)
 })
-

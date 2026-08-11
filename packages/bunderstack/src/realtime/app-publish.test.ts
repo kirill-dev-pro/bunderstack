@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from 'bun:test'
 import { getTableName } from 'drizzle-orm'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
@@ -19,7 +19,7 @@ type Event = {
   record: Record<string, unknown>
 }
 
-test('app, tRPC, and job publication share the application publisher facade', async () => {
+test('app, API procedures, and jobs share the application publisher facade', async () => {
   const app = await createBunderstack({
     schema: { avatars },
     database: { url: ':memory:', adapter: libsql() },
@@ -33,21 +33,22 @@ test('app, tRPC, and job publication share the application publisher facade', as
         delete: 'public',
       },
     },
-    trpc: (t) =>
-      t.router({
-        markRunning: t.procedure.mutation(async ({ ctx }) => {
-          await ctx.realtime.publish(avatars, 'update', {
+    api: (o) => ({
+        markRunning: o.public
+          .route({ method: 'POST', path: '/api/mark-running' })
+          .handler(async ({ context }) => {
+          await context.realtime.publish(avatars, 'update', {
             id: 'a1',
             userId: 'u1',
             status: 'running',
           })
-          return { published: ctx.realtime.enabled }
+          return { published: context.realtime.enabled }
         }),
       }),
     jobs: (j) =>
       j.define({
         completeAvatar: j.job({
-          input: z.object({ id: z.string() }),
+          input: v.strictObject({ id: v.string() }),
           handler: async ({ id }, ctx) => {
             await ctx.realtime.publish(avatars, 'update', {
               id,
@@ -84,14 +85,14 @@ test('app, tRPC, and job publication share the application publisher facade', as
       record: { id: 'a1', status: 'pending' },
     })
 
-    const trpc = await app.handler(
-      new Request('http://test/api/trpc/markRunning', {
+    const customProcedure = await app.handler(
+      new Request('http://test/api/mark-running', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ json: null }),
+        body: JSON.stringify({}),
       }),
     )
-    expect(trpc.status).toBe(200)
+    expect(customProcedure.status).toBe(200)
     expect(events.at(-1)).toMatchObject({
       action: 'update',
       record: { id: 'a1', status: 'running' },

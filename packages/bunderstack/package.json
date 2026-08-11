@@ -1,7 +1,7 @@
 {
   "name": "bunderstack",
   "version": "0.16.0",
-  "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
+  "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
     "better-auth",
@@ -9,9 +9,9 @@
     "crud",
     "drizzle",
     "framework",
-    "hono",
+    "orpc",
     "realtime",
-    "trpc"
+    "typesafe"
   ],
   "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
   "license": "MIT",
@@ -47,7 +47,6 @@
     "./typeid/pg": "./src/typeid-pg.ts",
     "./env": "./src/env.ts",
     "./blueprint": "./src/blueprint.ts",
-    "./trpc": "./src/trpc.ts",
     "./cron": "./src/cron.ts",
     "./email/smtp": "./src/email/smtp.ts",
     "./api": "./src/api/types.ts"
@@ -73,16 +72,11 @@
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",
-    "@orpc/zod": "2.0.0-beta.26",
-    "@trpc/server": "^11.0.0",
     "@types/nodemailer": "^6",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
-    "drizzle-valibot": "0.4.2",
-    "drizzle-zod": "^0.8.3",
-    "hono": "^4.0.0",
-    "zod": "^4.4.3"
+    "drizzle-valibot": "0.4.2"
   },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
@@ -92,18 +86,13 @@
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",
-    "@orpc/zod": "2.0.0-beta.26",
-    "@trpc/server": "^11.0.0",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
     "drizzle-valibot": "0.4.2",
-    "drizzle-zod": "^0.8.3",
-    "hono": "^4.0.0",
     "nodemailer": ">=6 <10",
     "postgres": ">=3.4.0",
-    "typescript": ">=5",
-    "zod": "^4.4.3"
+    "typescript": ">=5"
   },
   "peerDependenciesMeta": {
     "@electric-sql/pglite": {

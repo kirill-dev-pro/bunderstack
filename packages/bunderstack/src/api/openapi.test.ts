@@ -1,7 +1,5 @@
 import { test, expect } from 'bun:test'
-import { os } from '@orpc/server'
-import { openapi } from '@orpc/openapi'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { PGlite } from '@electric-sql/pglite'
 
@@ -15,7 +13,7 @@ const posts = pgTable('posts', {
 
 const schema = { posts }
 
-async function setupApp(api?: any, accessOverrides?: any, auth?: any) {
+async function setupApp(api?: any, accessOverrides?: any, auth?: any, openapi = true) {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
@@ -25,6 +23,7 @@ async function setupApp(api?: any, accessOverrides?: any, auth?: any) {
     },
     api,
     auth,
+    openapi,
   } as any)
 }
 
@@ -32,8 +31,8 @@ test('mounts custom api endpoint, RPC transport, and OpenAPI JSON', async () => 
   const app = await setupApp((o: any) => ({
     stats: {
       get: o.public
-        .meta(openapi({ method: 'GET', path: '/api/stats' }))
-        .input(z.object({}).optional())
+        .route({ method: 'GET', path: '/api/stats' })
+        .input(v.optional(v.object({})))
         .handler(async () => ({ totalPosts: 42 })),
     },
   }))
@@ -70,8 +69,8 @@ test('custom route colliding with CRUD prevents application construction', async
     setupApp((o: any) => ({
       posts: {
         list: o.public
-          .meta(openapi({ method: 'GET', path: '/api/posts' }))
-          .input(z.object({}))
+          .route({ method: 'GET', path: '/api/posts' })
+          .input(v.object({}))
           .handler(async () => []),
       },
     })),
@@ -82,11 +81,20 @@ test('custom api procedure colliding with a framework endpoint prevents applicat
   await expect(
     setupApp((o: any) => ({
       shadowOpenAPI: o.public
-        .meta(openapi({ method: 'GET', path: '/api/openapi.json' }))
-        .input(z.object({}).optional())
+        .route({ method: 'GET', path: '/api/openapi.json' })
+        .input(v.optional(v.object({})))
         .handler(async () => ({ shadow: true })),
     })),
   ).rejects.toThrow(/reserved|collision|openapi\.json/i)
+})
+
+test('OpenAPI document is opt-in', async () => {
+  const app = await setupApp(undefined, undefined, undefined, false)
+  const response = await app.handler(
+    new Request('http://localhost/api/openapi.json'),
+  )
+  expect(response.status).toBe(404)
+  await app.close()
 })
 
 test('auth OpenAPI paths and security metadata are included in combined OpenAPI document', async () => {

@@ -1,5 +1,20 @@
 import { getOpenAPIMeta } from '@orpc/openapi'
-import { collisionForBunderstackPath } from '../routes'
+
+const RESERVED_EXACT = new Set([
+  '/api/health',
+  '/api/openapi.json',
+  '/api/realtime',
+  '/api/rpc',
+  '/api/auth',
+  '/api/files',
+])
+const RESERVED_PREFIXES = ['/api/rpc/', '/api/auth/', '/api/files/']
+
+function collisionForBunderstackPath(path: string): string | undefined {
+  if (RESERVED_EXACT.has(path)) return 'it is reserved by bunderstack'
+  const prefix = RESERVED_PREFIXES.find((value) => path.startsWith(value))
+  return prefix ? `"${prefix}*" is reserved by bunderstack` : undefined
+}
 
 export interface ApiRegistryEntry {
   handle: string
@@ -256,7 +271,7 @@ export async function buildApiRegistry(
   for (const entry of entries) {
     if (entry.source !== 'native') continue
     if (options.reservedCoreHandles?.has(entry.handle)) continue
-    const reason = collisionForBunderstackPath(entry.path, [])
+    const reason = collisionForBunderstackPath(entry.path)
     if (reason) {
       errors.push(
         `Reserved route collision on ${entry.method} ${entry.path}: native handle "${entry.handle}" conflicts because ${reason}`,

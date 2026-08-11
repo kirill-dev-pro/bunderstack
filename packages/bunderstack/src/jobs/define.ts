@@ -32,7 +32,7 @@ export type TickResult = {
 }
 
 /**
- * The untyped runtime facade. Handler ctx and tRPC ctx expose this shape;
+ * The untyped runtime facade. Job handlers and API context expose this shape;
  * `app.jobs` narrows `enqueue` to the declared job names/payloads.
  */
 export type JobsRuntimeFacade = {
