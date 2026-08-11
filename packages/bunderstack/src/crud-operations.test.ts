@@ -188,4 +188,58 @@ describe('crud operations', () => {
     expect(conflict.code).toBe('CONFLICT')
     expect(conflict.details).toEqual({ code: 'IDEMPOTENCY_CONFLICT' })
   })
+
+  it('maps a duplicate primary key to conflict without overwriting the row', async () => {
+    const access = validateAndResolveAccess(schema, {
+      posts: { create: 'public', get: 'public' },
+    })
+    const operations = createCrudOperations({ schema, db, access })
+
+    await operations.create(
+      'posts',
+      { id: 'p1', title: 'Original' },
+      undefined,
+      undefined,
+      publicContext,
+    )
+
+    const conflict = await operations
+      .create(
+        'posts',
+        { id: 'p1', title: 'Replacement' },
+        undefined,
+        undefined,
+        publicContext,
+      )
+      .catch((value) => value)
+
+    expect(conflict).toBeInstanceOf(CrudOperationError)
+    expect(conflict.code).toBe('CONFLICT')
+    expect(await operations.get('posts', 'p1', publicContext)).toMatchObject({
+      title: 'Original',
+    })
+  })
+
+  it('rejects an update when access sanitization removes every field', async () => {
+    const access = validateAndResolveAccess(schema, {
+      posts: { create: 'public', update: 'public' },
+    })
+    const operations = createCrudOperations({ schema, db, access })
+
+    await operations.create(
+      'posts',
+      { id: 'p1', title: 'Original' },
+      undefined,
+      undefined,
+      publicContext,
+    )
+
+    const error = await operations
+      .update('posts', 'p1', { id: 'replacement' }, publicContext)
+      .catch((value) => value)
+
+    expect(error).toBeInstanceOf(CrudOperationError)
+    expect(error.code).toBe('VALIDATION_ERROR')
+    expect(error.message).toBe('No writable fields to update')
+  })
 })

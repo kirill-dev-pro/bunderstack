@@ -20,4 +20,12 @@ export type {
   InferTables,
 } from './infer'
 export { syncRealtime } from './realtime'
-export type { RealtimeChange, RealtimeProcedure, RealtimeQueryApi, RealtimeSyncHandle, RealtimeSyncOptions } from './realtime'
+export type {
+  RealtimeChange,
+  RealtimeEvent,
+  RealtimeHeartbeat,
+  RealtimeProcedure,
+  RealtimeQueryApi,
+  RealtimeSyncHandle,
+  RealtimeSyncOptions,
+} from './realtime'

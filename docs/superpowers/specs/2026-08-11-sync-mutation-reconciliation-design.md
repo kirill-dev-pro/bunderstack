@@ -124,10 +124,11 @@ Boundaries of the mechanism:
 - `onDelete` for a key with a non-empty queue discards the accumulated changes
   and awaits the in-flight request before sending `DELETE`, so the two cannot
   race. Waiters of the discarded updates resolve — the delete supersedes them.
-- A failed request rejects that batch's waiters and clears the key's queue
-  entirely. TanStack DB rolls those transactions back and the row returns to
-  its last synced value. Continuing to send queued changes on top of a failed
-  base would diverge from the server silently.
+- A failed request rejects that batch's waiters *and* the ones queued behind
+  it, clearing the key's queue entirely. TanStack DB rolls all those
+  transactions back and the row returns to its last synced value. Continuing to
+  send queued changes on top of a failed base would diverge from the server
+  silently, and leaving their waiters pending would hang them forever.
 
 This is the riskiest part of the change: it alters mutation resolve timing for
 every table, not just presence. Hence the isolated module and the emphasis on

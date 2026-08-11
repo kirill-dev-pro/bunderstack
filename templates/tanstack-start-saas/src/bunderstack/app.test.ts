@@ -80,6 +80,34 @@ test('scopes the project list to the signed-in owner', async () => {
   expect(body.items.map((row) => row.id)).toEqual(['project_a'])
 })
 
+test('keeps custom creation procedures reachable at unique REST paths', async () => {
+  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
+  apps.push(app)
+  await provision(app, { force: true })
+
+  await seedUser(app, 'user_alice')
+  signIn(app, 'user_alice')
+
+  const projectResponse = await app.handler(
+    new Request('http://bunderstack.test/api/create-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Alice launch', clientName: 'Acme' }),
+    }),
+  )
+  expect(projectResponse.status).toBe(201)
+  const project = (await projectResponse.json()) as { id: string }
+
+  const taskResponse = await app.handler(
+    new Request('http://bunderstack.test/api/add-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: project.id, title: 'Ship it' }),
+    }),
+  )
+  expect(taskResponse.status).toBe(201)
+})
+
 test('refuses a cross-owner project read', async () => {
   const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
   apps.push(app)

@@ -65,6 +65,8 @@ export type TableAccessInput = {
   create?: OperationRule
   update?: OperationRule
   delete?: OperationRule
+  /** Explicit write allowlist. Entries override matching system-readonly
+   * defaults such as `updatedAt`; `id` remains immutable on update. */
   writableColumns?: string[]
   readonlyColumns?: string[]
   /** Columns matched by `?q=` on list — opt-in; omitted columns are never searched. */
@@ -208,6 +210,7 @@ function resolveDefaults(
   columns: string[],
 ): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
   const listAccess = resolveListAccess(input, columns)
+  const explicitlyWritable = new Set(input.writableColumns ?? [])
   return {
     ownerColumn,
     list: input.list ?? 'public',
@@ -217,7 +220,9 @@ function resolveDefaults(
     delete: input.delete ?? (ownerColumn ? 'owner' : 'deny'),
     writableColumns: input.writableColumns,
     readonlyColumns: [
-      ...DEFAULT_READONLY,
+      ...DEFAULT_READONLY.filter(
+        (column) => column === 'id' || !explicitlyWritable.has(column),
+      ),
       ...(input.readonlyColumns ?? []),
       ...(ownerColumn ? [ownerColumn] : []),
     ],

@@ -67,7 +67,7 @@ export async function createBunderSaaSApp(options: { databaseUrl?: string } = {}
     jobs: defineJobs,
     api: (o) => ({
       createProject: o.protected
-        .route({ method: 'POST', path: '/api/projects', successStatus: 201 })
+        .route({ method: 'POST', path: '/api/create-project', successStatus: 201 })
         .input(
           v.object({
             name: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
@@ -92,7 +92,7 @@ export async function createBunderSaaSApp(options: { databaseUrl?: string } = {}
         }),
 
       addTask: o.protected
-        .route({ method: 'POST', path: '/api/tasks', successStatus: 201 })
+        .route({ method: 'POST', path: '/api/add-task', successStatus: 201 })
         .input(
           v.object({
             projectId: v.pipe(v.string(), v.minLength(1)),

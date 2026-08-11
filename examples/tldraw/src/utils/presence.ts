@@ -38,6 +38,23 @@ const GUEST_NAME_KEY = 'tldraw-guest-name'
 
 type NameStore = Pick<Storage, 'getItem' | 'setItem'>
 
+type PresenceCollection<TRow extends { id: string }, TTransaction> = {
+  get(id: string): unknown
+  insert(row: TRow): TTransaction
+}
+
+/** Insert an optimistic presence row once, even if React remounts the effect. */
+export function insertPresenceIfAbsent<
+  TRow extends { id: string },
+  TTransaction,
+>(
+  collection: PresenceCollection<NoInfer<TRow>, TTransaction>,
+  row: TRow,
+): TTransaction | undefined {
+  if (collection.get(row.id) !== undefined) return undefined
+  return collection.insert(row)
+}
+
 /** Stable per-browser guest name, e.g. "Guest Otter 27". */
 export function getGuestName(store: NameStore): string {
   const existing = store.getItem(GUEST_NAME_KEY)

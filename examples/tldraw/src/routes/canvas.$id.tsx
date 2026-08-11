@@ -24,6 +24,7 @@ import {
   CURSOR_THROTTLE_MS,
   PRESENCE_HEARTBEAT_MS,
   getGuestName,
+  insertPresenceIfAbsent,
   isPresenceFresh,
   presenceColor,
   presenceInitials,
@@ -278,6 +279,37 @@ function WhiteboardClient() {
     })
   }, [api.shape.collection, draftPositions, drag])
 
+  React.useEffect(() => {
+    const board = boardRef.current
+    if (!board) return
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const rect = board.getBoundingClientRect()
+
+      setViewport((current) => {
+        const nextScale = clamp(
+          current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
+          0.25,
+          2.5,
+        )
+        const pointerX = event.clientX - rect.left
+        const pointerY = event.clientY - rect.top
+        const worldX = (pointerX - current.x) / current.scale
+        const worldY = (pointerY - current.y) / current.scale
+
+        return {
+          scale: nextScale,
+          x: pointerX - worldX * nextScale,
+          y: pointerY - worldY * nextScale,
+        }
+      })
+    }
+
+    board.addEventListener('wheel', handleWheel, { passive: false })
+    return () => board.removeEventListener('wheel', handleWheel)
+  }, [])
+
   return (
     <div className="flex h-full min-h-[calc(100vh-57px)] flex-col bg-slate-100 text-slate-950">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 shadow-sm">
@@ -411,29 +443,6 @@ function WhiteboardClient() {
           setPan(null)
           commitDrag()
         }}
-        onWheel={(event) => {
-          event.preventDefault()
-          const rect = boardRef.current?.getBoundingClientRect()
-          if (!rect) return
-
-          setViewport((current) => {
-            const nextScale = clamp(
-              current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
-              0.25,
-              2.5,
-            )
-            const pointerX = event.clientX - rect.left
-            const pointerY = event.clientY - rect.top
-            const worldX = (pointerX - current.x) / current.scale
-            const worldY = (pointerY - current.y) / current.scale
-
-            return {
-              scale: nextScale,
-              x: pointerX - worldX * nextScale,
-              y: pointerY - worldY * nextScale,
-            }
-          })
-        }}
       >
         <div
           className="absolute left-0 top-0 origin-top-left"
@@ -539,7 +548,10 @@ function usePresence(
   canvasId: TypeId<'canvas'>,
   user: RouterContext['user'],
 ) {
-  const [presenceId] = React.useState(() => createClientTypeId('presence'))
+  const presenceId = React.useMemo(
+    () => createClientTypeId('presence'),
+    [canvasId],
+  )
   const myColor = React.useMemo(() => presenceColor(presenceId), [presenceId])
   const myName = React.useMemo(
     () =>
@@ -551,10 +563,12 @@ function usePresence(
   // Cursor/heartbeat updates only make sense once the join row exists on the
   // server — otherwise the PATCH races the initial POST.
   const joinedRef = React.useRef(false)
+  const joinPromiseRef = React.useRef<Promise<unknown> | null>(null)
   const lastCursorSentRef = React.useRef(0)
 
   React.useEffect(() => {
-    const tx = api.presence.collection.insert({
+    let active = true
+    const tx = insertPresenceIfAbsent(api.presence.collection, {
       id: presenceId,
       canvasId,
       name: myName,
@@ -563,9 +577,13 @@ function usePresence(
       y: null,
       updatedAt: new Date(),
     })
-    void tx.isPersisted.promise.then(
+    const joinPromise = tx?.isPersisted.promise ?? joinPromiseRef.current
+    if (tx) joinPromiseRef.current = joinPromise
+
+    if (!joinPromise) joinedRef.current = true
+    void joinPromise?.then(
       () => {
-        joinedRef.current = true
+        if (active) joinedRef.current = true
       },
       () => {},
     )
@@ -585,6 +603,7 @@ function usePresence(
     // Best effort on tab close; stale rows age out via `isPresenceFresh`.
     window.addEventListener('pagehide', leave)
     return () => {
+      active = false
       clearInterval(heartbeat)
       window.removeEventListener('pagehide', leave)
       leave()

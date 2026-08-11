@@ -6,6 +6,8 @@ import {
   type StandardSchema,
 } from '@tanstack/db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
+
+import { createUpdateQueue } from './update-queue'
 const MAX_LIST_LIMIT = 200
 
 type TableListResult<TRow> = {
@@ -18,10 +20,19 @@ type TableListResult<TRow> = {
 }
 
 type TableProcedures<TRow, TCreate, TUpdate> = {
-  list: { call(input?: Record<string, unknown>): Promise<TableListResult<TRow>> }
+  list: {
+    call(input?: Record<string, unknown>): Promise<TableListResult<TRow>>
+  }
   get: { call(input: { id: string }): Promise<TRow> }
   create: { call(input: TCreate): Promise<TRow> }
-  update: { call(input: { params: { id: string }; query: {}; headers: {}; body: TUpdate }): Promise<TRow> }
+  update: {
+    call(input: {
+      params: { id: string }
+      query: {}
+      headers: {}
+      body: TUpdate
+    }): Promise<TRow>
+  }
   delete: { call(input: { id: string }): Promise<void> }
 }
 
@@ -95,11 +106,26 @@ export function createTableCollection<
   const direct: DirectTableApi<TRow, TCreate, TUpdate> = {
     list(input = {}) {
       const { limit, offset, cursor, sort, order, q, count, ...filters } = input
-      return table.list.call({ limit, offset, cursor, sort, order, q, count, filters })
+      return table.list.call({
+        limit,
+        offset,
+        cursor,
+        sort,
+        order,
+        q,
+        count,
+        filters,
+      })
     },
     get: (id) => table.get.call({ id: String(id) }),
     create: (input) => table.create.call(input),
-    update: (id, input) => table.update.call({ params: { id: String(id) }, query: {}, headers: {}, body: input }),
+    update: (id, input) =>
+      table.update.call({
+        params: { id: String(id) },
+        query: {},
+        headers: {},
+        body: input,
+      }),
     delete: (id) => table.delete.call({ id: String(id) }),
   }
 
@@ -113,33 +139,72 @@ export function createTableCollection<
       queryClient: config.queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        // Pass the client-generated `id` through as-is. TanStack DB's
-        // optimistic insert keys the local row by this `id` (via `getKey`),
-        // and this matches `sanitizeWriteBody`'s default on the server: a
-        // client-supplied `id` on create is accepted unless the table's
-        // access config sets an explicit `writableColumns` allowlist that
-        // excludes `id`. Apps that DO restrict it that way will see the
-        // server regenerate the id, and the optimistic entry's key will get
-        // swapped once the synced row comes back — a known, narrower
-        // trade-off in that uncommon case, not the default.
-        await table.create.call(mutation.modified as unknown as TCreate)
+        let reconciled = true
+        for (const mutation of transaction.mutations) {
+          // Pass the client-generated `id` through as-is. TanStack DB's
+          // optimistic insert keys the local row by this `id` (via `getKey`),
+          // and this matches `sanitizeWriteBody`'s default on the server: a
+          // client-supplied `id` on create is accepted unless the table's
+          // access config sets an explicit `writableColumns` allowlist that
+          // excludes `id`.
+          const row = (await table.create.call(
+            mutation.modified as unknown as TCreate,
+          )) as TRow | undefined
+          // Apps that DO restrict it that way get a server-assigned id, which
+          // leaves the optimistic row keyed under the client's — `writeUpsert`
+          // can't retire that, so those fall back to the refetch.
+          if (row?.id != null && String(row.id) === String(mutation.key)) {
+            applyRealtimeEvent('create', row as Record<string, unknown>)
+          } else {
+            reconciled = false
+          }
+        }
+        return reconciled ? { refetch: false } : {}
       },
       onUpdate: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        await table.update.call({
-          params: { id: String(mutation.key) },
-          query: {},
-          headers: {},
-          body: mutation.changes as unknown as TUpdate,
-        })
+        await Promise.all(
+          transaction.mutations.map((mutation) =>
+            updateQueue.enqueue(
+              mutation.key as TRow['id'],
+              mutation.changes as Record<string, unknown>,
+            ),
+          ),
+        )
+        return { refetch: false }
       },
       onDelete: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        await table.delete.call({ id: String(mutation.key) })
+        for (const mutation of transaction.mutations) {
+          // Updates still queued for this row are superseded, and one already
+          // in flight must land before the DELETE or the two race.
+          await updateQueue.settle(mutation.key as TRow['id'])
+          await table.delete.call({ id: String(mutation.key) })
+          applyRealtimeEvent('delete', { id: mutation.key })
+        }
+        return { refetch: false }
       },
     }),
   )
+
+  // Cursor-shaped workloads call `update()` many times a second. The queue
+  // merges everything that piles up for a row while its request is in flight
+  // into a single follow-up, so request rate tracks RTT, not call rate.
+  const updateQueue = createUpdateQueue<TRow['id'], TRow>({
+    send: (id, changes) =>
+      table.update.call({
+        params: { id: String(id) },
+        query: {},
+        headers: {},
+        body: changes as unknown as TUpdate,
+      }),
+    onResult: async (row) => {
+      // `writeUpsert` writes the response whole, so mutation endpoints are
+      // contracted to return a full row. A body without an id can't be
+      // reconciled locally — fall back to the refetch rather than write it.
+      if ((row as TRow | undefined)?.id == null)
+        await collection.utils.refetch()
+      else applyRealtimeEvent('update', row as Record<string, unknown>)
+    },
+  })
 
   type Collection = typeof collection
 

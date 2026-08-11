@@ -50,13 +50,10 @@ test('streams Publisher events and resumes through the v2 HTTP handler', async (
   if (!router) throw new Error('expected realtime router')
   const handler = new OpenAPIHandler({ router })
   const controller = new AbortController()
-  const request = new Request(
-    'http://test/api/realtime?tables=boards',
-    {
-      headers: { 'Last-Event-ID': firstId ?? '' },
-      signal: controller.signal,
-    },
-  )
+  const request = new Request('http://test/api/realtime?tables=boards', {
+    headers: { 'Last-Event-ID': firstId ?? '' },
+    signal: controller.signal,
+  })
   const result = await handler.handle(request, { context: context(request) })
   expect(result.matched).toBe(true)
   expect(result.response?.headers.get('Content-Type')).toContain(
@@ -73,4 +70,37 @@ test('streams Publisher events and resumes through the v2 HTTP handler', async (
   await reader.cancel()
   expect(frame).toContain('second')
   expect(frame).toContain(firstId ? 'id:' : 'data:')
+})
+
+test('keeps an idle realtime response alive with heartbeat events', async () => {
+  const publisher = createMemoryRealtimePublisher({ resumeSeconds: 60 })
+  const router = buildRealtimeApiRouter(publisher, access, {
+    heartbeatMs: 10,
+  })
+  if (!router) throw new Error('expected realtime router')
+
+  const handler = new OpenAPIHandler({ router })
+  const controller = new AbortController()
+  const request = new Request('http://test/api/realtime?tables=boards', {
+    signal: controller.signal,
+  })
+  const result = await handler.handle(request, { context: context(request) })
+  const reader = result.response!.body!.getReader()
+
+  const heartbeat = await Promise.race([
+    (async () => {
+      let frame = ''
+      while (!frame.includes('heartbeat')) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        frame += new TextDecoder().decode(chunk.value)
+      }
+      return frame
+    })(),
+    new Promise<undefined>((resolve) => setTimeout(resolve, 100)),
+  ])
+
+  controller.abort()
+  await reader.cancel()
+  expect(heartbeat).toContain('heartbeat')
 })

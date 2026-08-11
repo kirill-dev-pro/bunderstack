@@ -6,6 +6,7 @@ import type { ResolvedAccess } from '../access'
 import type { RealtimePublisher } from '../realtime/publisher'
 
 import { filterRealtimeChanges } from '../realtime/filter'
+import { withRealtimeHeartbeat } from '../realtime/heartbeat'
 import { createApiBuilder } from './builder'
 
 const tablesSchema = v.pipe(
@@ -19,9 +20,18 @@ const changeSchema = v.strictObject({
   record: v.record(v.string(), v.unknown()),
 })
 
+const heartbeatSchema = v.strictObject({
+  type: v.literal('heartbeat'),
+})
+
+type RealtimeRouterOptions = {
+  heartbeatMs?: number
+}
+
 export function buildRealtimeApiRouter(
   publisher: RealtimePublisher | undefined,
   access: ResolvedAccess,
+  options: RealtimeRouterOptions = {},
 ) {
   if (!publisher) return undefined
   const builder = createApiBuilder<
@@ -38,15 +48,21 @@ export function buildRealtimeApiRouter(
       queryStyles: { tables: 'array' },
     })
     .input(v.strictObject({ tables: tablesSchema }))
-    .output(eventIterator(changeSchema))
+    .output(eventIterator(v.union([changeSchema, heartbeatSchema])))
     .handler(({ input, context, signal, lastEventId }) =>
-      filterRealtimeChanges(
-        publisher.subscribe('change', { signal, lastEventId }),
+      withRealtimeHeartbeat(
+        filterRealtimeChanges(
+          publisher.subscribe('change', { signal, lastEventId }),
+          {
+            subscriptions: input.tables,
+            access,
+            request: context.request,
+            getSession: context.getSession,
+          },
+        ),
         {
-          subscriptions: input.tables,
-          access,
-          request: context.request,
-          getSession: context.getSession,
+          intervalMs: options.heartbeatMs,
+          signal,
         },
       ),
     )

@@ -98,6 +98,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  const seen = new Set<unknown>()
+  let current = error
+
+  while (isRecord(current) && !seen.has(current)) {
+    seen.add(current)
+    const code = current['code']
+    if (
+      code === '23505' ||
+      code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+      code === 'SQLITE_CONSTRAINT_PRIMARYKEY'
+    ) {
+      return true
+    }
+
+    const message = current['message']
+    if (
+      typeof message === 'string' &&
+      (/duplicate key value violates unique constraint/i.test(message) ||
+        /unique constraint failed/i.test(message))
+    ) {
+      return true
+    }
+
+    current = current['cause']
+  }
+
+  return false
+}
+
 function coerceId(rawId: string | number): string | number {
   if (typeof rawId === 'number') return rawId
   return isNaN(Number(rawId)) ? rawId : Number(rawId)
@@ -205,11 +235,10 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any)
+      const rows = await db
         .select()
         .from(table)
-        .where(eq(idCol as any, id))
+        .where(eq(idCol, id))
       if (!rows[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
@@ -304,8 +333,19 @@ export function createCrudOperations<
       const scope = scopeFor(tableAccess.writeScope, { ...ctx, body })
       const stamped = scope ? stampScope(values, scope) : values
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any).insert(table).values(stamped).returning()
+      let rows: Record<string, unknown>[]
+      try {
+        rows = await db.insert(table).values(stamped).returning()
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw new CrudOperationError(
+            409,
+            ErrorCode.CONFLICT,
+            'Record already exists',
+          )
+        }
+        throw error
+      }
       const created = rows[0] as Record<string, unknown>
       void realtime?.publish(table as never, 'create', created as never)
 
@@ -337,11 +377,10 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any)
+      const existing = await db
         .select()
         .from(table)
-        .where(eq(idCol as any, id))
+        .where(eq(idCol, id))
       if (!existing[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
@@ -380,14 +419,21 @@ export function createCrudOperations<
         ctx.user?.id ?? null,
       )
 
+      if (Object.keys(values).length === 0) {
+        throw new CrudOperationError(
+          400,
+          ErrorCode.VALIDATION_ERROR,
+          'No writable fields to update',
+        )
+      }
+
       const writeScope = scopeFor(tableAccess.writeScope, { ...ctx, body })
       const stamped = writeScope ? stampScope(values, writeScope) : values
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = await (db as any)
+      const rows = await db
         .update(table)
         .set(stamped)
-        .where(eq(idCol as any, id))
+        .where(eq(idCol, id))
         .returning()
 
       if (!rows[0]) {
@@ -406,11 +452,10 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = await (db as any)
+      const existing = await db
         .select()
         .from(table)
-        .where(eq(idCol as any, id))
+        .where(eq(idCol, id))
       if (!existing[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
@@ -434,8 +479,7 @@ export function createCrudOperations<
         )
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (db as any).delete(table).where(eq(idCol as any, id))
+      await db.delete(table).where(eq(idCol, id))
       void realtime?.publish(table as never, 'delete', existingRow as never)
     },
   }

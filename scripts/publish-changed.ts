@@ -90,6 +90,10 @@ async function main() {
 
     try {
       const args = ['publish', '-w', `packages/${name}`, '--provenance']
+      if (pkg.version.includes('-')) {
+        const tag = pkg.version.split('-')[1]?.split('.')[0] || 'beta'
+        args.push('--tag', tag)
+      }
       if (dryRun) args.push('--dry-run')
       const proc = Bun.spawn(['npm', ...args], {
         cwd: root,
