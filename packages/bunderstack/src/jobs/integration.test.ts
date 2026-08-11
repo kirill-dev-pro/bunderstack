@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
@@ -19,7 +19,7 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
     jobs: (j) =>
       j.define({
         writeNote: j.job({
-          input: z.object({ id: z.string(), body: z.string() }),
+          input: v.object({ id: v.string(), body: v.string() }),
           handler: async (input, ctx) => {
             await ctx.db
               .insert(notes)
@@ -85,7 +85,11 @@ test('the built-in storage sweep is registered as an ordinary cron', async () =>
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    storage: { local: './uploads', defaultBucket: 'files', buckets: { files: {} } },
+    storage: {
+      local: './uploads',
+      defaultBucket: 'files',
+      buckets: { files: {} },
+    },
   } as never)
   expect(app.manifest.background.cron.map((c) => c.name)).toContain(
     'bunderstack:storage-sweep',

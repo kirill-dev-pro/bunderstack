@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { bunderstackJobs } from './internal-tables'
 import { buildManifest, parseManifest } from './manifest'
@@ -27,8 +27,11 @@ function makeManifest() {
       {},
     ),
     envConfig: {
-      server: { STRIPE_KEY: z.string(), LOG_LEVEL: z.string().optional() },
-      client: { PUBLIC_APP_NAME: z.string() },
+      server: {
+        STRIPE_KEY: v.string(),
+        LOG_LEVEL: v.optional(v.string()),
+      },
+      client: { PUBLIC_APP_NAME: v.string() },
     },
     emailProvider: 'resend',
     realtime: true,

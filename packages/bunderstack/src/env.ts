@@ -1,11 +1,16 @@
-// src/env.ts — env validation. Browser-safe: imports zod only.
-import { z, type ZodType } from 'zod'
+// src/env.ts — env validation. Browser-safe: type-only Standard Schema import.
+import type { StandardSchemaV1 } from '@standard-schema/spec'
+
+import {
+  StandardSchemaValidationError,
+  validateStandardSchema,
+} from './standard-schema'
 
 export const CLIENT_PREFIX = 'PUBLIC_' as const
 
 export type EnvConfigInput = {
-  server?: Record<string, ZodType>
-  client?: Record<string, ZodType>
+  server?: Record<string, StandardSchemaV1>
+  client?: Record<string, StandardSchemaV1>
   /** Explicit value source for client vars (e.g. Vite's import.meta.env). */
   runtimeEnv?: Record<string, unknown>
 }
@@ -27,8 +32,8 @@ export type BaseEnv = {
 }
 
 type InferVars<T> =
-  T extends Record<string, ZodType>
-    ? { [K in keyof T]: z.output<T[K]> }
+  T extends Record<string, StandardSchemaV1>
+    ? { [K in keyof T]: StandardSchemaV1.InferOutput<T[K]> }
     : unknown
 
 // Non-distributive so `ValidatedEnv<undefined>` is BaseEnv, not `never`.
@@ -62,7 +67,7 @@ export type ValidateEnvOptions = {
 const DEV_AUTH_SECRET = 'dev-secret-change-in-prod'
 
 function validateSection(
-  section: Record<string, ZodType> | undefined,
+  section: Record<string, StandardSchemaV1> | undefined,
   kind: 'server' | 'client',
   source: Record<string, unknown>,
   issues: string[],
@@ -82,12 +87,13 @@ function validateSection(
       )
       continue
     }
-    const result = schema.safeParse(source[key])
-    if (result.success) {
-      out[key] = result.data
-    } else {
-      for (const issue of result.error.issues) {
-        issues.push(`${key}: ${issue.message}`)
+    try {
+      out[key] = validateStandardSchema(schema, source[key], 'env')
+    } catch (error) {
+      if (!(error instanceof StandardSchemaValidationError)) throw error
+      for (const issue of error.issues) {
+        const path = issue.path.map(String).join('.')
+        issues.push(`${key}${path ? `.${path}` : ''}: ${issue.message}`)
       }
     }
   }

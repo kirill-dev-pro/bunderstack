@@ -2,7 +2,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 import { test, expect, beforeAll } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { JobsDefs } from './define'
 
@@ -17,7 +17,7 @@ let db: LibSQLDatabase<Record<string, never>>
 const defs: JobsDefs = {
   greet: {
     kind: 'job',
-    input: z.object({ name: z.string() }),
+    input: v.object({ name: v.string() }),
     handler: async () => {},
   },
   bare: { kind: 'job', handler: async () => {} },
@@ -75,7 +75,7 @@ test('cron declarations can be enqueued', async () => {
   expect(rows[0]?.type).toBe('cron:hourly')
 })
 
-test('payload failing zod parse throws at the enqueue site', async () => {
+test('payload failing schema validation throws at the enqueue site', async () => {
   await expect(enqueueJob(db, defs, 'greet', { name: 42 })).rejects.toThrow()
 })
 

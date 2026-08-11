@@ -4,7 +4,7 @@ import { test, expect, beforeAll } from 'bun:test'
 import { eq } from 'drizzle-orm'
 // A pg-dialect user table so withInternalTables/detectDialect pick the pg twins.
 import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { JobsDefs } from './define'
 
@@ -43,7 +43,7 @@ test('pg: enqueue, claim, run to succeeded', async () => {
   const defs: JobsDefs = {
     greet: {
       kind: 'job',
-      input: z.object({ name: z.string() }),
+      input: v.object({ name: v.string() }),
       handler: async (input) => {
         seen.push(input)
       },

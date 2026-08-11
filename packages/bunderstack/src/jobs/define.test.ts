@@ -1,7 +1,12 @@
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
+import * as v from 'valibot'
 
-import { backoffMs, createJobsBuilder, validateBackgroundDefs, validateJobsDefs } from './define'
+import {
+  backoffMs,
+  createJobsBuilder,
+  validateBackgroundDefs,
+  validateJobsDefs,
+} from './define'
 import { CRON_PREFIX } from './slots'
 
 type Equal<A, B> =
@@ -15,9 +20,9 @@ const j = createJobsBuilder<Record<string, never>>()
 test('j.define returns the defs object unchanged and validated', () => {
   const defs = j.define({
     hello: j.job({
-      input: z.object({ name: z.string() }),
+      input: v.object({ name: v.string() }),
       handler: async (input) => {
-        // Type-level check: input is the parsed zod output.
+        // Type-level check: input is the parsed Standard Schema output.
         const _name: string = input.name
         void _name
       },
@@ -29,7 +34,7 @@ test('j.define returns the defs object unchanged and validated', () => {
 test('j.job and j.cron produce discriminated definitions', () => {
   const defs = j.define({
     email: j.job({
-      input: z.object({ to: z.string() }),
+      input: v.object({ to: v.string() }),
       handler: async () => {},
     }),
     hourly: j.cron({
@@ -110,7 +115,12 @@ test('cron rejects concurrency', () => {
 test('cron validates retries and timeout like jobs', () => {
   expect(() =>
     validateBackgroundDefs({
-      a: { kind: 'cron', schedule: '* * * * *', retries: -1, handler: () => {} },
+      a: {
+        kind: 'cron',
+        schedule: '* * * * *',
+        retries: -1,
+        handler: () => {},
+      },
     }),
   ).toThrow(/retries must be a non-negative integer/)
   expect(() =>
@@ -136,4 +146,3 @@ test('backoffMs applies jitter within the expected band', () => {
   expect(Math.max(...samples)).toBeLessThanOrEqual(1200)
   expect(new Set(samples).size).toBeGreaterThan(1)
 })
-

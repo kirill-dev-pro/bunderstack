@@ -2,7 +2,7 @@ import type { LibSQLDatabase } from 'drizzle-orm/libsql'
 
 import { test, expect, beforeEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { JobsDefs } from './define'
 
@@ -52,7 +52,7 @@ test('tick claims and runs a pending job to succeeded', async () => {
   const defs: JobsDefs = {
     greet: {
       kind: 'job',
-      input: z.object({ name: z.string() }),
+      input: v.object({ name: v.string() }),
       handler: async (input) => {
         seen.push(input)
       },
@@ -111,7 +111,7 @@ test('failure retries with backoff, then fails and fires onFailed', async () => 
   }
   const r = runner(defs)
   const t0 = Date.now()
-  const { id } = await enqueueJob(db, defs, 'flaky', undefined)
+  const { id } = await enqueueJob(db, defs, 'flaky', undefined, { runAt: t0 })
 
   await r.tick(t0) // attempt 1 fails
   let row = await rowById(id)
@@ -230,7 +230,7 @@ test('malformed stored payload fails immediately without retries', async () => {
   const defs: JobsDefs = {
     typed: {
       kind: 'job',
-      input: z.object({ n: z.number() }),
+      input: v.object({ n: v.number() }),
       retries: 5,
       handler: async () => {},
     },
@@ -299,7 +299,12 @@ test('a completed cron slot is not re-materialized on a later tick in the same m
 
 test('tick does not backfill from epoch on first sight', async () => {
   const defs: JobsDefs = {
-    beat: { kind: 'cron', schedule: '* * * * *', catchUp: 'all', handler: () => {} },
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      catchUp: 'all',
+      handler: () => {},
+    },
   }
   await runner(defs).tick(Date.parse('2026-08-07T10:00:30Z'))
   expect(await cronRows('beat')).toHaveLength(1)
@@ -506,7 +511,3 @@ test('the reap runs at most hourly', async () => {
   const remaining = await db.select().from(bunderstackJobs)
   expect(remaining.filter((row) => row.status === 'succeeded')).toHaveLength(0)
 })
-
-
-
-
