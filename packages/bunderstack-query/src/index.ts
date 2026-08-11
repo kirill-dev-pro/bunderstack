@@ -14,6 +14,8 @@ export type {
   ExposedTables,
   InferApiRouter,
   InferBuckets,
+  InferInsert,
+  InferSelect,
   InferSchema,
   InferTables,
 } from './infer'

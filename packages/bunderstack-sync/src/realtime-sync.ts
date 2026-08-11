@@ -1,6 +1,9 @@
 import type { QueryClient } from '@tanstack/react-query'
-
-import { createRealtimeClient, type RealtimeEvent } from 'bunderstack-query'
+import {
+  syncRealtime,
+  type RealtimeQueryApi,
+  type RealtimeSyncHandle,
+} from 'bunderstack-query'
 
 type SyncableCollection = {
   utils: {
@@ -10,7 +13,6 @@ type SyncableCollection = {
   }
 }
 
-/** A table bundle the resolver mode routes events into (see collection.ts). */
 export type SyncRealtimeTarget = {
   applyRealtimeEvent: (
     action: 'create' | 'update' | 'delete',
@@ -20,54 +22,40 @@ export type SyncRealtimeTarget = {
 }
 
 export type SyncRealtimeConfig = {
-  baseUrl: string
+  api: RealtimeQueryApi
   queryClient: QueryClient
-  fetch?: typeof fetch
-  /** Static map of table name -> the collection that table's rows sync into. */
+  tables: string[]
   collections?: Record<string, SyncableCollection>
-  /** Lazy lookup: resolve a table's target at event time (proxy clients that
-   * can't enumerate tables upfront). Takes precedence over `collections`. */
   resolve?: (table: string) => SyncRealtimeTarget | undefined
-  /** All materialized targets — used for gap recovery in resolver mode. */
   resolveAll?: () => Iterable<SyncRealtimeTarget>
+  retryMs?: number
 }
 
-export function createSyncRealtimeClient(config: SyncRealtimeConfig) {
-  const staticCollections = config.collections ?? {}
-  const tables = Object.keys(staticCollections)
-
-  return createRealtimeClient({
-    baseUrl: config.baseUrl,
+export function createSyncRealtimeClient(
+  config: SyncRealtimeConfig,
+): RealtimeSyncHandle {
+  const collections = config.collections ?? {}
+  return syncRealtime({
+    api: config.api,
     queryClient: config.queryClient,
-    tables,
-    fetch: config.fetch,
-    applyEvent: (evt: RealtimeEvent) => {
+    tables: config.tables,
+    retryMs: config.retryMs,
+    onChange: (event) => {
       if (config.resolve) {
-        config.resolve(evt.table)?.applyRealtimeEvent(evt.action, evt.record)
+        config.resolve(event.table)?.applyRealtimeEvent(event.action, event.record)
         return
       }
-      const collection = staticCollections[evt.table]
+      const collection = collections[event.table]
       if (!collection) return
-      if (evt.action === 'delete') {
-        collection.utils.writeDelete(evt.record['id'])
-      } else {
-        collection.utils.writeUpsert(evt.record)
-      }
+      if (event.action === 'delete') collection.utils.writeDelete(event.record['id'])
+      else collection.utils.writeUpsert(event.record)
     },
-    onGap: () => {
+    onReconnect: async () => {
       if (config.resolveAll) {
-        for (const target of config.resolveAll()) {
-          target.refetchAll().catch((err) => {
-            console.error('bunderstack-sync: gap-recovery refetch failed', err)
-          })
-        }
+        await Promise.all([...config.resolveAll()].map((target) => target.refetchAll()))
         return
       }
-      for (const collection of Object.values(staticCollections)) {
-        collection.utils.refetch().catch((err) => {
-          console.error('bunderstack-sync: gap-recovery refetch failed', err)
-        })
-      }
+      await Promise.all(Object.values(collections).map((collection) => collection.utils.refetch()))
     },
   })
 }

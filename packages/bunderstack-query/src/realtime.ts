@@ -23,6 +23,7 @@ export type RealtimeSyncOptions = {
   signal?: AbortSignal
   retryMs?: number
   onChange?: (change: RealtimeChange) => void
+  onReconnect?: () => void | Promise<void>
   onError?: (error: unknown) => void
 }
 
@@ -75,7 +76,10 @@ export function syncRealtime(options: RealtimeSyncOptions): RealtimeSyncHandle {
     while (!signal.aborted) {
       try {
         const changes = await options.api.realtime.changes.call({ tables: options.tables }, { signal, lastEventId })
-        if (connected) await invalidateAll()
+        if (connected) {
+          await invalidateAll()
+          await options.onReconnect?.()
+        }
         connected = true
         for await (const change of changes) {
           const id = getEventMeta(change)?.id

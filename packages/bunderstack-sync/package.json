@@ -1,13 +1,13 @@
 {
   "name": "bunderstack-sync",
   "version": "0.16.0",
-  "description": "TanStack DB collections synced live to a bunderstack backend: optimistic mutations with SSE-driven realtime sync.",
+  "description": "TanStack DB collections synchronized through Bunderstack's typed oRPC client and realtime iterator.",
   "keywords": [
     "bun",
     "bunderstack",
     "optimistic",
     "realtime",
-    "sse",
+    "orpc",
     "sync",
     "tanstack-db"
   ],

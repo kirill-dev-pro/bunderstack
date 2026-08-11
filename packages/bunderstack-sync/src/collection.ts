@@ -6,16 +6,18 @@ import {
   type StandardSchema,
 } from '@tanstack/db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
-import {
-  createTableClient,
-  MAX_LIST_LIMIT,
-  type TableClient,
-} from 'bunderstack-query'
+const MAX_LIST_LIMIT = 200
+
+type TableProcedures<TRow, TCreate, TUpdate> = {
+  list: { call(input?: Record<string, unknown>): Promise<{ items: TRow[]; hasMore: boolean; nextCursor?: string }> }
+  create: { call(input: TCreate): Promise<TRow> }
+  update: { call(input: { params: { id: string }; query: {}; headers: {}; body: TUpdate }): Promise<TRow> }
+  delete: { call(input: { id: string }): Promise<void> }
+}
 
 export type TableCollectionConfig = {
   tableName: string
-  baseUrl: string
-  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  procedures: TableProcedures<any, any, any>
   queryClient: QueryClient
   /** Rows the default `.collection` syncs per fetch. Defaults to 100. For
    * feed-shaped tables that need real pagination use `scopedCollection`. */
@@ -71,17 +73,13 @@ export function createTableCollection<
   TCreate = Partial<TRow>,
   TUpdate = Partial<TRow>,
 >(config: TableCollectionConfig) {
-  const table = createTableClient<TRow, TCreate, TUpdate>({
-    tableName: config.tableName,
-    baseUrl: config.baseUrl,
-    fetch: config.fetch,
-  })
+  const table = config.procedures as TableProcedures<TRow, TCreate, TUpdate>
 
   const collection = createCollection(
     queryCollectionOptions<TRow>({
       queryKey: [config.tableName, 'collection'],
       queryFn: async () => {
-        const page = await table.list({ limit: config.limit ?? 100 })
+        const page = await table.list.call({ limit: config.limit ?? 100 })
         return page.items
       },
       queryClient: config.queryClient,
@@ -97,18 +95,20 @@ export function createTableCollection<
         // server regenerate the id, and the optimistic entry's key will get
         // swapped once the synced row comes back — a known, narrower
         // trade-off in that uncommon case, not the default.
-        await table.create(mutation.modified as unknown as Partial<TCreate>)
+        await table.create.call(mutation.modified as unknown as TCreate)
       },
       onUpdate: async ({ transaction }) => {
         const mutation = transaction.mutations[0]!
-        await table.update(
-          mutation.key as string | number,
-          mutation.changes as unknown as TUpdate,
-        )
+        await table.update.call({
+          params: { id: String(mutation.key) },
+          query: {},
+          headers: {},
+          body: mutation.changes as unknown as TUpdate,
+        })
       },
       onDelete: async ({ transaction }) => {
         const mutation = transaction.mutations[0]!
-        await table.delete(mutation.key as string | number)
+        await table.delete.call({ id: String(mutation.key) })
       },
     }),
   )
@@ -172,11 +172,10 @@ export function createTableCollection<
           let more = false
           while (items.length < desiredCount) {
             const remaining = Math.min(pageSize, desiredCount - items.length)
-            const page = await table.list({
-              ...filter,
+            const page = await table.list.call({
+              filters: filter,
               ...(options.sort ? { sort: options.sort } : {}),
               ...(options.order ? { order: options.order } : {}),
-              cursorMode: true,
               limit: remaining,
               ...(cursor ? { cursor } : {}),
             })
@@ -235,8 +234,8 @@ export function createTableCollection<
           // Chunked at the server's IN-filter cap so any id set works.
           for (let i = 0; i < unique.length; i += MAX_LIST_LIMIT) {
             const chunk = unique.slice(i, i + MAX_LIST_LIMIT)
-            const page = await table.list({
-              [column]: chunk,
+            const page = await table.list.call({
+              filters: { [column]: chunk },
               limit: chunk.length,
             })
             items.push(...page.items)
@@ -291,7 +290,6 @@ export function createTableCollection<
 
   return {
     collection,
-    table: table as TableClient<TRow, TCreate, TUpdate>,
     scopedCollection,
     collectionByIds,
     applyRealtimeEvent,
@@ -322,7 +320,6 @@ export type TableCollection<
     Record<string, any>,
     StandardSchema<TRow>
   >
-  table: TableClient<TRow, TCreate, TUpdate>
   scopedCollection: (
     options?: ScopedCollectionOptions,
   ) => ScopedCollection<TRow>

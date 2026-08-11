@@ -19,6 +19,9 @@ export type InferSchema<TApp extends AnyBunderstackApp> =
 export type InferBuckets<TApp extends AnyBunderstackApp> =
   InferCarrier<TApp>['buckets']
 
+export type InferSelect<T> = T extends { $inferSelect: infer R } ? R : never
+export type InferInsert<T> = T extends { $inferInsert: infer R } ? R : never
+
 export type InferApiRouter<TApp extends AnyBunderstackApp> =
   InferCarrier<TApp>['api']
 

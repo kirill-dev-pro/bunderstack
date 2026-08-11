@@ -16,59 +16,36 @@ function fetchMockFactory(options?: {
     ['card_1', { id: 'card_1', title: 'A' }],
     ['card_2', { id: 'card_2', title: 'B' }],
   ])
-  const calls: { method: string; url: string; body?: unknown }[] = []
-
-  const fetchMock = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    const method = init?.method ?? 'GET'
-    calls.push({
-      method,
-      url,
-      body: init?.body ? JSON.parse(String(init.body)) : undefined,
-    })
-
-    if (method === 'GET' && url.includes('/cards?')) {
-      return new Response(
-        JSON.stringify({
-          items: [...db.values()],
-          limit: 100,
-          hasMore: false,
-        }),
-        { status: 200 },
-      )
-    }
-    if (method === 'POST' && url.endsWith('/cards')) {
-      const body = JSON.parse(String(init!.body))
+  const calls: { method: string; id?: string; body?: unknown }[] = []
+  const procedures = {
+    list: { call: async () => ({ items: [...db.values()], hasMore: false }) },
+    create: { call: async (body: Card) => {
+      calls.push({ method: 'POST', body })
       const created = { id: createdId, title: body.title }
       db.set(created.id, created)
-      return new Response(JSON.stringify(created), { status: 200 })
-    }
-    if (method === 'PATCH') {
-      const id = url.split('/').pop()!
-      const body = JSON.parse(String(init!.body))
+      return created
+    } },
+    update: { call: async ({ params: { id }, body }: any) => {
+      calls.push({ method: 'PATCH', id, body })
       const updated = { ...db.get(id)!, ...body }
       db.set(id, updated)
-      return new Response(JSON.stringify(updated), { status: 200 })
-    }
-    if (method === 'DELETE') {
-      const id = url.split('/').pop()!
+      return updated
+    } },
+    delete: { call: async ({ id }: { id: string }) => {
+      calls.push({ method: 'DELETE', id })
       db.delete(id)
-      return new Response(null, { status: 204 })
-    }
-    throw new Error(`unhandled request: ${method} ${url}`)
-  }) as unknown as typeof fetch
-
-  return { fetchMock, calls, db }
+    } },
+  }
+  return { procedures, calls, db }
 }
 
 describe('createTableCollection', () => {
   it('syncs initial rows from the table list endpoint', async () => {
-    const { fetchMock } = fetchMockFactory()
+    const { procedures } = fetchMockFactory()
     const queryClient = new QueryClient()
     const { collection } = createTableCollection<Card>({
       tableName: 'cards',
-      baseUrl: 'http://x/api',
-      fetch: fetchMock,
+      procedures,
       queryClient,
     })
 
@@ -85,12 +62,11 @@ describe('createTableCollection', () => {
   })
 
   it('onInsert calls table.create and the new row appears after refetch', async () => {
-    const { fetchMock, calls } = fetchMockFactory()
+    const { procedures, calls } = fetchMockFactory()
     const queryClient = new QueryClient()
     const { collection } = createTableCollection<Card, { title: string }>({
       tableName: 'cards',
-      baseUrl: 'http://x/api',
-      fetch: fetchMock,
+      procedures,
       queryClient,
     })
     await collection.stateWhenReady()
@@ -110,14 +86,13 @@ describe('createTableCollection', () => {
     // what the server does with it (and how TanStack DB reconciles the
     // optimistic entry once the synced row comes back under a different
     // key) is out of scope for this test.
-    const { fetchMock, calls } = fetchMockFactory({
+    const { procedures, calls } = fetchMockFactory({
       createdId: 'server_generated_id',
     })
     const queryClient = new QueryClient()
     const { collection } = createTableCollection<Card, { title: string }>({
       tableName: 'cards',
-      baseUrl: 'http://x/api',
-      fetch: fetchMock,
+      procedures,
       queryClient,
     })
     await collection.stateWhenReady()
@@ -130,12 +105,11 @@ describe('createTableCollection', () => {
   })
 
   it('onDelete calls table.delete with the row key', async () => {
-    const { fetchMock, calls } = fetchMockFactory()
+    const { procedures, calls } = fetchMockFactory()
     const queryClient = new QueryClient()
     const { collection } = createTableCollection<Card>({
       tableName: 'cards',
-      baseUrl: 'http://x/api',
-      fetch: fetchMock,
+      procedures,
       queryClient,
     })
     await collection.stateWhenReady()
@@ -144,6 +118,6 @@ describe('createTableCollection', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     const deleteCall = calls.find((c) => c.method === 'DELETE')
-    expect(deleteCall?.url.endsWith('/card_1')).toBe(true)
+    expect(deleteCall?.id).toBe('card_1')
   })
 })

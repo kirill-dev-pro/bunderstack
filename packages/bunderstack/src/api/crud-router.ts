@@ -72,10 +72,13 @@ export function buildTableCrudProcedures<
           v.number(),
         ),
       ),
+      offset: v.optional(v.number()),
       cursor: v.optional(v.string()),
       sort: v.optional(v.string()),
-      filter: v.optional(v.string()),
-      count: v.optional(v.picklist(['true', 'false'])),
+      order: v.optional(v.picklist(['asc', 'desc'])),
+      q: v.optional(v.string()),
+      count: v.optional(v.boolean()),
+      filters: v.optional(v.record(v.string(), v.unknown())),
     }),
   )
 
@@ -109,7 +112,16 @@ export function buildTableCrudProcedures<
         user: session.user,
         session: { activeOrganizationId: session.activeOrganizationId },
       }
-      const result = await operations.list(name, input, execCtx)
+      const { filters, count, ...query } = input ?? {}
+      const result = await operations.list(
+        name,
+        {
+          ...query,
+          ...(filters ?? {}),
+          ...(count === undefined ? {} : { count: String(count) }),
+        },
+        execCtx,
+      )
       return {
         ...result,
         items: result.items as TTable['$inferSelect'][],
