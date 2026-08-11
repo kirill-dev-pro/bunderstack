@@ -21,10 +21,14 @@ export type RealtimeSyncOptions = {
   queryClient: QueryClient
   tables: string[]
   signal?: AbortSignal
+  /** Initial reconnect delay before jitter. Defaults to 1 second. */
   retryMs?: number
+  /** Maximum reconnect delay before jitter. Defaults to 30 seconds. */
+  maxRetryMs?: number
   onChange?: (change: RealtimeChange) => void
   onReconnect?: () => void | Promise<void>
   onError?: (error: unknown) => void
+  onRetry?: (retry: { attempt: number; delayMs: number }) => void
 }
 
 export type RealtimeSyncHandle = { close(): void; done: Promise<void> }
@@ -53,7 +57,8 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 export function syncRealtime(options: RealtimeSyncOptions): RealtimeSyncHandle {
   const controller = new AbortController()
   const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal
-  const retryMs = options.retryMs ?? 1_000
+  const retryMs = Math.max(0, options.retryMs ?? 1_000)
+  const maxRetryMs = Math.max(retryMs, options.maxRetryMs ?? 30_000)
 
   const invalidateAll = async () => {
     await Promise.all(options.tables.map((table) => options.queryClient.invalidateQueries({ queryKey: tableQueryKey(options.api, table) })))
@@ -73,6 +78,7 @@ export function syncRealtime(options: RealtimeSyncOptions): RealtimeSyncHandle {
   const done = (async () => {
     let connected = false
     let lastEventId: string | undefined
+    let retryAttempt = 0
     while (!signal.aborted) {
       try {
         const changes = await options.api.realtime.changes.call({ tables: options.tables }, { signal, lastEventId })
@@ -82,6 +88,7 @@ export function syncRealtime(options: RealtimeSyncOptions): RealtimeSyncHandle {
         }
         connected = true
         for await (const change of changes) {
+          retryAttempt = 0
           const id = getEventMeta(change)?.id
           if (id) lastEventId = id
           apply(change)
@@ -90,7 +97,14 @@ export function syncRealtime(options: RealtimeSyncOptions): RealtimeSyncHandle {
       } catch (error) {
         if (!signal.aborted) options.onError?.(error)
       }
-      if (!signal.aborted) await wait(retryMs, signal)
+      if (!signal.aborted) {
+        const attempt = retryAttempt + 1
+        const ceiling = Math.min(maxRetryMs, retryMs * 2 ** retryAttempt)
+        const delayMs = Math.floor(Math.random() * ceiling)
+        retryAttempt = attempt
+        options.onRetry?.({ attempt, delayMs })
+        await wait(delayMs, signal)
+      }
     }
   })()
 

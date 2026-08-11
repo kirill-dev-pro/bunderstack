@@ -2,7 +2,11 @@ import { withEventMeta } from '@standardserver/core'
 import { QueryClient } from '@tanstack/query-core'
 import { expect, test } from 'bun:test'
 
-import { syncRealtime, type RealtimeChange } from './realtime'
+import {
+  syncRealtime,
+  type RealtimeChange,
+  type RealtimeSyncHandle,
+} from './realtime'
 
 function stream(changes: RealtimeChange[]): AsyncIterable<RealtimeChange> {
   return (async function* () { for (const change of changes) yield change })()
@@ -53,4 +57,93 @@ test('delete removes detail state and abort stops iteration', async () => {
   realtime.close()
   await realtime.done
   expect(queryClient.getQueryData(key)).toBeUndefined()
+})
+
+test('reconnect failures use capped exponential backoff with full jitter', async () => {
+  const originalRandom = Math.random
+  Math.random = () => 0.5
+  const retries: Array<{ attempt: number; delayMs: number }> = []
+  let realtime: RealtimeSyncHandle
+  const fallback = setTimeout(() => realtime.close(), 100)
+
+  try {
+    realtime = syncRealtime({
+      api: {
+        realtime: {
+          changes: {
+            async call() {
+              throw new Error('offline')
+            },
+          },
+        },
+      },
+      queryClient: new QueryClient(),
+      tables: ['cards'],
+      retryMs: 10,
+      maxRetryMs: 40,
+      onRetry: (retry) => {
+        retries.push(retry)
+        if (retries.length === 5) realtime.close()
+      },
+    })
+    await realtime.done
+  } finally {
+    clearTimeout(fallback)
+    Math.random = originalRandom
+  }
+
+  expect(retries).toEqual([
+    { attempt: 1, delayMs: 5 },
+    { attempt: 2, delayMs: 10 },
+    { attempt: 3, delayMs: 20 },
+    { attempt: 4, delayMs: 20 },
+    { attempt: 5, delayMs: 20 },
+  ])
+})
+
+test('receiving a stream event resets reconnect backoff', async () => {
+  const originalRandom = Math.random
+  Math.random = () => 0.5
+  const retries: Array<{ attempt: number; delayMs: number }> = []
+  let calls = 0
+  let realtime: RealtimeSyncHandle
+  const fallback = setTimeout(() => realtime.close(), 100)
+
+  try {
+    realtime = syncRealtime({
+      api: {
+        realtime: {
+          changes: {
+            async call() {
+              calls++
+              if (calls === 2) {
+                return stream([
+                  { table: 'cards', action: 'update', record: { id: 'c1' } },
+                ])
+              }
+              throw new Error('offline')
+            },
+          },
+        },
+      },
+      queryClient: new QueryClient(),
+      tables: ['cards'],
+      retryMs: 10,
+      maxRetryMs: 40,
+      onRetry: (retry) => {
+        retries.push(retry)
+        if (retries.length === 3) realtime.close()
+      },
+    })
+    await realtime.done
+  } finally {
+    clearTimeout(fallback)
+    Math.random = originalRandom
+  }
+
+  expect(retries).toEqual([
+    { attempt: 1, delayMs: 5 },
+    { attempt: 1, delayMs: 5 },
+    { attempt: 2, delayMs: 10 },
+  ])
 })
