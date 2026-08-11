@@ -1,6 +1,15 @@
 import type { AnyRouter } from '@orpc/server'
 import type { Table } from 'drizzle-orm'
+
+import type { AccessUser } from '../access'
 import type { TableCrudProcedures } from './crud-router'
+
+export interface ProtectedContextAdditions {
+  user: AccessUser
+  session: {
+    activeOrganizationId: string | null
+  }
+}
 
 type AuthTableName = 'user' | 'session' | 'account' | 'verification'
 type InferSelect<T> = T extends { $inferSelect: infer R } ? R : never

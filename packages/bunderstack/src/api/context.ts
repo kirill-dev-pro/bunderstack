@@ -1,10 +1,11 @@
 import type { AccessUser, AuthSessionResolver } from '../access'
-import { resolveSession } from '../access'
 import type { DbFor } from '../db'
 import type { EmailFacade } from '../email'
 import type { AuthInstance, StorageFacade } from '../index'
 import type { JobsRuntimeFacade } from '../jobs/define'
 import type { RealtimeFacade } from '../realtime/facade'
+
+import { resolveSession } from '../access'
 
 export interface ApiContextDeps<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -47,7 +48,6 @@ export function createApiContext<
   deps: ApiContextDeps<TSchema, TEnv>,
   request: Request,
 ): ApiContext<TSchema, TEnv> {
-  const rawBodyRequest = request.clone()
   let rawBodyPromise: Promise<string> | undefined
   let sessionPromise:
     | Promise<{ user: AccessUser | null; activeOrganizationId: string | null }>
@@ -61,7 +61,7 @@ export function createApiContext<
   }
 
   const getRawBody = () => {
-    if (!rawBodyPromise) rawBodyPromise = rawBodyRequest.text()
+    if (!rawBodyPromise) rawBodyPromise = request.clone().text()
     return rawBodyPromise
   }
 

@@ -1,0 +1,78 @@
+import { createProcedureClient, ORPCError } from '@orpc/server'
+import { expect, test } from 'bun:test'
+import * as v from 'valibot'
+
+import { createApiBuilder } from './api/builder'
+import {
+  BUNDERSTACK_ERROR_STATUS_MAP,
+  BunderstackError,
+  type BunderstackErrorCode,
+} from './errors'
+import { validateStandardSchema } from './standard-schema'
+
+const CASES = [
+  ['VALIDATION_ERROR', 400],
+  ['UNAUTHORIZED', 401],
+  ['FORBIDDEN', 403],
+  ['NOT_FOUND', 404],
+  ['CONFLICT', 409],
+  ['PAYLOAD_TOO_LARGE', 413],
+  ['RATE_LIMITED', 429],
+] as const satisfies readonly (readonly [BunderstackErrorCode, number])[]
+
+for (const [code, status] of CASES) {
+  test(`maps ${code} to a typed oRPC error and HTTP ${status}`, async () => {
+    const procedure = createApiBuilder().public.handler(() => {
+      throw new BunderstackError(code, `${code} message`, {
+        field: 'example',
+      })
+    })
+    const client = createProcedureClient(procedure, { context: {} as never })
+
+    const error = await client().catch((value) => value)
+    expect(error).toBeInstanceOf(ORPCError)
+    expect(error.code).toBe(code)
+    expect(error.message).toBe(`${code} message`)
+    expect(error.data).toEqual({ code, details: { field: 'example' } })
+    expect(BUNDERSTACK_ERROR_STATUS_MAP[code]).toBe(status)
+  })
+}
+
+test('omits details when an internal error has none', async () => {
+  const procedure = createApiBuilder().public.handler(() => {
+    throw new BunderstackError('NOT_FOUND', 'Missing')
+  })
+  const client = createProcedureClient(procedure, { context: {} as never })
+
+  const error = await client().catch((value) => value)
+  expect(error.data).toEqual({ code: 'NOT_FOUND' })
+})
+
+test('maps Standard Schema failures to VALIDATION_ERROR', async () => {
+  const procedure = createApiBuilder().public.handler(() => {
+    validateStandardSchema(v.string(), 42, 'input')
+  })
+  const client = createProcedureClient(procedure, { context: {} as never })
+
+  const error = await client().catch((value) => value)
+  expect(error.code).toBe('VALIDATION_ERROR')
+  expect(error.data.code).toBe('VALIDATION_ERROR')
+  expect(error.data.details).toEqual([
+    {
+      path: [],
+      message: 'Invalid type: Expected string but received 42',
+    },
+  ])
+})
+
+test('does not expose unknown exceptions as declared errors', async () => {
+  const procedure = createApiBuilder().public.handler(() => {
+    throw new Error('secret failure')
+  })
+  const client = createProcedureClient(procedure, { context: {} as never })
+
+  const error = await client().catch((value) => value)
+  expect(error).toBeInstanceOf(Error)
+  expect(error).not.toBeInstanceOf(BunderstackError)
+  expect(error).not.toBeInstanceOf(ORPCError)
+})

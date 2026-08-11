@@ -1,8 +1,10 @@
-import { test, expect, mock } from 'bun:test'
 import { createProcedureClient, ORPCError } from '@orpc/server'
-import { createApiContext } from './context'
-import { createApiBuilder } from './builder'
+import { test, expect, mock } from 'bun:test'
+
 import type { AuthSessionResolver } from '../access'
+
+import { createApiBuilder } from './builder'
+import { createApiContext } from './context'
 
 function createTestDeps(authResolver?: AuthSessionResolver) {
   return {
@@ -112,4 +114,29 @@ test('protected procedure passes non-null user and session context when authenti
   expect(res.userId).toBe('usr_99')
   expect(res.email).toBe('owner@example.com')
   expect(res.orgId).toBe('org_99')
+  expect(getSessionMock).toHaveBeenCalledTimes(1)
+})
+
+test('public and webhook bases do not resolve auth implicitly', async () => {
+  const getSessionMock = mock(async () => null)
+  const fakeAuthResolver: AuthSessionResolver = {
+    api: { getSession: getSessionMock },
+  }
+  const context = createApiContext(
+    createTestDeps(fakeAuthResolver),
+    new Request('http://localhost/webhooks/example'),
+  )
+  const builder = createApiBuilder()
+  const publicClient = createProcedureClient(
+    builder.public.handler(() => 'public'),
+    { context },
+  )
+  const webhookClient = createProcedureClient(
+    builder.webhook.handler(() => 'webhook'),
+    { context },
+  )
+
+  expect(await publicClient()).toBe('public')
+  expect(await webhookClient()).toBe('webhook')
+  expect(getSessionMock).toHaveBeenCalledTimes(0)
 })

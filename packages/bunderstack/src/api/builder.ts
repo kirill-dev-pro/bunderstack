@@ -1,26 +1,27 @@
-import { os, ORPCError, type AnyRouter } from '@orpc/server'
-import type { AccessUser } from '../access'
+import { os, type AnyRouter } from '@orpc/server'
+
 import type { ApiContext } from './context'
 
-export interface ProtectedContextAdditions {
-  user: AccessUser
-  session: {
-    activeOrganizationId: string | null
-  }
-}
+import {
+  BUNDERSTACK_ERRORS,
+  BunderstackError,
+  mapBunderstackErrors,
+} from '../errors'
+export type { ProtectedContextAdditions } from './types'
 
 export function createApiBuilder<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
 >() {
-  const base = os.$context<ApiContext<TSchema, TEnv>>()
+  const base = os
+    .$context<ApiContext<TSchema, TEnv>>()
+    .errors(BUNDERSTACK_ERRORS)
+    .use(mapBunderstackErrors)
 
   const protectedProc = base.use(async ({ context, next }) => {
     const session = await context.getSession()
     if (!session.user) {
-      throw new ORPCError('UNAUTHORIZED', {
-        message: 'Authentication required',
-      })
+      throw new BunderstackError('UNAUTHORIZED', 'Authentication required')
     }
     return next({
       context: {
@@ -35,6 +36,7 @@ export function createApiBuilder<
   return {
     public: base,
     protected: protectedProc,
+    webhook: base,
   }
 }
 
@@ -48,4 +50,3 @@ export type ApiFactory<
   TEnv,
   TCustomApiRouter extends AnyRouter,
 > = (builder: BunderstackApiBuilder<TSchema, TEnv>) => TCustomApiRouter
-
