@@ -4,14 +4,14 @@
 
 **Goal:** Replace Bunderstack's parallel Hono, tRPC, REST-client, and custom-realtime layers with one Standard-Schema-driven oRPC graph covering CRUD, custom procedures, webhooks, storage, and realtime.
 
-**Architecture:** `createBunderstack` builds transport-neutral operations and adapts them once into a single oRPC router. A Web Standard dispatcher reserves Better Auth, delegates `/api/rpc/*` to `RPCHandler`, delegates routed HTTP procedures to `OpenAPIHandler`, and otherwise returns 404. The same router type drives the direct client and TanStack Query helpers. Realtime is an oRPC Event Iterator backed by `@orpc/experimental-publisher`; storage procedures wrap a transport-neutral `StorageOperations` object.
+**Architecture:** `createBunderstack` builds transport-neutral operations and adapts them once into a single oRPC router. A Web Standard dispatcher reserves Better Auth, delegates `/api/rpc/*` to `RPCHandler`, delegates routed HTTP procedures to `OpenAPIHandler`, and otherwise returns 404. The same router type drives the direct client and TanStack Query helpers. Realtime is an oRPC Event Iterator backed by `@orpc/publisher`; storage procedures wrap a transport-neutral `StorageOperations` object.
 
-**Tech Stack:** Bun 1.3.x, TypeScript 5.8+, oRPC 1.15.0, `@orpc/experimental-publisher` 1.15.0, Valibot 1.4.2, Standard Schema 1.1.0, Drizzle ORM 0.45.x, Better Auth, TanStack Query 5.
+**Tech Stack:** Bun 1.3.x, TypeScript 5.8+, oRPC `2.0.0-beta.26`, `@orpc/publisher` and `@orpc/bun` `2.0.0-beta.26`, Valibot 1.4.2, Standard Schema 1.1.0, Drizzle ORM 0.45.x, Better Auth, TanStack Query 5.
 
 ## Global Constraints
 
 - This is an intentionally breaking beta migration. Do not add compatibility aliases for Hono routes, tRPC, `/files/*`, `app.router`, split clients, `clientId`, or realtime `gap` state.
-- Pin every oRPC package to `1.15.0`. Publisher has no `2.0.0-beta.26` release, and mixing its 1.x iterator/runtime with oRPC 2.x is unsupported.
+- Pin every oRPC package, including `@orpc/publisher`, `@orpc/bun`, and `@orpc/valibot`, to `2.0.0-beta.26`.
 - Public validation slots accept `StandardSchemaV1`; internal/generated schemas use Valibot.
 - Handler return inference is the normal output contract. Add `.output(...)` only to built-ins that need runtime output validation, streaming, binary/detailed output, or exact OpenAPI.
 - Preserve access, scope, idempotency, quota, transform, cleanup, and cache-correctness behavior. Delete transport-specific duplication.
@@ -86,7 +86,7 @@ Add these exact dependencies to `packages/bunderstack/package.json`:
 "valibot": "1.4.2"
 ```
 
-Keep the existing oRPC beta pins and legacy transport dependencies unchanged in this task so unrelated modules remain loadable. The compatible oRPC family is switched atomically with the dispatcher in Task 7. Zod is removed in Task 13 after Tasks 8, 12, and 13 migrate the remaining fixtures.
+Keep the existing oRPC beta pins and legacy transport dependencies unchanged in this task so unrelated modules remain loadable. Publisher and the Valibot converter join the same beta family in Tasks 5 and 7. Zod is removed in Task 13 after Tasks 8, 12, and 13 migrate the remaining fixtures.
 
 Run: `bun install`
 
@@ -262,8 +262,7 @@ git commit -m "refactor: expose storage through oRPC procedures"
 - Modify: `bun.lock`
 - Create: `packages/bunderstack/src/realtime/publisher.ts`
 - Create: `packages/bunderstack/src/realtime/publisher.test.ts`
-- Create: `packages/bunderstack/src/realtime/bun-redis-publisher.ts`
-- Create: `packages/bunderstack/src/realtime/bun-redis-publisher.test.ts`
+- Create: `packages/bunderstack/src/realtime/publisher.redis.test.ts`
 - Modify: `packages/bunderstack/src/realtime/facade.ts`
 - Modify: `packages/bunderstack/src/realtime/facade.test.ts`
 - Modify: `packages/bunderstack/src/realtime/app-publish.test.ts`
@@ -277,25 +276,25 @@ git commit -m "refactor: expose storage through oRPC procedures"
 
 Assert typed publish/subscribe, abort cleanup, bounded buffering, `lastEventId` replay, expiry behavior, and facade no-op behavior when realtime is disabled.
 
-Run: `bun test packages/bunderstack/src/realtime/publisher.test.ts packages/bunderstack/src/realtime/bun-redis-publisher.test.ts`
+Run: `bun test packages/bunderstack/src/realtime/publisher.test.ts`
 
-Expected: FAIL because the publisher factory and Bun adapter do not exist.
+Expected: FAIL because the publisher factory does not exist.
 
 - [ ] **Step 2: Use `MemoryPublisher` for local realtime**
 
-Add `@orpc/experimental-publisher` at exact version `1.15.0`, then instantiate `MemoryPublisher<RealtimeEvents>({ resumeRetentionSeconds, maxBufferedEvents })`. Its own oRPC 1.15 dependencies remain package-local until Task 7 aligns the top-level transport family. `RealtimeEvents.change` contains table, action, and record. Adapt the existing facade to call `publisher.publish('change', event)`; remove broker sequence/gap concepts from its type.
+Add `@orpc/publisher` and `@orpc/bun` at exact version `2.0.0-beta.26`. Instantiate `MemoryPublisher<RealtimeEvents>({ resume: { enabled: true, seconds }, maxBufferedEvents })` locally. `RealtimeEvents.change` contains table, action, and record. Adapt the existing facade to call `publisher.publish('change', event)`; remove broker sequence/gap concepts from its type.
 
-- [ ] **Step 3: Implement the narrow Bun Redis adapter**
+- [ ] **Step 3: Use the official Bun Redis adapter**
 
-Extend oRPC `Publisher<RealtimeEvents>`. Use one `Bun.RedisClient` for commands and one for subscriptions. Use `send('XADD', ...)`, `send('XREAD', ...)`, and `send('XTRIM', ...)` for replay IDs/retention, plus Redis pub/sub for live delivery. Apply Redis stream IDs with `withEventMeta` re-exported by `@orpc/server`, suppress replay/live duplicates by that ID, and mirror `PublisherSubscribeListenerOptions` including `lastEventId` and `onError`. Close both clients from the application lifecycle. Do not add `ioredis`.
+Instantiate `BunRedisPublisher<RealtimeEvents>` from `@orpc/bun` with Bun's built-in `redis` client, a duplicated subscriber, a Bunderstack key prefix, and `resume: { enabled: true, seconds }`. Register both clients with the application lifecycle. Bunderstack must not implement Redis Pub/Sub, Streams, IDs, trimming, serialization, replay, or duplicate suppression.
 
 - [ ] **Step 4: Prove cross-instance Redis behavior**
 
-The Redis test creates two adapter instances with the existing fake Redis command/subscription harness, publishes through one, receives through the other, resumes from an ID, and verifies unsubscribe/close. Keep the test hermetic; no external Redis service.
+The Redis integration test creates two official `BunRedisPublisher` instances, publishes through one, receives through the other, resumes from an ID, and verifies unsubscribe/close. Gate it with `BUNDERSTACK_TEST_REDIS_URL` using `test.skipIf(!url)`, matching the repository's external-service test pattern; do not maintain a fake implementation of the adapter internals. CI must provide this URL for the final acceptance run.
 
 - [ ] **Step 5: Delete the old broker and commit**
 
-Run: `bun test packages/bunderstack/src/realtime/publisher.test.ts packages/bunderstack/src/realtime/bun-redis-publisher.test.ts packages/bunderstack/src/realtime/facade.test.ts packages/bunderstack/src/realtime/app-publish.test.ts`
+Run: `bun test packages/bunderstack/src/realtime/publisher.test.ts packages/bunderstack/src/realtime/publisher.redis.test.ts packages/bunderstack/src/realtime/facade.test.ts packages/bunderstack/src/realtime/app-publish.test.ts`
 
 Expected: PASS.
 
@@ -324,7 +323,7 @@ Expected: FAIL because `filterRealtimeChanges` does not exist.
 
 - [ ] **Step 2: Implement the filtering generator**
 
-Accept an `AsyncIterable<RealtimeEvents['change']>`, requested tables, resolved access, and a lazy session resolver. Yield only visible table/record events. Resolve the session only when access rules require it. This module imports neither oRPC server transport nor Publisher, so it remains valid while Task 7 aligns package versions.
+Accept an `AsyncIterable<RealtimeEvents['change']>`, requested tables, resolved access, and a lazy session resolver. Yield only visible table/record events. Resolve the session only when access rules require it. When projecting a payload, preserve its Publisher ID with `getEventMeta`/`withEventMeta`; otherwise client reconnection cannot advance `lastEventId`. This module does not own transport, retention, or replay.
 
 - [ ] **Step 3: Verify and commit**
 
@@ -363,7 +362,7 @@ git commit -m "refactor: isolate realtime access filtering"
 
 - [ ] **Step 1: Write failing graph and dispatch tests**
 
-Assert generated health/CRUD/files/realtime and custom procedures share one graph; duplicate names and HTTP routes fail at construction; `/api/auth/*` is reserved; rate limiting runs first; `/api/rpc/*` uses `RPCHandler`; routed HTTP uses `OpenAPIHandler`; unmatched requests return 404. The realtime integration test defines output with `eventIterator(changeSchema)`, passes handler `signal` and `lastEventId` into `publisher.subscribe('change', { signal, lastEventId })`, and applies Task 6's filtering generator before yielding.
+Assert generated health/CRUD/files/realtime and custom procedures share one graph; duplicate names and HTTP routes fail at construction; `/api/auth/*` is reserved; rate limiting runs first; `/api/rpc/*` uses `RPCHandler`; routed HTTP uses `OpenAPIHandler`; unmatched requests return 404. The realtime integration test returns an async generator directly from the v2 handler, passes `signal` and `lastEventId` into `publisher.subscribe('change', { signal, lastEventId })`, and applies Task 6's metadata-preserving filter before yielding.
 
 Add a webhook test that sends non-normalized JSON bytes, verifies the provider signature against `context.getRawBody()`, reads a header, and proves auth resolution count remains zero.
 
@@ -371,20 +370,21 @@ Run: `bun test packages/bunderstack/src/api/realtime-router.test.ts packages/bun
 
 Expected: FAIL because the graph builder and non-Hono dispatcher do not exist.
 
-- [ ] **Step 2: Atomically align the oRPC family**
+- [ ] **Step 2: Complete and verify the oRPC v2 beta family**
 
 Pin every directly consumed oRPC package to the compatible family:
 
 ```json
-"@orpc/client": "1.15.0",
-"@orpc/openapi": "1.15.0",
-"@orpc/server": "1.15.0",
-"@orpc/tanstack-query": "1.15.0",
-"@orpc/experimental-publisher": "1.15.0",
-"@orpc/valibot": "1.15.0"
+"@orpc/bun": "2.0.0-beta.26",
+"@orpc/client": "2.0.0-beta.26",
+"@orpc/openapi": "2.0.0-beta.26",
+"@orpc/publisher": "2.0.0-beta.26",
+"@orpc/server": "2.0.0-beta.26",
+"@orpc/tanstack-query": "2.0.0-beta.26",
+"@orpc/valibot": "2.0.0-beta.26"
 ```
 
-Remove `@orpc/zod`, run `bun install`, and update all oRPC imports touched by this task in the same working change. Do not mix a Publisher iterator from 1.x with a server transport from 2.x at runtime.
+Remove `@orpc/zod`, add the Valibot converter, and run `bun install`. Keep the existing v2 server/client/OpenAPI code; this task does not downgrade or rewrite it to v1 APIs.
 
 - [ ] **Step 3: Merge one router with strict collision checks**
 
@@ -396,7 +396,7 @@ Create `RPCHandler` from `@orpc/server/fetch` and `OpenAPIHandler` from `@orpc/o
 
 - [ ] **Step 5: Make OpenAPI opt-in**
 
-Use `experimental_ValibotToJsonSchemaConverter` from `@orpc/valibot`. Normal app construction must not call the generator. When enabled, expose `/api/openapi.json`; a custom unsupported schema reports its procedure path only when generating the document. Procedures without `.output()` remain operational and have an unspecified response body.
+Use `ValibotToJsonSchemaConverter` from `@orpc/valibot`. Normal app construction must not call the generator. When enabled, expose `/api/openapi.json`; a custom unsupported schema reports its procedure path only when generating the document. Procedures without `.output()` remain operational and have an unspecified response body.
 
 - [ ] **Step 6: Verify and commit**
 
@@ -404,9 +404,9 @@ Run: `bun test packages/bunderstack/src/api/realtime-router.test.ts packages/bun
 
 Expected: PASS.
 
-Run: `bun pm ls | rg '@orpc/(client|server|openapi|tanstack-query|experimental-publisher|valibot)'`
+Run: `bun pm ls | rg '@orpc/(bun|client|server|openapi|publisher|tanstack-query|valibot)'`
 
-Expected: all direct versions are `1.15.0`; no direct oRPC 2.x entry.
+Expected: all direct versions are `2.0.0-beta.26`; no direct oRPC 1.x entry.
 
 ```bash
 git add bun.lock packages/bunderstack/package.json packages/bunderstack-query/package.json examples/todo/package.json examples/twitter-tanstack/package.json packages/bunderstack/src/api packages/bunderstack/src/handler.ts packages/bunderstack/src/handler.test.ts packages/bunderstack/src/rate-limit.test.ts packages/bunderstack/src/routes.ts packages/bunderstack/src/routes.test.ts packages/bunderstack/src/routes-integration.test.ts

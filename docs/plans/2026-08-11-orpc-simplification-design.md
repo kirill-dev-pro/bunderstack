@@ -196,7 +196,7 @@ headers, query parameters, status codes, or response headers.
 ## Realtime with oRPC Publisher
 
 The custom SSE broker and browser transport are replaced by oRPC Event Iterator
-and `@orpc/experimental-publisher`.
+and `@orpc/publisher` from the same pinned oRPC v2 beta family.
 
 The publisher owns:
 
@@ -229,11 +229,10 @@ the subscribed tables after the subscription is established. Retained events
 provide fast incremental recovery; an expired retention window falls back to a
 normal refetch. The public `gap` state and protocol are removed.
 
-The implementation should use `MemoryPublisher` locally. Production Redis
-should use the smallest compatible publisher adapter. If adopting ioredis would
-add more weight than it removes, implement a narrow `Bun.RedisClient` publisher
-adapter against the oRPC Publisher abstraction rather than retaining the old
-broker.
+The implementation uses `MemoryPublisher` locally and the official
+`BunRedisPublisher` from `@orpc/bun` in production. Both adapters provide the
+same resume contract, so Bunderstack does not implement Redis Streams, event
+IDs, retention, or fan-out itself.
 
 The following custom code is removed:
 
