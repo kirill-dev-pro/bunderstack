@@ -8,8 +8,8 @@
     "src/components/OatInit.tsx"
   ],
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
+    "dev": "bun --bun vite dev",
+    "build": "bun --bun vite build",
     "start": "node .output/server/index.mjs",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "seed": "bun scripts/seed.ts"

@@ -42,7 +42,7 @@ function LoginPage() {
         setIsPending(false)
       } else {
         const target = search.redirect || '/app'
-        await navigate({ to: target as any })
+        await navigate({ href: target })
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')

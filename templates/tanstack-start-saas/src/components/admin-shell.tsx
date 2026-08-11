@@ -18,7 +18,7 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
 
   const handleSignOut = async () => {
     await signOut()
-    await navigate({ to: '/login' as any })
+    await navigate({ to: '/login' })
   }
 
   return (

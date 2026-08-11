@@ -17,7 +17,6 @@ import {
   createClientTypeId,
   createShapeDraft,
   shapeListParams,
-  type ShapeRow,
   type ShapeType,
 } from '~/utils/canvas-data'
 import { fetchCanvas } from '~/utils/canvas-loader'
@@ -128,35 +127,22 @@ function WhiteboardClient() {
   const { data: rawShapes = [] } = useLiveQuery((query) =>
     query
       .from({
-        shape: api.shape.collection as unknown as Parameters<
-          typeof query.from
-        >[0]['shape'],
+        shape: api.shape.collection,
       })
-      .where(({ shape }: { shape: ShapeRow }) =>
-        eq(shape.canvasId, params.canvasId),
-      )
-      .orderBy(
-        ({ shape }: { shape: ShapeRow }) => shape.createdAt,
-        params.order,
-      )
+      .where(({ shape }) => eq(shape.canvasId, params.canvasId))
+      .orderBy(({ shape }) => shape.createdAt, params.order)
       .limit(params.limit),
   )
-  const shapes = rawShapes as unknown as ShapeRow[]
+  const shapes = rawShapes
 
   const { data: presenceLiveRows = [] } = useLiveQuery((query) =>
     query
       .from({
-        presence: api.presence.collection as unknown as Parameters<
-          typeof query.from
-        >[0]['presence'],
+        presence: api.presence.collection,
       })
-      .where(({ presence }: { presence: PresenceRow }) =>
-        eq(presence.canvasId, params.canvasId),
-      ),
+      .where(({ presence }) => eq(presence.canvasId, params.canvasId)),
   )
-  // Same live-query inference quirk the shape query above carries; the rows
-  // are presence rows at runtime.
-  const presenceRows = presenceLiveRows as unknown as PresenceRow[]
+  const presenceRows = presenceLiveRows
 
   // Stale presence rows (closed tabs that never sent a delete) drop out as
   // this clock ticks past their last heartbeat.

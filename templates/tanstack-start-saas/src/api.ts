@@ -1,5 +1,10 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createClient, syncRealtime } from 'bunderstack-query'
+import {
+  createClient,
+  syncRealtime,
+  type InferSchema,
+  type InferSelect,
+} from 'bunderstack-query'
 import { createIsomorphicFetch } from 'bunderstack-start'
 
 import type { App } from './bunderstack'
@@ -26,3 +31,6 @@ export function connectRealtime(api: SyncApi, queryClient: QueryClient) {
 }
 
 export type SyncApi = ReturnType<typeof createApi>
+type Schema = InferSchema<App>
+export type Project = InferSelect<Schema['projects']>
+export type Task = InferSelect<Schema['tasks']>

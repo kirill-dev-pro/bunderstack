@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
+import type { Project, Task } from '~/api'
 import { DeliveryRail } from '~/components/delivery-rail'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -14,8 +15,8 @@ function ProjectDetailPage() {
   const { projectId } = Route.useParams()
   const { api } = Route.useRouteContext()
 
-  const [project, setProject] = React.useState<any>(null)
-  const [tasks, setTasks] = React.useState<any[]>([])
+  const [project, setProject] = React.useState<Project | null>(null)
+  const [tasks, setTasks] = React.useState<Task[]>([])
   const [taskTitle, setTaskTitle] = React.useState('')
   const [isTaskPending, setIsTaskPending] = React.useState(false)
   const [taskError, setTaskError] = React.useState<string | null>(null)
@@ -29,9 +30,9 @@ function ProjectDetailPage() {
         api.projects.list.call({ limit: 100 }),
         api.tasks.list.call({ limit: 100 }),
       ])
-      const found = (projRes.items ?? []).find((p: any) => p.id === projectId)
+      const found = projRes.items.find((project) => project.id === projectId)
       setProject(found ?? null)
-      setTasks((taskRes.items ?? []).filter((t: any) => t.projectId === projectId))
+      setTasks(taskRes.items.filter((task) => task.projectId === projectId))
     } catch {
       // fallback
     }
@@ -154,26 +155,26 @@ function ProjectDetailPage() {
               {tasks.length === 0 ? (
                 <div className="text-center py-6 space-y-3">
                   <p className="text-sm text-[#17211B]/70">No deliverables added yet.</p>
-                  <Button size="sm" onClick={() => (document.querySelector('input') as HTMLElement)?.focus()}>
+                  <Button size="sm" onClick={() => document.querySelector<HTMLInputElement>('input')?.focus()}>
                     Add the next deliverable
                   </Button>
                 </div>
               ) : (
                 <div className="divide-y divide-[#17211B]/10">
-                  {tasks.map((task: any) => (
+                  {tasks.map((task) => (
                     <div key={task.id} className="py-3 flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
-                          checked={task.status === 'completed'}
+                          checked={task.status === 'done'}
                           onChange={() => handleCompleteTask(task.id)}
                           className="h-4 w-4 rounded border-[#17211B]/30 text-[#315CF5] focus:ring-[#315CF5]"
                         />
-                        <span className={task.status === 'completed' ? 'line-through text-[#17211B]/50' : 'font-medium'}>
+                        <span className={task.status === 'done' ? 'line-through text-[#17211B]/50' : 'font-medium'}>
                           {task.title}
                         </span>
                       </div>
-                      {task.status === 'completed' ? (
+                      {task.status === 'done' ? (
                         <Badge variant="secondary">Completed</Badge>
                       ) : (
                         <Button variant="ghost" size="sm" onClick={() => handleCompleteTask(task.id)}>

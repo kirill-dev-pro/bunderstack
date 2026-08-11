@@ -14,6 +14,7 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
+      "@tanstack/db": ["./node_modules/@tanstack/db"],
       "~/*": ["./src/*"]
     },
     "noEmit": true

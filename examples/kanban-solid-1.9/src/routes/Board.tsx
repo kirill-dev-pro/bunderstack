@@ -4,6 +4,7 @@ import {
   DragDropProvider,
   DragDropSensors,
   closestCenter,
+  type DragEvent,
 } from '@thisbeyond/solid-dnd'
 import { onMount, For, createMemo } from 'solid-js'
 
@@ -31,9 +32,10 @@ export function Board() {
       input: { filters: { boardId: boardId() }, limit: 200 },
     }),
   }))
+  type Card = NonNullable<typeof cards.data>['items'][number]
 
   const cardsByList = createMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, Card[]>()
     for (const c of cards.data?.items ?? []) {
       const arr = map.get(c.listId) ?? []
       arr.push(c)
@@ -43,7 +45,7 @@ export function Board() {
     return map
   })
 
-  async function onDragEnd({ draggable, droppable }: any) {
+  async function onDragEnd({ draggable, droppable }: DragEvent) {
     if (!draggable || !droppable) return
     const cardId = String(draggable.id)
     const targetListId = String(droppable.id)
