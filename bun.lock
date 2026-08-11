@@ -239,7 +239,9 @@
       "devDependencies": {
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
+        "@orpc/bun": "2.0.0-beta.26",
         "@orpc/openapi": "2.0.0-beta.26",
+        "@orpc/publisher": "2.0.0-beta.26",
         "@orpc/server": "2.0.0-beta.26",
         "@orpc/valibot": "2.0.0-beta.26",
         "@orpc/zod": "2.0.0-beta.26",
@@ -256,7 +258,9 @@
       "peerDependencies": {
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
+        "@orpc/bun": "2.0.0-beta.26",
         "@orpc/openapi": "2.0.0-beta.26",
+        "@orpc/publisher": "2.0.0-beta.26",
         "@orpc/server": "2.0.0-beta.26",
         "@orpc/valibot": "2.0.0-beta.26",
         "@orpc/zod": "2.0.0-beta.26",
@@ -682,6 +686,8 @@
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.41.1", "", {}, "sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA=="],
 
+    "@orpc/bun": ["@orpc/bun@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/publisher": "2.0.0-beta.26", "@orpc/ratelimit": "2.0.0-beta.26", "@orpc/server": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/core": "^0.7.1" } }, "sha512-OgTKBiEfjbzuZCxua0n6V4x9PTbRfxmDyZFIMRYqlW06MngLDICKFMxG/qX7m4xE8uBGVJNZqz9QDkTCHz6/Rw=="],
+
     "@orpc/client": ["@orpc/client@2.0.0-beta.26", "", { "dependencies": { "@orpc/shared": "2.0.0-beta.26", "@standardserver/core": "^0.7.1", "@standardserver/fetch": "^0.7.1", "@standardserver/peer": "^0.7.1" } }, "sha512-TT2+S4TP/EzU19mXqzqnd938tuaOss7prtXqlowY1MZh1wxsEW6t5b+RI310yHtgLM5u/ovku26BvOpl5Fb49Q=="],
 
     "@orpc/contract": ["@orpc/contract@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standard-schema/spec": "^1.1.0" } }, "sha512-tTeJBN0s+weE67t6Xyjt7pCnSaytWrUase4VdyajjjtWba2wxqIwMHITyvSKohmLVwym6LYAoGLqXF4ORgwHYQ=="],
@@ -689,6 +695,10 @@
     "@orpc/json-schema": ["@orpc/json-schema@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/contract": "2.0.0-beta.26", "@orpc/server": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standard-schema/spec": "^1.1.0", "json-schema-typed": "^8.0.2" } }, "sha512-BBPsT4QvfhgS9CvVV6GGhG5CFAo61fSCP7dLIRXNd9IYQib0qmW56rLJ7U0Ro5yryoO5YrSCzV0aTD6eMX/W/A=="],
 
     "@orpc/openapi": ["@orpc/openapi@2.0.0-beta.26", "", { "dependencies": { "@hey-api/spec-types": "0.0.0-next-20260408030107", "@orpc/client": "2.0.0-beta.26", "@orpc/contract": "2.0.0-beta.26", "@orpc/json-schema": "2.0.0-beta.26", "@orpc/server": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/core": "^0.7.1", "@standardserver/fetch": "^0.7.1", "rou3": "^0.9.1" }, "peerDependencies": { "@scalar/api-reference": ">=1.57.2", "@types/swagger-ui": ">=5.32.0", "swagger-ui": ">=5.32.6" }, "optionalPeers": ["@scalar/api-reference", "@types/swagger-ui", "swagger-ui"] }, "sha512-em8HJFEV6apEytMnrwNKndKAA+261m82JloxY1Jz3H1HUdqq3ztH3ZRC5nGQFSFvy/QXpdrj6APdK35hDOnIkw=="],
+
+    "@orpc/publisher": ["@orpc/publisher@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/core": "^0.7.1" }, "peerDependencies": { "@upstash/redis": ">=1.35.6", "redis": ">=6.0.0" }, "optionalPeers": ["@upstash/redis", "redis"] }, "sha512-8XSFw9PwQBqXh5vN2bVBm1L6qBJIgqAFoUuyKHbiwo6IaJX74ZRdTtE/SSsrerNyKhihqnw7l54W18FA3Niqeg=="],
+
+    "@orpc/ratelimit": ["@orpc/ratelimit@2.0.0-beta.26", "", { "dependencies": { "@orpc/server": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/core": "^0.7.1" }, "peerDependencies": { "@upstash/ratelimit": ">=2.0.8", "redis": ">=6.0.0" }, "optionalPeers": ["@upstash/ratelimit", "redis"] }, "sha512-/czqBxqcQI7v5kX6mS2EfZnIHZw4tdqRlDEICIaMTGpDo+8Z3CQc/U+6RPzM4uyg7dnAGHmnjEev6sa8DozSiA=="],
 
     "@orpc/server": ["@orpc/server@2.0.0-beta.26", "", { "dependencies": { "@orpc/client": "2.0.0-beta.26", "@orpc/contract": "2.0.0-beta.26", "@orpc/shared": "2.0.0-beta.26", "@standardserver/aws-lambda": "^0.7.1", "@standardserver/core": "^0.7.1", "@standardserver/fastify": "^0.7.1", "@standardserver/fetch": "^0.7.1", "@standardserver/node": "^0.7.1", "@standardserver/peer": "^0.7.1", "cookie": "^2.0.1" }, "peerDependencies": { "crossws": ">=0.3.4", "fastify": ">=5.6.1" }, "optionalPeers": ["crossws", "fastify"] }, "sha512-IBvwkJkCkPMxOLd2A2Js2baTXc4FE//W+wnXrMXkdNXarwjId9AJ+NJngxHitjepQKqc2fnqvWlMDvypS3WdQg=="],
 

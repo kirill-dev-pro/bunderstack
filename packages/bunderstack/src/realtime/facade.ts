@@ -1,6 +1,9 @@
 import { getTableName, type InferSelectModel, type Table } from 'drizzle-orm'
 
-import type { RealtimeAction, RealtimeBroker } from './index'
+import type {
+  RealtimeAction,
+  RealtimePublisher,
+} from './publisher'
 
 export type RealtimeTransport = 'disabled' | 'memory' | 'redis'
 
@@ -23,30 +26,30 @@ export interface RealtimeFacade<
 }
 
 export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
-  broker?: RealtimeBroker,
-  transport: RealtimeTransport = broker ? 'memory' : 'disabled',
+  publisher?: RealtimePublisher,
+  transport: RealtimeTransport = publisher ? 'memory' : 'disabled',
 ): RealtimeFacade<TSchema> {
-  if (!broker && transport !== 'disabled') {
+  if (!publisher && transport !== 'disabled') {
     throw new Error(
-      '[bunderstack] an enabled realtime transport requires a broker',
+      '[bunderstack] an enabled realtime transport requires a publisher',
     )
   }
-  if (broker && transport === 'disabled') {
+  if (publisher && transport === 'disabled') {
     throw new Error(
-      '[bunderstack] a realtime broker cannot use the disabled transport',
+      '[bunderstack] a realtime publisher cannot use the disabled transport',
     )
   }
 
   return {
-    enabled: broker !== undefined,
+    enabled: publisher !== undefined,
     transport,
     async publish(table, action, record) {
-      if (!broker) return
-      await broker.publish(
-        getTableName(table),
+      if (!publisher) return
+      await publisher.publish('change', {
+        table: getTableName(table),
         action,
-        record as unknown as Record<string, unknown>,
-      )
+        record: record as unknown as Record<string, unknown>,
+      })
     },
   }
 }

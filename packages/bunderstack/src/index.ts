@@ -78,8 +78,10 @@ import {
   type RealtimeFacade,
   type RealtimeTransport,
 } from './realtime/facade'
-import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
-import { createRedisRealtimeBroker } from './realtime/redis'
+import {
+  createMemoryRealtimePublisher,
+  createRedisRealtimePublisher,
+} from './realtime/publisher'
 import { createRouteContext, validateCustomRoutes } from './routes'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
@@ -454,67 +456,36 @@ export async function createBunderstack<
     const configuredRedisUrl = config.realtime
       ? resolveRealtimeRedisUrl(config.realtime, env)
       : undefined
-    const configuredRealtimeTransport: RealtimeTransport = !config.realtime
-      ? 'disabled'
-      : configuredRedisUrl
-        ? 'redis'
-        : 'memory'
     const redisUrl = introspect ? undefined : configuredRedisUrl
-    const broker = config.realtime
+    const publisher = config.realtime
       ? redisUrl
-        ? createRedisRealtimeBroker({
-            access: resolvedAccess,
-            channel: process.env.BUNDERSTACK_REALTIME_CHANNEL || undefined,
-            redis: () => {
-              // Redis pub/sub requires a dedicated connection (subscribe puts the client into
-              // a restricted state). We use one client for commands and a second for subscribe.
-              const cmdClient = new Bun.RedisClient(redisUrl)
-              const subClient = new Bun.RedisClient(redisUrl)
-              return {
-                incr: (key: string) => cmdClient.incr(key),
-                publish: (channel: string, message: string) =>
-                  cmdClient.publish(channel, message),
-                subscribe: (channel: string, listener: (msg: string) => void) =>
-                  subClient.subscribe(channel, listener),
-                lpush: (key: string, value: string) =>
-                  cmdClient.lpush(key, value),
-                ltrim: (key: string, start: number, stop: number) =>
-                  cmdClient.ltrim(key, start, stop),
-                lrange: (key: string, start: number, stop: number) =>
-                  cmdClient.lrange(key, start, stop),
-                close: () => {
-                  cmdClient.close()
-                  subClient.close()
-                },
-              }
-            },
-            bufferSize: realtimeBufferSize,
-          })
-        : createRealtimeBroker({
-            access: resolvedAccess,
-            bufferSize: realtimeBufferSize,
+        ? (() => {
+            const redis = new Bun.RedisClient(redisUrl)
+            const subscriber = redis.duplicate()
+            lifecycle.add(async () => {
+              redis.close()
+              ;(await subscriber).close()
+            })
+            return createRedisRealtimePublisher(redis, subscriber, {
+              prefix:
+                process.env.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
+              maxBufferedEvents: realtimeBufferSize,
+            })
+          })()
+        : createMemoryRealtimePublisher({
+            maxBufferedEvents: realtimeBufferSize,
           })
       : undefined
-    const runtimeRealtimeTransport: RealtimeTransport = !broker
+    const runtimeRealtimeTransport: RealtimeTransport = !publisher
       ? 'disabled'
       : redisUrl
         ? 'redis'
         : 'memory'
     const realtime = createRealtimeFacade<TSchema>(
-      broker,
+      publisher,
       runtimeRealtimeTransport,
     )
-    const realtimeRouter = broker
-      ? buildRealtimeRouter(broker, {
-          auth: authResolver,
-          keepaliveMs:
-            typeof config.realtime === 'object'
-              ? config.realtime.keepaliveMs
-              : undefined,
-        })
-      : undefined
     const registry = createBucketStorages(config.storage)
-    if (broker) lifecycle.add(() => broker.close())
     const storageOperations = createStorageOperations({
       registry,
       db,
@@ -831,7 +802,6 @@ export async function createBunderstack<
     const { handler, router } = buildHandler({
       customRouter,
       authHandler: (req) => auth.handler(req),
-      realtimeRouter,
       trpcHandler,
       apiHandler,
       rateLimit: options.rateLimit,
@@ -995,7 +965,7 @@ export type {
 export type { TransformSpec } from './storage/thumbnails'
 export { mockAuthSession } from './testing'
 
-export type { RealtimeAction } from './realtime/index'
+export type { RealtimeAction } from './realtime/publisher'
 export { createRealtimeFacade } from './realtime/facade'
 export type {
   RealtimeFacade,

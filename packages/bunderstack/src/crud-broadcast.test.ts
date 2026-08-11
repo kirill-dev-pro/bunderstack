@@ -7,7 +7,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { validateAndResolveAccess } from './access'
 import { createCrudOperations } from './crud-operations'
 import { createRealtimeFacade } from './realtime/facade'
-import { createRealtimeBroker } from './realtime/index'
+import { createMemoryRealtimePublisher } from './realtime/publisher'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
@@ -36,20 +36,14 @@ it('publishes a create event after insert', async () => {
       },
     },
   })
-  const broker = createRealtimeBroker({ access })
-  const received: unknown[] = []
-  const s = broker.register((d) => received.push(JSON.parse(d)))
-  broker.setContext(s.id, {
-    user: { id: 'u_1', email: 'a@b.c' },
-    activeOrganizationId: 'org_1',
-    subscriptions: new Set(['boards']),
-  })
+  const publisher = createMemoryRealtimePublisher()
+  const received = publisher.subscribe('change')
 
   const operations = createCrudOperations({
     schema,
     db: db as never,
     access,
-    realtime: createRealtimeFacade<typeof schema>(broker),
+    realtime: createRealtimeFacade<typeof schema>(publisher),
   })
   await operations.create(
     'boards',
@@ -63,8 +57,7 @@ it('publishes a create event after insert', async () => {
     },
   )
 
-  expect(received).toContainEqual({
-    eventId: 1,
+  expect((await received.next()).value).toEqual({
     action: 'create',
     table: 'boards',
     record: { id: 'b1', organizationId: 'org_1', title: 'X' },
