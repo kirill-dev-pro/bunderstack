@@ -3,6 +3,14 @@ import { LocalStorageAdapter } from './local'
 import { S3StorageAdapter } from './s3'
 
 export type { LocalStorageAdapter, S3StorageAdapter }
+export { createStorageOperations } from './operations'
+export type {
+  PrepareUploadResult,
+  StorageDownload,
+  StorageExecutionContext,
+  StorageOperations,
+  StorageOperationsOptions,
+} from './operations'
 
 export interface PresignPutOptions {
   contentType?: string

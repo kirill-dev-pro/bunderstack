@@ -39,6 +39,7 @@ import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
+import { buildStorageApiRouter } from './api/storage-router'
 import {
   buildApiRegistry,
   mergeApiRoutersStrict,
@@ -83,7 +84,7 @@ import { createRouteContext, validateCustomRoutes } from './routes'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
-import { buildBucketStorageRouter } from './storage/router'
+import { createStorageOperations } from './storage/operations'
 import { sweepOrphans } from './storage/sweep'
 import { createTRPC, type BunderstackTRPC } from './trpc'
 
@@ -514,11 +515,11 @@ export async function createBunderstack<
       : undefined
     const registry = createBucketStorages(config.storage)
     if (broker) lifecycle.add(() => broker.close())
-    const storageRouter = buildBucketStorageRouter({
+    const storageOperations = createStorageOperations({
       registry,
       db,
-      auth: authResolver,
     })
+    const storageApiRouter = buildStorageApiRouter(registry, storageOperations)
     const storage: StorageFacade = {
       async delete(fileId) {
         const bucketName = fileId.split('/')[0] ?? ''
@@ -719,8 +720,12 @@ export async function createBunderstack<
       ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
       : undefined
 
-    const nativeRouter = mergeApiRoutersStrict(
+    const generatedApiRouter = mergeApiRoutersStrict(
       crudApiRouter as Record<string, unknown>,
+      storageApiRouter as Record<string, unknown>,
+    )
+    const nativeRouter = mergeApiRoutersStrict(
+      generatedApiRouter,
       customApiRouter as Record<string, unknown> | undefined,
     ) as any
 
@@ -741,6 +746,13 @@ export async function createBunderstack<
     await buildApiRegistry({
       nativeRouter,
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
+      reservedCoreHandles: new Set(
+        [...registry.keys()].flatMap((name) =>
+          ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
+            (operation) => `files.${name}.${operation}`,
+          ),
+        ),
+      ),
     })
 
     const openapiGenerator = new OpenAPIGenerator({
@@ -819,7 +831,6 @@ export async function createBunderstack<
     const { handler, router } = buildHandler({
       customRouter,
       authHandler: (req) => auth.handler(req),
-      storageRouter,
       realtimeRouter,
       trpcHandler,
       apiHandler,
