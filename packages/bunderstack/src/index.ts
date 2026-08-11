@@ -39,6 +39,7 @@ import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
+import { buildRealtimeApiRouter } from './api/realtime-router'
 import { buildStorageApiRouter } from './api/storage-router'
 import {
   buildApiRegistry,
@@ -491,6 +492,7 @@ export async function createBunderstack<
       db,
     })
     const storageApiRouter = buildStorageApiRouter(registry, storageOperations)
+    const realtimeApiRouter = buildRealtimeApiRouter(publisher, resolvedAccess)
     const storage: StorageFacade = {
       async delete(fileId) {
         const bucketName = fileId.split('/')[0] ?? ''
@@ -691,9 +693,13 @@ export async function createBunderstack<
       ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
       : undefined
 
-    const generatedApiRouter = mergeApiRoutersStrict(
+    const crudAndStorageRouter = mergeApiRoutersStrict(
       crudApiRouter as Record<string, unknown>,
       storageApiRouter as Record<string, unknown>,
+    )
+    const generatedApiRouter = mergeApiRoutersStrict(
+      crudAndStorageRouter,
+      realtimeApiRouter as Record<string, unknown> | undefined,
     )
     const nativeRouter = mergeApiRoutersStrict(
       generatedApiRouter,
@@ -717,13 +723,14 @@ export async function createBunderstack<
     await buildApiRegistry({
       nativeRouter,
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
-      reservedCoreHandles: new Set(
-        [...registry.keys()].flatMap((name) =>
+      reservedCoreHandles: new Set([
+        ...(publisher ? ['realtime'] : []),
+        ...[...registry.keys()].flatMap((name) =>
           ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
             (operation) => `files.${name}.${operation}`,
           ),
         ),
-      ),
+      ]),
     })
 
     const openapiGenerator = new OpenAPIGenerator({
