@@ -13,7 +13,7 @@ type IsAny<T> = 0 extends 1 & T ? true : false
 
 type FetchInput = Parameters<NonNullable<ClientOptions['fetch']>>[0]
 type _FetchInputIsTyped = Expect<Equal<IsAny<FetchInput>, false>>
-type _FetchReceivesRequest = Expect<Equal<FetchInput, Request>>
+type _FetchReceivesStandardInput = Expect<Equal<FetchInput, RequestInfo | URL>>
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -51,7 +51,7 @@ async function testTypes() {
   const app = await setupApp()
   const client = createClient<typeof app>({
     baseUrl: 'http://localhost/api',
-    fetch: app.handler,
+    fetch: (input, init) => app.handler(new Request(input, init)),
   })
 
   const queryContext = { signal: new AbortController().signal } as any

@@ -19,10 +19,8 @@ type FakeApp = {
   }
 }
 
-const emptyListFetch = (async () =>
-  Response.json({ json: { items: [], limit: 100, hasMore: false } })) as (
-  request: Request,
-) => Promise<Response>
+const emptyListFetch = async () =>
+  Response.json({ json: { items: [], limit: 100, hasMore: false } })
 
 describe('createSyncClient', () => {
   it('lazily materializes table collections with stable identity', () => {

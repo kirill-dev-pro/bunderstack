@@ -27,7 +27,10 @@ export type CreateFor<TSchema extends Record<string, unknown>, K extends keyof T
 
 export type SyncClientOptions = {
   baseUrl?: string
-  fetch?: (request: Request) => Promise<Response>
+  fetch?: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>
   queryClient: QueryClient
   realtime?: boolean
 }

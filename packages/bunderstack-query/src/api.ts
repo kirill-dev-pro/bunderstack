@@ -7,11 +7,11 @@ import {
   type RouterUtils,
 } from '@orpc/tanstack-query'
 
-import { createFetch, type RequestFetch } from './fetch'
+import { createFetch, type TransportFetch } from './fetch'
 
 export interface ApiClientOptions {
   baseUrl?: string
-  fetch?: RequestFetch
+  fetch?: TransportFetch
 }
 
 export type ApiQueryUtils<TRouter extends AnyRouter> = RouterUtils<

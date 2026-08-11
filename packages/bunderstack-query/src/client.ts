@@ -8,11 +8,11 @@ import type {
 } from './infer'
 
 import { createApiClient } from './api'
-import { createFetch, type RequestFetch } from './fetch'
+import { createFetch, type TransportFetch } from './fetch'
 
 export type ClientOptions = {
   baseUrl?: string
-  fetch?: RequestFetch
+  fetch?: TransportFetch
   queryClient?: QueryClient
 }
 

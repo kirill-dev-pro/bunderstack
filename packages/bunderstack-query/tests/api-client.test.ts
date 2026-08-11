@@ -36,7 +36,7 @@ test('createClient provides unified orpc api queryOptions for CRUD and custom pr
 
   const client = createClient<typeof app>({
     baseUrl: 'http://localhost/api',
-    fetch: app.handler,
+    fetch: (input, init) => app.handler(new Request(input, init)),
   })
 
   // CRUD procedure queryOptions
