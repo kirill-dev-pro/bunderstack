@@ -17,6 +17,19 @@ export type DbFor<TSchema extends Record<string, unknown>> = [
   ? LibSQLDatabase<TSchema>
   : PgDatabase<PgQueryResultHKT, TSchema>
 
+/** The database an application receives on `context.db` and `app.db`. */
+export type BunderstackDb<TSchema extends Record<string, unknown>> =
+  DbFor<TSchema>
+
+/**
+ * The transaction handle inside `db.transaction(...)`. Drizzle publishes no
+ * single transaction type for both dialects, so this reads the callback
+ * parameter of the resolved database type.
+ */
+export type BunderstackTx<TSchema extends Record<string, unknown>> = Parameters<
+  Parameters<DbFor<TSchema>['transaction']>[0]
+>[0]
+
 const PG_SERVER_RE = /^postgres(ql)?:\/\//
 const LIBSQL_REMOTE_RE = /^(libsql|wss?|https?):\/\//
 

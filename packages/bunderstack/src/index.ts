@@ -741,6 +741,7 @@ export async function createBunderstack<
   }
 }
 
+export type { BunderstackDb, BunderstackTx } from './db'
 export { MAX_LIST_LIMIT } from './list-query'
 export { BunderstackError } from './errors'
 export type { BunderstackErrorCode } from './errors'
