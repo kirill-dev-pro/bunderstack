@@ -38,10 +38,131 @@ or roles; hiding a UI route is not authorization.
 
 ## Extend the one API graph
 
-Declare custom procedures through `api: (o) => ({ ... })`. Use `o.public`,
-`o.protected`, or `o.webhook`; add `.route(...)` only when a stable HTTP
-projection is useful. Generated CRUD, custom procedures, files, health, and
-`realtime.changes` remain in the same typed oRPC graph and client.
+Declare the builder once at module scope with `defineApi({ schema, env })`. It
+infers the schema and env types from the values, so no application writes
+`BunderstackApiBuilder<...>` by hand, and it reads nothing at runtime.
+
+```ts
+// src/bunderstack/api/base.ts
+export const o = defineApi({ schema, env: envSchema })
+export const publicProcedure = o.public
+export const protectedProcedure = o.protected
+```
+
+Router modules are plain objects that import the base they need, and the entry
+passes the finished router as `api`:
+
+```ts
+// src/bunderstack/api/projects.ts
+export const projectsRouter = {
+  stats: protectedProcedure.input(...).handler(...),
+}
+
+// src/bunderstack/api/index.ts
+export const api = { projects: projectsRouter }
+
+// entry
+createBunderstack({ schema, database, api })
+```
+
+Do not write a router factory that receives a bag of procedures. That shape
+only existed because `api` used to be a callback. The callback form,
+`api: (o) => ({ ... })`, still works for a router that must be built from the
+framework builder at configuration time.
+
+Use `o.public`, `o.protected`, or `o.webhook`; add `.route(...)` only when a
+stable HTTP projection is useful. Generated CRUD, custom procedures, files,
+health, and `realtime.changes` remain in the same typed oRPC graph and client.
+
+## Give a group of procedures its own base
+
+A base is an oRPC builder, so `.use()` produces another one. Declare a rule
+once instead of repeating it in every handler that depends on it:
+
+```ts
+export const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
+  if (context.user.role !== 'admin') {
+    throw errors.FORBIDDEN({ message: 'Admin access required' })
+  }
+  return next()
+})
+```
+
+`next({ context })` merges into the context and types it for everything
+downstream, which is how an organization scope or a resolved tenant reaches
+handlers without an argument.
+
+## Instrument the whole graph, not one base
+
+Bunderstack builds the CRUD, storage, and realtime procedures itself, so they
+never pass through a base the application declares. A middleware attached to
+`o.protected` therefore measures the application's own procedures and leaves
+the generated CRUD — usually the larger share of traffic — unmeasured.
+
+Register cross-cutting middleware in the configuration instead:
+
+```ts
+const instrumentation = o.middleware(async ({ context, next, path }) => {
+  if (path[0] === 'realtime') return next()
+  const startedAt = performance.now()
+  try {
+    return await next()
+  } finally {
+    record(path.join('.'), performance.now() - startedAt, context.peekSession()?.user?.id)
+  }
+})
+
+createBunderstack({ schema, database, middleware: [instrumentation], api })
+```
+
+Three rules apply to a graph-wide middleware. It runs before authentication, so
+`context.user` does not exist there. Read the caller with
+`context.peekSession()` after `await next()`, never `getSession()`: forcing the
+session makes every request pay for authentication, including signed webhooks
+that never needed it, and `peekSession()` is for observability only, never for
+authorization. A realtime subscription is one long-lived call, so code after
+`await next()` runs when the stream closes, not when it starts.
+
+## Raise declared errors
+
+Every procedure carries one error map: `BAD_REQUEST`, `UNAUTHORIZED`,
+`FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `PAYLOAD_TOO_LARGE`,
+`TOO_MANY_REQUESTS`. Inside a handler or middleware, raise from the `errors`
+argument, with extra context in `data.details`:
+
+```ts
+throw errors.NOT_FOUND({ message: 'Project not found' })
+```
+
+Code outside a handler — a service function or a job — has no `errors`
+argument. Throw `BunderstackError`, which the framework maps to the same typed
+error. Do not construct `ORPCError` by hand anywhere.
+
+## Give list endpoints the shared contract
+
+`listSpec(table, options)` gives a procedure you write the same filter, sort,
+cursor, and count contract the generated CRUD list uses. Apply both parts to
+your own base, which is what preserves the row type to the client:
+
+```ts
+const logsList = listSpec(appLogs, { filterable: ['level'], sortable: ['createdAt'] })
+logs: adminProcedure.input(logsList.input).handler(logsList.handler)
+```
+
+It reads no `access` configuration; the base procedure carries the policy.
+
+## Type helpers that take the database
+
+A service module cannot reach `typeof app.db` without an import cycle back to
+the entry. Use `BunderstackDb<typeof schema>` and `BunderstackTx<typeof schema>`
+instead of `any`.
+
+## Keep the entry out of its own import graph
+
+The api router and everything it imports are evaluated when the entry is
+imported. A module in that graph that imports the app back — a bot client
+reading `db`, a logger reading `app.env` — closes a cycle and breaks module
+initialization. Load the app lazily in such a module.
 
 ## Keep credentials environment-owned
 

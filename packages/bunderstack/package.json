@@ -25,6 +25,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "llms.txt",
     "CHANGELOG.md",
     "README.md",

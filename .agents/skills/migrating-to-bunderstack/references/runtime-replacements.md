@@ -43,15 +43,21 @@ export async function createApp(options: { databaseUrl?: string } = {}) {
     },
     realtime: process.env.REDIS_URL ? { redis: process.env.REDIS_URL } : true,
     jobs: defineJobs,
-    api: (o) => ({
-      projectStats: o.protected
-        .input(v.object({ projectId: v.string() }))
-        .handler(({ context, input }) =>
-          loadProjectStats(context, input.projectId),
-        ),
-    }),
+    middleware: [instrumentation],
+    api,
   })
 }
+
+// api/base.ts — the builder is a module value, so router modules import the
+// bases they need instead of receiving them through the config callback.
+//
+//   export const o = defineApi({ schema, env: envSchema })
+//   export const protectedProcedure = o.protected
+//   export const instrumentation = o.middleware(async ({ next }) => next())
+//
+// api/index.ts — plain objects, no factories.
+//
+//   export const api = { projects: projectsRouter }
 
 export const app = await createApp()
 export const { db, auth, env } = app

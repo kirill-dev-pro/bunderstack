@@ -11,7 +11,8 @@
  *
  * Usage: bun scripts/build-package.ts <package-name>
  */
-import { readdir, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { cp, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 
 const repoRoot = new URL('..', import.meta.url).pathname
@@ -105,6 +106,22 @@ if (problems.length) {
   throw new Error(
     `${name}: emitted imports that resolve to nothing:\n  ${problems.join('\n  ')}`,
   )
+}
+
+// The agent skills are authored once in .agents/skills, where this repo's own
+// agents read them, and shipped from the package so `bunderstack skills` can
+// install the pair that matches the installed version.
+const SHIPPED_SKILLS = ['creating-bunderstack-apps', 'migrating-to-bunderstack']
+
+if (name === 'bunderstack') {
+  const skillsDir = join(packageDir, 'skills')
+  await rm(skillsDir, { recursive: true, force: true })
+  for (const skill of SHIPPED_SKILLS) {
+    const from = join(repoRoot, '.agents/skills', skill)
+    if (!existsSync(from)) throw new Error(`${name}: missing skill ${skill}`)
+    await cp(from, join(skillsDir, skill), { recursive: true })
+  }
+  console.log(`packaged skills: ${SHIPPED_SKILLS.join(', ')}`)
 }
 
 console.log(`built ${name}: ${emitted.length} files`)
