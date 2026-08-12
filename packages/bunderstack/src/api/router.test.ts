@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 
-import { createApiBuilder } from './builder'
+import { libsql } from '../database/libsql'
+import { createBunderstack } from '../index'
+import { createApiBuilder, defineApi } from './builder'
 import { buildApiRouter } from './router'
 
 test('builds health into the same graph and rejects duplicate handles', () => {
@@ -16,4 +18,43 @@ test('builds health into the same graph and rejects duplicate handles', () => {
       custom: { health: duplicate },
     }),
   ).toThrow(/health/)
+})
+
+test('createBunderstack accepts a router object for the api option', async () => {
+  const o = defineApi({ schema: {} })
+  const api = {
+    ping: o.public
+      .route({ method: 'GET', path: '/api/ping' })
+      .handler(() => ({ pong: true })),
+  }
+
+  const app = await createBunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    api,
+  })
+
+  const response = await app.handler(new Request('http://test/api/ping'))
+
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ pong: true })
+  await app.close()
+})
+
+test('createBunderstack still accepts the api callback', async () => {
+  const app = await createBunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    api: (o) => ({
+      ping: o.public
+        .route({ method: 'GET', path: '/api/ping' })
+        .handler(() => ({ pong: 'callback' })),
+    }),
+  })
+
+  const response = await app.handler(new Request('http://test/api/ping'))
+
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ pong: 'callback' })
+  await app.close()
 })

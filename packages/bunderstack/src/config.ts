@@ -166,11 +166,16 @@ export type BunderstackConfig<
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
   /**
-   * Unified oRPC API builder callback.
+   * The application's oRPC router. Pass the finished router object, or a
+   * callback when the router needs the framework builder at configuration
+   * time. Declare the router at module scope with `defineApi` and the object
+   * form keeps router modules free of factory wrappers.
    */
-  api?: (
-    builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
-  ) => TCustomApiRouter
+  api?:
+    | TCustomApiRouter
+    | ((
+        builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+      ) => TCustomApiRouter)
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   /** Generate and serve `/api/openapi.json`. Disabled by default. */

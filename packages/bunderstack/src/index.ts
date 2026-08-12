@@ -26,6 +26,8 @@ import type {
 import type { StorageConfigInput } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
 
+import type { BunderstackApiBuilder } from './api/builder'
+
 import { validateAndResolveAccess } from './access'
 import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
@@ -507,9 +509,14 @@ export async function createBunderstack<
       realtime,
     })
 
-    const customApiRouter = options.api
-      ? options.api(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
-      : undefined
+    const customApiRouter =
+      typeof options.api === 'function'
+        ? (
+            options.api as (
+              builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+            ) => TCustomApiRouter
+          )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
+        : options.api
 
     const nativeRouter = buildApiRouter({
       crud: crudApiRouter as Record<string, unknown>,
