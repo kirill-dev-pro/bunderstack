@@ -2,7 +2,7 @@
 import { betterAuth } from 'better-auth'
 import * as v from 'valibot'
 
-import type { AnyRouter } from '@orpc/server'
+import type { AnyMiddleware, AnyRouter } from '@orpc/server'
 import type { AuthSessionResolver, TableAccessInput } from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
@@ -176,6 +176,15 @@ export type BunderstackConfig<
     | ((
         builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
       ) => TCustomApiRouter)
+  /**
+   * Middleware applied to every procedure in the graph: generated CRUD,
+   * storage, realtime, health, and the application's own procedures. Declare
+   * each one with `o.middleware(...)` from `defineApi`.
+   *
+   * It runs before authentication, so `context.user` is not available inside
+   * it. Read an already-resolved caller with `context.peekSession()`.
+   */
+  middleware?: AnyMiddleware[]
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
   /** Generate and serve `/api/openapi.json`. Disabled by default. */

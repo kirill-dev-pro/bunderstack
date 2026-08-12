@@ -1,4 +1,6 @@
 import '@orpc/openapi/extensions/route'
+import type { AnyMiddleware } from '@orpc/server'
+
 import * as v from 'valibot'
 
 import { createApiBuilder } from './builder'
@@ -9,6 +11,8 @@ export interface BuildApiRouterOptions {
   storage: Record<string, unknown>
   realtime?: Record<string, unknown>
   custom?: Record<string, unknown>
+  /** Applied to every procedure in the graph, outermost first. */
+  middleware?: AnyMiddleware[]
 }
 
 export function buildApiRouter(options: BuildApiRouterOptions) {
@@ -21,7 +25,7 @@ export function buildApiRouter(options: BuildApiRouterOptions) {
     .output(v.strictObject({ status: v.literal('ok') }))
     .handler(() => ({ status: 'ok' as const }))
 
-  return [
+  const merged = [
     { health },
     options.crud,
     options.storage,
@@ -31,4 +35,17 @@ export function buildApiRouter(options: BuildApiRouterOptions) {
     (router, addition) => mergeApiRoutersStrict(router, addition),
     {},
   )
+
+  const middleware = options.middleware ?? []
+  if (middleware.length === 0) return merged
+
+  // `.router()` applies the builder's middleware to every procedure inside, so
+  // one list covers CRUD, storage, realtime, health, and custom procedures
+  // instead of only the bases an application happens to declare.
+  const withMiddleware = middleware.reduce(
+    (acc, mw) => acc.use(mw as never),
+    builder.public,
+  )
+
+  return withMiddleware.router(merged as never) as Record<string, unknown>
 }

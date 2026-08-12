@@ -523,6 +523,7 @@ export async function createBunderstack<
       storage: storageApiRouter as Record<string, unknown>,
       realtime: realtimeApiRouter as Record<string, unknown> | undefined,
       custom: customApiRouter as Record<string, unknown> | undefined,
+      middleware: options.middleware,
     }) as any
 
     const authOpenAPISpecRaw =
