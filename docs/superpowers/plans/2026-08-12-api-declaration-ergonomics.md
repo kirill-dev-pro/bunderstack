@@ -4,7 +4,7 @@
 
 **Goal:** Let an application declare its oRPC procedures in plain modules with plain imports, and let one middleware list cover every procedure in the graph.
 
-**Architecture:** `defineApi(values)` returns the oRPC builder at module scope, so router files stop being factories. The `api` option accepts the finished router object. A new `middleware` option reaches every procedure through the oRPC builder method `.router()`. Three small additions support this: `context.peekSession()`, public database types, and a `listProcedure` helper built on the existing list-query code.
+**Architecture:** `defineApi(values)` returns the oRPC builder at module scope, so router files stop being factories. The `api` option accepts the finished router object. A new `middleware` option reaches every procedure through the oRPC builder method `.router()`. Three small additions support this: `context.peekSession()`, public database types, and a `listSpec` helper built on the existing list-query code.
 
 **Tech Stack:** Bun, TypeScript, oRPC v2 (`@orpc/server@2.0.0-beta.26`), Drizzle, Valibot, `bun:test`.
 
@@ -30,9 +30,9 @@
 | --- | --- |
 | `packages/bunderstack/src/api/define-api.test.ts` | Tests for `defineApi`. |
 | `packages/bunderstack/src/api/global-middleware.test.ts` | Tests that a configured middleware reaches every procedure family. |
-| `packages/bunderstack/src/api/list-input-schema.ts` | Builds the list input schema for a table. Shared by the CRUD router and `listProcedure`. |
-| `packages/bunderstack/src/api/list-procedure.ts` | The `listProcedure` helper. |
-| `packages/bunderstack/src/api/list-procedure.test.ts` | Tests for `listProcedure`. |
+| `packages/bunderstack/src/api/list-input-schema.ts` | Builds the list input schema for a table. Shared by the CRUD router and `listSpec`. |
+| `packages/bunderstack/src/api/list-spec.ts` | The `listSpec` helper. |
+| `packages/bunderstack/src/api/list-spec.test.ts` | Tests for `listSpec`. |
 | `packages/bunderstack/src/db-types.test.ts` | Type test for `BunderstackDb` and `BunderstackTx`. |
 
 **Framework — modify:**
@@ -899,7 +899,16 @@ git commit -m "refactor(api): extract the list input schema builder"
 
 ---
 
-## Task 7: `listProcedure`
+## Task 7: `listSpec`
+
+> **As built.** This task shipped as `listSpec(table, options)`, not
+> `listProcedure(procedure, table, options)`. The original shape cannot preserve
+> types: TypeScript resolves a method call on a generic parameter through its
+> constraint, so the input schema and the row type are erased and the procedure
+> becomes `unknown`. See the D5 section of the design document for the compiler
+> output and the reasoning. The steps below keep the original wording; the
+> shipped code is in `packages/bunderstack/src/api/list-spec.ts`.
+
 
 **Files:**
 - Create: `packages/bunderstack/src/api/list-procedure.ts`
@@ -1979,6 +1988,6 @@ satisfies it.
 | 6. `peekSession()` returns `undefined` and starts no resolution | 3 |
 | 7. A webhook with a global middleware resolves no session | 4 |
 | 8. `context.user.role` carries the Better Auth role | 12 |
-| 9. One input-schema builder for `listProcedure` and CRUD | 6, 7 |
+| 9. One input-schema builder for `listSpec` and CRUD | 6, 7 |
 | 10. No `any` in the application API layer | 13, verified in 14 Step 5 |
 | 11. Examples and documentation show the module-scope pattern | 8, 9 |

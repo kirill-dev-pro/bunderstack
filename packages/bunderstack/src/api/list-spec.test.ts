@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/pglite'
 
 import { defineApi } from './builder'
 import { createApiContext } from './context'
-import { listSpec } from './list-procedure'
+import { listSpec } from './list-spec'
 
 const logs = pgTable('logs', {
   id: text('id').primaryKey(),

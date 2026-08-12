@@ -292,30 +292,50 @@ peekSession(): { user: AccessUser | null; activeOrganizationId: string | null } 
 The documentation must state one rule: use `peekSession()` for observability
 only. Do not use it for authorization.
 
-### D5: `listProcedure`
+### D5: `listSpec`
 
 ```ts
-import { listProcedure } from 'bunderstack'
+import { listSpec } from 'bunderstack'
 
-getLogs: listProcedure(adminProcedure, appLogs, {
+const logsList = listSpec(appLogs, {
   filterable: ['level', 'action', 'userId'],
   sortable: ['createdAt'],
   defaultSort: { column: 'createdAt', order: 'desc' },
-}),
+})
+
+getLogs: adminProcedure.input(logsList.input).handler(logsList.handler),
 ```
 
-The function takes a procedure builder as its first argument. It builds the
-input schema, then calls `resolveListParams` and `executeList`. It returns
-`ListResult`.
+`listSpec` returns the input schema and the handler separately. It builds the
+schema with `buildListInputSchema`, and the handler calls `resolveListParams`
+and `executeList`. The handler returns `ListResult<TTable['$inferSelect']>`.
 
-The function is not a builder method. A method such as `adminProcedure.list()`
+**Why it does not return a finished procedure.** An earlier draft proposed
+`listProcedure(procedure, table, options)`. That shape cannot preserve types.
+TypeScript resolves a method call on a generic type parameter through the
+parameter's constraint, not through the argument's real type. The constraint
+cannot restate the generic `.input()` and `.handler()` signatures of the oRPC
+builder, so the input schema and the row type are erased and the returned
+procedure is `unknown`. The compiler reports:
+
+```
+Type 'unknown' is not assignable to type 'ListParamsInput | undefined'
+Argument of type 'unknown' is not assignable to parameter of type 'Lazyable<Procedure<…>>'
+```
+
+With the two-part shape the base procedure stays concrete at the call site, so
+`.input()` and `.handler()` are the real generic methods and inference is
+exact. A test proves this: it reads `result.items[0].level` as `string` with no
+cast, and fails to compile if the row type is lost.
+
+`listSpec` is also not a builder method. A method such as `adminProcedure.list()`
 would require a wrapper around the oRPC builder classes. The application would
 lose direct access to the oRPC chain. This conflicts with the project rule
 "re-export the raw instances, never seal them".
 
-`listProcedure` does not read `access.ts`. It takes its options at the call
-site. The base procedure carries the policy. In this application
-`adminProcedure` already checks the role.
+`listSpec` does not read `access.ts`. It takes its options at the call site. The
+base procedure carries the policy. In this application `adminProcedure` already
+checks the role.
 
 This solves problem 5.
 
@@ -361,13 +381,13 @@ Three items need documentation and no framework change:
 | `middleware: [...]` option | `config.ts`, `api/router.ts`. |
 | `context.peekSession()` | `api/context.ts`. |
 | `BunderstackDb`, `BunderstackTx` | New type exports from `db.ts`. `BunderstackTx` is derived. |
-| `listProcedure` | New export. Needs the refactor below. |
+| `listSpec` | New export. Needs the refactor below. |
 
 ### Required refactor
 
 `buildTableCrudProcedures` builds the list input schema inline
 (`api/crud-router.ts:174`). The plan must extract that code into a shared
-function. `listProcedure` and the CRUD router must then use one implementation.
+function. `listSpec` and the CRUD router must then use one implementation.
 
 The refactor is mechanical. The existing CRUD tests cover the behavior.
 
@@ -383,7 +403,7 @@ The refactor is mechanical. The existing CRUD tests cover the behavior.
 | Replace `new ORPCError(…)` with `errors.*` | `api/*.ts` |
 | Replace `import { env }` with `context.env` | `api/credit.ts` |
 | Replace `any` with `Db` and `Tx` | `api/adaptation.ts` |
-| Replace three list blocks with `listProcedure` | `api/admin.ts` |
+| Replace three list blocks with `listSpec` | `api/admin.ts` |
 
 ## Behavior changes to verify
 
@@ -416,7 +436,7 @@ middleware is removed only after that test passes.
 7. A test proves that a webhook procedure with a global middleware does not
    resolve the session.
 8. A test proves that `context.user.role` carries the Better Auth role.
-9. `listProcedure` and the CRUD list procedure use one input-schema builder.
+9. `listSpec` and the CRUD list procedure use one input-schema builder.
 10. The application source contains no `any` in the API layer.
 11. The examples and the documentation site show the module-scope pattern.
 
