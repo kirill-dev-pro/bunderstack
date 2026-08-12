@@ -282,7 +282,7 @@ test('defineAuth returns a static config as-is', () => {
 })
 
 test('defineAuth returns the builder function when given schema', () => {
-  const builder = defineAuth(schema, ({ db }) => ({
+  const builder = defineAuth(schema, () => ({
     secret: 'built',
   }))
   expect(typeof builder).toBe('function')
@@ -291,7 +291,7 @@ test('defineAuth returns the builder function when given schema', () => {
 })
 
 test('defineAuth builder is accepted as auth config by resolveConfig', () => {
-  const authConfig = defineAuth(schema, ({ db }) => ({
+  const authConfig = defineAuth(schema, () => ({
     secret: 'from-builder',
   }))
   const cfg = resolveConfig({
