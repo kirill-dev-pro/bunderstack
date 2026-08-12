@@ -1,4 +1,10 @@
-import { os, type AnyRouter } from '@orpc/server'
+import {
+  os,
+  type AnyMiddleware,
+  type AnyRouter,
+  type Context,
+  type Middleware,
+} from '@orpc/server'
 
 import type { EnvConfigInput, ValidatedEnv } from '../env'
 import type { ApiContext } from './context'
@@ -42,8 +48,19 @@ export function createApiBuilder<
      * Declares a standalone middleware over the base context. Use it for
      * `createBunderstack({ middleware })`, which reaches every procedure in
      * the graph, and for `.use(...)` on any base declared here.
+     *
+     * The annotation is explicit because the inferred `DecoratedMiddleware`
+     * is internal to `@orpc/server` and cannot be named in the emitted types.
      */
-    middleware: base.middleware.bind(base) as typeof base.middleware,
+    middleware: base.middleware.bind(base) as <TOutContext extends Context>(
+      middleware: Middleware<
+        ApiContext<TSchema, TEnv>,
+        TOutContext,
+        unknown,
+        unknown,
+        typeof BUNDERSTACK_ERRORS
+      >,
+    ) => AnyMiddleware,
   }
 }
 

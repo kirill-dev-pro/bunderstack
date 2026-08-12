@@ -1422,8 +1422,10 @@ Set `version` to `0.17.0-beta.6` in `packages/bunderstack/package.json`,
 Run: `bun run build`
 Expected: exit code 0.
 
-Run: `bun test`
-Expected: PASS.
+Run: `bun run test`
+Expected: PASS. Bare `bun test` from the repository root is not
+equivalent: it picks up package sources that resolve their dependencies only
+within their own workspace.
 
 Run: `bun run typecheck:all`
 Expected: exit code 0.
