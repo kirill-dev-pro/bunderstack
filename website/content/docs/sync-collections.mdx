@@ -1,42 +1,42 @@
 ---
-title: Sync Collections
-description: TanStack DB collections with realtime sync, inferred from your app
+title: Sync & Realtime
+description: Typed TanStack DB collections over the oRPC Publisher transport
 ---
 
-# Sync Collections
+# Sync & Realtime
 
-`bunderstack-sync` layers [TanStack DB](https://tanstack.com/db) collections on
-top of the query client — local live-query state, optimistic mutations, and
-realtime SSE fan-out, all inferred from your server app type.
+`bunderstack-sync` layers TanStack DB collections over the same generated oRPC
+procedures. It provides local live queries, optimistic mutations, scoped
+windows, and reliable realtime updates inferred from your server app.
 
-## Install
+## Create a sync client
 
 ```bash
 bun add bunderstack-sync @tanstack/react-query @tanstack/db @tanstack/query-db-collection
 ```
 
-## createSyncClient
-
 ```ts
 import { createSyncClient } from 'bunderstack-sync'
-import type { App } from './bunderstack' // type-only import
+import type { App } from './bunderstack'
 
 const api = createSyncClient<App>({ queryClient })
 ```
 
-Like `createClient`, tables and buckets are inferred and materialize lazily.
-Every exposed table gets a bundle:
+Each exposed table receives:
 
 ```ts
-api.posts.collection // TanStack DB collection (default: first 100 rows)
-api.posts.table // raw typed table client (list/get/create/update/delete)
+api.posts.collection
+api.posts.table
 api.posts.scopedCollection(options)
 api.posts.collectionByIds(ids)
-api.files.avatars // bucket client
-api.realtime // SSE client (undefined during SSR)
 ```
 
-Mutations on `collection` are optimistic and persist through the CRUD API:
+Collections are stable by configuration. Calling `scopedCollection()` or
+`collectionByIds()` with equivalent options returns the existing collection;
+do not cast a plain array into a collection and do not rebuild collections on
+every render.
+
+## Optimistic mutations and reconciliation
 
 ```ts
 api.posts.collection.insert({ id, title, userId })
@@ -46,64 +46,89 @@ api.posts.collection.update(id, (draft) => {
 api.posts.collection.delete(id)
 ```
 
-## scopedCollection — growing-window pagination
+The server mutation returns the canonical row after defaults, ownership, and
+database transforms are applied. The sync layer reconciles that row into every
+materialized view without a follow-up list request. Several overlapping local
+edits to the same row are coalesced so a stale completion cannot overwrite a
+newer optimistic state.
 
-The default `collection` syncs a capped window — fine for small tables, wrong
-for feeds. `scopedCollection` walks cursor pages server-side and grows in
-place:
+## Scoped collections
+
+Use a growing window for feeds and other ordered datasets:
 
 ```ts
 const feed = api.posts.scopedCollection({
-  filter: { replyToId: null }, // equality filters (filterableColumns)
+  filter: { replyToId: null },
   sort: 'createdAt',
   order: 'desc',
-  initialCount: 20, // window size + loadMore step (default 20)
+  initialCount: 20,
 })
 
-useLiveQuery((q) =>
+const result = useLiveQuery((q) =>
   q
     .from({ post: feed.collection })
     .orderBy(({ post }) => post.createdAt, 'desc'),
 )
 
-await feed.loadMore() // grow the window in place — rendered rows never unmount
-feed.hasMore() // exact, from the server's last response
+await feed.loadMore()
+feed.hasMore()
 ```
 
-Collections are **cached by their options** — calling `scopedCollection` with
-the same options during render returns the same instance, no `useMemo` needed.
-
-## collectionByIds — resolve exact rows
-
-For "show the authors of these posts" lookups, don't scan a capped table —
-fetch exactly the ids you need (chunked at the server's IN-filter cap):
+Use `collectionByIds(ids)` for exact relation lookups rather than searching a
+capped base collection:
 
 ```ts
-const authorIds = [...new Set(posts.map((p) => p.userId))].sort()
+const authorIds = [...new Set(posts.map((post) => post.userId))].sort()
 const authors = api.user.collectionByIds(authorIds)
-
-useLiveQuery((q) => q.from({ user: authors }))
 ```
 
-## Realtime
+## One realtime path
 
-With `realtime: true` on the server, the sync client subscribes over SSE and
-fans every event out to **all materialized views** of a table — the base
-collection, scoped windows (filtered client-side by each window's own
-predicate), and byIds sets:
+On the server, generated writes and `context.realtime.publish()` emit typed
+changes through oRPC Publisher. The built-in `realtime.changes` procedure
+returns an event iterator. On the client, Bunderstack applies each change to
+query caches and all materialized collection views.
+
+```text
+database write
+  → oRPC Publisher
+  → realtime.changes iterator
+  → query cache + TanStack DB collections
+```
+
+Realtime starts automatically in browser sync clients and stays disabled
+during SSR. Applications do not poll a list endpoint and do not create a second
+event client.
+
+## Reliability behavior
+
+The library owns the transport lifecycle:
+
+- an internal heartbeat keeps quiet streams observable without producing
+  application events or cache work;
+- failed connections retry with exponential backoff and jitter rather than a
+  fixed request loop;
+- Publisher event IDs allow resume while retained events are available;
+- after reconnect, subscribed tables are refetched once so an expired replay
+  window cannot leave the cache stale;
+- a heartbeat is filtered inside the transport and never appears in a live
+  query.
+
+Publisher replay is an optimization. The database and the reconnect refetch
+remain the source of cache correctness.
+
+## Custom publications
+
+Publish a canonical row from a procedure or job when a write happens outside
+generated CRUD:
 
 ```ts
-// e.g. in your root component
-React.useEffect(() => {
-  void api.realtime?.subscribe(['posts', 'user', 'likes'])
-}, [api])
+await context.realtime.publish(schema.posts, 'update', updatedPost)
 ```
 
-Realtime defaults to **on in the browser, off during SSR** (it needs a
-persistent connection). `api.realtime` is `undefined` server-side, so the
-optional call above is SSR-safe.
+Use Redis realtime configuration when web and worker processes are separate;
+the memory publisher is process-local.
 
-## TanStack Start apps
-
-The `bunderstack-start` adapter wires all of this (plus SSR-aware fetch) in
-one call — see [Framework Portability](/docs/framework-portability).
+For TanStack Query without collections, use `syncRealtime` from
+`bunderstack-query`. Framework adapters are covered in
+[Framework Portability](/docs/framework-portability).

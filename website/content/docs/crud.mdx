@@ -1,17 +1,22 @@
 ---
 title: Auto CRUD
-description: REST routes generated from your Drizzle schema with row-level access control
+description: Generated oRPC procedures with row-level access control
 ---
 
 # Auto CRUD
 
-Bunderstack generates secured REST routes from your Drizzle schema.
+Bunderstack generates secured oRPC procedures from your Drizzle schema. The
+same procedures are available through the typed client and ordinary HTTP.
 
-## Routes
+## Procedure graph and HTTP routes
 
-| Method | Path          | Description                                |
-| ------ | ------------- | ------------------------------------------ |
-| `GET`  | `/api/:table` | List — see [List query](#list-query) below |
+| Client procedure     | HTTP                     | Description       |
+| -------------------- | ------------------------ | ----------------- |
+| `api.<table>.list`   | `GET /api/:table`        | List and paginate |
+| `api.<table>.get`    | `GET /api/:table/:id`    | Get by id         |
+| `api.<table>.create` | `POST /api/:table`       | Create            |
+| `api.<table>.update` | `PATCH /api/:table/:id`  | Update            |
+| `api.<table>.delete` | `DELETE /api/:table/:id` | Delete            |
 
 ## List query
 
@@ -55,10 +60,17 @@ GET /api/posts?limit=20&sort=createdAt&order=desc
 GET /api/posts?limit=20&sort=createdAt&order=desc&cursor=<nextCursor>
 ```
 
-| `GET` | `/api/:table/:id` | Get by id |
-| `POST` | `/api/:table` | Create (body: JSON) |
-| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
-| `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
+Typed calls use structured inputs rather than URL encoding:
+
+```ts
+const page = await api.posts.list.call({
+  filters: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+  limit: 20,
+})
+const created = await api.posts.create.call({ title: 'Hello' })
+```
 
 ## Which tables get routes
 
@@ -203,14 +215,18 @@ export const access = defineAccess(schema, {
 })
 ```
 
-## Escape hatch
+## Application-specific behavior
 
-Skip Bunderstack entirely for a table and use `app.db` directly:
+Use `context.db` inside an [API procedure](/docs/api-procedures) when generated
+CRUD is not the right domain operation:
 
 ```ts
-const { db } = app
-const posts = await db
-  .select()
-  .from(schema.posts)
-  .where(eq(schema.posts.userId, userId))
+api: (o) => ({
+  archiveOwnPosts: o.protected.handler(({ context }) =>
+    context.db
+      .update(schema.posts)
+      .set({ archived: true })
+      .where(eq(schema.posts.userId, context.user.id)),
+  ),
+})
 ```

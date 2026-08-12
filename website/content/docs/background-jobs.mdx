@@ -10,12 +10,14 @@ a time to run, and an attempt count. **A cron is a job that gets created on a
 schedule.** One loop — `tick()` — moves rows forward.
 
 ```ts
+import * as v from 'valibot'
+
 const app = await createBunderstack({
   schema,
   jobs: (j) =>
     j.define({
       sendEmail: j.job({
-        input: z.object({ userId: z.string() }),
+        input: v.object({ userId: v.string() }),
         retries: 3,
         handler: async ({ userId }, ctx) => {
           // ctx.db, ctx.email, ctx.storage, ctx.jobs, ctx.realtime, ctx.env
@@ -44,10 +46,10 @@ variables, and both HTTP and background work happen.
 Topology is controlled by `BUNDERSTACK_ROLE`, not by application code:
 
 | `BUNDERSTACK_ROLE` | Serves HTTP | Runs background work |
-| --- | --- | --- |
-| `all` *(default)* | yes | yes |
-| `web` | yes | no |
-| `worker` | no | yes |
+| ------------------ | ----------- | -------------------- |
+| `all` _(default)_  | yes         | yes                  |
+| `web`              | yes         | no                   |
+| `worker`           | no          | yes                  |
 
 Self-hosting sets nothing. A hosting platform sets the variable to split roles
 across processes when an application grows, with no change to your code.
@@ -78,9 +80,9 @@ Because cron occurrences are jobs, they take the same options queue jobs do:
 ```ts
 weeklyDigest: j.cron({
   schedule: '0 9 * * 1',
-  retries: 3,          // a throwing handler now retries with backoff
-  timeout: 120_000,    // lease duration
-  catchUp: 'latest',   // or 'all'
+  retries: 3, // a throwing handler now retries with backoff
+  timeout: 120_000, // lease duration
+  catchUp: 'latest', // or 'all'
   onFailed: async (invocation, error, ctx) => {},
   handler: async ({ scheduledFor }, ctx) => {},
 })
@@ -113,11 +115,11 @@ This is what tests should use, paired with `background: { autoStart: false }`.
 
 ## Realtime from a separate worker process
 
-With `BUNDERSTACK_ROLE=all` — the default — job handlers and SSE subscribers
+With `BUNDERSTACK_ROLE=all` — the default — job handlers and realtime subscribers
 share a process, so realtime works with no extra configuration.
 
 When you split roles, the web and worker processes are separate. An in-memory
-realtime broker cannot carry an event published by a job handler to SSE clients
+realtime broker cannot carry an event published by a job handler to clients
 connected to the web process. If a handler calls `ctx.realtime.publish()`,
 configure a shared Redis transport in both:
 
@@ -128,7 +130,7 @@ const app = await createBunderstack({
   jobs: (j) =>
     j.define({
       generateImage: j.job({
-        input: z.object({ itemId: z.string() }),
+        input: v.object({ itemId: v.string() }),
         handler: async ({ itemId }, ctx) => {
           const item = await generateAndSaveItem(itemId)
           await ctx.realtime.publish(schema.items, 'update', item)

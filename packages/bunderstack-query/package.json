@@ -1,15 +1,15 @@
 {
   "name": "bunderstack-query",
-  "version": "0.17.0-beta.0",
+  "version": "0.17.0-beta.1",
   "description": "One typed oRPC client for Bunderstack with TanStack Query utilities and realtime cache synchronization.",
   "keywords": [
     "bun",
     "bunderstack",
     "client",
+    "orpc",
     "react",
     "realtime",
-    "tanstack-query",
-    "orpc"
+    "tanstack-query"
   ],
   "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
   "license": "MIT",

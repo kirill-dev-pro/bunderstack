@@ -38,19 +38,20 @@ surviving `/api/auth/$` silently keeps serving the instance you meant to delete.
 
 ## Replacements
 
-| Legacy shape | Current contract |
-| --- | --- |
-| Hand-written `ALL: ({ request }) => app.handler(request)` map | `createApiHandlers(app)` on one `/api/$` route |
-| Separate `/api/auth/$` or `/api/trpc/$` mounts | Deleted; the catch-all already serves both |
-| Worker started from the web entry | `src/worker.ts` owning `app.runWorker()` |
-| `/api/cron/*` guarded by a shared secret | `jobs.cron()` with platform delivery |
-| Channel-and-payload realtime publishing | `ctx.realtime.publish(schema.tasks, 'update', row)` after the write commits |
-| AWS or Tigris SDK wrapper | `app.storage` buckets |
-| Resend SDK wrapper | `app.email.send(...)` |
-| `createEnv()` beside the app | `env` passed to `createBunderstack()` |
-| Implicit database driver | Explicit adapter, `database: { adapter: libsql(), url }` |
-| Schema push in production | Committed Drizzle `migrations/`, applied by `provision(app)` |
-| Undeclared deployment | `package.json#bunderstack.entry` and a checked blueprint |
+| Legacy shape                                                  | Current contract                                                                  |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Hand-written `ALL: ({ request }) => app.handler(request)` map | `createApiHandlers(app)` on one `/api/$` route                                    |
+| Separate `/api/auth/$` or `/api/trpc/$` mounts                | Deleted; the catch-all serves Better Auth and the unified oRPC `/api/rpc/*` graph |
+| tRPC router and procedure clients                             | `api: (o) => ({ ... })` with one inferred oRPC client                             |
+| Worker started from the web entry                             | `src/worker.ts` owning `app.runWorker()`                                          |
+| `/api/cron/*` guarded by a shared secret                      | `jobs.cron()` with platform delivery                                              |
+| Channel-and-payload realtime publishing                       | `ctx.realtime.publish(schema.tasks, 'update', row)` after the write commits       |
+| AWS or Tigris SDK wrapper                                     | `app.storage` buckets                                                             |
+| Resend SDK wrapper                                            | `app.email.send(...)`                                                             |
+| `createEnv()` beside the app                                  | `env` passed to `createBunderstack()`                                             |
+| Implicit database driver                                      | Explicit adapter, `database: { adapter: libsql(), url }`                          |
+| Schema push in production                                     | Committed Drizzle `migrations/`, applied by `provision(app)`                      |
+| Undeclared deployment                                         | `package.json#bunderstack.entry` and a checked blueprint                          |
 
 Read [runtime replacements](references/runtime-replacements.md) before writing
 any replacement above; it holds the current snippets and the realtime transport

@@ -10,7 +10,7 @@ out of its import graph: the blueprint command imports this entry with
 
 Start a small API in `src/bunderstack.ts`. Split a meaningful configuration
 into `src/bunderstack/` with `index.ts`, `schema/`, `access.ts`, `auth.ts`,
-`env.ts`, `jobs/`, and `trpc/` as needed. The entry remains the one place that
+`env.ts`, `jobs/`, and `api/` as needed. The entry remains the one place that
 assembles those modules into `createBunderstack()`; do not create parallel app,
 database, or auth instances.
 
@@ -32,9 +32,16 @@ exposing the supported `user` table.
 Use `scope.read` and `scope.write` to enforce tenant columns on generated
 lists, reads, and writes. For example, an organization-owned table can derive
 `{ organizationId: ctx.session?.activeOrganizationId ?? '__none__' }`, keeping
-users without an active organization outside tenant rows. Use protected tRPC
-procedures for authorization that depends on related rows or roles; hiding a
-UI route is not authorization.
+users without an active organization outside tenant rows. Use protected oRPC
+procedures built from `o.protected` when authorization depends on related rows
+or roles; hiding a UI route is not authorization.
+
+## Extend the one API graph
+
+Declare custom procedures through `api: (o) => ({ ... })`. Use `o.public`,
+`o.protected`, or `o.webhook`; add `.route(...)` only when a stable HTTP
+projection is useful. Generated CRUD, custom procedures, files, health, and
+`realtime.changes` remain in the same typed oRPC graph and client.
 
 ## Keep credentials environment-owned
 

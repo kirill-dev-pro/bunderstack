@@ -10,16 +10,16 @@ description: Use when starting or structuring a Bunderstack application, choosin
 1. Inspect the product brief and target runtime.
 2. Choose the layout from the table below.
 3. For a full TanStack Start SaaS, copy `templates/tanstack-start-saas/`.
-4. Configure schema, access, auth, env, storage, jobs, realtime, and tRPC.
+4. Configure schema, access, auth, env, storage, jobs, realtime, and the oRPC API graph.
 5. Mount the single `app.handler` integration.
 6. Add committed migrations and a deployment blueprint before production.
 7. Run the verification contract.
 
-| Condition | Layout |
-| --- | --- |
-| Small API with short configuration | `src/bunderstack.ts` |
-| Auth, access, jobs, env, or tRPC need independent modules | `src/bunderstack/` |
-| Full SaaS | Copy `templates/tanstack-start-saas/` and keep its modular layout |
+| Condition                                                                   | Layout                                                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Small API with short configuration                                          | `src/bunderstack.ts`                                              |
+| Auth, access, jobs, env, or custom oRPC procedures need independent modules | `src/bunderstack/`                                                |
+| Full SaaS                                                                   | Copy `templates/tanstack-start-saas/` and keep its modular layout |
 
 ## Runtime decision recipe
 

@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install Bunderstack and have a working backend in under 5 minutes
+description: Build and call a typed Bunderstack API in five minutes
 ---
 
 # Getting Started
@@ -8,230 +8,131 @@ description: Install Bunderstack and have a working backend in under 5 minutes
 ## Install
 
 ```bash
-bun add bunderstack drizzle-orm @libsql/client
+bun add bunderstack bunderstack-query drizzle-orm valibot @libsql/client @tanstack/react-query
 bun add -d drizzle-kit
 ```
 
-## Write your schema
+## Define a schema
 
-Import Drizzle builders straight from `drizzle-orm` — bunderstack depends on it as a peer, so your project's own install is the one shared instance. Re-export Bunderstack's internal tables so migrations include file storage metadata:
+Use the Drizzle builders directly and re-export Bunderstack's internal tables
+so storage and runtime metadata are included in migrations.
 
 ```ts
 // schema.ts
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export * from 'bunderstack/schema'
 
-// BetterAuth required tables — copy full definitions from examples/standalone/schema.ts
-export const user = sqliteTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  emailVerified: integer('emailVerified', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  image: text('image'),
-  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
-})
-// ... session, account, verification (same pattern)
-
-// Your tables
 export const posts = sqliteTable('posts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+  id: text('id').primaryKey(),
   title: text('title').notNull(),
-  body: text('body').notNull().default(''),
-  userId: text('userId')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('userId').notNull(),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
 })
 ```
 
+Better Auth also needs its `user`, `session`, `account`, and `verification`
+tables. Copy the matching SQLite or Postgres definitions from an example or
+the SaaS template.
+
 ## Create the app
+
+The custom procedure below joins the same graph as generated CRUD. Valibot is
+used for runtime input validation; the handler return type becomes the output
+contract automatically.
 
 ```ts
 // bunderstack.ts
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
+import { count } from 'drizzle-orm'
+import * as v from 'valibot'
+
+import { posts } from './schema'
 import * as schema from './schema'
 
 export const app = await createBunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url: 'file:./data.db',
+  database: { adapter: libsql(), url: 'file:./data.db' },
+  access: {
+    posts: {
+      ownerColumn: 'userId',
+      searchableColumns: ['title'],
+      sortableColumns: ['createdAt', 'id'],
+    },
   },
-  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+  api: (o) => ({
+    postCount: o.public
+      .input(v.optional(v.object({})))
+      .handler(async ({ context }) => {
+        const [row] = await context.db.select({ value: count() }).from(posts)
+        return { value: row?.value ?? 0 }
+      }),
+  }),
 })
 
-/** Type-only handle for client inference — see "Talk to it from the client". */
 export type App = typeof app
 
 await provision(app)
 ```
 
-`provision(app)` keeps the database in sync with your schema. The same line works in development and production — what it does depends on whether a migrations folder exists (see below). Don't want the framework touching your database at all? Skip the import and apply migrations yourself.
+`provision(app)` pushes the schema while there is no migrations journal. Once
+you run `bunx drizzle-kit generate` and commit the migrations, the same call
+only applies pending migrations. Skip it when deployment manages migrations
+outside the application.
 
-## Development vs production
-
-The `migrations/` folder is the mode switch — you never change code or set env vars to move between phases:
-
-| Phase       | State                       | What `provision(app)` does                                               |
-| ----------- | --------------------------- | ------------------------------------------------------------------------ |
-| Prototyping | No `migrations/` folder     | Pushes the schema straight to the database on boot (needs `drizzle-kit`) |
-| Stabilized  | `migrations/` committed     | Applies pending migrations on boot — `drizzle-kit` is never loaded       |
-| Deploy      | Fresh clone + `migrations/` | Creates the database file and all tables from the committed migrations   |
-
-**Prototyping.** Right after `bun add -d drizzle-kit`, just edit your schema and restart — the database follows. If a change would drop data, provision refuses and tells you to pass `provision(app, { force: true })`.
-
-**Stabilizing.** When you're done playing with the schema, generate the initial migration:
-
-```bash
-bunx drizzle-kit generate
-```
-
-From this point on provision stops pushing and only applies the committed files. Every further schema change is an explicit `bunx drizzle-kit generate`, reviewed and committed like any other code.
-
-**Deploying.** Clone, `bun install --production`, start. Applying migrations uses drizzle-orm's built-in migrator, so `drizzle-kit` stays a dev-only dependency — it is never installed on, or shipped to, the server. If you deploy without a migrations folder _and_ without drizzle-kit, provision fails with instructions rather than guessing.
-
-Configure `drizzle.config.ts` with `schema: './src/schema.ts'` and `out: './migrations'`. If your migrations live elsewhere, set `database.migrations` to that path.
-
-## Using PostgreSQL
-
-Bunderstack checks the schema dialect against the adapter you choose. Define
-Postgres tables with `pgTable`, then import one Postgres adapter explicitly;
-CRUD, auth, storage metadata, and provisioning use that selection.
-
-```ts
-// schema.ts
-import { pgTable, serial, text } from 'drizzle-orm/pg-core'
-
-export const posts = pgTable('posts', {
-  id: serial('id').primaryKey(),
-  title: text('title').notNull(),
-})
-```
-
-For local development, install PGlite — an embedded Postgres that runs in a
-local directory, no Docker or server required — and import its adapter:
-
-```bash
-bun add @electric-sql/pglite
-```
-
-```ts
-import { pglite } from 'bunderstack/database/pglite'
-
-database: {
-  adapter: pglite(),
-  url: 'file:./data.pglite',
-}
-```
-
-For production Postgres under Bun, select Bun's built-in driver instead:
-
-```ts
-import { bunSql } from 'bunderstack/database/bun-sql'
-
-database: {
-  adapter: bunSql(),
-  url: process.env.DATABASE_URL!,
-}
-```
-
-`bunSql()` has no optional package peer because Bun provides `Bun.sql`. On a
-Node runtime, install `postgres` and use `postgresJs()` from
-`bunderstack/database/postgres-js` instead. The full adapter/peer table is in
-[Configuration](/docs/configuration).
-
-See [Configuration](/docs/configuration) for the full dialect/URL table.
-
-## Serve it
+## Serve one handler
 
 ```ts
 // server.ts
 import { app } from './bunderstack'
+
 Bun.serve({ fetch: app.handler })
 ```
 
-```bash
-bun run server.ts
-# GET    /api/posts
-# POST   /api/posts
-# PATCH  /api/posts/:id
-# DELETE /api/posts/:id
-# POST   /api/auth/sign-up/email
-# POST   /api/auth/sign-in/email
-# POST   /api/files
-# GET    /health
+Generated procedures are callable through typed RPC and ordinary HTTP:
+
+```text
+GET    /api/posts
+POST   /api/posts
+PATCH  /api/posts/:id
+DELETE /api/posts/:id
+POST   /api/rpc/postCount
+GET    /api/openapi.json       when openapi: true
 ```
 
-The `posts` table has a `userId` column, so Bunderstack auto-wires it: list/get are public, create sets the owner from session, update/delete require the owner.
+## Call it from the client
 
-## Add access rules
-
-To customize per-operation permissions, use `defineAccess`:
-
-```ts
-// access.ts
-import { defineAccess } from 'bunderstack/access'
-import * as schema from './schema'
-
-export const access = defineAccess(schema, {
-  posts: {
-    ownerColumn: 'userId',
-    list: 'public',
-    create: 'authenticated',
-    update: 'owner',
-    delete: 'owner',
-    searchableColumns: ['title', 'body'],
-  },
-})
-```
-
-```ts
-// bunderstack.ts
-export const app = await createBunderstack({
-  schema,
-  database: { adapter: libsql() },
-  access,
-  auth: { emailAndPassword: { enabled: true } },
-})
-
-await provision(app)
-```
-
-## Talk to it from the client
-
-Because `App` carries your schema, access rules, and buckets at the type
-level, the client needs zero configuration — tables and buckets are inferred:
+Only the `App` type crosses the boundary; server code is not bundled.
 
 ```ts
 // api-client.ts
+import { QueryClient } from '@tanstack/react-query'
 import { createClient } from 'bunderstack-query'
-import type { App } from './bunderstack' // type-only: no server code in the bundle
+import type { App } from './bunderstack'
 
+export const queryClient = new QueryClient()
 export const api = createClient<App>({ queryClient })
 
-api.posts.list({ limit: 20 })
-api.files.uploads.upload(file)
+const page = await api.posts.list.call({ limit: 20 })
+const total = await api.postCount.call({})
+// page and total are inferred from the server graph
 ```
 
-Add a table on the server and the client knows it instantly — no tuples to
-keep in sync. See [Query client](/docs/query-client) and
-[Sync collections](/docs/sync-collections).
+## Database choices
 
-## Next steps
+Import exactly one adapter. Its dialect must match your Drizzle tables.
 
-- [Auto CRUD](/docs/crud) — access rules, search, column guards
-- [Auth](/docs/auth) — OAuth providers, session access
-- [tRPC Endpoints](/docs/trpc) — typed procedures with superjson
-- [Email](/docs/email) — resend, SMTP, console, or custom adapters
-- [Env Validation](/docs/env) — validate env vars at boot, typed server & client
-- [Storage](/docs/storage) — file uploads, S3 config
-- [Query client](/docs/query-client) — typed TanStack Query hooks
-- [Sync collections](/docs/sync-collections) — TanStack DB collections with realtime
+| Database          | Adapter                            | Optional peer          |
+| ----------------- | ---------------------------------- | ---------------------- |
+| SQLite / Turso    | `bunderstack/database/libsql`      | `@libsql/client`       |
+| Embedded Postgres | `bunderstack/database/pglite`      | `@electric-sql/pglite` |
+| Postgres on Bun   | `bunderstack/database/bun-sql`     | none                   |
+| Postgres on Node  | `bunderstack/database/postgres-js` | `postgres`             |
+
+Continue with [Auto CRUD](/docs/crud), then add application behavior in
+[API Procedures](/docs/api-procedures).

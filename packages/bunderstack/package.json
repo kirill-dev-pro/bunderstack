@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.17.0-beta.0",
+  "version": "0.17.0-beta.1",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
@@ -66,8 +66,8 @@
   "devDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
-    "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",
@@ -80,8 +80,8 @@
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
-    "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",

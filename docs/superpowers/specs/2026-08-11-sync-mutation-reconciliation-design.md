@@ -1,7 +1,7 @@
 # Sync mutation reconciliation — mutation response as source of truth
 
 **Date:** 2026-08-11
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented in `bunderstack-sync` 0.17.0-beta.0
 **Package:** `packages/bunderstack-sync`
 
 ## Goal
@@ -19,7 +19,7 @@ refetch:
 
 ```js
 const handlerResult = (await onUpdate(params)) ?? {}
-const shouldRefetch = (handlerResult).refetch !== false
+const shouldRefetch = handlerResult.refetch !== false
 if (shouldRefetch) await refetch()
 ```
 
@@ -124,7 +124,7 @@ Boundaries of the mechanism:
 - `onDelete` for a key with a non-empty queue discards the accumulated changes
   and awaits the in-flight request before sending `DELETE`, so the two cannot
   race. Waiters of the discarded updates resolve — the delete supersedes them.
-- A failed request rejects that batch's waiters *and* the ones queued behind
+- A failed request rejects that batch's waiters _and_ the ones queued behind
   it, clearing the key's queue entirely. TanStack DB rolls all those
   transactions back and the row returns to its last synced value. Continuing to
   send queued changes on top of a failed base would diverge from the server

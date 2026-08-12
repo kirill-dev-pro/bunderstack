@@ -1,34 +1,31 @@
 ---
 title: Query Client
-description: Typed TanStack Query clients inferred from your server app
+description: An oRPC and TanStack Query client inferred from your app
 ---
 
 # Query Client
 
-`bunderstack-query` gives you a fully typed client for every CRUD route —
-inferred from your server app, with nothing to configure on the client.
+`bunderstack-query` derives generated CRUD and application procedures from
+`typeof app`. There is no code generation, route list, or duplicated response
+interface.
 
-## Install
+## Create the client
 
 ```bash
 bun add bunderstack-query @tanstack/react-query
 ```
 
-## createClient (recommended)
-
-Export the app type from your server entry, then infer everything from it:
-
 ```ts
-// bunderstack.ts (server)
-export const app = await createBunderstack({ schema, access, storage })
+// bunderstack.ts — server
+export const app = await createBunderstack({ schema, access, api: (o) => ({}) })
 export type App = typeof app
 ```
 
 ```ts
-// api-client.ts
-import { createClient } from 'bunderstack-query'
+// api-client.ts — client
 import { QueryClient } from '@tanstack/react-query'
-import type { App } from './bunderstack' // type-only import
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack'
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
@@ -37,137 +34,103 @@ export const queryClient = new QueryClient({
 export const api = createClient<App>({ queryClient })
 ```
 
-- **Exposed tables and buckets are inferred** from your access rules and
-  storage config — no `tables: [...]` tuples to keep in sync with the server.
-  Add a table server-side and `api.newTable` type-checks immediately.
-- **Type-only import** — no server code (or Drizzle schema) lands in the
-  client bundle.
-- **Lazy** — table and bucket clients materialize on first property access.
-  One consequence: `Object.keys(api)` is empty by design; access members
-  directly.
+`App` is a type-only import, so server code and the Drizzle schema do not enter
+the browser bundle.
+
+## Direct calls
+
+Every procedure exposes `.call(input)`:
 
 ```ts
-api.posts.list({ limit: 20 })
-api.posts.get(postId)
-api.files.avatars.upload(file) // buckets under api.files.*
+const page = await api.posts.list.call({ limit: 20 })
+const post = await api.posts.get.call({ id: postId })
+const created = await api.posts.create.call({ title: 'Typed boundaries' })
+const stats = await api.stats.call({ boardId })
 ```
 
-## Available methods
+Inputs and outputs are inferred from the unified oRPC graph. Generated table
+procedures and custom procedures use the same API shape.
 
-```ts
-// Raw promises
-api.posts.list({ limit: 20, offset: 0 })
-api.posts.list({ q: 'search term' }) // if searchableColumns set
-api.posts.list({ userId: id }) // filterableColumns → WHERE userId = ?
-api.posts.list({ id: [a, b, c] }) // array value → WHERE id IN (a, b, c)
-api.posts.get(postId)
-api.posts.create(data)
-api.posts.update(postId, patch)
-api.posts.delete(postId)
+## TanStack Query
 
-// TanStack Query option factories
-api.posts.listQuery({ limit: 20, offset: 0 })
-api.posts.listInfiniteQuery({ limit: 20 }) // keyset cursor pagination
-api.posts.getQuery(postId)
-api.posts.createMutation()
-api.posts.updateMutation()
-api.posts.deleteMutation()
-```
-
-The server caps every list request at `MAX_LIST_LIMIT` (200), exported from
-both `bunderstack` and `bunderstack-query`.
-
-## In a component
+Read procedures expose `.queryOptions()`. Write procedures expose
+`.mutationOptions()`.
 
 ```tsx
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { api } from '~/api-client'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
-function PostList() {
-  const { data } = useQuery(api.posts.listQuery({ limit: 20, offset: 0 }))
-  // data: { items: Post[], limit: number, offset: number }
-
-  const create = useMutation(api.posts.createMutation())
+function Posts() {
+  const posts = useQuery(api.posts.list.queryOptions({ input: { limit: 20 } }))
+  const createPost = useMutation(api.posts.create.mutationOptions())
 
   return (
-    <ul>
-      {data?.items.map((post) => (
-        <li key={post.id}>{post.title}</li>
-      ))}
-    </ul>
+    <button onClick={() => createPost.mutate({ title: 'Hello' })}>
+      {posts.data?.items.length ?? 0} posts
+    </button>
   )
 }
 ```
 
-## Prefetching in loaders
+Pass standard TanStack Query callbacks and options into the option factory:
 
 ```ts
-// TanStack Start route loader
+api.posts.create.mutationOptions({
+  onSuccess: (created) => console.log(created.id),
+})
+```
+
+## Loaders and prefetching
+
+```ts
 export const Route = createFileRoute('/')({
-  loader: async () => {
-    return queryClient.ensureQueryData(
-      api.posts.listQuery({ limit: 20, offset: 0 }),
-    )
-  },
+  loader: () =>
+    queryClient.ensureQueryData(
+      api.posts.list.queryOptions({ input: { limit: 20 } }),
+    ),
 })
 ```
 
-## Query invalidation
+## Files
 
-Pass `queryClient` when creating the client and mutations automatically
-invalidate the affected table's queries on success.
-
-## trpc — `api.trpc`
-
-When your server declares a tRPC router, `api.trpc` is a fully typed
-`@trpc/tanstack-react-query` proxy — no codegen needed:
+Declared buckets receive small helpers in addition to their procedures:
 
 ```ts
-import { createTRPCClient } from 'bunderstack-query/trpc'
-import type { App } from './bunderstack'
-
-const api = createTRPCClient<App>({ queryClient })
-
-// Typed option factories — wrap with useQuery / useMutation
-const { data } = useQuery(api.trpc.hello.queryOptions())
-const { data: me } = useQuery(api.trpc.me.queryOptions())
-const greet = useMutation(api.trpc.greet.mutationOptions())
+const uploaded = await api.files.images.upload(file)
+const thumbnail = api.files.images.url(uploaded.fileId, {
+  w: 320,
+  format: 'webp',
+})
+await api.files.images.delete(uploaded.fileId)
 ```
 
-Requires `@trpc/client`, `@trpc/tanstack-react-query`, `@trpc/server`, and
-`superjson` as peer dependencies. See [tRPC Endpoints](/docs/trpc) for the
-server-side setup. The root `createClient` remains the REST-only entrypoint.
+## Realtime query caches
 
-## Explicit alternatives
-
-When you want explicit control instead of app-type inference, the builder API
-still works:
+Use `syncRealtime` when the application uses TanStack Query without TanStack
+DB collections:
 
 ```ts
-import { createBunderstackQueryClient } from 'bunderstack-query'
-import type * as schema from './schema'
+import { syncRealtime } from 'bunderstack-query'
 
-// Hand-picked table tuple (type-only schema import)
-export const api = createBunderstackQueryClient<typeof schema>().withTables({
+const connection = syncRealtime({
+  api,
   queryClient,
-  tables: ['posts', 'user'] as const,
+  tables: ['posts', 'comments'],
 })
 
-// Or schema-as-value (server components, no bundle concern) — exposed tables
-// resolved from access rules at runtime
-export const api2 = createBunderstackQueryClient().withSchema({
-  schema,
-  access,
-  queryClient,
-})
+// call connection.close() when the application client is disposed
 ```
+
+The client applies typed events to matching caches and invalidates subscribed
+tables after reconnect. Transport retry and heartbeat behavior are internal.
 
 ## Type utilities
 
 ```ts
-import type { InferSelect, InferInsert } from 'bunderstack-query'
-import type { posts } from './schema'
+import type { InferSchema, InferSelect } from 'bunderstack-query'
 
-type Post = InferSelect<typeof posts>
-type NewPost = InferInsert<typeof posts>
+type Schema = InferSchema<App>
+type Post = InferSelect<Schema['posts']>
 ```
+
+These aliases are useful at component boundaries. Avoid restating response
+types that the procedure client already knows.

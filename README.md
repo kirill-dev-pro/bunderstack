@@ -66,7 +66,9 @@ export const queryClient = new QueryClient()
 export const api = createClient<App>({ queryClient })
 
 const posts = useQuery(
-  api.posts.list.queryOptions({ input: { limit: 20, sort: 'createdAt', order: 'desc' } }),
+  api.posts.list.queryOptions({
+    input: { limit: 20, sort: 'createdAt', order: 'desc' },
+  }),
 )
 
 await api.posts.create.call({ title: 'Typed end to end' })
@@ -128,6 +130,11 @@ The client consumes the typed `realtime.changes` async iterator. Publisher
 metadata carries event IDs, resumable delivery, and reconnect state; there is
 no client registration or separate subscription POST protocol.
 
+Idle streams carry a transport-only `heartbeat` every five seconds so Bun and
+intermediate HTTP servers keep the response open. The query client consumes
+heartbeats internally: they do not update cache state, call `onChange`, enter
+the Publisher replay buffer, or advance `lastEventId`.
+
 ```ts
 import { syncRealtime } from 'bunderstack-query'
 
@@ -181,6 +188,12 @@ const feed = sync.posts.scopedCollection({
 })
 await feed.loadMore()
 ```
+
+Generated CRUD returns the canonical changed row. `bunderstack-sync` writes
+that response into every materialized view without a follow-up list refetch;
+the later realtime echo is an idempotent confirmation. Updates to the same row
+are coalesced while a request is in flight, which keeps cursor-like optimistic
+writes responsive without building a request queue in application code.
 
 ## Deployment and lifecycle
 

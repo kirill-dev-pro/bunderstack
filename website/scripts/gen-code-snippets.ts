@@ -1,26 +1,10 @@
 import { transformerTwoslash } from '@shikijs/twoslash'
-/**
- * Pre-renders the landing page code snippets with shiki + twoslash: syntax
- * highlighting plus real TypeScript hover info, computed at build time
- * against the actual bunderstack package sources (resolved via `paths`).
- * Output: src/lib/code-snippets.gen.json — { [name]: html }.
- *
- * Wired as predev/prebuild alongside gen-docs-manifest.ts.
- */
 import { dirname, join } from 'node:path'
 import { createHighlighter } from 'shiki'
 import ts from 'typescript'
 
 const root = join(import.meta.dir, '..')
 const outFile = join(root, 'src/lib/code-snippets.gen.json')
-
-// Snippets import drizzle-orm directly (e.g. `sqliteTable` from
-// 'drizzle-orm/sqlite-core'); resolve it to the EXACT copy bunderstack's own
-// source resolves (via bunderstack's node_modules, itself a symlink into the
-// workspace's single hoisted install) rather than letting `website` install
-// its own separate copy — two physical installs of the same version are
-// nominally incompatible (protected/private class members), which breaks
-// twoslash's type-checking across the virtual `bunderstack`/schema files.
 const drizzleOrmDir = dirname(
   Bun.resolveSync(
     'drizzle-orm/package.json',
@@ -28,14 +12,12 @@ const drizzleOrmDir = dirname(
   ),
 )
 
-/** Hidden context shared by snippets: a schema and a configured app. */
 const SCHEMA_FILE = `// @filename: schema.ts
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
-  replyToId: text('replyToId'),
   createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
 })
 `
@@ -43,202 +25,96 @@ export const posts = sqliteTable('posts', {
 const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
-import { z } from 'zod'
+import * as v from 'valibot'
 import * as schema from './schema'
+
 export const app = await createBunderstack({
   schema,
   database: { adapter: libsql() },
-  access: { posts: { ownerColumn: 'userId', searchableColumns: ['title'], filterableColumns: ['replyToId'], sortableColumns: ['createdAt', 'id'] } },
-  storage: { local: './uploads', buckets: { images: {} } },
+  access: {
+    posts: {
+      ownerColumn: 'userId',
+      searchableColumns: ['title'],
+      sortableColumns: ['createdAt', 'id'],
+    },
+  },
   realtime: true,
-  env: { server: { SMTP_URL: z.string().optional() }, client: { PUBLIC_APP_NAME: z.string().default('Demo') } },
-  email: { from: 'hello@example.com' },
-  trpc: (t) => t.router({ stats: t.protectedProcedure.query(({ ctx }) => ({ total: 0, user: ctx.user.name })) }),
+  api: (o) => ({
+    stats: o.protected
+      .input(v.object({ boardId: v.string() }))
+      .handler(async ({ context, input }) => ({
+        boardId: input.boardId,
+        total: 12,
+        requestedBy: context.user.id,
+      })),
+  }),
 })
+
 export type App = typeof app
 `
 
-const CLIENT_PRELUDE = `// @filename: api-client.ts
+const CLIENT_FILE = `// @filename: api-client.ts
 import { QueryClient } from '@tanstack/react-query'
-const queryClient = new QueryClient()
+import { createClient } from 'bunderstack-query'
+import type { App } from './bunderstack'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient })
 `
 
 const snippets: Record<string, string> = {
-  server: `${SCHEMA_FILE}// @filename: bunderstack.ts
+  procedure: `${SCHEMA_FILE}// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
+import * as v from 'valibot'
 import * as schema from './schema'
 
 export const app = await createBunderstack({
   schema,
   database: { adapter: libsql() },
-  access: { posts: { ownerColumn: 'userId' } },
-  storage: {
-    local: './uploads',
-    buckets: { images: {} },
-  },
   realtime: true,
+  api: (o) => ({
+    stats: o.protected
+      .input(v.object({ boardId: v.string() }))
+      .handler(async ({ context, input }) => ({
+        boardId: input.boardId,
+        total: 12,
+        requestedBy: context.user.id,
+      })),
+  }),
 })
 
 export type App = typeof app`,
 
-  query: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}declare const file: File
+  client: `${SCHEMA_FILE}${APP_FILE}// @filename: client.ts
 // ---cut---
+import { QueryClient } from '@tanstack/react-query'
 import { createClient } from 'bunderstack-query'
 import type { App } from './bunderstack'
 
+const queryClient = new QueryClient()
 const api = createClient<App>({ queryClient })
+const result = await api.stats.call({ boardId: 'board_42' })
+//    ^?
 
-const page = await api.posts.list({ limit: 20 })
-const post = await api.posts.create({ title: 'hello' })
-await api.files.images.upload(file)`,
+result.total
+result.requestedBy`,
 
-  sync: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// ---cut---
-import { createSyncClient } from 'bunderstack-sync'
-import type { App } from './bunderstack'
-
-const api = createSyncClient<App>({ queryClient })
-
-const feed = api.posts.scopedCollection({
-  filter: { replyToId: null },
-  sort: 'createdAt',
-  order: 'desc',
-})
-await feed.loadMore()`,
-
-  crud: `${SCHEMA_FILE}${APP_FILE}
-// @filename: server.ts
+  realtime: `${SCHEMA_FILE}${APP_FILE}${CLIENT_FILE}// @filename: realtime.ts
 // ---cut---
-import { app } from './bunderstack'
+import { syncRealtime } from 'bunderstack-query'
+import { api, queryClient } from './api-client'
 
-Bun.serve({ fetch: app.handler })
-// GET    /api/posts       list, paginate, ?q= search
-// POST   /api/posts       create (owner from session)
-// PATCH  /api/posts/:id   update (owner only)
-// DELETE /api/posts/:id   delete (owner only)`,
-
-  access: `${SCHEMA_FILE}
-// @filename: access.ts
-// ---cut---
-import { defineAccess } from 'bunderstack/access'
-import * as schema from './schema'
-
-export const access = defineAccess(schema, {
-  posts: {
-    ownerColumn: 'userId',
-    list: 'public',
-    create: 'authenticated',
-    update: 'owner',
-    searchableColumns: ['title'],
-  },
-})`,
-
-  auth: `${SCHEMA_FILE}${APP_FILE}
-// @filename: handler.ts
-declare const request: Request
-// ---cut---
-import { app } from './bunderstack'
-
-const session = await app.auth.api.getSession({
-  headers: request.headers,
-})
-// BetterAuth, wired to your db: sign-up, sessions,
-// OAuth — /api/auth/* is already mounted`,
-
-  files: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}declare const file: File
-// ---cut---
-import { createClient } from 'bunderstack-query'
-import type { App } from './bunderstack'
-
-const api = createClient<App>({ queryClient })
-
-const uploaded = await api.files.images.upload(file)
-const thumb = api.files.images.url(uploaded.fileId, {
-  w: 320,
-  format: 'webp',
-})`,
-
-  realtime: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// ---cut---
-import { createSyncClient } from 'bunderstack-sync'
-import type { App } from './bunderstack'
-
-const api = createSyncClient<App>({ queryClient })
-
-await api.realtime?.subscribe(['posts'])
-// broadcast-on-write: every create/update/delete
-// lands in your collections, live over SSE`,
-
-  inference: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// @errors: 2339
-// ---cut---
-import { createClient } from 'bunderstack-query'
-import type { App } from './bunderstack'
-
-const api = createClient<App>({ queryClient })
-
-api.posts // inferred from schema + access
-api.secrets // not in the schema — the client knows`,
-
-  env: `${SCHEMA_FILE}
-// @filename: bunderstack.ts
-// ---cut---
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { z } from 'zod'
-import * as schema from './schema'
-
-export const app = await createBunderstack({
-  schema,
-  database: { adapter: libsql() },
-  env: {
-    server: { SMTP_URL: z.string().optional() },
-    client: { PUBLIC_APP_NAME: z.string().default('Demo') },
-  },
+const connection = syncRealtime({
+  api,
+  queryClient,
+  tables: ['posts'],
 })
 
-app.env.PUBLIC_APP_NAME // validated at boot, fully typed
-app.env.SMTP_URL // server-only — never sent to the browser`,
-
-  email: `${SCHEMA_FILE}${APP_FILE}
-// @filename: notify.ts
-// ---cut---
-import { app } from './bunderstack'
-
-await app.email.send({
-  to: 'user@example.com',
-  subject: 'Welcome aboard',
-  text: 'Same call in dev and prod.',
-})
-// console provider in dev, SMTP via one env var in prod —
-// BetterAuth verification & reset emails are auto-wired`,
-
-  trpc: `${SCHEMA_FILE}${APP_FILE}${CLIENT_PRELUDE}// ---cut---
-import { useQuery } from '@tanstack/react-query'
-import { createTRPCClient } from 'bunderstack-query/trpc'
-import type { App } from './bunderstack'
-
-const api = createTRPCClient<App>({ queryClient })
-
-const stats = useQuery(api.trpc.stats.queryOptions())
-// typed straight from the server router — no codegen,
-// superjson keeps Dates as Dates`,
-
-  escape: `${SCHEMA_FILE}${APP_FILE}
-// @filename: custom.ts
-// ---cut---
-import { app } from './bunderstack'
-import { desc } from 'drizzle-orm'
-import * as schema from './schema'
-
-const { db, auth, router } = app // the real instances
-
-const latest = await db // raw drizzle — no query wrapper
-  .select()
-  .from(schema.posts)
-  .orderBy(desc(schema.posts.createdAt))
-  .limit(5)
-
-router.get('/api/digest', (c) => c.json({ latest }))`,
+// Publisher resume, heartbeat, and backoff stay inside the transport.
+// Call this only when the application client is disposed:
+connection.close()`,
 }
 
 const highlighter = await createHighlighter({
@@ -261,7 +137,6 @@ const twoslash = transformerTwoslash({
         'bunderstack/*': ['../packages/bunderstack/src/*.ts'],
         'bunderstack-query': ['../packages/bunderstack-query/src/index.ts'],
         'bunderstack-query/*': ['../packages/bunderstack-query/src/*.ts'],
-        'bunderstack-sync': ['../packages/bunderstack-sync/src/index.ts'],
         'drizzle-orm': [drizzleOrmDir],
         'drizzle-orm/*': [join(drizzleOrmDir, '*')],
       },
@@ -269,31 +144,22 @@ const twoslash = transformerTwoslash({
   },
 })
 
-/** The part of a snippet the reader sees (and copies): after the last cut. */
 function visibleSource(code: string): string {
   const cut = code.lastIndexOf('// ---cut---')
   const start = cut === -1 ? 0 : code.indexOf('\n', cut) + 1
   return code
     .slice(start)
     .split('\n')
-    .filter((line) => !line.startsWith('// @'))
+    .filter((line) => !line.startsWith('// @') && !line.includes('^?'))
     .join('\n')
     .trim()
 }
 
-/**
- * When TypeScript can't resolve the package sources (e.g. the root workspace
- * node_modules is missing in CI), twoslash doesn't error — every hover just
- * degrades to `any`. Fail the build instead of deploying that.
- */
-function assertNoAnyHovers(name: string, html: string) {
-  const anyHover = /:\s*any\b|&#x3C;\s*any\b|<\s*any\b/
-  if (anyHover.test(html)) {
-    console.error(
-      `snippet "${name}": hover types degraded to \`any\` — package sources ` +
-        `didn't resolve. Run \`bun install\` at the repo root and retry.`,
+function assertHealthyTypes(name: string, html: string) {
+  if (/:\s*any\b|&#x3C;\s*any\b|<\s*any\b/.test(html)) {
+    throw new Error(
+      `snippet "${name}" contains a degraded any hover; install workspace dependencies and retry`,
     )
-    process.exit(1)
   }
 }
 
@@ -304,12 +170,10 @@ for (const [name, code] of Object.entries(snippets)) {
     theme: 'min-light',
     transformers: [twoslash],
   })
-  assertNoAnyHovers(name, html)
+  assertHealthyTypes(name, html)
   out[name] = { html, code: visibleSource(code) }
   console.log(`snippet ok: ${name}`)
 }
 
 await Bun.write(outFile, JSON.stringify(out, null, 2))
-console.log(
-  `code-snippets: ${Object.keys(out).length} → src/lib/code-snippets.gen.json`,
-)
+console.log(`code-snippets: ${Object.keys(out).length} focused stories`)

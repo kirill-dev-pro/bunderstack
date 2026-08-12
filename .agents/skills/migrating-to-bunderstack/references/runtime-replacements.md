@@ -7,7 +7,7 @@ names; do not change the contracts.
 
 A migrated application has enough configuration to justify `src/bunderstack/`
 with `index.ts`, `schema/`, `access.ts`, `auth.ts`, `env.ts`, `jobs/`, and
-`trpc/`. The entry is the only place that assembles them:
+`api/`. The entry is the only place that assembles them:
 
 ```ts
 import { createBunderstack } from 'bunderstack'
@@ -18,7 +18,7 @@ import { authConfig } from './auth'
 import { envSchema } from './env'
 import { defineJobs } from './jobs'
 import { schema } from './schema'
-import { createAppRouter } from './trpc'
+import * as v from 'valibot'
 
 export async function createApp(options: { databaseUrl?: string } = {}) {
   return createBunderstack({
@@ -31,10 +31,25 @@ export async function createApp(options: { databaseUrl?: string } = {}) {
     },
     auth: authConfig,
     email: { from: process.env.EMAIL_FROM ?? 'App <no-reply@example.com>' },
-    storage: { local: './uploads', defaultBucket: 'files', buckets: { files: { visibility: 'private', access: { create: 'authenticated', get: 'owner', delete: 'owner' } } } },
+    storage: {
+      local: './uploads',
+      defaultBucket: 'files',
+      buckets: {
+        files: {
+          visibility: 'private',
+          access: { create: 'authenticated', get: 'owner', delete: 'owner' },
+        },
+      },
+    },
     realtime: process.env.REDIS_URL ? { redis: process.env.REDIS_URL } : true,
     jobs: defineJobs,
-    trpc: createAppRouter,
+    api: (o) => ({
+      projectStats: o.protected
+        .input(v.object({ projectId: v.string() }))
+        .handler(({ context, input }) =>
+          loadProjectStats(context, input.projectId),
+        ),
+    }),
   })
 }
 
@@ -82,7 +97,8 @@ export const Route = createFileRoute('/api/$')({
 })
 ```
 
-Delete `/api/auth/$`, `/api/trpc/$`, and `/api/cron/*`. A more specific file
+Delete `/api/auth/$`, `/api/trpc/$`, and `/api/cron/*`. The catch-all serves
+Better Auth plus the unified oRPC graph at `/api/rpc/*`. A more specific file
 route wins over the catch-all, so any survivor keeps serving the legacy path.
 Other runtimes adapt their request and response objects to the Web Standard
 pair and delegate to `app.handler`; a standalone Bun process uses
@@ -114,14 +130,17 @@ publishes.
 ## Jobs and cron
 
 ```ts
+import * as v from 'valibot'
+
 export const defineJobs = (jobs) =>
   jobs.define({
     generateReport: jobs.job({
-      input: z.object({ reportId: z.string().min(1) }),
+      input: v.object({ reportId: v.pipe(v.string(), v.minLength(1)) }),
       concurrency: 1,
       timeout: 10 * 60_000,
       handler: async ({ reportId }, ctx) => buildReport(reportId, ctx),
-      onFailed: async ({ reportId }, error, ctx) => markFailed(reportId, error, ctx),
+      onFailed: async ({ reportId }, error, ctx) =>
+        markFailed(reportId, error, ctx),
     }),
     archiveStale: jobs.cron({
       // A cron handler receives the invocation first, then the job context.
@@ -157,6 +176,16 @@ The complete row is required so the access filter can evaluate owner and
 read-scope columns. Do not publish from inside an enclosing transaction, and do
 not publish a partial patch.
 
+Clients subscribe through the typed `realtime.changes` async iterator. Its
+transport emits an internal `heartbeat` during idle periods; the official
+query client consumes it automatically without updating cache state or the
+Publisher resume ID. Delete custom polling, keepalive, SSE registration, and
+client reconnect loops instead of wrapping them around the oRPC stream.
+
+For TanStack DB applications, use `bunderstack-sync`. Successful mutations are
+reconciled from their complete server response without a follow-up `list`
+refetch, and same-row updates are coalesced while a request is in flight.
+
 ## Access
 
 Replace per-endpoint session checks and hand-written SQL filters with
@@ -178,7 +207,7 @@ export const access = defineAccess(schema, {
 ```
 
 Keep auth, internal, and administrative tables out of generated CRUD. Use
-protected tRPC procedures when authorization depends on a related row or a
+`o.protected` procedures when authorization depends on a related row or a
 role; hiding a UI route is not authorization.
 
 ## Storage

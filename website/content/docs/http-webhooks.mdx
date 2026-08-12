@@ -1,0 +1,86 @@
+---
+title: HTTP & Webhooks
+description: Ordinary HTTP routes and signed provider callbacks in the same API graph
+---
+
+# HTTP & Webhooks
+
+An oRPC procedure can be a typed RPC call and an ordinary HTTP endpoint at the
+same time. Use `.route()` for mobile clients, third-party integrations, and
+provider webhooks instead of mounting another router.
+
+## Ordinary HTTP
+
+```ts
+api: (o) => ({
+  status: o.public
+    .route({ method: 'GET', path: '/status' })
+    .input(v.optional(v.object({})))
+    .handler(() => ({ ok: true })),
+})
+```
+
+The handler is available through `api.status.call({})` and `GET /status`.
+
+## Signed webhook
+
+Use `o.webhook` to signal that authentication comes from a provider signature.
+Detailed input exposes headers, query, parameters, and the decoded body while
+`context.getRawBody()` returns the exact bytes reserved before decoding.
+
+```ts
+api: (o) => ({
+  stripeWebhook: o.webhook
+    .route({
+      method: 'POST',
+      path: '/webhooks/stripe',
+      inputStructure: 'detailed',
+    })
+    .input(
+      v.object({
+        params: v.optional(v.object({}), {}),
+        query: v.optional(v.record(v.string(), v.unknown()), {}),
+        headers: v.record(v.string(), v.unknown()),
+        body: v.record(v.string(), v.unknown()),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const rawBody = await context.getRawBody()
+      await verifyStripeSignature(
+        rawBody,
+        input.headers['stripe-signature'],
+        context.env.STRIPE_WEBHOOK_SECRET,
+      )
+      await context.jobs.enqueue('processStripeEvent', input.body)
+      return { received: true }
+    }),
+})
+```
+
+Session lookup stays lazy for public and webhook procedures, so signed provider
+requests do not pay for an unused database lookup.
+
+## Response control
+
+Detailed outputs can specify status and headers for routes that need them.
+Use `context.resHeaders` for response headers shared with the procedure
+contract. File downloads, redirects, and streams may return Web Standard
+`Response`, `Blob`, `File`, or `ReadableStream` values supported by oRPC.
+
+## Rare protocol escape hatch
+
+`app.handler` is a normal `(Request) => Promise<Response>` function. When a
+protocol truly cannot be expressed as an oRPC procedure, wrap it outside
+Bunderstack and delegate everything else:
+
+```ts
+const fetch = (request: Request) => {
+  if (new URL(request.url).pathname === '/special-protocol') {
+    return handleSpecialProtocol(request)
+  }
+  return app.handler(request)
+}
+```
+
+This keeps exceptional protocol code exceptional instead of adding a second
+router and error model to every application.

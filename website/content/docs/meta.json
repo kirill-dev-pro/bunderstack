@@ -3,20 +3,20 @@
   "pages": [
     "index",
     "getting-started",
-    "templates-and-skills",
-    "configuration",
     "crud",
+    "api-procedures",
+    "query-client",
+    "sync-collections",
+    "http-webhooks",
+    "configuration",
     "auth",
-    "trpc",
-    "custom-routes",
     "email",
     "env",
     "background-jobs",
     "storage",
     "thumbnails",
-    "query-client",
-    "sync-collections",
     "framework-portability",
+    "templates-and-skills",
     "api-reference"
   ]
 }

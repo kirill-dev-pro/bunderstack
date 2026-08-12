@@ -1,0 +1,107 @@
+---
+title: API Procedures
+description: Typed application behavior with oRPC and Standard Schema
+---
+
+# API Procedures
+
+Generated CRUD, files, realtime, and your own behavior live in one oRPC graph.
+Add application procedures with the `api` builder callback.
+
+```ts
+import * as v from 'valibot'
+
+const app = await createBunderstack({
+  schema,
+  database,
+  api: (o) => ({
+    stats: o.protected
+      .route({ method: 'GET', path: '/api/board-stats', tags: ['boards'] })
+      .input(v.object({ boardId: v.string() }))
+      .handler(async ({ context, input }) => {
+        const rows = await loadBoardTodos(context.db, input.boardId)
+        return {
+          total: rows.length,
+          done: rows.filter((row) => row.done).length,
+        }
+      }),
+  }),
+})
+```
+
+The client receives `api.stats.call()`, `api.stats.queryOptions()`, and the
+inferred result type. The `.route()` call also exposes the same procedure as
+ordinary HTTP.
+
+## Procedure bases
+
+| Base          | Session behavior                                            | Use it for                           |
+| ------------- | ----------------------------------------------------------- | ------------------------------------ |
+| `o.public`    | Session is resolved only if you call `context.getSession()` | Public application behavior          |
+| `o.protected` | Resolves the session and narrows `context.user`             | User-owned or private behavior       |
+| `o.webhook`   | Public and preserves access to the exact raw body           | Provider callbacks and signed events |
+
+Every handler context contains typed `db` and `env`, plus `storage`, `email`,
+`jobs`, `realtime`, `auth`, `request`, `resHeaders`, `getSession()`, and
+`getRawBody()`.
+
+## Input and output schemas
+
+`.input(schema)` accepts any Standard Schema implementation. Bunderstack
+examples use Valibot, but the framework does not require it from applications.
+
+The handler's return value is the default output type. You do **not** need to
+write an output validator for every procedure.
+
+Use `.output(schema)` when runtime output validation has a concrete purpose:
+
+- the value crosses a third-party trust boundary;
+- output transformation is required;
+- a precise response schema is important in generated OpenAPI.
+
+```ts
+const result = v.object({ id: v.string(), title: v.string() })
+
+createPost: o.protected
+  .input(v.object({ title: v.pipe(v.string(), v.minLength(1)) }))
+  .output(result)
+  .handler(async ({ context, input }) => createPost(context, input))
+```
+
+This is output validation by choice, not ceremony.
+
+## Typed errors
+
+Bunderstack installs one shared error contract across generated and custom
+procedures. Authentication, access, validation, conflicts, rate limits, and
+internal failures use stable error codes and HTTP status mappings. Errors
+thrown by framework facilities are normalized through that contract, so clients
+do not need a second error model for generated CRUD.
+
+## Organizing larger APIs
+
+The builder returns a normal nested oRPC router shape. Group by domain rather
+than creating a second transport layer:
+
+```ts
+api: (o) => ({
+  projects: {
+    archive: o.protected
+      .input(v.object({ id: v.string() }))
+      .handler(({ context, input }) => archiveProject(context, input.id)),
+  },
+})
+```
+
+Procedure names may not collide with generated tables or reserved namespaces
+such as `files`, `realtime`, and `health`; collisions fail at startup.
+
+## OpenAPI
+
+Set `openapi: true` to serve `/api/openapi.json`. Route metadata and Standard
+Schema inputs are projected into the document. RPC remains the source of type
+safety; OpenAPI is useful for mobile code generation, external consumers, and
+API inspection without becoming a second implementation.
+
+See [HTTP & Webhooks](/docs/http-webhooks) for detailed HTTP inputs, signature
+verification, and raw responses.
