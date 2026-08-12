@@ -2,6 +2,75 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.17.0-beta.2] - 2026-08-12
+
+Migration guide: [`docs/MIGRATION-0.17.md`](../../docs/MIGRATION-0.17.md).
+
+### Breaking
+
+- **Generated `list` takes a typed, nested `filters` object.** Filter, sort, and
+  paging parameters are now declared by a per-table schema derived from the
+  table's columns and its `access` allowlists, and query strings are coerced to
+  those types by oRPC's `SmartCoercionHandlerPlugin`. `?filters[authorId]=u1`
+  replaces `?authorId=u1`, `?filters[id][]=a&filters[id][]=b` replaces the
+  comma-separated `?id=a,b`, and a bare query param is now a 400 instead of a
+  silent filter. On the client, `filters` autocompletes to real columns and
+  rejects wrong value types at compile time.
+- **Error codes are oRPC's own codes.** `VALIDATION_ERROR` → `BAD_REQUEST`,
+  `RATE_LIMITED` → `TOO_MANY_REQUESTS`. `BUNDERSTACK_ERROR_STATUS_MAP` is
+  removed along with the handlers' `errorStatusMap` override.
+- **Realtime events and subscriptions name tables by schema key**, not SQL table
+  name, so one name works for procedures, subscriptions, and events. Only
+  affects apps whose schema key differs from the table name.
+- **`ScopedCollectionOptions.filter` → `filters`** in `bunderstack-sync`, and
+  `table.list(input)` forwards its input to the procedure unchanged.
+- **`filterableColumns` / `sortableColumns` no longer reject** column names like
+  `limit` or `sort`; nesting removed the collision that made the rule necessary.
+
+### Fixed
+
+- **Client errors answer 4xx instead of 500.** Because the custom status map had
+  no entry for oRPC's own codes, every schema failure and every rate-limit
+  rejection answered HTTP 500 with a 4xx code in the body — on both REST and
+  RPC. Validation responses now also carry `details` naming the failing field.
+- **REST list parameters work.** `?offset=` and `?count=` failed validation
+  because only `limit` was coerced from its query string; numeric, boolean, and
+  date filters had no way through at all.
+- **`operations.list` no longer reads the raw request URL.** The validated input
+  is the only source, so a query param can no longer bypass the procedure schema
+  and reach the WHERE clause.
+- **Realtime updates reach sync collections** for tables whose schema key is not
+  the SQL name; they previously degraded to refetch-only.
+- **Packages compile under a consumer's `noUnusedLocals`.** Type-probe files are
+  excluded from the tarball, unused imports are gone, and every package builds
+  with the flag on so this cannot rot again (`scripts/published-sources.test.ts`).
+
+### Added
+
+- **`ApiContext` is exported**, so shared middleware can be declared as
+  `os.$context<ApiContext<typeof schema>>()` instead of over a hand-written
+  minimal context.
+- `@orpc/json-schema` as a direct dependency (query/body coercion plugin).
+
+## [0.17.0-beta.0] - 2026-08-11
+
+The oRPC-first redesign: one procedure graph for CRUD, storage, realtime, and
+custom procedures, served as RPC at `/api/rpc/*` and REST/OpenAPI at `/api/*`.
+
+### Breaking
+
+- **tRPC is replaced by oRPC.** `trpc:` → `api:`, `.query()`/`.mutation()` →
+  `.handler()`, `ctx` → `context`. `@trpc/server` is no longer a dependency.
+- **Validation is Standard Schema** (valibot in the box; zod and arktype work,
+  with valibot the only vendor the bundled OpenAPI generator can convert).
+- **Realtime runs on oRPC Publisher** as an event-iterator procedure at
+  `/api/realtime`, with heartbeats and `Last-Event-ID` resume; the previous
+  in-house broker is gone.
+- **Storage and CRUD are procedures**, not bespoke Hono handlers.
+- **`bunderstack-query` exposes oRPC's TanStack Query utilities.**
+  `queryOptions(input, opts)` → `queryOptions({ input, ...opts })`,
+  `keys.all` → `key()`; `listQuery`/`getQuery` are gone.
+
 ## [0.16.0] - 2026-08-07
 
 ### Breaking
@@ -33,6 +102,50 @@ All notable changes to `bunderstack` will be documented in this file.
 - **`bunderstack/cron` no longer imports a deleted module.** The entry point was broken at runtime.
 - **Succeeded-row reaping moved off the per-tick path** to at most hourly. Retention is unchanged at 24h.
 - `tableEntryForName` is defined once in `access.ts` instead of copied into four modules, so CRUD, realtime, and route validation cannot disagree on which tables are enabled.
+
+## [0.15.2] - 2026-08-05
+
+### Fixed
+
+- S3 uploads carry the correct content type.
+- Documented the nested `node_modules` resolution issue for consumers.
+
+## [0.15.1] - 2026-08-04
+
+### Fixed
+
+- Blueprint generator tests use a cross-platform temp directory; the CLI is
+  marked executable.
+
+## [0.15.0] - 2026-08-04
+
+### Added
+
+- **Deployment blueprints** (`bunderstack blueprint`) — static deploy metadata a
+  hosting platform can read without executing application code.
+
+## [0.13.0] - 2026-08-01
+
+### Added
+
+- **`StorageFacade.upload()`** for server-generated files.
+- Nested file paths in the storage `GET`/`DELETE` routes.
+
+## [0.12.0] - 2026-07-31
+
+### Added
+
+- **`storage` in the procedure context**, alongside `db`, `env`, and the rest.
+
+### Fixed
+
+- Presign fallback uses the configured default bucket.
+
+## [0.11.0] - 2026-07-30
+
+### Added
+
+- **`BunderstackJobContext`** exported as a type alias for typing job handlers.
 
 ## [0.10.0] - 2026-07-28
 

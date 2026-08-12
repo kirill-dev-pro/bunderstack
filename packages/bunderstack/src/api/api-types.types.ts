@@ -33,10 +33,10 @@ type ImplicitTables = ExposedApiTables<
   { posts: typeof posts; ownedPosts: typeof ownedPosts },
   undefined
 >
-type _ImplicitAccessHidesUnownedTable = Expect<
+export type _ImplicitAccessHidesUnownedTable = Expect<
   Equal<'posts' extends ImplicitTables ? true : false, false>
 >
-type _ImplicitAccessIncludesConventionTable = Expect<
+export type _ImplicitAccessIncludesConventionTable = Expect<
   Equal<'ownedPosts' extends ImplicitTables ? true : false, true>
 >
 
@@ -58,9 +58,10 @@ const typedApp = await createBunderstack({
         v.object({ period: v.picklist(['day', 'week']), userId: v.string() }),
       )
       .handler(async ({ input, context }) => {
-        const _userId: string = context.user.id
-        const _db = context.db
-        const _env = context.env
+        // protected context carries a user, the db, and validated env
+        void (context.user.id satisfies string)
+        void context.db
+        void context.env
         return {
           period: input.period,
           userId: context.user.id,
@@ -71,11 +72,11 @@ const typedApp = await createBunderstack({
 
 type Api = NonNullable<typeof typedApp.$inferClient>['api']
 
-type _HasPosts = Expect<Equal<'posts' extends keyof Api ? true : false, true>>
-type _HidesPrivateNotes = Expect<
+export type _HasPosts = Expect<Equal<'posts' extends keyof Api ? true : false, true>>
+export type _HidesPrivateNotes = Expect<
   Equal<'privateNotes' extends keyof Api ? true : false, false>
 >
-type _HasStats = Expect<Equal<'stats' extends keyof Api ? true : false, true>>
+export type _HasStats = Expect<Equal<'stats' extends keyof Api ? true : false, true>>
 
 type PostsInputs = InferRouterInputs<Api>['posts']
 type PostsOutputs = InferRouterOutputs<Api>['posts']
@@ -87,20 +88,20 @@ type ExpectedUpdateInput = {
   body: { title?: string }
 }
 
-type _CreateInput = Expect<
+export type _CreateInput = Expect<
   Equal<
     PostsInputs['create'],
     Partial<typeof posts.$inferInsert>
   >
 >
-type _GetInput = Expect<Equal<PostsInputs['get'], { id: string }>>
-type _UpdateInputToExpected = Expect<
+export type _GetInput = Expect<Equal<PostsInputs['get'], { id: string }>>
+export type _UpdateInputToExpected = Expect<
   PostsInputs['update'] extends ExpectedUpdateInput ? true : false
 >
-type _ExpectedToUpdateInput = Expect<
+export type _ExpectedToUpdateInput = Expect<
   ExpectedUpdateInput extends PostsInputs['update'] ? true : false
 >
-type _ListItems = Expect<
+export type _ListItems = Expect<
   Equal<PostsOutputs['list']['items'], Array<{ id: string; title: string }>>
 >
-type _GetOutputIsTyped = Expect<Equal<IsAny<PostsOutputs['get']>, false>>
+export type _GetOutputIsTyped = Expect<Equal<IsAny<PostsOutputs['get']>, false>>

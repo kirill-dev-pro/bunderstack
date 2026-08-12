@@ -21,7 +21,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import type * as schema from '~/schema'
 
-import { api, listInput, listParams, queryClient } from '~/api-client'
+import { api, listParams, queryClient } from '~/api-client'
 import { BoardSettingsDialog } from '~/components/BoardSettingsDialog'
 import { CardDialog } from '~/components/CardDialog'
 import { cardCoverFromAttachments, KanbanCard } from '~/components/KanbanCard'
@@ -58,12 +58,12 @@ export const Route = createFileRoute('/boards/$boardId')({
       )
       await Promise.all([
         queryClient.ensureQueryData(
-          api.lists.list.queryOptions({ input: listInput({ boardId, ...listParams }) }),
+          api.lists.list.queryOptions({ input: { filters: { boardId }, ...listParams } }),
         ),
         queryClient.ensureQueryData(
-          api.cards.list.queryOptions({ input: listInput({ boardId, limit: 500 }) }),
+          api.cards.list.queryOptions({ input: { filters: { boardId }, limit: 500 } }),
         ),
-        queryClient.ensureQueryData(api.user.list.queryOptions({ input: listInput(listParams) })),
+        queryClient.ensureQueryData(api.user.list.queryOptions({ input: listParams })),
       ])
       return board
     } catch (err) {
@@ -94,21 +94,21 @@ function BoardPage() {
   }, [])
 
   const { data: listsData, isLoading: listsLoading } = useQuery(
-    api.lists.list.queryOptions({ input: listInput({ boardId, ...listParams }) }),
+    api.lists.list.queryOptions({ input: { filters: { boardId }, ...listParams } }),
   )
   const { data: cardsData } = useQuery(
-    api.cards.list.queryOptions({ input: listInput({ boardId, limit: 500 }) }),
+    api.cards.list.queryOptions({ input: { filters: { boardId }, limit: 500 } }),
   )
   const { data: commentsData } = useQuery(
-    api.comments.list.queryOptions({ input: listInput({ limit: 500 }) }),
+    api.comments.list.queryOptions({ input: { limit: 500 } }),
   )
   const { data: attachmentsData } = useQuery(
-    api.attachments.list.queryOptions({ input: listInput({ limit: 500 }) }),
+    api.attachments.list.queryOptions({ input: { limit: 500 } }),
   )
   const { data: reactionsData } = useQuery(
-    api.reactions.list.queryOptions({ input: listInput({ limit: 500 }) }),
+    api.reactions.list.queryOptions({ input: { limit: 500 } }),
   )
-  const { data: usersData } = useQuery(api.user.list.queryOptions({ input: listInput(listParams) }))
+  const { data: usersData } = useQuery(api.user.list.queryOptions({ input: listParams }))
 
   const { data: members } = useQuery({
     queryKey: ['org-members', boardId],

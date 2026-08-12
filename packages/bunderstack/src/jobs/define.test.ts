@@ -47,9 +47,9 @@ test('j.job and j.cron produce discriminated definitions', () => {
   expect(defs.hourly.kind).toBe('cron')
   expect(defs.hourly.schedule).toBe('0 * * * *')
 
-  type _schedule = Expect<
+  void (0 as unknown as Expect<
     Equal<(typeof defs)['hourly']['schedule'], '0 * * * *'>
-  >
+  >)
 })
 
 test('cron rejects invalid expressions', () => {

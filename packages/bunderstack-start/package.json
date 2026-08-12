@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-start",
-  "version": "0.17.0-beta.1",
+  "version": "0.17.0-beta.2",
   "description": "TanStack Start integration for bunderstack: isomorphic fetch wiring, auth client, and query/sync setup for SSR apps.",
   "keywords": [
     "auth",
@@ -20,6 +20,7 @@
   "files": [
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.types.ts",
     "README.md",
     "LICENSE"
   ],

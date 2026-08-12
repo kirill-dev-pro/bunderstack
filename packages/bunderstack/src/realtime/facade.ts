@@ -1,4 +1,9 @@
-import { getTableName, type InferSelectModel, type Table } from 'drizzle-orm'
+import {
+  getTableName,
+  isTable,
+  type InferSelectModel,
+  type Table,
+} from 'drizzle-orm'
 
 import type {
   RealtimeAction,
@@ -25,9 +30,17 @@ export interface RealtimeFacade<
   ): Promise<void>
 }
 
+/**
+ * One name for a table everywhere: events, subscriptions, and the CRUD router
+ * all use the schema key. Pass the schema so a key like `creditBalances` is not
+ * published as its SQL name `credit_balances` — clients subscribe with the key
+ * they call procedures with. Without a schema, the SQL name is the only name
+ * available and is used as-is.
+ */
 export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
   publisher?: RealtimePublisher,
   transport: RealtimeTransport = publisher ? 'memory' : 'disabled',
+  schema?: TSchema,
 ): RealtimeFacade<TSchema> {
   if (!publisher && transport !== 'disabled') {
     throw new Error(
@@ -40,13 +53,19 @@ export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
     )
   }
 
+  const keyByTableName = new Map<string, string>()
+  for (const [key, value] of Object.entries(schema ?? {})) {
+    if (isTable(value)) keyByTableName.set(getTableName(value), key)
+  }
+
   return {
     enabled: publisher !== undefined,
     transport,
     async publish(table, action, record) {
       if (!publisher) return
+      const tableName = getTableName(table)
       await publisher.publish('change', {
-        table: getTableName(table),
+        table: keyByTableName.get(tableName) ?? tableName,
         action,
         record: record as unknown as Record<string, unknown>,
       })

@@ -32,16 +32,3 @@ export const api = createClient<App>({
   fetch: (request) => isomorphicFetch(request),
 })
 
-export function listInput(params: Record<string, any>) {
-  const { limit, offset, cursor, sort, order, q, count, ...filters } = params
-  return { limit, offset, cursor, sort, order, q, count, filters } as {
-    limit?: number
-    offset?: number
-    cursor?: string
-    sort?: string
-    order?: 'asc' | 'desc'
-    q?: string
-    count?: boolean
-    filters?: Record<string, unknown>
-  }
-}

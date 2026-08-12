@@ -3,7 +3,6 @@ import {
   createClient,
   type AnyBunderstackApp,
   type BunderstackClient,
-  type InferBuckets,
   type InferInsert,
   type InferSchema,
   type InferSelect,

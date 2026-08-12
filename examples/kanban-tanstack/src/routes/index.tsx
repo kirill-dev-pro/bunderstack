@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { api, listInput, listParams, queryClient } from '~/api-client'
+import { api, listParams, queryClient } from '~/api-client'
 import { KanbanShell } from '~/components/KanbanShell'
 import { useToastMutation } from '~/hooks/useToastMutation'
 import { boardTileClass } from '~/lib/board-backgrounds'
@@ -16,7 +16,7 @@ export const Route = createFileRoute('/')({
   },
   loader: async () => {
     await queryClient.ensureQueryData(
-      api.boards.list.queryOptions({ input: listInput({ ...listParams, limit: 50 }) }),
+      api.boards.list.queryOptions({ input: { ...listParams, limit: 50 } }),
     )
   },
   component: BoardsPage,
@@ -58,7 +58,7 @@ function BoardsPage() {
   })
 
   const { data, isLoading } = useQuery(
-    api.boards.list.queryOptions({ input: listInput({ ...listParams, limit: 50 }) }),
+    api.boards.list.queryOptions({ input: { ...listParams, limit: 50 } }),
   )
 
   const createBoard = useToastMutation({

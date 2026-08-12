@@ -105,7 +105,7 @@ function PostThread({
   // survives re-renders and "load more" refetches in place instead of
   // swapping in a brand new collection.
   const repliesWindow = api.posts.scopedCollection({
-    filter: { replyToId: postId },
+    filters: { replyToId: postId },
     sort: 'createdAt',
     order: 'asc',
   })

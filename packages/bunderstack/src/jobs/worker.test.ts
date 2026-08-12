@@ -248,7 +248,7 @@ test('malformed stored payload fails immediately without retries', async () => {
   expect(row?.attempts).toBe(1)
 })
 
-import { and, eq as eqOp } from 'drizzle-orm'
+import { eq as eqOp } from 'drizzle-orm'
 
 import { CRON_PREFIX, SLOT_MS } from './slots'
 

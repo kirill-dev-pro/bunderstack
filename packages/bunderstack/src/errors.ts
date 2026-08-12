@@ -1,29 +1,30 @@
-import { ORPCError, os, type ErrorMap } from '@orpc/server'
+import {
+  COMMON_ERROR_STATUS_MAP,
+  ORPCError,
+  os,
+  type ErrorMap,
+} from '@orpc/server'
 import * as v from 'valibot'
 
 import { StandardSchemaValidationError } from './standard-schema'
 
+/**
+ * Every code we raise is one oRPC already knows, so handlers derive the HTTP
+ * status from `COMMON_ERROR_STATUS_MAP` on their own and clients can use the
+ * standard `isDefinedError` helpers. Do not add a code oRPC has no status for —
+ * it would silently answer 500.
+ */
 export const BUNDERSTACK_ERROR_CODES = [
-  'VALIDATION_ERROR',
+  'BAD_REQUEST',
   'UNAUTHORIZED',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
   'PAYLOAD_TOO_LARGE',
-  'RATE_LIMITED',
-] as const
+  'TOO_MANY_REQUESTS',
+] as const satisfies readonly (keyof typeof COMMON_ERROR_STATUS_MAP)[]
 
 export type BunderstackErrorCode = (typeof BUNDERSTACK_ERROR_CODES)[number]
-
-export const BUNDERSTACK_ERROR_STATUS_MAP = {
-  VALIDATION_ERROR: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  PAYLOAD_TOO_LARGE: 413,
-  RATE_LIMITED: 429,
-} as const satisfies Record<BunderstackErrorCode, number>
 
 function errorDataSchema<const TCode extends BunderstackErrorCode>(
   code: TCode,
@@ -35,13 +36,13 @@ function errorDataSchema<const TCode extends BunderstackErrorCode>(
 }
 
 export const BUNDERSTACK_ERRORS = {
-  VALIDATION_ERROR: { data: errorDataSchema('VALIDATION_ERROR') },
+  BAD_REQUEST: { data: errorDataSchema('BAD_REQUEST') },
   UNAUTHORIZED: { data: errorDataSchema('UNAUTHORIZED') },
   FORBIDDEN: { data: errorDataSchema('FORBIDDEN') },
   NOT_FOUND: { data: errorDataSchema('NOT_FOUND') },
   CONFLICT: { data: errorDataSchema('CONFLICT') },
   PAYLOAD_TOO_LARGE: { data: errorDataSchema('PAYLOAD_TOO_LARGE') },
-  RATE_LIMITED: { data: errorDataSchema('RATE_LIMITED') },
+  TOO_MANY_REQUESTS: { data: errorDataSchema('TOO_MANY_REQUESTS') },
 } as const satisfies ErrorMap
 
 export class BunderstackError extends Error {
@@ -55,7 +56,7 @@ export class BunderstackError extends Error {
   ) {
     super(message, options)
     this.name = 'BunderstackError'
-    this.status = BUNDERSTACK_ERROR_STATUS_MAP[code]
+    this.status = COMMON_ERROR_STATUS_MAP[code]
   }
 }
 
@@ -68,7 +69,7 @@ export const mapBunderstackErrors = os
       const mapped =
         error instanceof StandardSchemaValidationError
           ? new BunderstackError(
-              'VALIDATION_ERROR',
+              'BAD_REQUEST',
               error.message,
               error.issues,
               { cause: error },
@@ -87,14 +88,18 @@ export const mapBunderstackErrors = os
     }
   })
 
-/** @deprecated Legacy internal error codes retained for list-query compatibility. */
+/**
+ * Sub-codes carried in `data.details.code` when the oRPC code alone loses
+ * information the client may want to branch on. Codes that duplicate an oRPC
+ * code are suppressed as redundant, see {@link CrudOperationError}.
+ */
 export const ErrorCode = {
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  BAD_REQUEST: 'BAD_REQUEST',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   INVALID_CURSOR: 'INVALID_CURSOR',
-  RATE_LIMITED: 'RATE_LIMITED',
+  TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   IDEMPOTENCY_REPLAY: 'IDEMPOTENCY_REPLAY',
   IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
 } as const
@@ -107,7 +112,7 @@ export class ListQueryError extends Error {
 
   constructor(
     message: string,
-    code: ErrorCodeValue = ErrorCode.VALIDATION_ERROR,
+    code: ErrorCodeValue = ErrorCode.BAD_REQUEST,
     details?: unknown,
   ) {
     super(message)

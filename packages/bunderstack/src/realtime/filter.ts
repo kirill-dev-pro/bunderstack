@@ -33,7 +33,11 @@ export async function* filterRealtimeChanges(
   const getSession = () => (sessionPromise ??= options.getSession())
 
   for await (const change of source) {
-    const entry = tableEntryForName(options.access, change.table)
+    // Events name tables by schema key; the SQL-name lookup stays as a fallback
+    // for publishers outside the CRUD path that only know the physical name.
+    const entry =
+      options.access.get(change.table) ??
+      tableEntryForName(options.access, change.table)
     if (!entry?.enabled) continue
 
     const recordId = change.record.id

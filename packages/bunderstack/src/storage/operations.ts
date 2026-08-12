@@ -187,7 +187,7 @@ export function createStorageOperations(options: StorageOperationsOptions) {
 
       if (!matchMime(file.type, bucket.upload?.accept)) {
         throw new BunderstackError(
-          'VALIDATION_ERROR',
+          'BAD_REQUEST',
           `Content type ${file.type || '(none)'} not allowed`,
         )
       }
@@ -255,7 +255,7 @@ export function createStorageOperations(options: StorageOperationsOptions) {
         await adapter.delete(fileId)
         await deleteFileMetaRow(db, fileId)
         throw new BunderstackError(
-          validation ? 'VALIDATION_ERROR' : 'PAYLOAD_TOO_LARGE',
+          validation ? 'BAD_REQUEST' : 'PAYLOAD_TOO_LARGE',
           message,
         )
       }
@@ -308,7 +308,7 @@ export function createStorageOperations(options: StorageOperationsOptions) {
       if (spec) {
         if (!bucket.transforms) {
           throw new BunderstackError(
-            'VALIDATION_ERROR',
+            'BAD_REQUEST',
             'Transforms not enabled for this bucket',
           )
         }

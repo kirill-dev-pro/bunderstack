@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type * as schema from '~/schema'
 
-import { api, listInput } from '~/api-client'
+import { api } from '~/api-client'
 import { ActivityList } from '~/components/ActivityList'
 import { AttachmentGallery } from '~/components/AttachmentGallery'
 import { ReactionBar } from '~/components/ReactionBar'
@@ -52,7 +52,7 @@ export function CardDialog({
   })
 
   const { data: comments, refetch: refetchComments } = useQuery({
-    ...api.comments.list.queryOptions({ input: listInput({ cardId: cardId ?? '', limit: 100 }) }),
+    ...api.comments.list.queryOptions({ input: { filters: { cardId: cardId ?? '' }, limit: 100 } }),
     enabled: !!cardId,
   })
 

@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { byColumnIn, feedParams, infiniteListInput, listInput } from '~/api-client'
+import { byColumnIn, feedParams, infiniteListInput } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import {
   ComposePostDialog,
@@ -34,19 +34,19 @@ export const Route = createFileRoute('/')({
 
     await Promise.all([
       queryClient.ensureQueryData(
-        api.user.list.queryOptions({ input: listInput(byColumnIn('id', authorIds)) }),
+        api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
       ),
       queryClient.ensureQueryData(
-        api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+        api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
       ),
       queryClient.ensureQueryData(
-        api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+        api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
       ),
-      queryClient.ensureQueryData(api.user.list.queryOptions({ input: listInput({ limit: 20 }) })),
+      queryClient.ensureQueryData(api.user.list.queryOptions({ input: { limit: 20 } })),
       ...(user
         ? [
             queryClient.ensureQueryData(
-              api.follows.list.queryOptions({ input: listInput(byColumnIn('followerId', [user.id])) }),
+              api.follows.list.queryOptions({ input: byColumnIn('followerId', [user.id]) }),
             ),
           ]
         : []),
@@ -81,27 +81,27 @@ function FeedPage() {
 
   // Scoped to exactly the posts on this page — not the whole table.
   const { data: usersData } = useQuery({
-    ...api.user.list.queryOptions({ input: listInput(byColumnIn('id', authorIds)) }),
+    ...api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
     enabled: authorIds.length > 0,
   })
   const { data: likesData } = useQuery({
-    ...api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   const { data: retweetsData } = useQuery({
-    ...api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   // The current user's own follow edges — bounded by how many people they
   // follow, unlike fetching every row in the follows table.
   const { data: myFollowsData } = useQuery({
-    ...api.follows.list.queryOptions({ input: listInput(byColumnIn('followerId', user ? [user.id] : [])) }),
+    ...api.follows.list.queryOptions({ input: byColumnIn('followerId', user ? [user.id] : []) }),
     enabled: !!user,
   })
   // A small, intentionally non-exhaustive sample to source "Who to follow"
   // suggestions from.
   const { data: suggestionPoolData } = useQuery(
-    api.user.list.queryOptions({ input: listInput({ limit: 20 }) }),
+    api.user.list.queryOptions({ input: { limit: 20 } }),
   )
 
   const likes = likesData

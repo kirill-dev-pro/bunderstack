@@ -101,7 +101,7 @@ function UserProfile({
   // survives re-renders and "load more" refetches in place instead of
   // swapping in a brand new collection.
   const userPosts = api.posts.scopedCollection({
-    filter: { userId },
+    filters: { userId },
     sort: 'createdAt',
     order: 'desc',
   })

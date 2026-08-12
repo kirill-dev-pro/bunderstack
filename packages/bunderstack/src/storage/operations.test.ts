@@ -179,7 +179,7 @@ test('upload enforces MIME, size, and per-user quota', async () => {
       new File(['x'], 'x.png', { type: 'image/png' }),
       context('u1'),
     ),
-  ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+  ).rejects.toMatchObject({ code: 'BAD_REQUEST' })
   await expect(
     limited.upload(
       'docs',

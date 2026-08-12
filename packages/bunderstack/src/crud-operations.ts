@@ -17,7 +17,6 @@ import {
   tableEntryForName,
   type AccessUser,
   type ResolvedAccess,
-  type ResolvedTableAccess,
   type ScopeMap,
   type ScopeResolver,
 } from './access'
@@ -34,7 +33,12 @@ import {
   storeIdempotency,
   type IdempotencyConfig,
 } from './idempotency'
-import { executeList, parseListParams, type ListResult } from './list-query'
+import {
+  executeList,
+  resolveListParams,
+  type ListParamsInput,
+  type ListResult,
+} from './list-query'
 import { buildScopeWhere } from './scope'
 
 export interface CrudExecutionContext {
@@ -49,8 +53,8 @@ function errorCodeForStatus(status: number): BunderstackErrorCode {
   if (status === 404) return 'NOT_FOUND'
   if (status === 409) return 'CONFLICT'
   if (status === 413) return 'PAYLOAD_TOO_LARGE'
-  if (status === 429) return 'RATE_LIMITED'
-  return 'VALIDATION_ERROR'
+  if (status === 429) return 'TOO_MANY_REQUESTS'
+  return 'BAD_REQUEST'
 }
 
 export class CrudOperationError extends BunderstackError {
@@ -165,7 +169,7 @@ export function createCrudOperations<
     if (!idCol) {
       throw new CrudOperationError(
         400,
-        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.BAD_REQUEST,
         `Table ${tableName} has no id column`,
       )
     }
@@ -175,7 +179,7 @@ export function createCrudOperations<
   return {
     async list(
       tableName: string,
-      paramsInput: URL | Record<string, unknown> | undefined,
+      params: ListParamsInput | undefined,
       ctx: CrudExecutionContext,
     ): Promise<ListResult<Record<string, unknown>>> {
       const { table, tableAccess, idCol } = resolveTable(tableName)
@@ -193,29 +197,15 @@ export function createCrudOperations<
         )
       }
 
-      let urlObj: URL
-      if (paramsInput instanceof URL) {
-        urlObj = paramsInput
-      } else {
-        urlObj = new URL(ctx.request.url || 'http://localhost')
-        if (paramsInput) {
-          for (const [k, v] of Object.entries(paramsInput)) {
-            if (v !== undefined && v !== null) {
-              urlObj.searchParams.set(k, String(v))
-            }
-          }
-        }
-      }
-
       try {
-        const params = parseListParams(urlObj, tableAccess)
+        const resolved = resolveListParams(params ?? {}, tableAccess)
         const scope = scopeFor(tableAccess.readScope, ctx)
         const scopeWhere = scope ? buildScopeWhere(table, scope) : undefined
         return await executeList(
           db,
           table,
           tableAccess,
-          params,
+          resolved,
           idCol,
           scopeWhere,
         )
@@ -290,7 +280,7 @@ export function createCrudOperations<
       if (!isRecord(body)) {
         throw new CrudOperationError(
           400,
-          ErrorCode.VALIDATION_ERROR,
+          ErrorCode.BAD_REQUEST,
           'Invalid JSON body',
         )
       }
@@ -407,7 +397,7 @@ export function createCrudOperations<
       if (!isRecord(body)) {
         throw new CrudOperationError(
           400,
-          ErrorCode.VALIDATION_ERROR,
+          ErrorCode.BAD_REQUEST,
           'Invalid JSON body',
         )
       }
@@ -422,7 +412,7 @@ export function createCrudOperations<
       if (Object.keys(values).length === 0) {
         throw new CrudOperationError(
           400,
-          ErrorCode.VALIDATION_ERROR,
+          ErrorCode.BAD_REQUEST,
           'No writable fields to update',
         )
       }

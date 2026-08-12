@@ -19,6 +19,7 @@ import {
   type TableAccessInput,
 } from '../access'
 import { createCrudOperations, type CrudOperations } from '../crud-operations'
+import { MAX_LIST_LIMIT } from '../list-query'
 import { createApiBuilder } from './builder'
 
 export type CrudApiRouterOptions<
@@ -37,6 +38,40 @@ function strictObject<TEntries extends v.ObjectEntries>(schema: {
 
 type CrudInsert<TTable extends Table> = Partial<TTable['$inferInsert']>
 
+/** A filter accepts one value (`=`), a list (`IN`), or null (`IS NULL`). */
+export type ListFilterValue<T> = T | readonly T[] | null | 'null'
+
+export type ListFilters<
+  TTable extends Table,
+  TFilterable extends string,
+> = {
+  [K in Extract<keyof TTable['$inferSelect'], TFilterable>]?: ListFilterValue<
+    TTable['$inferSelect'][K]
+  >
+}
+
+/**
+ * The `list` input as callers see it. Filter columns and sortable columns come
+ * from the table's `access` entry, so `filters` autocompletes to real columns
+ * and rejects wrong value types at compile time.
+ */
+export type ListInputFor<
+  TTable extends Table,
+  TFilterable extends string,
+  TSortable extends string,
+> =
+  | {
+      limit?: number
+      offset?: number
+      cursor?: string
+      sort?: TSortable
+      order?: 'asc' | 'desc'
+      q?: string
+      count?: boolean
+      filters?: ListFilters<TTable, TFilterable>
+    }
+  | undefined
+
 export type BuildTableCrudProceduresArgs<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
@@ -50,6 +85,8 @@ export type BuildTableCrudProceduresArgs<
 export function buildTableCrudProcedures<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
+  TFilterable extends string = string,
+  TSortable extends string = string,
 >(args: BuildTableCrudProceduresArgs<TSchema, TTable>) {
   const { table, operations, builder, access } = args
   const name = getTableName(table)
@@ -89,24 +126,52 @@ export function buildTableCrudProcedures<
     body: strictObject(updateBodySchema),
   })
 
+  // One filter field per allowed column, typed by the column itself: a scalar
+  // for `=`, a list for `IN`, and `null` for `IS NULL`. Query strings are
+  // coerced to these types by SmartCoercionHandlerPlugin, so REST and RPC share
+  // one contract and nothing has to re-read the raw URL.
+  const selectEntries = createSelectSchema(table).entries as Record<
+    string,
+    v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>
+  >
+  const filterEntries: v.ObjectEntries = {}
+  for (const column of access.filterableColumns) {
+    const base = selectEntries[column]
+    if (!base) continue
+    filterEntries[column] = v.optional(
+      v.union([
+        // `?filters[col]=null` — a query string cannot carry a real null.
+        v.pipe(
+          v.literal('null'),
+          v.transform(() => null),
+        ),
+        base,
+        v.pipe(v.array(base), v.maxLength(MAX_LIST_LIMIT)),
+        v.null(),
+      ]),
+    )
+  }
+
+  // Built from runtime column lists, so the schema's own inferred type cannot
+  // name the columns; the cast restates it with the literals the caller's
+  // `access` config carries. Runtime shape and this type are the same object.
   const listQuerySchema = v.optional(
     v.strictObject({
-      limit: v.optional(
-        v.pipe(
-          v.union([v.string(), v.number()]),
-          v.transform(Number),
-          v.number(),
-        ),
-      ),
-      offset: v.optional(v.number()),
+      limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+      offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
       cursor: v.optional(v.string()),
-      sort: v.optional(v.string()),
+      sort: v.optional(v.picklist(access.sortableColumns)),
       order: v.optional(v.picklist(['asc', 'desc'])),
-      q: v.optional(v.string()),
+      q: v.optional(v.pipe(v.string(), v.maxLength(100))),
       count: v.optional(v.boolean()),
-      filters: v.optional(v.record(v.string(), v.unknown())),
+      // Always present, even with no filterable columns: clients send `{}`.
+      filters: v.optional(v.strictObject(filterEntries)),
     }),
-  )
+  ) as unknown as v.GenericSchema<
+    ListInputFor<TTable, TFilterable, TSortable>,
+    ListInputFor<TTable, TFilterable, TSortable>
+  >
+
 
   const listOutputSchema = v.strictObject({
     items: v.array(selectSchema),
@@ -138,16 +203,7 @@ export function buildTableCrudProcedures<
         user: session.user,
         session: { activeOrganizationId: session.activeOrganizationId },
       }
-      const { filters, count, ...query } = input ?? {}
-      const result = await operations.list(
-        name,
-        {
-          ...query,
-          ...(filters ?? {}),
-          ...(count === undefined ? {} : { count: String(count) }),
-        },
-        execCtx,
-      )
+      const result = await operations.list(name, input ?? {}, execCtx)
       return {
         ...result,
         items: result.items as TTable['$inferSelect'][],
@@ -273,8 +329,17 @@ export function buildTableCrudProcedures<
   }
 }
 
-export type TableCrudProcedures<TTable extends Table> = ReturnType<
-  typeof buildTableCrudProcedures<Record<string, unknown>, TTable>
+export type TableCrudProcedures<
+  TTable extends Table,
+  TFilterable extends string = string,
+  TSortable extends string = string,
+> = ReturnType<
+  typeof buildTableCrudProcedures<
+    Record<string, unknown>,
+    TTable,
+    TFilterable,
+    TSortable
+  >
 >
 
 export function buildCrudApiRouter<

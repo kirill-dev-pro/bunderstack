@@ -1,6 +1,7 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 // src/index.ts
 
+import { SmartCoercionHandlerPlugin } from '@orpc/json-schema'
 import { OpenAPIGenerator, OpenAPIGeneratorError } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { RPCHandler } from '@orpc/server/fetch'
@@ -9,7 +10,6 @@ import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 import type { TableAccessInput } from './access'
 import type {
   CrudApiRouterFor,
-  ExposedApiTables,
   MergeApiRouterTypes,
   UnifiedApiRouter,
 } from './api/types'
@@ -36,8 +36,6 @@ import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
 import {
   buildApiRegistry,
-  mergeApiRoutersStrict,
-  normalizeApiPath,
   normalizeForeignOpenAPISpec,
 } from './api/registry'
 import {
@@ -51,7 +49,6 @@ import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
 import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
-import { BUNDERSTACK_ERROR_STATUS_MAP } from './errors'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
 import {
@@ -348,6 +345,7 @@ export async function createBunderstack<
     const realtime = createRealtimeFacade<TSchema>(
       publisher,
       runtimeRealtimeTransport,
+      options.schema,
     )
     const registry = createBucketStorages(config.storage)
     const storageOperations = createStorageOperations({
@@ -410,7 +408,7 @@ export async function createBunderstack<
     // ordinary cron now, so it inherits retries, timeout and onFailed.
     const resolvedDefs: JobsDefs | undefined = storageConfigured
       ? {
-          ...(jobsDefs ?? {}),
+          ...jobsDefs,
           'bunderstack:storage-sweep': {
             kind: 'cron',
             schedule: '0 4 * * *',
@@ -546,11 +544,13 @@ export async function createBunderstack<
       ]),
     })
 
+    const valibotConverter = new ValibotToJsonSchemaConverter()
+
     const combinedOpenAPISpec = options.openapi
       ? mergeOpenAPISpecs({
           nativeSpec: await new OpenAPIGenerator({
             converters: [
-              new ValibotToJsonSchemaConverter(),
+              valibotConverter,
               {
                 condition: (schema: any) =>
                   Boolean(
@@ -571,13 +571,22 @@ export async function createBunderstack<
       : undefined
 
     const openapiHandler = new OpenAPIHandler(nativeRouter, {
-      errorStatusMap: BUNDERSTACK_ERROR_STATUS_MAP,
+      // Query strings and form bodies are strings; this coerces them to the
+      // types each procedure's input schema declares, so schemas stay honest
+      // (`v.number()`, not a string-union pipe) and REST matches RPC.
+      plugins: [
+        new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
+      ],
       customErrorResponseBodyEncoder: (error: any) => ({
         error: error.message,
         code: error.data?.code ?? error.code,
+        // oRPC reports schema failures as `data.issues`; forwarding them tells
+        // the client which field was rejected instead of just "invalid".
         ...(error.data?.details !== undefined
           ? { details: error.data.details }
-          : {}),
+          : error.data?.issues !== undefined
+            ? { details: error.data.issues }
+            : {}),
       }),
       fetchInterceptors: [
         async (options) => {
@@ -806,6 +815,9 @@ export type {
 
 export { createApiBuilder } from './api/builder'
 export type { BunderstackApiBuilder, ApiFactory } from './api/builder'
+// Needed to declare shared middleware over the app's context, e.g.
+// `os.$context<ApiContext<typeof schema>>().middleware(...)`.
+export type { ApiContext } from './api/context'
 export type {
   CrudApiRouterFor,
   ExposedApiTables,

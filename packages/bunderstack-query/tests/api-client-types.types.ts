@@ -12,8 +12,8 @@ type Expect<T extends true> = T
 type IsAny<T> = 0 extends 1 & T ? true : false
 
 type FetchInput = Parameters<NonNullable<ClientOptions['fetch']>>[0]
-type _FetchInputIsTyped = Expect<Equal<IsAny<FetchInput>, false>>
-type _FetchReceivesStandardInput = Expect<Equal<FetchInput, RequestInfo | URL>>
+export type _FetchInputIsTyped = Expect<Equal<IsAny<FetchInput>, false>>
+export type _FetchReceivesStandardInput = Expect<Equal<FetchInput, RequestInfo | URL>>
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -47,7 +47,7 @@ async function setupApp() {
   })
 }
 
-async function testTypes() {
+export async function testTypes() {
   const app = await setupApp()
   const client = createClient<typeof app>({
     baseUrl: 'http://localhost/api',

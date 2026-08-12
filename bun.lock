@@ -219,7 +219,7 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.17.0-beta.1",
+      "version": "0.17.0-beta.2",
       "bin": {
         "bunderstack": "./src/cli.ts",
       },
@@ -232,6 +232,7 @@
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
         "@orpc/bun": "2.0.0-beta.26",
+        "@orpc/json-schema": "2.0.0-beta.26",
         "@orpc/openapi": "2.0.0-beta.26",
         "@orpc/publisher": "2.0.0-beta.26",
         "@orpc/server": "2.0.0-beta.26",
@@ -246,6 +247,7 @@
         "@electric-sql/pglite": ">=0.3.0",
         "@libsql/client": ">=0.14.0",
         "@orpc/bun": "2.0.0-beta.26",
+        "@orpc/json-schema": "2.0.0-beta.26",
         "@orpc/openapi": "2.0.0-beta.26",
         "@orpc/publisher": "2.0.0-beta.26",
         "@orpc/server": "2.0.0-beta.26",
@@ -269,7 +271,7 @@
     },
     "packages/bunderstack-query": {
       "name": "bunderstack-query",
-      "version": "0.17.0-beta.1",
+      "version": "0.17.0-beta.2",
       "devDependencies": {
         "@electric-sql/pglite": "^0.5.4",
         "@orpc/client": "2.0.0-beta.26",
@@ -299,7 +301,7 @@
     },
     "packages/bunderstack-start": {
       "name": "bunderstack-start",
-      "version": "0.17.0-beta.1",
+      "version": "0.17.0-beta.2",
       "dependencies": {
         "bunderstack-sync": "workspace:*",
       },
@@ -323,7 +325,7 @@
     },
     "packages/bunderstack-sync": {
       "name": "bunderstack-sync",
-      "version": "0.17.0-beta.1",
+      "version": "0.17.0-beta.2",
       "dependencies": {
         "bunderstack-query": "workspace:*",
       },

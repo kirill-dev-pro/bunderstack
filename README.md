@@ -182,7 +182,7 @@ import { createSyncClient } from 'bunderstack-sync'
 const sync = createSyncClient<App>({ queryClient })
 const posts = sync.posts.collection
 const feed = sync.posts.scopedCollection({
-  filter: { replyToId: null },
+  filters: { replyToId: null },
   sort: 'createdAt',
   order: 'desc',
 })

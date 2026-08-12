@@ -239,7 +239,7 @@ describe('crud operations', () => {
       .catch((value) => value)
 
     expect(error).toBeInstanceOf(CrudOperationError)
-    expect(error.code).toBe('VALIDATION_ERROR')
+    expect(error.code).toBe('BAD_REQUEST')
     expect(error.message).toBe('No writable fields to update')
   })
 })

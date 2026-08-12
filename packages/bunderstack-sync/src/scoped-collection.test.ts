@@ -48,11 +48,11 @@ function makeTable(procedures: ReturnType<typeof paginatedProcedureFactory>['pro
 describe('scopedCollection', () => {
   it('returns the same instance for the same options', () => {
     const t = makeTable(paginatedProcedureFactory().procedures)
-    const a = t.scopedCollection({ filter: { replyToId: null }, order: 'desc' })
-    const b = t.scopedCollection({ filter: { replyToId: null }, order: 'desc' })
+    const a = t.scopedCollection({ filters: { replyToId: null }, order: 'desc' })
+    const b = t.scopedCollection({ filters: { replyToId: null }, order: 'desc' })
     expect(a).toBe(b)
     const c = t.scopedCollection({
-      filter: { replyToId: 'p1' },
+      filters: { replyToId: 'p1' },
       order: 'desc',
     })
     expect(c).not.toBe(a)
@@ -100,7 +100,7 @@ describe('applyRealtimeEvent', () => {
   it('upserts matching rows into scoped collections and skips non-matching', async () => {
     const { procedures } = paginatedProcedureFactory()
     const t = makeTable(procedures)
-    const feed = t.scopedCollection({ filter: { replyToId: null } })
+    const feed = t.scopedCollection({ filters: { replyToId: null } })
     await feed.collection.stateWhenReady()
     const before = feed.collection.size
 

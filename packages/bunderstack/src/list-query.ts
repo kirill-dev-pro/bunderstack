@@ -21,18 +21,28 @@ import type { AnyDb } from './dialect'
 
 import { ErrorCode, ListQueryError } from './errors'
 
-/** Caps both `?limit=` and the number of values in a comma-separated `IN` filter. */
+/** Caps both `?limit=` and the number of values in an `IN` filter. */
 export const MAX_LIST_LIMIT = 200
 
-export const RESERVED_LIST_PARAMS = new Set([
-  'limit',
-  'offset',
-  'sort',
-  'order',
-  'q',
-  'cursor',
-  'count',
-])
+/** Default page size when a request omits `limit`. */
+export const DEFAULT_LIST_LIMIT = 20
+
+/**
+ * What a list procedure accepts. Shape and column types are enforced by the
+ * generated input schema, so by the time these params arrive they are already
+ * validated and coerced — this module only applies policy (defaults, the limit
+ * cap, cursor rules).
+ */
+export type ListParamsInput = {
+  limit?: number
+  offset?: number
+  cursor?: string
+  sort?: string
+  order?: SortOrder
+  q?: string
+  count?: boolean
+  filters?: Record<string, unknown>
+}
 
 export type ParsedListParams = {
   limit: number
@@ -81,76 +91,22 @@ function isCursorPayload(value: unknown): value is CursorPayload {
   )
 }
 
-function parseBoolean(value: string | undefined): boolean {
-  if (!value) return false
-  const v = value.toLowerCase()
-  return v === 'true' || v === '1'
-}
-
-function parseLimit(raw: string | undefined): number {
-  if (raw === undefined || raw === '') return 20
-  const n = Number(raw)
-  if (!Number.isInteger(n) || n < 1) {
-    throw new ListQueryError(
-      `limit must be an integer between 1 and ${MAX_LIST_LIMIT}`,
-    )
-  }
-  return Math.min(n, MAX_LIST_LIMIT)
-}
-
-function parseOffset(raw: string | undefined): number {
-  if (raw === undefined || raw === '') return 0
-  const n = Number(raw)
-  if (!Number.isInteger(n) || n < 0) {
-    throw new ListQueryError('offset must be a non-negative integer')
-  }
-  return n
-}
-
-function parseOrder(raw: string | undefined): SortOrder {
-  if (!raw || raw === 'asc') return 'asc'
-  if (raw === 'desc') return 'desc'
-  throw new ListQueryError('order must be "asc" or "desc"')
-}
-
-export function parseListParams(
-  url: URL,
+/**
+ * Applies list policy to already-validated input: defaults, the limit cap, and
+ * the rules a schema cannot express (cursor excludes offset, and a cursor must
+ * agree with the sort it was minted for).
+ */
+export function resolveListParams(
+  input: ListParamsInput,
   access: ResolvedTableAccess,
 ): ParsedListParams {
-  const params = url.searchParams
-  const limit = parseLimit(params.get('limit') ?? undefined)
-  const cursor = params.get('cursor')?.trim() || undefined
-  const hasOffset = params.has('offset') && params.get('offset') !== ''
-  const offset = hasOffset
-    ? parseOffset(params.get('offset') ?? undefined)
-    : undefined
-
-  if (cursor && hasOffset) {
+  const cursor = input.cursor?.trim() || undefined
+  if (cursor && input.offset !== undefined) {
     throw new ListQueryError('cursor and offset cannot be used together')
   }
 
-  const sort = params.get('sort')?.trim() || access.defaultSort.column
-  const order = params.has('order')
-    ? parseOrder(params.get('order') ?? undefined)
-    : params.has('sort')
-      ? 'asc'
-      : access.defaultSort.order
-
-  if (!access.sortableColumns.includes(sort)) {
-    throw new ListQueryError(`sort column "${sort}" is not allowed`)
-  }
-
-  const filters: Record<string, unknown> = {}
-  for (const [key, value] of params.entries()) {
-    if (RESERVED_LIST_PARAMS.has(key)) continue
-    if (!access.filterableColumns.includes(key)) {
-      throw new ListQueryError(`filter column "${key}" is not allowed`)
-    }
-    filters[key] = value === 'null' ? null : value
-  }
-
-  const q = params.get('q')?.trim().slice(0, 100) ?? ''
-  const count = parseBoolean(params.get('count') ?? undefined)
+  const sort = input.sort ?? access.defaultSort.column
+  const order = input.order ?? (input.sort ? 'asc' : access.defaultSort.order)
 
   if (cursor) {
     const decoded = decodeCursor(cursor)
@@ -163,14 +119,14 @@ export function parseListParams(
   }
 
   return {
-    limit,
-    offset: cursor ? undefined : (offset ?? 0),
+    limit: Math.min(input.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT),
+    offset: cursor ? undefined : (input.offset ?? 0),
     sort,
     order,
-    q,
+    q: input.q?.trim() ?? '',
     cursor,
-    count,
-    filters,
+    count: input.count ?? false,
+    filters: input.filters ?? {},
   }
 }
 
@@ -191,41 +147,20 @@ function buildSearchWhere(
   return conditions.length ? or(...conditions) : undefined
 }
 
-function coerceFilterValue(
+/**
+ * Cursors carry their sort value as JSON, so a date column arrives as a string
+ * and has to be rebuilt. Filter values need no such repair — the generated
+ * input schema already types them.
+ */
+function coerceCursorValue(
   table: Parameters<typeof getTableColumns>[0],
   columnName: string,
-  raw: unknown,
+  raw: string | number | null,
 ): unknown {
   if (raw === null) return null
   const col = getTableColumns(table)[columnName]
-  if (!col) return raw
-
-  const dataType = col.dataType
-  if (
-    dataType === 'number' ||
-    dataType === 'integer' ||
-    dataType === 'bigint'
-  ) {
-    const n = Number(raw)
-    if (Number.isNaN(n)) {
-      throw new ListQueryError(`filter "${columnName}" must be a number`)
-    }
-    return n
-  }
-  if (dataType === 'boolean') {
-    const s = String(raw).toLowerCase()
-    if (s === 'true' || s === '1') return true
-    if (s === 'false' || s === '0') return false
-    throw new ListQueryError(`filter "${columnName}" must be a boolean`)
-  }
-  if (dataType === 'date') {
-    const d = new Date(raw as string | number)
-    if (Number.isNaN(d.getTime())) {
-      throw new ListQueryError(`filter "${columnName}" must be a valid date`)
-    }
-    return d
-  }
-  return String(raw)
+  if (col?.dataType === 'date') return new Date(raw)
+  return raw
 }
 
 function buildFilterWhere(
@@ -235,32 +170,14 @@ function buildFilterWhere(
   const columns = getTableColumns(table)
   const conditions: SQL[] = []
 
-  for (const [name, raw] of Object.entries(filters)) {
+  for (const [name, value] of Object.entries(filters)) {
     const col = columns[name]
-    if (!col) continue
+    if (!col || value === undefined) continue
 
-    if (raw === null) {
-      conditions.push(sql`${col} IS NULL`)
-      continue
-    }
-
-    // `?column=a,b,c` — TypeIDs and other filterable values never contain
-    // commas, so this is a safe, zero-syntax way to do `column IN (...)`.
-    if (typeof raw === 'string' && raw.includes(',')) {
-      const parts = raw.split(',').filter((p) => p.length > 0)
-      if (parts.length > MAX_LIST_LIMIT) {
-        throw new ListQueryError(
-          `filter "${name}" accepts at most ${MAX_LIST_LIMIT} comma-separated values`,
-        )
-      }
-      const values = parts.map((p) => coerceFilterValue(table, name, p))
-      conditions.push(inArray(col, values))
-      continue
-    }
-
-    const value = coerceFilterValue(table, name, raw)
     if (value === null) {
       conditions.push(sql`${col} IS NULL`)
+    } else if (Array.isArray(value)) {
+      if (value.length) conditions.push(inArray(col, value))
     } else {
       conditions.push(eq(col, value))
     }
@@ -301,7 +218,7 @@ function buildCursorWhere(
 ): SQL {
   const columns = getTableColumns(table)
   const sortCol = columns[sortColName]!
-  const sortValue = coerceFilterValue(table, sortColName, cursor.v)
+  const sortValue = coerceCursorValue(table, sortColName, cursor.v)
 
   if (order === 'desc') {
     return or(

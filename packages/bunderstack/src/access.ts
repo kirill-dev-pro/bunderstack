@@ -38,16 +38,6 @@ export type ScopeResolver = (ctx: AccessContext) => ScopeMap
 
 export type CrudOperation = 'list' | 'get' | 'create' | 'update' | 'delete'
 
-const RESERVED_LIST_PARAMS = new Set([
-  'limit',
-  'offset',
-  'sort',
-  'order',
-  'q',
-  'cursor',
-  'count',
-])
-
 export type SortOrder = 'asc' | 'desc'
 
 export type DefaultSort = {
@@ -176,11 +166,6 @@ function resolveListAccess(
 
   const filterableColumns = input.filterableColumns ?? []
   for (const col of filterableColumns) {
-    if (RESERVED_LIST_PARAMS.has(col)) {
-      throw new Error(
-        `[bunderstack] filterableColumns cannot include reserved query param "${col}"`,
-      )
-    }
     if (!columns.includes(col)) {
       throw new Error(
         `[bunderstack] filterableColumns references unknown column "${col}"`,
@@ -189,11 +174,6 @@ function resolveListAccess(
   }
 
   for (const col of sortableColumns) {
-    if (RESERVED_LIST_PARAMS.has(col)) {
-      throw new Error(
-        `[bunderstack] sortableColumns cannot include reserved query param "${col}"`,
-      )
-    }
     if (!columns.includes(col)) {
       throw new Error(
         `[bunderstack] sortableColumns references unknown column "${col}"`,

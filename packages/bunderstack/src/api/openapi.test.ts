@@ -1,7 +1,6 @@
 import { test, expect } from 'bun:test'
 import * as v from 'valibot'
 import { pgTable, text } from 'drizzle-orm/pg-core'
-import { PGlite } from '@electric-sql/pglite'
 
 import { createBunderstack } from '../index'
 import { pglite } from '../database/pglite'

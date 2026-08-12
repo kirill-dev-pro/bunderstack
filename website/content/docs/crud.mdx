@@ -20,18 +20,25 @@ same procedures are available through the typed client and ordinary HTTP.
 
 ## List query
 
-Reserved query params: `limit`, `offset`, `sort`, `order`, `q`, `cursor`, `count`.
+Every parameter below is part of the procedure's schema, so REST and RPC accept
+exactly the same thing and query strings are coerced to the column types.
 
-| Param    | Example           | Description                                      |
-| -------- | ----------------- | ------------------------------------------------ |
-| `limit`  | `?limit=20`       | Page size (1–100, default 20)                    |
-| `offset` | `?offset=0`       | Skip rows (offset mode)                          |
-| `sort`   | `?sort=createdAt` | Sort column (must be in `sortableColumns`)       |
-| `order`  | `?order=desc`     | `asc` or `desc`                                  |
-| `q`      | `?q=hello`        | Text search on `searchableColumns`               |
-| `count`  | `?count=true`     | Include `total` in response                      |
-| `cursor` | `?cursor=...`     | Keyset pagination (cannot combine with `offset`) |
-| Filters  | `?replyToId=5`    | Equality filter on `filterableColumns`           |
+| Param     | Example                           | Description                                        |
+| --------- | --------------------------------- | -------------------------------------------------- |
+| `limit`   | `?limit=20`                       | Page size (default 20, clamped to 200)             |
+| `offset`  | `?offset=0`                       | Skip rows (offset mode)                            |
+| `sort`    | `?sort=createdAt`                 | Sort column (must be in `sortableColumns`)         |
+| `order`   | `?order=desc`                     | `asc` or `desc`                                    |
+| `q`       | `?q=hello`                        | Text search on `searchableColumns`                 |
+| `count`   | `?count=true`                     | Include `total` in response                        |
+| `cursor`  | `?cursor=...`                     | Keyset pagination (cannot combine with `offset`)    |
+| `filters` | `?filters[replyToId]=5`           | Equality filter on a `filterableColumns` column     |
+| `filters` | `?filters[id][]=a&filters[id][]=b` | `IN (...)` — pass a list                            |
+| `filters` | `?filters[replyToId]=null`        | `IS NULL`                                          |
+
+Anything else is rejected with 400: a bare `?replyToId=5` is not a filter, and an
+unknown filter column or a value the column cannot hold fails validation with a
+`details` entry naming the field.
 
 List response:
 
@@ -133,12 +140,12 @@ Add `searchableColumns` to enable `?q=` on list:
 
 ```bash
 GET /api/posts?q=hello&limit=20&offset=0
-GET /api/posts?replyToId=5&sort=createdAt&order=asc
+GET /api/posts?filters[replyToId]=5&sort=createdAt&order=asc
 ```
 
 ### Filters and sorting
 
-Add `filterableColumns` for flat equality filters (`?column=value`). Add `sortableColumns` and optional `defaultSort`:
+Add `filterableColumns` to allow filtering on a column (`?filters[column]=value`). Add `sortableColumns` and optional `defaultSort`:
 
 ```ts
 posts: {
@@ -148,7 +155,13 @@ posts: {
 }
 ```
 
-Filter values are coerced to the column type. Pass `null` with `?replyToId=null` for top-level posts.
+Filter values are typed by the column: `?filters[likes]=5` arrives as a number,
+`?filters[createdAt]=2026-06-01` as a `Date`, and `?filters[replyToId]=null`
+matches top-level posts. Typed clients get the same shape with autocomplete:
+
+```ts
+await api.posts.list.call({ filters: { replyToId: null }, limit: 20 })
+```
 
 ## Error responses
 
@@ -156,12 +169,17 @@ Errors return `{ error, code?, details? }`:
 
 | Code                   | Status  | When                                       |
 | ---------------------- | ------- | ------------------------------------------ |
-| `VALIDATION_ERROR`     | 400     | Bad query params or JSON body              |
+| `BAD_REQUEST`          | 400     | Bad query params or JSON body              |
 | `INVALID_CURSOR`       | 400     | Malformed or mismatched cursor             |
-| `FORBIDDEN`            | 401/403 | Access denied                              |
+| `UNAUTHORIZED`         | 401     | Authentication required                    |
+| `FORBIDDEN`            | 403     | Access denied                              |
 | `NOT_FOUND`            | 404     | Missing record                             |
-| `RATE_LIMITED`         | 429     | Rate limit exceeded                        |
-| `IDEMPOTENCY_CONFLICT` | 409     | Idempotency key reused with different body |
+| `CONFLICT`             | 409     | Idempotency key reused with different body |
+| `TOO_MANY_REQUESTS`    | 429     | Rate limit exceeded                        |
+
+Codes are oRPC's own, so the HTTP status always matches the code. Sub-codes that
+carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in
+`details.code`.
 
 ## Rate limiting (opt-in)
 

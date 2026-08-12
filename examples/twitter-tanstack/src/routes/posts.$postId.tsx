@@ -8,7 +8,7 @@ import {
 import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
-import { byColumnIn, infiniteListInput, listInput, replyParams } from '~/api-client'
+import { byColumnIn, infiniteListInput, replyParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -42,13 +42,13 @@ export const Route = createFileRoute('/posts/$postId')({
 
       await Promise.all([
         queryClient.ensureQueryData(
-          api.user.list.queryOptions({ input: listInput(byColumnIn('id', authorIds)) }),
+          api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
         ),
         queryClient.ensureQueryData(
-          api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+          api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         queryClient.ensureQueryData(
-          api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+          api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
       ])
       return { repliesQuery }
@@ -97,15 +97,15 @@ function PostThreadPage() {
 
   // Scoped to exactly the post + loaded replies — not the whole table.
   const { data: usersData } = useQuery({
-    ...api.user.list.queryOptions({ input: listInput(byColumnIn('id', authorIds)) }),
+    ...api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
     enabled: authorIds.length > 0,
   })
   const { data: likesData } = useQuery({
-    ...api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   const { data: retweetsData } = useQuery({
-    ...api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
 

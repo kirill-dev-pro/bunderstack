@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
 
-import { listInput, listParams } from '~/api-client'
+import { listParams } from '~/api-client'
 import { UserAvatar } from '~/components/UserAvatar'
 
 type SearchBoxProps = {
@@ -16,11 +16,11 @@ export function SearchBox({ className }: SearchBoxProps) {
   const term = q.trim()
 
   const { data: postsData, isFetching: postsFetching } = useQuery({
-    ...api.posts.list.queryOptions({ input: listInput({ ...listParams, q: term }) }),
+    ...api.posts.list.queryOptions({ input: { ...listParams, q: term } }),
     enabled: term.length >= 2,
   })
   const { data: usersData, isFetching: usersFetching } = useQuery({
-    ...api.user.list.queryOptions({ input: listInput({ ...listParams, q: term }) }),
+    ...api.user.list.queryOptions({ input: { ...listParams, q: term } }),
     enabled: term.length >= 2,
   })
 

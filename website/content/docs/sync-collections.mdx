@@ -58,7 +58,7 @@ Use a growing window for feeds and other ordered datasets:
 
 ```ts
 const feed = api.posts.scopedCollection({
-  filter: { replyToId: null },
+  filters: { replyToId: null },
   sort: 'createdAt',
   order: 'desc',
   initialCount: 20,

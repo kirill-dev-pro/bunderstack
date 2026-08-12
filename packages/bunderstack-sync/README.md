@@ -17,7 +17,7 @@ const api = createSyncClient<App>({ queryClient })
 
 const allPosts = api.posts.collection
 const feed = api.posts.scopedCollection({
-  filter: { replyToId: null },
+  filters: { replyToId: null },
   sort: 'createdAt',
   order: 'desc',
 })

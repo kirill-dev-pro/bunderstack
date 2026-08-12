@@ -62,8 +62,9 @@ export type ScopedFilterValue =
 
 export type ScopedCollectionOptions = {
   /** Equality filters, e.g. `{ replyToId: null }` — columns must be in the
-   * table's `filterableColumns` server-side. */
-  filter?: Record<string, ScopedFilterValue>
+   * table's `filterableColumns` server-side. Same name and shape as the
+   * `filters` accepted by the list procedure. */
+  filters?: Record<string, ScopedFilterValue>
   sort?: string
   order?: 'asc' | 'desc'
   /** Rows per underlying request; clamped to the server cap (200). */
@@ -74,9 +75,9 @@ export type ScopedCollectionOptions = {
 
 function matchesFilter(
   record: Record<string, unknown>,
-  filter: Record<string, ScopedFilterValue>,
+  filters: Record<string, ScopedFilterValue>,
 ): boolean {
-  for (const [col, expected] of Object.entries(filter)) {
+  for (const [col, expected] of Object.entries(filters)) {
     const actual = record[col]
     if (expected === null) {
       if (actual != null) return false
@@ -104,19 +105,7 @@ export function createTableCollection<
 >(config: TableCollectionConfig) {
   const table = config.procedures as TableProcedures<TRow, TCreate, TUpdate>
   const direct: DirectTableApi<TRow, TCreate, TUpdate> = {
-    list(input = {}) {
-      const { limit, offset, cursor, sort, order, q, count, ...filters } = input
-      return table.list.call({
-        limit,
-        offset,
-        cursor,
-        sort,
-        order,
-        q,
-        count,
-        filters,
-      })
-    },
+    list: (input = {}) => table.list.call(input),
     get: (id) => table.get.call({ id: String(id) }),
     create: (input) => table.create.call(input),
     update: (id, input) =>
@@ -237,9 +226,9 @@ export function createTableCollection<
       MAX_LIST_LIMIT,
     )
     const initialCount = options.initialCount ?? 20
-    const filter = options.filter ?? {}
+    const filters = options.filters ?? {}
     const cacheKey = stableKey({
-      filter,
+      filters,
       sort: options.sort ?? null,
       order: options.order ?? null,
       pageSize,
@@ -266,7 +255,7 @@ export function createTableCollection<
           while (items.length < desiredCount) {
             const remaining = Math.min(pageSize, desiredCount - items.length)
             const page = await table.list.call({
-              filters: filter,
+              ...(Object.keys(filters).length ? { filters } : {}),
               ...(options.sort ? { sort: options.sort } : {}),
               ...(options.order ? { order: options.order } : {}),
               limit: remaining,
@@ -296,7 +285,7 @@ export function createTableCollection<
     }
     registry.push({
       collection: scoped,
-      matches: (record) => matchesFilter(record, filter),
+      matches: (record) => matchesFilter(record, filters),
       refetch: async () => {
         await scoped.utils.refetch()
       },

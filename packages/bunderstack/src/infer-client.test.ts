@@ -38,7 +38,7 @@ describe('client type inference carriers', () => {
       user: { exposeAuthTable: true, ownerColumn: 'id' },
       posts: { ownerColumn: 'userId' },
     })
-    type _1 = Expect<Equal<(typeof access)['user']['exposeAuthTable'], true>>
+    void (0 as unknown as Expect<Equal<(typeof access)['user']['exposeAuthTable'], true>>)
     expect(access.posts.ownerColumn).toBe('userId')
   })
 
@@ -70,12 +70,12 @@ describe('client type inference carriers', () => {
         }),
     })
     type Carrier = NonNullable<(typeof app)['$inferClient']>
-    type _schema = Expect<Equal<Carrier['schema'], typeof schema>>
-    type _buckets = Expect<Equal<Carrier['buckets'], 'images' | 'docs'>>
-    type _accessUser = Expect<
+    void (0 as unknown as Expect<Equal<Carrier['schema'], typeof schema>>)
+    void (0 as unknown as Expect<Equal<Carrier['buckets'], 'images' | 'docs'>>)
+    void (0 as unknown as Expect<
       Equal<Carrier['access']['user']['exposeAuthTable'], true>
-    >
-    type _customApi = Expect<Equal<'stats' extends keyof Carrier['api'] ? true : false, true>>
+    >)
+    void (0 as unknown as Expect<Equal<'stats' extends keyof Carrier['api'] ? true : false, true>>)
     // @ts-expect-error the old runtime router is intentionally not exposed
     void app.router
     // @ts-expect-error the old tRPC router is intentionally not exposed

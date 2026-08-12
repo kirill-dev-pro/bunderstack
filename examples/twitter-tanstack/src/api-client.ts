@@ -44,7 +44,7 @@ export type AppApi = ReturnType<typeof createApi>
 export const listParams = { limit: 100, offset: 0 } as const
 
 export const feedParams = {
-  replyToId: null,
+  filters: { replyToId: null },
   sort: 'createdAt',
   order: 'desc',
   limit: 20,
@@ -52,7 +52,7 @@ export const feedParams = {
 
 export function replyParams(postId: TypeId<'post'>) {
   return {
-    replyToId: postId,
+    filters: { replyToId: postId },
     sort: 'createdAt',
     order: 'asc',
     limit: 20,
@@ -62,29 +62,25 @@ export function replyParams(postId: TypeId<'post'>) {
 /** Matches the server's MAX_LIST_LIMIT (packages/bunderstack/src/list-query.ts). */
 export const SCOPED_FETCH_LIMIT = 200
 
-export function listInput(params: Record<string, any>) {
-  const { limit, offset, cursor, sort, order, q, count, ...filters } = params
-  return { limit, offset, cursor, sort, order, q, count, filters }
-}
-
 export function infiniteListInput(params: Record<string, any>) {
   return {
-    input: (cursor: string | undefined) => listInput({ ...params, ...(cursor ? { cursor } : {}) }),
+    input: (cursor: string | undefined) => ({ ...params, ...(cursor ? { cursor } : {}) }),
     initialPageParam: undefined,
     getNextPageParam: (page: { nextCursor?: string }) => page.nextCursor,
   }
 }
 
 /**
- * List params that scope a query to rows whose `column` is one of `ids`,
- * via the API's `?column=a,b,c` → `IN (...)` filter — instead of fetching an
- * entire table and hoping what you need is in the first page. Pass the
- * returned ids alongside `enabled: ids.length > 0` to skip the request when
- * there's nothing to look up yet.
+ * List params that scope a query to rows whose `column` is one of `ids` — a
+ * list filter value becomes `IN (...)` server-side, instead of fetching an
+ * entire table and hoping what you need is in the first page. Ids are sorted so
+ * the same set always produces the same query key. Pass the returned ids
+ * alongside `enabled: ids.length > 0` to skip the request when there's nothing
+ * to look up yet.
  */
 export function byColumnIn(column: string, ids: readonly string[]) {
   const unique = Array.from(new Set(ids)).sort()
-  return { [column]: unique, limit: SCOPED_FETCH_LIMIT }
+  return { filters: { [column]: unique }, limit: SCOPED_FETCH_LIMIT }
 }
 
 /** File uploads/URLs only — safe outside React hooks (no QueryClient needed). */

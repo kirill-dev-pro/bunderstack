@@ -8,7 +8,7 @@ import {
 import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
-import { byColumnIn, listInput } from '~/api-client'
+import { byColumnIn } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { FollowButton } from '~/components/FollowButton'
 import { PostCard } from '~/components/PostCard'
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/users/$userId')({
   loader: async ({ params, context: { queryClient, api, user: viewer } }) => {
     const userId = parseUserIdParam(params.userId)
     const userPostsParams = {
-      userId,
+      filters: { userId },
       sort: 'createdAt',
       order: 'desc',
       limit: 100,
@@ -36,32 +36,31 @@ export const Route = createFileRoute('/users/$userId')({
     try {
       await queryClient.ensureQueryData(api.user.get.queryOptions({ input: { id: userId } }))
       const posts = await queryClient.ensureQueryData(
-        api.posts.list.queryOptions({ input: listInput(userPostsParams) }),
+        api.posts.list.queryOptions({ input: userPostsParams }),
       )
       const postIds = posts.items.map((p) => p.id)
 
       await Promise.all([
         queryClient.ensureQueryData(
-          api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+          api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         queryClient.ensureQueryData(
-          api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+          api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         // Aggregate counts only — never fetches the actual follow rows.
         queryClient.ensureQueryData(
-          api.follows.list.queryOptions({ input: listInput({ followingId: userId, count: true, limit: 1 }) }),
+          api.follows.list.queryOptions({ input: { filters: { followingId: userId }, count: true, limit: 1 } }),
         ),
         queryClient.ensureQueryData(
-          api.follows.list.queryOptions({ input: listInput({ followerId: userId, count: true, limit: 1 }) }),
+          api.follows.list.queryOptions({ input: { filters: { followerId: userId }, count: true, limit: 1 } }),
         ),
         ...(viewer
           ? [
               queryClient.ensureQueryData(
-                api.follows.list.queryOptions({ input: listInput({
-                  followerId: viewer.id,
-                  followingId: userId,
+                api.follows.list.queryOptions({ input: {
+                  filters: { followerId: viewer.id, followingId: userId },
                   limit: 1,
-                }) }),
+                } }),
               ),
             ]
           : []),
@@ -85,7 +84,7 @@ function UserProfilePage() {
   const router = useRouter()
 
   const { data: profile } = useQuery(api.user.get.queryOptions({ input: { id: userId } }))
-  const { data: posts } = useQuery(api.posts.list.queryOptions({ input: listInput(userPostsParams) }))
+  const { data: posts } = useQuery(api.posts.list.queryOptions({ input: userPostsParams }))
 
   const allPosts = React.useMemo(() => posts?.items ?? [], [posts?.items])
   const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
@@ -93,27 +92,26 @@ function UserProfilePage() {
   // Scoped to exactly this profile's posts — not the whole table. The only
   // author these posts can have is the profile owner.
   const { data: likes } = useQuery({
-    ...api.likes.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   const { data: retweets } = useQuery({
-    ...api.retweets.list.queryOptions({ input: listInput(byColumnIn('postId', postIds)) }),
+    ...api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   // Aggregate counts only — never fetches the actual follow rows.
   const { data: followerCountData } = useQuery(
-    api.follows.list.queryOptions({ input: listInput({ followingId: userId, count: true, limit: 1 }) }),
+    api.follows.list.queryOptions({ input: { filters: { followingId: userId }, count: true, limit: 1 } }),
   )
   const { data: followingCountData } = useQuery(
-    api.follows.list.queryOptions({ input: listInput({ followerId: userId, count: true, limit: 1 }) }),
+    api.follows.list.queryOptions({ input: { filters: { followerId: userId }, count: true, limit: 1 } }),
   )
   // Just the one relationship the FollowButton below needs to know about.
   const { data: myRelation } = useQuery({
-    ...api.follows.list.queryOptions({ input: listInput({
-      followerId: currentUser?.id ?? '',
-      followingId: userId,
+    ...api.follows.list.queryOptions({ input: {
+      filters: { followerId: currentUser?.id ?? '', followingId: userId },
       limit: 1,
-    }) }),
+    } }),
     enabled: !!currentUser,
   })
 

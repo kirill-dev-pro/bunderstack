@@ -49,13 +49,34 @@ export type ExposedApiTables<TSchema, TAccess> = [TAccess] extends [undefined]
           DisabledKeys<TAccess> | (keyof TAccess & string)
         >
 
+/**
+ * Column allowlists declared in `access` reach the client as literal unions, so
+ * `list` can type `filters` and `sort` per table. Tables that declare nothing
+ * get `never` filters and `'id'` sorting, matching the runtime defaults.
+ */
+type FilterableOf<TAccess, K extends string> = K extends keyof TAccess
+  ? TAccess[K] extends { filterableColumns: readonly (infer F extends string)[] }
+    ? F
+    : never
+  : never
+
+type SortableOf<TAccess, K extends string> = K extends keyof TAccess
+  ? TAccess[K] extends { sortableColumns: readonly (infer S extends string)[] }
+    ? S
+    : 'id'
+  : 'id'
+
 export type CrudApiRouterFor<
   TSchema extends Record<string, unknown>,
   TAccess = undefined,
 > = {
   [K in ExposedApiTables<TSchema, TAccess> as TSchema[K] extends Table
     ? K
-    : never]: TableCrudProcedures<Extract<TSchema[K], Table>>
+    : never]: TableCrudProcedures<
+    Extract<TSchema[K], Table>,
+    FilterableOf<TAccess, K>,
+    SortableOf<TAccess, K>
+  >
 }
 
 type IsProcedure<T> = T extends { '~orpc': unknown } ? true : false
