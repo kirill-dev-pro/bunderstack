@@ -25,7 +25,6 @@ export async function lookupIdempotency(
   tableName: string,
   key: string,
   body: string,
-  config: IdempotencyConfig,
 ): Promise<IdempotencyLookup> {
   const t = idempotencyTableFor(db)
   const now = Date.now()

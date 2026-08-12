@@ -37,6 +37,9 @@ function strictObject<TEntries extends v.ObjectEntries>(schema: {
 }
 
 type CrudInsert<TTable extends Table> = Partial<TTable['$inferInsert']>
+type CrudUpdate<TTable extends Table> = Partial<
+  Omit<TTable['$inferInsert'], 'id'>
+>
 
 /** A filter accepts one value (`=`), a list (`IN`), or null (`IS NULL`). */
 export type ListFilterValue<T> = T | readonly T[] | null | 'null'
@@ -91,7 +94,17 @@ export function buildTableCrudProcedures<
   const { table, operations, builder, access } = args
   const name = getTableName(table)
 
-  const selectSchema = strictObject(createSelectSchema(table))
+  // drizzle-valibot infers its schemas through internal generics. Left as-is,
+  // declaration emit inlines those generics by name into the published `.d.ts`,
+  // where they are unbound — every column silently becomes optional for the
+  // consumer. Restating the type keeps the runtime schema and makes the emitted
+  // one both correct and readable.
+  const selectSchema = strictObject(
+    createSelectSchema(table),
+  ) as unknown as v.GenericSchema<
+    TTable['$inferSelect'],
+    TTable['$inferSelect']
+  >
   const generatedInsertSchema = strictObject(createInsertSchema(table))
   const generatedColumns = Object.keys(generatedInsertSchema.entries)
   const columns = getTableColumns(table)
@@ -123,7 +136,12 @@ export function buildTableCrudProcedures<
     params: v.strictObject({ id: v.string() }),
     query: v.optional(v.record(v.string(), v.unknown()), {}),
     headers: v.optional(v.record(v.string(), v.unknown()), {}),
-    body: strictObject(updateBodySchema),
+    // Same reason as `selectSchema`: state the type instead of letting
+    // declaration emit inline drizzle-valibot's generics.
+    body: strictObject(updateBodySchema) as unknown as v.GenericSchema<
+      CrudUpdate<TTable>,
+      CrudUpdate<TTable>
+    >,
   })
 
   // One filter field per allowed column, typed by the column itself: a scalar

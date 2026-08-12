@@ -221,7 +221,7 @@
       "name": "bunderstack",
       "version": "0.17.0-beta.2",
       "bin": {
-        "bunderstack": "./src/cli.ts",
+        "bunderstack": "./dist/cli.js",
       },
       "dependencies": {
         "@standard-schema/spec": "1.1.0",

@@ -128,3 +128,22 @@ Bun · Drizzle (+ drizzle-kit) · BetterAuth · Hono · libSQL · sharp
 - Single Web-Standard `Request -> Response` handler (`app.handler`)
 - Delegate migrations to drizzle-kit, never reinvent
 - SSE for realtime, broadcast-on-write model
+
+## Packages are consumed as built `dist`
+
+`packages/*/package.json` publishes `dist/*.js` + `dist/*.d.ts`, never `src`, so
+a consumer's compiler flags apply to our declarations rather than our sources.
+Consequences when working in this repo:
+
+- `bun run build` (also run by `prepare` on install and `prepack` on publish)
+  compiles all four packages. Examples, the website snippets, and any app resolve
+  the packages through `dist`, so a library change needs a rebuild to be visible
+  outside its own package. Package tests import relative paths and do not.
+- `bun run verify:consumer` packs the tarballs, installs them into a throwaway
+  app with the strictest common flags and `skipLibCheck: false`, and fails if any
+  diagnostic points at our packages. Run it after touching public types.
+- Avoid returning types inferred from a dependency's generics from an exported
+  function: declaration emit inlines those generics by name, and unbound names
+  silently degrade the published type. State the type instead — see
+  `createAuth` and the CRUD schema casts in `api/crud-router.ts`.
+

@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-sync",
-  "version": "0.17.0-beta.2",
+  "version": "0.17.0-beta.3",
   "description": "TanStack DB collections synchronized through Bunderstack's typed oRPC client and realtime iterator.",
   "keywords": [
     "bun",
@@ -19,20 +19,23 @@
     "directory": "packages/bunderstack-sync"
   },
   "files": [
-    "src",
-    "!src/**/*.test.ts",
-    "!src/**/*.types.ts",
+    "dist",
     "README.md",
     "LICENSE"
   ],
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
+    "build": "bun ../../scripts/build-package.ts bunderstack-sync",
+    "prepack": "bun run build",
     "test": "bun test"
   },
   "dependencies": {

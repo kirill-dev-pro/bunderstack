@@ -8,9 +8,8 @@ context, one error vocabulary, one name per table.
 This is the most breaking release so far. Everything below is mechanical; the
 order is the order we recommend doing it in.
 
-> Versions: this guide covers `0.17.0-beta.2`. Items marked **(beta.2)** changed
-> after `beta.0`/`beta.1`, so read those even if you already migrated to an
-> earlier beta.
+> Versions: this guide covers `0.17.0-beta.3`. Items are marked with the beta
+> that introduced them, so a partially migrated app can skip to what is new.
 
 ## The one-paragraph summary
 
@@ -219,13 +218,26 @@ const feed = posts.scopedCollection({ filters: { replyToId: null } })
 `table.list(input)` now forwards `input` to the procedure unchanged, so it takes
 the same nested shape as everything else **(beta.2)**.
 
-## 8. Packages ship strict-clean sources **(beta.2)**
+## 8. Packages ship built `dist` **(beta.3)**
 
-`exports` still points at `src/**.ts`, so your `tsconfig` checks our sources.
-Type-probe files are no longer published, and the packages build under
-`noUnusedLocals`, so a consumer with that flag no longer sees errors from
-`node_modules/bunderstack`. If you added `skipLibCheck` hoping to silence those,
-it never applied — these are real `.ts` files, not declarations.
+Up to and including beta.2 the packages published raw `src/**.ts`, so your
+`tsconfig` compiled our sources under your flags — and `skipLibCheck` never
+helped, because those were real `.ts` files rather than declarations. From beta.3
+each entry resolves to `dist/<entry>.js` with `dist/<entry>.d.ts` beside it.
+
+Nothing changes in your imports. Two things change in your build:
+
+- Strict flags stop leaking. `exactOptionalPropertyTypes` used to produce 168
+  errors inside `node_modules/bunderstack` and
+  `noPropertyAccessFromIndexSignature` another 79; both are now zero.
+- Types got *more* correct, not less. Declaration emit had been inlining
+  drizzle-valibot's internal generics, which made `notNull` columns look
+  optional through the published types. If you worked around that with `!` or a
+  cast on generated CRUD results, you can drop it.
+
+`app.auth` is now typed as better-auth's plain `Auth` rather than the
+plugin-parameterised instance. The runtime object is the same; if you reached for
+a plugin endpoint through the type, use a runtime check as the framework does.
 
 ## 9. Carried over from 0.16 — check these if you skipped it
 
@@ -248,6 +260,7 @@ See [MIGRATION-0.16.md](./MIGRATION-0.16.md) for the full 0.16 list.
 - [ ] `scopedCollection({ filters })`
 - [ ] alerting no longer expects 500s for client errors
 - [ ] `bun run typecheck` clean with your own strict flags
+- [ ] drop workarounds for generated CRUD columns that looked optional (beta.3)
 
 ---
 

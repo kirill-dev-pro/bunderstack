@@ -1,5 +1,5 @@
 // src/auth.ts
-import { betterAuth } from 'better-auth'
+import { betterAuth, type Auth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI } from 'better-auth/plugins'
 
@@ -8,15 +8,25 @@ import type { BetterAuthConfig } from './config'
 import type { AnyDb, Dialect } from './dialect'
 import type { EmailFacade } from './email'
 
+/**
+ * Returns better-auth's plain `Auth`, not the plugin-parameterised type its
+ * builder infers: declaration emit would otherwise inline that whole inferred
+ * options object into the published `.d.ts`, where it no longer satisfies
+ * better-auth's own `BetterAuthOptions` constraint. Plugin-specific endpoints
+ * are reached through runtime checks (see the OpenAPI schema lookup in
+ * `index.ts`), so nothing depends on the wider type.
+ */
 export function createAuth(
   db: AnyDb,
   cfg: BetterAuthConfig,
   dialect: Dialect,
   userSchema?: Record<string, unknown>,
-) {
+): Auth {
   const hasOpenApi = cfg.plugins?.some((p: any) => p.id === 'open-api')
   const plugins = hasOpenApi ? cfg.plugins : [...(cfg.plugins || []), openAPI()]
 
+  // Type-only narrowing: the value is unchanged, but the published signature
+  // stays a type better-auth itself can name.
   return betterAuth({
     ...cfg,
     plugins,
@@ -24,7 +34,7 @@ export function createAuth(
       provider: dialect === 'pg' ? 'pg' : 'sqlite',
       ...(userSchema ? { schema: userSchema } : {}),
     }),
-  })
+  }) as unknown as Auth
 }
 
 /**

@@ -24,7 +24,8 @@
 
     // Some stricter flags (disabled by default)
     "noUnusedLocals": true,
-    "noUnusedParameters": false,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
     "noPropertyAccessFromIndexSignature": false,
 
     "paths": {

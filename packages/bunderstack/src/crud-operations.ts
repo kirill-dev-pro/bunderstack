@@ -294,7 +294,6 @@ export function createCrudOperations<
           tableName,
           trimmedKey,
           effectiveRawBody,
-          idempotency,
         )
         if (lookup.type === 'conflict') {
           throw new CrudOperationError(

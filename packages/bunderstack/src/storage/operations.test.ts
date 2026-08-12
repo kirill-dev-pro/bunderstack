@@ -52,7 +52,7 @@ class PresignAdapter extends MemoryAdapter {
   }
 }
 
-const bucket = (adapter: StorageAdapter): ResolvedBucket => ({
+const bucket = (_adapter: StorageAdapter): ResolvedBucket => ({
   name: 'docs',
   backend: { type: 'local', path: '/unused' },
   visibility: 'private',

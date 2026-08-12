@@ -2,9 +2,51 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.17.0-beta.3] - 2026-08-12
+
+### Breaking
+
+- **The package publishes built `dist`, not raw `src`.** Every entry point now
+  resolves to `dist/<entry>.js` with `dist/<entry>.d.ts` beside it, and the
+  tarball no longer contains TypeScript sources. Consumers therefore typecheck
+  our *declarations*, which `skipLibCheck` can suppress — previously our sources
+  were compiled under the app's own flags, where `exactOptionalPropertyTypes`
+  alone produced 168 errors inside `node_modules` and
+  `noPropertyAccessFromIndexSignature` another 79. A strict app now sees zero
+  (`bun run verify:consumer` packs, installs, and proves it).
+- **`createAuth` returns better-auth's plain `Auth`** instead of the
+  plugin-parameterised instance type. The value is unchanged; only the declared
+  type is narrower, because the inferred one did not survive declaration emit.
+  Plugin endpoints are still reachable through runtime checks.
+- **Relative imports inside the published JS and declarations carry `.js`
+  extensions**, so the build no longer depends on bundler-style resolution.
+
+### Fixed
+
+- **Generated CRUD types survive publishing.** Declaration emit inlined
+  drizzle-valibot's internal generics (`TRefinements`, `TType`) into the
+  published `.d.ts`, where they are unbound — a `notNull` column silently became
+  optional for consumers. `select`, `update`, and `list` schemas now state their
+  types explicitly, which also makes the emitted API dramatically smaller.
+- `lookupIdempotency` no longer takes an unused config parameter, and
+  `Bun.Image` is typed locally so image transforms compile against any
+  `bun-types` version and report a clear error on an older Bun.
+
+### Added
+
+- `bun run build` (and `prepare`/`prepack`) build every package;
+  `scripts/build-package.ts` fails the build if an emitted import resolves to
+  nothing.
+- `bun run verify:consumer` — packs the tarballs, installs them into a scratch
+  app with the strictest common flags and `skipLibCheck: false`, then typechecks
+  and smoke-runs it.
+- `noUnusedParameters` and `noImplicitReturns` are on in every package.
+- The tarball now includes `CHANGELOG.md`, and the README links to the migration
+  guides with absolute URLs so they are reachable from an installed package.
+
 ## [0.17.0-beta.2] - 2026-08-12
 
-Migration guide: [`docs/MIGRATION-0.17.md`](../../docs/MIGRATION-0.17.md).
+Migration guide: [docs/MIGRATION-0.17.md](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.17.md).
 
 ### Breaking
 
@@ -43,7 +85,7 @@ Migration guide: [`docs/MIGRATION-0.17.md`](../../docs/MIGRATION-0.17.md).
   the SQL name; they previously degraded to refetch-only.
 - **Packages compile under a consumer's `noUnusedLocals`.** Type-probe files are
   excluded from the tarball, unused imports are gone, and every package builds
-  with the flag on so this cannot rot again (`scripts/published-sources.test.ts`).
+  with the flag on so this cannot rot again (`scripts/packaging-contract.test.ts`).
 
 ### Added
 

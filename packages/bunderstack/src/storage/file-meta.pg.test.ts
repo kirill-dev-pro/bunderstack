@@ -53,8 +53,8 @@ test('idempotency replay works on Postgres (onConflictDoUpdate)', async () => {
   await storeIdempotency(db, 'posts', 'k1', '{"a":1}', 201, { id: 1 }, {})
   // Upsert path: same key, new response.
   await storeIdempotency(db, 'posts', 'k1', '{"a":1}', 201, { id: 2 }, {})
-  const hit = await lookupIdempotency(db, 'posts', 'k1', '{"a":1}', {})
+  const hit = await lookupIdempotency(db, 'posts', 'k1', '{"a":1}')
   expect(hit).toEqual({ type: 'replay', status: 201, response: '{"id":2}' })
-  const conflict = await lookupIdempotency(db, 'posts', 'k1', '{"a":2}', {})
+  const conflict = await lookupIdempotency(db, 'posts', 'k1', '{"a":2}')
   expect(conflict).toEqual({ type: 'conflict' })
 })
