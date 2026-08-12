@@ -305,6 +305,118 @@ Nothing in the deploy contract changed in 0.17: same `manifest`, same
 
 ---
 
+# Declaring the API (0.17.0-beta.6)
+
+## The `api` option accepts the router object
+
+Declare the builder at module scope with `defineApi`, and import the bases into
+the router modules. Router files no longer need a factory wrapper or a bag of
+procedures passed through arguments.
+
+```ts
+// api/base.ts
+import { defineApi } from 'bunderstack'
+
+import { envSchema } from '../env'
+import { schema } from '../schema'
+
+export const o = defineApi({ schema, env: envSchema })
+export const publicProcedure = o.public
+export const protectedProcedure = o.protected
+```
+
+```ts
+// api/telegram.ts
+import { protectedProcedure } from './base'
+
+export const telegramRouter = {
+  getStats: protectedProcedure.handler(({ context }) => getStats(context.db)),
+}
+```
+
+```ts
+// api/index.ts
+import { telegramRouter } from './telegram'
+
+export const api = { telegram: telegramRouter }
+```
+
+```ts
+createBunderstack({ api })
+```
+
+`defineApi` takes values, not type parameters. It infers the schema type and the
+validated env type, so `BunderstackApiBuilder<typeof schema, ValidatedEnv<...>>`
+is no longer written by hand.
+
+The callback form still works. No change is required.
+
+## Middleware for the whole graph
+
+The `middleware` option applies an oRPC middleware to every procedure: the
+generated CRUD, storage, realtime, health, and your own procedures. Before this
+option, a middleware placed on an application base reached only that
+application's procedures, so the generated CRUD produced no traces or logs.
+
+```ts
+const instrumentation = o.middleware(async ({ path, next }) => {
+  const startedAt = performance.now()
+  try {
+    return await next()
+  } finally {
+    metrics.record(path.join('.'), performance.now() - startedAt)
+  }
+})
+
+createBunderstack({ middleware: [instrumentation], api })
+```
+
+Two rules apply.
+
+A global middleware runs before authentication. `context.user` is not available
+inside it. Read an already-resolved caller with `context.peekSession()`, which
+returns the memoized session or `undefined` and never starts a resolution. Use
+it for observability only. Never use it for authorization.
+
+A realtime subscription lives for a long time. A `finally` block runs when the
+stream closes, not when the subscription starts. Filter such paths with the
+`path` argument when that matters.
+
+## List endpoints outside CRUD
+
+`listSpec` gives a custom endpoint the same filter, sort, cursor, and count
+contract that the generated CRUD list uses.
+
+```ts
+import { listSpec } from 'bunderstack'
+
+const logsList = listSpec(appLogs, {
+  filterable: ['level', 'action', 'userId'],
+  sortable: ['createdAt'],
+  defaultSort: { column: 'createdAt', order: 'desc' },
+})
+
+getLogs: adminProcedure.input(logsList.input).handler(logsList.handler),
+```
+
+It returns the schema and the handler separately, so the base procedure stays
+concrete and keeps full type inference. It reads no `access` configuration: the
+base procedure carries the policy.
+
+The response is a `ListResult`: `{ items, hasMore, nextCursor, total, limit,
+offset, sort, order }`. A hand-written endpoint that returned
+`{ items, totalCount }` needs a client update. Pass `count: true` to receive
+`total`.
+
+## New exports
+
+- `defineApi({ schema, env })`
+- `listSpec(table, options)`
+- `BunderstackDb<TSchema>` and `BunderstackTx<TSchema>` — for typing a database
+  or transaction parameter in a helper module instead of using `any`.
+
+---
+
 ## Reference
 
 - Design: [`docs/plans/2026-08-11-orpc-simplification-design.md`](./plans/2026-08-11-orpc-simplification-design.md)

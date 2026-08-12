@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.17.0-beta.5",
+  "version": "0.17.0-beta.6",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
