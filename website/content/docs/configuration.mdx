@@ -23,7 +23,8 @@ await createBunderstack({
   email,
   env,
   jobs: (j) => j.define({}),
-  api: (o) => ({}),
+  api,
+  middleware: [instrumentation],
   background: { autoStart: true },
   rateLimit: { windowMs: 60_000, max: 100 },
   idempotency: { ttlMs: 86_400_000 },
@@ -33,8 +34,12 @@ await createBunderstack({
 ```
 
 `schema` and `database.adapter` are required. All validation slots accept
-Standard Schema. `api` adds oRPC procedures; `openapi` serves their optional
-projection at `/api/openapi.json`. `auth` takes better-auth options directly, or
+Standard Schema. `api` takes your oRPC router — an object built from bases you
+declared with [`defineApi`](/docs/api-procedures#declare-the-builder), or a
+callback receiving the framework builder. `middleware` applies oRPC middleware
+to every procedure in the graph, generated ones included; see
+[Middleware](/docs/middleware). `openapi` serves the optional projection at
+`/api/openapi.json`. `auth` takes better-auth options directly, or
 a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
 own connection — see [Auth](/docs/auth#database-hooks).
 

@@ -5,6 +5,7 @@
     "getting-started",
     "crud",
     "api-procedures",
+    "middleware",
     "query-client",
     "sync-collections",
     "http-webhooks",

@@ -31,7 +31,8 @@ Major optional groups:
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
 - `storage`, `email`, `env`, and `jobs`: application facilities;
-- `api: (o) => router`: custom oRPC procedures;
+- `api`: your oRPC router, as an object or as `(o) => router`;
+- `middleware`: oRPC middleware applied to every procedure in the graph;
 - `realtime`: memory or Redis Publisher configuration;
 - `rateLimit`, `idempotency`, `background`, and `openapi`.
 
@@ -66,14 +67,20 @@ type BunderstackApp = {
 ## API builder
 
 ```ts
-api: (o) => ({
-  publicProcedure: o.public,
-  protectedProcedure: o.protected,
-  providerWebhook: o.webhook,
-})
+const o = defineApi({ schema, env: envSchema })
+
+o.public // no session resolution
+o.protected // resolves the session, narrows context.user
+o.webhook // public, preserves the exact raw body
+o.middleware(fn) // a standalone middleware over ApiContext
 ```
 
-All three are oRPC procedure builders with the shared Bunderstack error
+`defineApi` infers `TSchema` and `TEnv` from the values it receives, so an
+application never writes `BunderstackApiBuilder<…>` by hand. It reads nothing
+at runtime and can be called at module scope. `createApiBuilder<TSchema,
+TEnv>()` remains available when you want to pass the generics explicitly.
+
+The three bases are oRPC procedure builders with the shared Bunderstack error
 contract and `ApiContext`:
 
 ```ts
@@ -92,11 +99,29 @@ type ApiContext = {
     user: AccessUser | null
     activeOrganizationId: string | null
   }>
+  /** The already-resolved session, or undefined. Never starts a resolution. */
+  peekSession():
+    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | undefined
 }
 ```
 
 `o.protected` adds non-null `context.user` and the active organization session
 to handlers. Inputs and optional outputs accept Standard Schema.
+
+`peekSession()` exists for graph-wide middleware, which runs before
+authentication. Use it for observability only, never for authorization — see
+[Middleware](/docs/middleware#reading-the-caller).
+
+## Helper exports
+
+| Export                     | Purpose                                                    |
+| -------------------------- | ---------------------------------------------------------- |
+| `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
+| `listSpec(table, options)` | Input schema and handler for a list endpoint outside CRUD  |
+| `BunderstackError`         | Typed error for code outside a handler                     |
+| `BunderstackDb<TSchema>`   | The database type for a helper parameter                   |
+| `BunderstackTx<TSchema>`   | The transaction handle inside `db.transaction`             |
 
 ## Database and provisioning
 

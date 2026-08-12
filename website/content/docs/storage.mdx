@@ -26,11 +26,17 @@ curl -X DELETE /api/files/abc123.jpg  # 204 — owner only by default
 ```ts
 await createBunderstack({
   schema,
-  storageOptions: {
-    access: {
-      create: 'authenticated', // default
-      get: 'public', // default
-      delete: 'owner', // default
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        access: {
+          create: 'authenticated', // default
+          get: 'public', // default
+          delete: 'owner', // default
+        },
+      },
     },
   },
 })
@@ -53,10 +59,16 @@ await createBunderstack({ schema, storage: { s3: true } })
 ```ts
 await createBunderstack({
   schema,
-  storageOptions: {
-    uploadRules: {
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      maxSizeBytes: 5 * 1024 * 1024,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        upload: {
+          accept: ['image/jpeg', 'image/png', 'image/webp'],
+          maxSize: '5mb',
+        },
+      },
     },
   },
 })

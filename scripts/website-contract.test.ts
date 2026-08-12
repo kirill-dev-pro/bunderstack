@@ -17,11 +17,48 @@ describe('public website contract', () => {
     expect(existsSync(join(docsDir, 'trpc.mdx'))).toBe(false)
     expect(existsSync(join(docsDir, 'custom-routes.mdx'))).toBe(false)
 
-    expect(publicDocs).toContain('api: (o)')
     expect(publicDocs).toContain('o.protected')
     expect(publicDocs).toContain('o.webhook')
     expect(publicDocs).toContain('Standard Schema')
     expect(publicDocs).toContain('output validation')
+  })
+
+  test('teaches the module-scope declaration, not the callback', () => {
+    const procedures = read('website/content/docs/api-procedures.mdx')
+
+    // The builder is a module value, so router modules are plain objects.
+    expect(procedures).toContain('defineApi({ schema, env: envSchema })')
+    expect(procedures).toContain('export const boardsRouter = {')
+    expect(procedures).toContain('createBunderstack({ schema, database, api })')
+
+    // The callback stays supported, but only as the exception.
+    expect(procedures).toContain('api: (o) => ({ … })')
+  })
+
+  test('documents how to extend bases and raise typed errors', () => {
+    const procedures = read('website/content/docs/api-procedures.mdx')
+
+    expect(procedures).toContain('o.protected.use(')
+    expect(procedures).toContain('next({ context:')
+    expect(procedures).toContain('errors.NOT_FOUND(')
+    expect(procedures).toContain('BunderstackError')
+    expect(procedures).toContain('listSpec(')
+    expect(procedures).toContain('BunderstackDb')
+  })
+
+  test('separates per-base middleware from graph-wide middleware', () => {
+    expect(existsSync(join(docsDir, 'middleware.mdx'))).toBe(true)
+    const middleware = read('website/content/docs/middleware.mdx')
+
+    // The gap this option closes: generated procedures skip application bases.
+    expect(middleware).toContain('never pass through a base your application')
+    expect(middleware).toContain('middleware: [instrumentation]')
+    expect(middleware).toContain('o.middleware(')
+
+    // peekSession is the only safe way to read the caller there.
+    expect(middleware).toContain('peekSession()')
+    expect(middleware).toContain('Never use it for authorization')
+    expect(middleware).toContain('runs when the stream closes')
   })
 
   test('describes realtime as a reliable library transport', () => {
@@ -47,11 +84,12 @@ describe('public website contract', () => {
     const meta = read('website/content/docs/meta.json')
     const pages = JSON.parse(meta).pages as string[]
 
-    expect(pages.slice(0, 7)).toEqual([
+    expect(pages.slice(0, 8)).toEqual([
       'index',
       'getting-started',
       'crud',
       'api-procedures',
+      'middleware',
       'query-client',
       'sync-collections',
       'http-webhooks',

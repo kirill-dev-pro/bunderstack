@@ -25,6 +25,7 @@
   },
   "files": [
     "dist",
+    "llms.txt",
     "CHANGELOG.md",
     "README.md",
     "LICENSE"
