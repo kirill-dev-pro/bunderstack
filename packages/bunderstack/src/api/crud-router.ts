@@ -19,8 +19,8 @@ import {
   type TableAccessInput,
 } from '../access'
 import { createCrudOperations, type CrudOperations } from '../crud-operations'
-import { MAX_LIST_LIMIT } from '../list-query'
 import { createApiBuilder } from './builder'
+import { buildListInputSchema } from './list-input-schema'
 
 export type CrudApiRouterOptions<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -148,48 +148,15 @@ export function buildTableCrudProcedures<
   // for `=`, a list for `IN`, and `null` for `IS NULL`. Query strings are
   // coerced to these types by SmartCoercionHandlerPlugin, so REST and RPC share
   // one contract and nothing has to re-read the raw URL.
-  const selectEntries = createSelectSchema(table).entries as Record<
-    string,
-    v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>
-  >
-  const filterEntries: v.ObjectEntries = {}
-  for (const column of access.filterableColumns) {
-    const base = selectEntries[column]
-    if (!base) continue
-    filterEntries[column] = v.optional(
-      v.union([
-        // `?filters[col]=null` — a query string cannot carry a real null.
-        v.pipe(
-          v.literal('null'),
-          v.transform(() => null),
-        ),
-        base,
-        v.pipe(v.array(base), v.maxLength(MAX_LIST_LIMIT)),
-        v.null(),
-      ]),
-    )
-  }
-
-  // Built from runtime column lists, so the schema's own inferred type cannot
-  // name the columns; the cast restates it with the literals the caller's
-  // `access` config carries. Runtime shape and this type are the same object.
-  const listQuerySchema = v.optional(
-    v.strictObject({
-      limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
-      offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-      cursor: v.optional(v.string()),
-      sort: v.optional(v.picklist(access.sortableColumns)),
-      order: v.optional(v.picklist(['asc', 'desc'])),
-      q: v.optional(v.pipe(v.string(), v.maxLength(100))),
-      count: v.optional(v.boolean()),
-      // Always present, even with no filterable columns: clients send `{}`.
-      filters: v.optional(v.strictObject(filterEntries)),
-    }),
-  ) as unknown as v.GenericSchema<
+  // The cast restates the schema with the literals the caller's `access`
+  // config carries, which the runtime column lists cannot name on their own.
+  const listQuerySchema = buildListInputSchema(table, {
+    filterableColumns: access.filterableColumns,
+    sortableColumns: access.sortableColumns,
+  }) as unknown as v.GenericSchema<
     ListInputFor<TTable, TFilterable, TSortable>,
     ListInputFor<TTable, TFilterable, TSortable>
   >
-
 
   const listOutputSchema = v.strictObject({
     items: v.array(selectSchema),
