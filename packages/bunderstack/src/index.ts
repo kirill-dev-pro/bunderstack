@@ -741,6 +741,8 @@ export async function createBunderstack<
   }
 }
 
+export { listSpec } from './api/list-procedure'
+export type { ListSpecOptions } from './api/list-procedure'
 export type { BunderstackDb, BunderstackTx } from './db'
 export { MAX_LIST_LIMIT } from './list-query'
 export { BunderstackError } from './errors'
