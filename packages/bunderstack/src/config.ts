@@ -46,6 +46,42 @@ export type AuthConfigInput<
   | ((ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig)
 
 /**
+ * Identity helper for defining an auth config in a separate file with full
+ * type inference — no explicit generic annotations required.
+ *
+ * Follows the `defineConfig` / `defineComponent` ecosystem convention:
+ * the function does nothing at runtime but gives TypeScript an inference
+ * anchor through the `schema` parameter.
+ *
+ * @example
+ * ```ts
+ * // Static config (no db/env access needed)
+ * export const authConfig = defineAuth({ ... })
+ *
+ * // Builder with schema-typed db
+ * export const authConfig = defineAuth(schema, ({ db }) => ({
+ *   databaseHooks: {
+ *     user: { create: { after: async (user) => { await db.insert(...) } } }
+ *   }
+ * }))
+ * ```
+ */
+export function defineAuth(config: BetterAuthConfig): BetterAuthConfig
+export function defineAuth<
+  TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined = undefined,
+>(
+  schema: TSchema,
+  builder: (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig,
+): (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig
+export function defineAuth(
+  schemaOrConfig: Record<string, unknown>,
+  builder?: (ctx: any) => BetterAuthConfig,
+) {
+  return builder ?? schemaOrConfig
+}
+
+/**
  * The builder as {@link ResolvedConfig} carries it: schema-agnostic, because
  * ResolvedConfig is not generic. {@link resolveAuthConfig} is the only caller.
  */

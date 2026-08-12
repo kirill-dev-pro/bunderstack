@@ -5,6 +5,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { DatabaseAdapter } from './database/adapter'
 
 import {
+  defineAuth,
   resolveAuthConfig,
   resolveConfig,
   resolveRealtimeRedisUrl,
@@ -273,4 +274,34 @@ test('a malformed rateLimit option still throws', () => {
 test('BunderstackOptionsSchema is no longer exported', async () => {
   const mod = await import('./config')
   expect('BunderstackOptionsSchema' in mod).toBe(false)
+})
+
+test('defineAuth returns a static config as-is', () => {
+  const config = defineAuth({ secret: 'test-secret' })
+  expect(config).toEqual({ secret: 'test-secret' })
+})
+
+test('defineAuth returns the builder function when given schema', () => {
+  const builder = defineAuth(schema, ({ db }) => ({
+    secret: 'built',
+  }))
+  expect(typeof builder).toBe('function')
+  const result = builder({ db: {} as never, env: {} as never })
+  expect(result.secret).toBe('built')
+})
+
+test('defineAuth builder is accepted as auth config by resolveConfig', () => {
+  const authConfig = defineAuth(schema, ({ db }) => ({
+    secret: 'from-builder',
+  }))
+  const cfg = resolveConfig({
+    schema,
+    database: { adapter: fakeAdapter() },
+    auth: authConfig,
+  })
+  const resolved = resolveAuthConfig(cfg.auth, {
+    db: {} as never,
+    env: {} as never,
+  })
+  expect(resolved.secret).toBe('from-builder')
 })

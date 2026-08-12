@@ -736,7 +736,7 @@ export async function createBunderstack<
 export { MAX_LIST_LIMIT } from './list-query'
 export { BunderstackError } from './errors'
 export type { BunderstackErrorCode } from './errors'
-export { resolveConfig, resolveAuthConfig } from './config'
+export { resolveConfig, resolveAuthConfig, defineAuth } from './config'
 export type {
   AuthConfigContext,
   AuthConfigFactory,
