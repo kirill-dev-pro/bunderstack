@@ -26,13 +26,23 @@ export const BUNDERSTACK_ERROR_CODES = [
 
 export type BunderstackErrorCode = (typeof BUNDERSTACK_ERROR_CODES)[number]
 
+/**
+ * `data` and its `code` both default, so an application raises a declared
+ * error with a message alone: `errors.NOT_FOUND({ message })`. The code is
+ * already the name of the constructor, and repeating it at every call site is
+ * the reason applications fall back to a raw `ORPCError`. Clients still read a
+ * populated `data.code`, because the default fills it.
+ */
 function errorDataSchema<const TCode extends BunderstackErrorCode>(
   code: TCode,
 ) {
-  return v.strictObject({
-    code: v.literal(code),
-    details: v.optional(v.unknown()),
-  })
+  return v.optional(
+    v.strictObject({
+      code: v.optional(v.literal(code), code),
+      details: v.optional(v.unknown()),
+    }),
+    { code },
+  )
 }
 
 export const BUNDERSTACK_ERRORS = {

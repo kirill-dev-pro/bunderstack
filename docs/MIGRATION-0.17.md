@@ -420,6 +420,26 @@ An application that passed both `env` and a `defineAuth` factory therefore saw
 typed `app.env`, and lost the typed `jobs` builder with it. Upgrade to
 `0.17.0-beta.7`; no source change is needed.
 
+## Fixed in 0.17.0-beta.8: raising a declared error
+
+The declared error map required `data`, and `data.code` inside it, so
+`errors.NOT_FOUND({ message })` did not compile. A caller had to repeat the
+code that is already the name of the constructor, which is why applications
+fell back to constructing `ORPCError` by hand.
+
+Both now default, so a message alone is enough:
+
+```ts
+.handler(async ({ context, input, errors }) => {
+  const row = await findRow(context.db, input.id)
+  if (!row) throw errors.NOT_FOUND({ message: 'Not found' })
+  return row
+})
+```
+
+Clients still read a populated `data.code`, because the default fills it.
+Extra context goes in `data.details`.
+
 ## New exports
 
 - `defineApi({ schema, env })`

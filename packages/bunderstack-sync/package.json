@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-sync",
-  "version": "0.17.0-beta.7",
+  "version": "0.17.0-beta.8",
   "description": "TanStack DB collections synchronized through Bunderstack's typed oRPC client and realtime iterator.",
   "keywords": [
     "bun",
