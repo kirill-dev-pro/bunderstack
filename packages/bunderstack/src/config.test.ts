@@ -5,6 +5,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { DatabaseAdapter } from './database/adapter'
 
 import {
+  resolveAuthConfig,
   resolveConfig,
   resolveRealtimeRedisUrl,
   type BunderstackConfig,
@@ -17,6 +18,11 @@ const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
   connect: async () => ({}) as never,
   migrate: async () => {},
 })
+
+// `auth` resolves to an object or a builder; these cases all use the object
+// form, so collapse the union the same way createBunderstack does.
+const authOf = (cfg: ReturnType<typeof resolveConfig>) =>
+  resolveAuthConfig(cfg.auth, { db: {} as never, env: {} as never })
 
 const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
@@ -95,7 +101,7 @@ test('resolveConfig s3 true reads env vars', () => {
 
 test('resolveConfig auth defaults', () => {
   const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
-  expect(typeof cfg.auth.secret).toBe('string')
+  expect(typeof authOf(cfg).secret).toBe('string')
 })
 
 test('resolveConfig consumes a validated env for database url', () => {
@@ -129,7 +135,7 @@ test('resolveConfig auth secret comes from validated env', () => {
     { schema: {}, database: { adapter: fakeAdapter() } },
     env,
   )
-  expect(cfg.auth.secret).toBe('from-env')
+  expect(authOf(cfg).secret).toBe('from-env')
 })
 
 test('BUNDERSTACK_DATABASE_URL overrides code-level database config', () => {

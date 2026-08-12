@@ -8,7 +8,7 @@ context, one error vocabulary, one name per table.
 This is the most breaking release so far. Everything below is mechanical; the
 order is the order we recommend doing it in.
 
-> Versions: this guide covers `0.17.0-beta.3`. Items are marked with the beta
+> Versions: this guide covers `0.17.0-beta.4`. Items are marked with the beta
 > that introduced them, so a partially migrated app can skip to what is new.
 
 ## The one-paragraph summary
@@ -239,7 +239,34 @@ Nothing changes in your imports. Two things change in your build:
 plugin-parameterised instance. The runtime object is the same; if you reached for
 a plugin endpoint through the type, use a runtime check as the framework does.
 
-## 9. Carried over from 0.16 — check these if you skipped it
+## 9. `auth` can be a builder — drop your standalone db module **(beta.4)**
+
+Optional, but it removes a whole class of workaround. `auth` now accepts
+`({ db, env }) => BetterAuthConfig` alongside the plain object:
+
+```ts
+// before — auth hooks need a db, but the config is built before the app exists,
+// so the app opens a second drizzle instance in its own db.ts and imports it
+import { db } from './db'
+export const authConfig = { databaseHooks: { /* writes through `db` */ } }
+
+// beta.4
+export const authConfig = ({ db }: AuthConfigContext<typeof schema>) => ({
+  databaseHooks: { /* writes through the app's own connection */ },
+})
+```
+
+Why it exists: a config module that imports the app participates in the app's
+own type inference, and TypeScript collapses the result to `any` — which is why
+apps kept a second connection instead. `db` here is typed from `schema` alone,
+so the builder can live in its own file without importing the app. Same reason
+`api`, `jobs`, and `routes` take builders.
+
+Worth doing if your app has a module that constructs its own drizzle instance:
+that instance is a second connection, so it ignores a test-time
+`databaseUrl` override and is not closed by `app.close()`.
+
+## 10. Carried over from 0.16 — check these if you skipped it
 
 - Cron handlers take `(invocation, ctx)`, not `(ctx)`. Old code still compiles
   and silently receives the wrong argument. Grep for `handler: async (ctx)`.
@@ -261,6 +288,7 @@ See [MIGRATION-0.16.md](./MIGRATION-0.16.md) for the full 0.16 list.
 - [ ] alerting no longer expects 500s for client errors
 - [ ] `bun run typecheck` clean with your own strict flags
 - [ ] drop workarounds for generated CRUD columns that looked optional (beta.3)
+- [ ] optional: `auth` as a builder, retiring an app-owned db module (beta.4)
 
 ---
 

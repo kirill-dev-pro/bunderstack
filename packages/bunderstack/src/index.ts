@@ -44,7 +44,7 @@ import {
   withEmailAuthDefaults,
 } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
-import { resolveRealtimeRedisUrl } from './config'
+import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
@@ -291,9 +291,12 @@ export async function createBunderstack<
     // generic schema view, so this single intentional cast produces the
     // user-facing, per-dialect db type. See `app.db` / crud below.
     const userDb = db as unknown as DbFor<TSchema>
+    // An `auth` builder gets the user-facing db, so better-auth hooks in another
+    // file can write through the app's own connection without importing the app.
+    const authConfig = resolveAuthConfig(config.auth, { db: userDb, env })
     const auth = createAuth(
       db,
-      withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
+      withEmailAuthDefaults(authConfig, email, Boolean(options.email)),
       dialect,
       options.schema as Record<string, unknown>,
     )
@@ -733,8 +736,11 @@ export async function createBunderstack<
 export { MAX_LIST_LIMIT } from './list-query'
 export { BunderstackError } from './errors'
 export type { BunderstackErrorCode } from './errors'
-export { resolveConfig } from './config'
+export { resolveConfig, resolveAuthConfig } from './config'
 export type {
+  AuthConfigContext,
+  AuthConfigFactory,
+  AuthConfigInput,
   BetterAuthConfig,
   BunderstackConfig,
   ResolvedConfig,

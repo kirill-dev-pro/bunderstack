@@ -34,7 +34,9 @@ await createBunderstack({
 
 `schema` and `database.adapter` are required. All validation slots accept
 Standard Schema. `api` adds oRPC procedures; `openapi` serves their optional
-projection at `/api/openapi.json`.
+projection at `/api/openapi.json`. `auth` takes better-auth options directly, or
+a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
+own connection — see [Auth](/docs/auth#database-hooks).
 
 ## Realtime transport
 

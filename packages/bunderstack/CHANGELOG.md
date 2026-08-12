@@ -2,6 +2,12 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.17.0-beta.4] - 2026-08-12
+
+### Added
+
+- **`auth` accepts a builder** — `auth: ({ db, env }) => BetterAuthConfig`, alongside the existing plain-object form. `db` is the app's own connection, typed from `schema` alone, so better-auth database hooks can live in their own file without importing the app they help type — the same reason `api`, `jobs`, and `routes` take builders. Applications no longer need a second drizzle instance just to give auth hooks a database. Exported `AuthConfigContext`, `AuthConfigInput`, `AuthConfigFactory`, and `resolveAuthConfig`.
+
 ## [0.17.0-beta.3] - 2026-08-12
 
 ### Breaking
