@@ -408,6 +408,18 @@ offset, sort, order }`. A hand-written endpoint that returned
 `{ items, totalCount }` needs a client update. Pass `count: true` to receive
 `total`.
 
+## Fixed in 0.17.0-beta.7: env inference with an auth factory
+
+The `auth` option shielded the schema type from inference but not the env
+type. `defineAuth` returns a factory whose context types `env` as `BaseEnv`,
+which is `ValidatedEnv<undefined>`, so TypeScript took `undefined` as the env
+candidate from that position and discarded the one from the `env` option.
+
+An application that passed both `env` and a `defineAuth` factory therefore saw
+`env: envSchema` rejected as "not assignable to type 'undefined'", lost its
+typed `app.env`, and lost the typed `jobs` builder with it. Upgrade to
+`0.17.0-beta.7`; no source change is needed.
+
 ## New exports
 
 - `defineApi({ schema, env })`
