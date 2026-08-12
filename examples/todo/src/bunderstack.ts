@@ -6,7 +6,8 @@ import { anonymous } from 'better-auth/plugins'
  *   1. Auto-CRUD + access rules  → `schema` + `access` keys
  *   2. Env validation            → `env` key + `app.env`
  *   3. Email sending             → `email` key + `app.email`
- *   4. Unified oRPC endpoints    → `api` builder + `api` client
+ *   4. Unified oRPC endpoints    → `defineApi` bases + `api` client
+ *   4b. Graph-wide middleware    → `middleware` key, covers generated CRUD
  *   5. File storage + transforms → `storage` key + `api.files`
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
@@ -19,7 +20,7 @@ import { and, desc, eq, lt } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import { access } from './access'
-import { api } from './api'
+import { api, requestLog } from './api'
 import { envSchema } from './env'
 import * as schema from './schema'
 
@@ -120,6 +121,9 @@ export const app = await createBunderstack({
         },
       }),
     }),
+
+  // Applies to every procedure, generated ones included.
+  middleware: [requestLog],
 
   // oRPC custom procedures mounted alongside CRUD, declared in api.ts
   api,

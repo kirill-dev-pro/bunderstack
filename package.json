@@ -13,7 +13,7 @@
     "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "test:bundles": "bun test scripts/bundle-boundaries.test.ts",
     "typecheck": "bunx tsc --noEmit -p packages/bunderstack/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-sync/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-start/tsconfig.json",
-    "typecheck:examples": "bun run build && bunx tsc --noEmit -p examples/todo/tsconfig.json && bunx tsc --noEmit -p examples/tldraw/tsconfig.json && bunx tsc --noEmit -p examples/kanban-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-db-tanstack/tsconfig.json",
+    "typecheck:examples": "bun run build && bunx tsc --noEmit -p templates/tanstack-start-saas/tsconfig.json && bunx tsc --noEmit -p examples/todo/tsconfig.json && bunx tsc --noEmit -p examples/tldraw/tsconfig.json && bunx tsc --noEmit -p examples/kanban-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-db-tanstack/tsconfig.json",
     "typecheck:all": "bun run typecheck && bun run typecheck:examples",
     "dev": "bun run --cwd examples/standalone dev",
     "dev:standalone": "bun run --cwd examples/standalone dev",

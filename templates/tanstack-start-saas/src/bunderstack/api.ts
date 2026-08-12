@@ -1,4 +1,4 @@
-import { BunderstackError, defineApi } from 'bunderstack'
+import { defineApi } from 'bunderstack'
 import { and, count, desc, eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -7,7 +7,18 @@ import * as schema from './schema'
 
 // The builder is a plain module value. Router modules import the bases they
 // need; nothing has to be threaded through the config callback.
-const o = defineApi({ schema, env: envSchema })
+export const o = defineApi({ schema, env: envSchema })
+
+/**
+ * A base is an oRPC builder, so `.use()` gives you your own. Declaring the
+ * admin rule once keeps it out of every handler that depends on it.
+ */
+const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
+  if (context.user.role !== 'admin') {
+    throw errors.FORBIDDEN({ message: 'Admin access required' })
+  }
+  return next()
+})
 
 const projectOutput = v.object({
   id: v.string(),
@@ -32,6 +43,32 @@ const taskOutput = v.object({
   updatedAt: v.date(),
 })
 
+/**
+ * Registered in `createBunderstack({ middleware })`, so it covers the
+ * generated CRUD, storage, and realtime procedures too — a middleware placed
+ * on a base above would only see the procedures declared in this file.
+ *
+ * It runs before authentication, so the caller is read with `peekSession()`
+ * after the handler returns. That never forces a session resolution, which
+ * keeps signed webhooks free of an auth round trip.
+ */
+export const requestTiming = o.middleware(async ({ context, next, path }) => {
+  // A realtime subscription lives until the client disconnects, so timing it
+  // here would measure the connection, not the work.
+  if (path[0] === 'realtime') return next()
+
+  const name = path.join('.')
+  const startedAt = performance.now()
+  try {
+    return await next()
+  } finally {
+    console.info('[rpc]', name, {
+      ms: Math.round(performance.now() - startedAt),
+      userId: context.peekSession()?.user?.id ?? null,
+    })
+  }
+})
+
 export const api = {
   createProject: o.protected
     .route({ method: 'POST', path: '/api/create-project', successStatus: 201 })
@@ -43,7 +80,7 @@ export const api = {
       }),
     )
     .output(projectOutput)
-    .handler(async ({ context, input }) => {
+    .handler(async ({ context, input, errors }) => {
       const [project] = await context.db
         .insert(schema.projects)
         .values({
@@ -53,7 +90,7 @@ export const api = {
           dueAt: input.dueAt ?? null,
         })
         .returning()
-      if (!project) throw new BunderstackError('CONFLICT', 'Project was not created')
+      if (!project) throw errors.CONFLICT({ message: 'Project was not created' })
       await context.realtime.publish(schema.projects, 'create', project)
       return project
     }),
@@ -67,7 +104,7 @@ export const api = {
       }),
     )
     .output(taskOutput)
-    .handler(async ({ context, input }) => {
+    .handler(async ({ context, input, errors }) => {
       const [project] = await context.db
         .select()
         .from(schema.projects)
@@ -78,13 +115,13 @@ export const api = {
           ),
         )
         .limit(1)
-      if (!project) throw new BunderstackError('NOT_FOUND', 'Project not found')
+      if (!project) throw errors.NOT_FOUND({ message: 'Project not found' })
 
       const [task] = await context.db
         .insert(schema.tasks)
         .values({ projectId: project.id, ownerId: context.user.id, title: input.title })
         .returning()
-      if (!task) throw new BunderstackError('CONFLICT', 'Task was not created')
+      if (!task) throw errors.CONFLICT({ message: 'Task was not created' })
       await context.realtime.publish(schema.tasks, 'create', task)
       return task
     }),
@@ -93,7 +130,7 @@ export const api = {
     .route({ method: 'POST', path: '/api/tasks/{taskId}/complete' })
     .input(v.object({ taskId: v.pipe(v.string(), v.minLength(1)) }))
     .output(taskOutput)
-    .handler(async ({ context, input }) => {
+    .handler(async ({ context, input, errors }) => {
       const [task] = await context.db
         .update(schema.tasks)
         .set({ status: 'done', completedAt: new Date(), updatedAt: new Date() })
@@ -104,12 +141,12 @@ export const api = {
           ),
         )
         .returning()
-      if (!task) throw new BunderstackError('NOT_FOUND', 'Task not found')
+      if (!task) throw errors.NOT_FOUND({ message: 'Task not found' })
       await context.realtime.publish(schema.tasks, 'update', task)
       return task
     }),
 
-  adminOverview: o.protected
+  adminOverview: adminProcedure
     .route({ method: 'GET', path: '/api/admin/overview' })
     .input(v.optional(v.object({})))
     .output(
@@ -121,9 +158,6 @@ export const api = {
       }),
     )
     .handler(async ({ context }) => {
-      if (context.user.role !== 'admin') {
-        throw new BunderstackError('FORBIDDEN', 'Admin access required')
-      }
       const [users] = await context.db.select({ value: count() }).from(schema.user)
       const [projects] = await context.db.select({ value: count() }).from(schema.projects)
       const [openTasks] = await context.db

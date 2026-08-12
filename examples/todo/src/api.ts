@@ -10,6 +10,32 @@ import * as schema from './schema'
 // and no procedure bag passed in from the config.
 const o = defineApi({ schema, env: envSchema })
 
+/**
+ * Passed to `createBunderstack({ middleware })`, which applies it to every
+ * procedure in the graph — the generated CRUD and file endpoints included. The
+ * same function attached to `o.protected` would only cover the procedures
+ * declared below, which is the usual way observability ends up with a blind
+ * spot over the busiest routes.
+ */
+export const requestLog = o.middleware(async ({ context, next, path }) => {
+  // A realtime subscription ends when the client disconnects, so timing it
+  // would measure the connection rather than any work.
+  if (path[0] === 'realtime') return next()
+
+  const startedAt = performance.now()
+  try {
+    return await next()
+  } finally {
+    // `peekSession()` reads a session someone already resolved. Calling
+    // `getSession()` here would authenticate every request, including the
+    // webhook below, which authenticates itself with a signature.
+    console.info(
+      `[rpc] ${path.join('.')} ${Math.round(performance.now() - startedAt)}ms`,
+      context.peekSession()?.user?.id ?? 'anonymous',
+    )
+  }
+})
+
 const boardSchema = v.object({
   id: v.string(),
   name: v.string(),
