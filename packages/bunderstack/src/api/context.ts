@@ -39,6 +39,15 @@ export interface ApiContext<
     user: AccessUser | null
     activeOrganizationId: string | null
   }>
+  /**
+   * The session that some earlier code already resolved, or `undefined`.
+   * Never starts a resolution, so a global middleware can log the caller
+   * without removing the lazy session behavior that signed webhooks rely on.
+   * Use it for observability only. Never use it for authorization.
+   */
+  peekSession: () =>
+    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | undefined
 }
 
 export function createApiContext<
@@ -55,12 +64,23 @@ export function createApiContext<
     | Promise<{ user: AccessUser | null; activeOrganizationId: string | null }>
     | undefined
 
+  let settledSession:
+    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | undefined
+
   const getSession = () => {
     if (!sessionPromise) {
-      sessionPromise = resolveSession(deps.authResolver, request.headers)
+      sessionPromise = resolveSession(deps.authResolver, request.headers).then(
+        (session) => {
+          settledSession = session
+          return session
+        },
+      )
     }
     return sessionPromise
   }
+
+  const peekSession = () => settledSession
 
   const getRawBody = () => {
     if (!rawBodyPromise) rawBodyPromise = rawBodyRequest.text()
@@ -79,5 +99,6 @@ export function createApiContext<
     resHeaders: new Headers(),
     getRawBody,
     getSession,
+    peekSession,
   }
 }
