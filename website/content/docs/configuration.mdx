@@ -11,7 +11,7 @@ description: createBunderstack options, transports, adapters, and lifecycle
 await createBunderstack({
   schema,
   database: {
-    adapter,
+    adapter: libsql(),
     url,
     authToken,
     migrations: './migrations',
