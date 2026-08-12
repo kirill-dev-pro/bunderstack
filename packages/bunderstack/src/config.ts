@@ -149,7 +149,7 @@ export type BunderstackConfig<
    * connection, so the application never opens a second one just to satisfy a
    * config that is built before the app exists.
    */
-  auth?: AuthConfigInput<NoInfer<TSchema>, TEnv>
+  auth?: AuthConfigInput<NoInfer<TSchema>, NoInfer<TEnv>>
   /**
    * Reuse an application-owned session reader for the unified API while
    * keeping Bunderstack's auth handler available.
