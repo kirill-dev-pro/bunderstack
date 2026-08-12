@@ -1,5 +1,6 @@
 import { os, type AnyRouter } from '@orpc/server'
 
+import type { EnvConfigInput, ValidatedEnv } from '../env'
 import type { ApiContext } from './context'
 
 import {
@@ -38,6 +39,18 @@ export function createApiBuilder<
     protected: protectedProc,
     webhook: base,
   }
+}
+
+/**
+ * Same builder as `createApiBuilder`, but the generics come from the values an
+ * application already has. It reads nothing at runtime, so a module can call it
+ * at import time and export the bases that its router modules import.
+ */
+export function defineApi<
+  TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined = undefined,
+>(_options: { schema: TSchema; env?: TEnv }) {
+  return createApiBuilder<TSchema, ValidatedEnv<TEnv>>()
 }
 
 export type BunderstackApiBuilder<

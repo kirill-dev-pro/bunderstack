@@ -819,7 +819,7 @@ export type {
   SchemaTable,
 } from './realtime/facade'
 
-export { createApiBuilder } from './api/builder'
+export { createApiBuilder, defineApi } from './api/builder'
 export type { BunderstackApiBuilder, ApiFactory } from './api/builder'
 // Needed to declare shared middleware over the app's context, e.g.
 // `os.$context<ApiContext<typeof schema>>().middleware(...)`.
