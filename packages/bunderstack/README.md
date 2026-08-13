@@ -12,23 +12,17 @@ import { libsql } from 'bunderstack/database/libsql'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-// api.ts — the builder is a plain module value, so router modules import the
-// bases they need instead of receiving them through a factory argument.
-const o = defineApi({ schema })
-
-export const api = {
-  ping: o.public
-    .route({ method: 'GET', path: '/api/ping' })
-    .input(v.optional(v.object({})))
-    .handler(() => ({ ok: true })),
-}
-
 export const app = await createBunderstack({
   schema,
   database: { adapter: libsql(), url: 'file:./data.db' },
   access: { posts: { crud: true } },
   realtime: true,
-  api,
+  api: {
+    ping: defineApi({ schema })
+      .public.route({ method: 'GET', path: '/api/ping' })
+      .input(v.optional(v.object({})))
+      .handler(() => ({ ok: true })),
+  },
 })
 
 Bun.serve({ fetch: app.handler })

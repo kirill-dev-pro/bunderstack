@@ -1,6 +1,12 @@
 name: Publish packages
 
 on:
+  merge_group:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/publish-changed.ts'
+      - '.github/workflows/publish.yml'
   push:
     branches: [main]
     paths:
