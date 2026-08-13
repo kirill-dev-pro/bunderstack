@@ -2,6 +2,16 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.17.1] - 2026-08-13
+
+### Added
+
+- Every configured email is recorded in internal journal tables, including
+  captured, sent, failed, and provider-updated delivery states.
+- Bunderhost can supply a managed Resend provider and sender at runtime.
+- Resend messages carry stable email and environment tags for webhook
+  correlation across production and preview deployments.
+
 ## [0.17.0-beta.4] - 2026-08-12
 
 ### Added
@@ -15,7 +25,7 @@ All notable changes to `bunderstack` will be documented in this file.
 - **The package publishes built `dist`, not raw `src`.** Every entry point now
   resolves to `dist/<entry>.js` with `dist/<entry>.d.ts` beside it, and the
   tarball no longer contains TypeScript sources. Consumers therefore typecheck
-  our *declarations*, which `skipLibCheck` can suppress — previously our sources
+  our _declarations_, which `skipLibCheck` can suppress — previously our sources
   were compiled under the app's own flags, where `exactOptionalPropertyTypes`
   alone produced 168 errors inside `node_modules` and
   `noPropertyAccessFromIndexSignature` another 79. A strict app now sees zero

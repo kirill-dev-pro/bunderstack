@@ -28,6 +28,9 @@ export type BaseEnv = {
   REDIS_URL?: string
   RESEND_API_KEY?: string
   SMTP_URL?: string
+  BUNDERSTACK_EMAIL_PROVIDER?: string
+  BUNDERSTACK_EMAIL_FROM?: string
+  BUNDERHOST_ENVIRONMENT_ID?: string
   BUNDERSTACK_ROLE: BunderstackRole
 }
 
@@ -117,6 +120,9 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     REDIS_URL: source.REDIS_URL,
     RESEND_API_KEY: source.RESEND_API_KEY,
     SMTP_URL: source.SMTP_URL,
+    BUNDERSTACK_EMAIL_PROVIDER: source.BUNDERSTACK_EMAIL_PROVIDER,
+    BUNDERSTACK_EMAIL_FROM: source.BUNDERSTACK_EMAIL_FROM,
+    BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
     BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
   }
   if (isProduction && !source.AUTH_SECRET) {

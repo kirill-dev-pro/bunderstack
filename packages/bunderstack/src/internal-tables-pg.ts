@@ -67,4 +67,47 @@ export const bunderstackJobsPg = pgTable(
   ],
 )
 
+export const bunderstackEmailsPg = pgTable(
+  '_bunderstack_emails',
+  {
+    id: text('id').primaryKey(),
+    provider: text('provider').notNull(),
+    providerId: text('provider_id'),
+    status: text('status').notNull(),
+    from: text('from_address').notNull(),
+    toJson: text('to_json').notNull(),
+    ccJson: text('cc_json').notNull(),
+    bccJson: text('bcc_json').notNull(),
+    replyTo: text('reply_to'),
+    subject: text('subject').notNull(),
+    html: text('html'),
+    text: text('text'),
+    error: text('error'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('bem_created').on(t.createdAt),
+    index('bem_status').on(t.status, t.createdAt),
+    uniqueIndex('bem_provider_id').on(t.provider, t.providerId),
+  ],
+)
 
+export const bunderstackEmailEventsPg = pgTable(
+  '_bunderstack_email_events',
+  {
+    id: text('id').primaryKey(),
+    emailId: text('email_id')
+      .notNull()
+      .references(() => bunderstackEmailsPg.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(),
+    type: text('type').notNull(),
+    detailJson: text('detail_json'),
+    occurredAt: bigint('occurred_at', { mode: 'number' }).notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('beev_external').on(t.externalId),
+    index('beev_email_time').on(t.emailId, t.occurredAt),
+  ],
+)

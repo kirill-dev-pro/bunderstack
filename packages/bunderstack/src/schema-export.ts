@@ -1,4 +1,6 @@
 export {
+  bunderstackEmailEvents,
+  bunderstackEmails,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,

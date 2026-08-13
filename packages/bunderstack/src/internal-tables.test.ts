@@ -7,6 +7,8 @@ import { validateAndResolveAccess } from './access'
 import { libsql } from './database/libsql'
 import { createDb } from './db'
 import {
+  bunderstackEmailEvents,
+  bunderstackEmails,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
@@ -16,6 +18,8 @@ import {
   withInternalTables,
 } from './internal-tables'
 import {
+  bunderstackEmailEventsPg,
+  bunderstackEmailsPg,
   bunderstackFilesPg,
   bunderstackIdempotencyPg,
   bunderstackJobsPg,
@@ -38,7 +42,9 @@ test('INTERNAL_TABLE_NAMES contains every internal table name', () => {
   expect(INTERNAL_TABLE_NAMES.has('bunderstack_file_meta')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_idempotency')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
-  expect(INTERNAL_TABLE_NAMES.size).toBe(3)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_emails')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_email_events')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.size).toBe(5)
 })
 
 // --- INTERNAL_TABLES ---
@@ -46,6 +52,8 @@ test('INTERNAL_TABLE_NAMES contains every internal table name', () => {
 test('INTERNAL_TABLES contains both tables', () => {
   expect(isTable(INTERNAL_TABLES.bunderstackFiles)).toBe(true)
   expect(isTable(INTERNAL_TABLES.bunderstackIdempotency)).toBe(true)
+  expect(isTable(INTERNAL_TABLES.bunderstackEmails)).toBe(true)
+  expect(isTable(INTERNAL_TABLES.bunderstackEmailEvents)).toBe(true)
 })
 
 // --- withInternalTables ---
@@ -54,6 +62,8 @@ test('withInternalTables({}) returns object with both internal tables', () => {
   const merged = withInternalTables({})
   expect(isTable(merged.bunderstackFiles)).toBe(true)
   expect(isTable(merged.bunderstackIdempotency)).toBe(true)
+  expect(isTable(merged.bunderstackEmails)).toBe(true)
+  expect(isTable(merged.bunderstackEmailEvents)).toBe(true)
 })
 
 test('withInternalTables preserves user tables', () => {
@@ -104,6 +114,8 @@ test('withInternalTables merges pg twins into a pg schema', () => {
   const merged = withInternalTables({ pgPosts })
   expect(is(merged.bunderstackFiles, PgTable)).toBe(true)
   expect(is(merged.bunderstackIdempotency, PgTable)).toBe(true)
+  expect(is(merged.bunderstackEmails, PgTable)).toBe(true)
+  expect(is(merged.bunderstackEmailEvents, PgTable)).toBe(true)
 })
 
 test('withInternalTables accepts the pg twins re-exported into the schema', () => {
@@ -129,6 +141,8 @@ test('validateAndResolveAccess excludes internal tables from CRUD', () => {
   const resolved = validateAndResolveAccess(merged)
   expect(resolved.has('bunderstackFiles')).toBe(false)
   expect(resolved.has('bunderstackIdempotency')).toBe(false)
+  expect(resolved.has('bunderstackEmails')).toBe(false)
+  expect(resolved.has('bunderstackEmailEvents')).toBe(false)
 })
 
 // --- provision round-trip ---
@@ -224,4 +238,61 @@ test('provision round-trip: insert+select bunderstackJobs', async () => {
   expect(inserted!.type).toBe('greet')
   expect(inserted!.status).toBe('pending')
   expect(inserted!.attempts).toBe(0)
+})
+
+test('email journal tables are registered in both dialects', () => {
+  expect(getTableName(bunderstackEmails)).toBe('_bunderstack_emails')
+  expect(getTableName(bunderstackEmailEvents)).toBe('_bunderstack_email_events')
+  expect(getTableName(bunderstackEmailsPg)).toBe('_bunderstack_emails')
+  expect(getTableName(bunderstackEmailEventsPg)).toBe(
+    '_bunderstack_email_events',
+  )
+  expect(is(bunderstackEmailsPg, PgTable)).toBe(true)
+  expect(is(bunderstackEmailEventsPg, PgTable)).toBe(true)
+})
+
+test('provision round-trip: insert email and provider event', async () => {
+  const now = Date.now()
+  await db.insert(bunderstackEmails).values({
+    id: 'email_test1',
+    provider: 'capture',
+    status: 'captured',
+    from: 'App <hello@example.com>',
+    toJson: '["user@example.com"]',
+    ccJson: '[]',
+    bccJson: '[]',
+    subject: 'Welcome',
+    text: 'Hello',
+    createdAt: now,
+    updatedAt: now,
+  })
+  await db.insert(bunderstackEmailEvents).values({
+    id: 'event_test1',
+    emailId: 'email_test1',
+    externalId: 'svix_test1',
+    type: 'delivered',
+    occurredAt: now + 1,
+    createdAt: now + 2,
+  })
+
+  expect(
+    await db
+      .select()
+      .from(bunderstackEmails)
+      .then((rows) => rows.find((row) => row.id === 'email_test1')),
+  ).toMatchObject({
+    provider: 'capture',
+    status: 'captured',
+    subject: 'Welcome',
+  })
+  expect(
+    await db
+      .select()
+      .from(bunderstackEmailEvents)
+      .then((rows) => rows.find((row) => row.id === 'event_test1')),
+  ).toMatchObject({
+    emailId: 'email_test1',
+    externalId: 'svix_test1',
+    type: 'delivered',
+  })
 })

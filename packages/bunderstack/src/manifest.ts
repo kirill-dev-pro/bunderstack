@@ -9,6 +9,8 @@ import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
 import {
+  bunderstackEmailEvents,
+  bunderstackEmails,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
@@ -166,6 +168,16 @@ function describeSection(
 
 function systemTables() {
   return [
+    {
+      exportName: '_system.emailEvents',
+      physicalName: getTableName(bunderstackEmailEvents),
+      system: true,
+    },
+    {
+      exportName: '_system.emails',
+      physicalName: getTableName(bunderstackEmails),
+      system: true,
+    },
     {
       exportName: '_system.files',
       physicalName: getTableName(bunderstackFiles),

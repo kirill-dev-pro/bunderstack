@@ -260,7 +260,9 @@ export async function createBunderstack<
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
   // and everything downstream consumes the result.
   const env = validateEnv(options.env, {
-    emailProvider: emailProviderTag(options.email),
+    emailProvider:
+      options.processEnv?.BUNDERSTACK_EMAIL_PROVIDER ??
+      emailProviderTag(options.email),
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
     source: options.processEnv,
@@ -269,7 +271,6 @@ export async function createBunderstack<
   // Adapters use Drizzle mocks during deployment introspection, so the database
   // and Redis below never touch external services.
   const introspect = process.env.BUNDERSTACK_INTROSPECT === '1'
-  const email = createEmail(options.email, { env })
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -284,6 +285,7 @@ export async function createBunderstack<
     dialect,
     introspect,
   })
+  const email = createEmail(options.email, { env, db })
   if (closeDatabase) lifecycle.add(closeDatabase)
   try {
     // `db` is typed with the merged schema (user tables + internal tables) so the

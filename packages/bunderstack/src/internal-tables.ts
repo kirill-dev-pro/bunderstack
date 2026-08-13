@@ -11,6 +11,8 @@ import {
 
 import { detectDialect } from './dialect'
 import {
+  bunderstackEmailEventsPg,
+  bunderstackEmailsPg,
   bunderstackFilesPg,
   bunderstackIdempotencyPg,
   bunderstackJobsPg,
@@ -73,22 +75,73 @@ export const bunderstackJobs = sqliteTable(
   ],
 )
 
+export const bunderstackEmails = sqliteTable(
+  '_bunderstack_emails',
+  {
+    id: text('id').primaryKey(),
+    provider: text('provider').notNull(),
+    providerId: text('provider_id'),
+    status: text('status').notNull(),
+    from: text('from_address').notNull(),
+    toJson: text('to_json').notNull(),
+    ccJson: text('cc_json').notNull(),
+    bccJson: text('bcc_json').notNull(),
+    replyTo: text('reply_to'),
+    subject: text('subject').notNull(),
+    html: text('html'),
+    text: text('text'),
+    error: text('error'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    index('bem_created').on(t.createdAt),
+    index('bem_status').on(t.status, t.createdAt),
+    uniqueIndex('bem_provider_id').on(t.provider, t.providerId),
+  ],
+)
+
+export const bunderstackEmailEvents = sqliteTable(
+  '_bunderstack_email_events',
+  {
+    id: text('id').primaryKey(),
+    emailId: text('email_id')
+      .notNull()
+      .references(() => bunderstackEmails.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(),
+    type: text('type').notNull(),
+    detailJson: text('detail_json'),
+    occurredAt: integer('occurred_at').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('beev_external').on(t.externalId),
+    index('beev_email_time').on(t.emailId, t.occurredAt),
+  ],
+)
+
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
+  bunderstackEmails,
+  bunderstackEmailEvents,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   'bunderstack_file_meta',
   '_bunderstack_idempotency',
   '_bunderstack_jobs',
+  '_bunderstack_emails',
+  '_bunderstack_email_events',
 ])
 
 export const INTERNAL_TABLES_PG = {
   bunderstackFiles: bunderstackFilesPg,
   bunderstackIdempotency: bunderstackIdempotencyPg,
   bunderstackJobs: bunderstackJobsPg,
+  bunderstackEmails: bunderstackEmailsPg,
+  bunderstackEmailEvents: bunderstackEmailEventsPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -99,6 +152,11 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
     [bunderstackIdempotency, bunderstackIdempotencyPg],
   ],
   [getTableName(bunderstackJobs), [bunderstackJobs, bunderstackJobsPg]],
+  [getTableName(bunderstackEmails), [bunderstackEmails, bunderstackEmailsPg]],
+  [
+    getTableName(bunderstackEmailEvents),
+    [bunderstackEmailEvents, bunderstackEmailEventsPg],
+  ],
 ])
 
 /** Internal file-meta table matching the db's dialect. */
@@ -114,6 +172,16 @@ export function idempotencyTableFor(db: unknown) {
 /** Internal jobs table matching the db's dialect. */
 export function jobsTableFor(db: unknown) {
   return is(db, PgDatabase) ? bunderstackJobsPg : bunderstackJobs
+}
+
+/** Internal email journal table matching the db's dialect. */
+export function emailsTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackEmailsPg : bunderstackEmails
+}
+
+/** Internal email event table matching the db's dialect. */
+export function emailEventsTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackEmailEventsPg : bunderstackEmailEvents
 }
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(

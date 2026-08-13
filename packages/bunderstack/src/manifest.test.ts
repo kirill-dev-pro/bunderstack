@@ -54,6 +54,16 @@ test('buildManifest describes deployment requirements deterministically', () => 
       migrationsDirectory: './migrations',
       tables: [
         {
+          exportName: '_system.emailEvents',
+          physicalName: '_bunderstack_email_events',
+          system: true,
+        },
+        {
+          exportName: '_system.emails',
+          physicalName: '_bunderstack_emails',
+          system: true,
+        },
+        {
           exportName: '_system.idempotency',
           physicalName: '_bunderstack_idempotency',
           system: true,

@@ -164,6 +164,15 @@ const url = api.files.avatars.url(uploaded.fileId, { w: 160, format: 'webp' })
 await api.files.avatars.delete(uploaded.fileId)
 ```
 
+## Email journal
+
+Configured email is always recorded in `_bunderstack_emails`. Without a
+provider, messages are captured locally and are not delivered. With Resend or a
+custom adapter, the same row advances through sending and provider delivery
+states; `_bunderstack_email_events` keeps the provider event history. Managed
+Bunderhost deployments can supply the Resend credentials and sender without
+putting provider keys in application code.
+
 ## Optional OpenAPI
 
 Set `openapi: true` to serve `/api/openapi.json`. It is intentionally optional:
