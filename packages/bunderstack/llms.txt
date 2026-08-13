@@ -1,0 +1,360 @@
+BUNDERSTACK
+
+A batteries-included backend framework for Bun. Version 0.17 (beta).
+Docs: https://bunderstack.dev/docs
+This file is written for coding agents. It is dense on purpose.
+
+WHAT IT IS
+
+createBunderstack() takes a Drizzle schema and returns an app whose handler is
+a single Web-Standard Request -> Response function. From the schema it
+generates secured CRUD procedures. Your own procedures, file storage, realtime
+subscriptions, and a health check live in the same oRPC graph, reachable both
+as typed RPC and as ordinary HTTP.
+
+Stack: Bun, Drizzle (+ drizzle-kit), Better Auth, oRPC v2, libSQL or Postgres,
+sharp. Validation accepts any Standard Schema library; generated schemas use
+Valibot. There is no Hono, no tRPC, and no Zod requirement.
+
+Packages: bunderstack (server), bunderstack-query (client + TanStack Query),
+bunderstack-sync (TanStack DB collections), bunderstack-start (TanStack Start
+integration).
+
+MINIMAL APP
+
+  import { createBunderstack } from 'bunderstack'
+  import { libsql } from 'bunderstack/database/libsql'
+  import * as schema from './schema'
+
+  export const app = await createBunderstack({
+    schema,
+    database: { adapter: libsql(), url: 'file:./data.db' },
+    access: { posts: { list: 'public', get: 'public' } },
+  })
+
+  export type App = typeof app
+  Bun.serve({ fetch: app.handler })
+
+Database adapters are imported from their own entry points: libsql(),
+pglite(), bunSql(), postgresJs(). Provisioning: `await provision(app)` pushes
+the schema in development and applies committed migrations once a migrations/
+folder exists.
+
+DECLARING AN API
+
+Declare the builder once at module scope. defineApi infers the types from the
+values you pass, so you never write the generic parameters yourself. It reads
+nothing at runtime.
+
+  // src/api/base.ts
+  import { defineApi } from 'bunderstack'
+  import { envSchema } from '../env'
+  import { schema } from '../schema'
+
+  export const o = defineApi({ schema, env: envSchema })
+  export const publicProcedure = o.public
+  export const protectedProcedure = o.protected
+
+Router modules are plain objects that import the base they need:
+
+  // src/api/boards.ts
+  import { protectedProcedure } from './base'
+
+  export const boardsRouter = {
+    stats: protectedProcedure
+      .route({ method: 'GET', path: '/api/board-stats' })
+      .input(v.object({ boardId: v.string() }))
+      .handler(async ({ context, input }) => countTodos(context.db, input.boardId)),
+  }
+
+  // src/api/index.ts
+  export const api = { boards: boardsRouter }
+
+  // config
+  createBunderstack({ schema, database, api })
+
+Do NOT write a factory that receives a bag of procedures. That pattern exists
+only because the api option used to be a callback. The callback form still
+works — api: (o) => ({ ... }) — for a router that must be built from the
+framework builder at configuration time, but the object form is the default.
+
+BASES
+
+  o.public     session resolved only if the handler calls context.getSession()
+  o.protected  resolves the session, narrows context.user to non-null
+  o.webhook    public, and preserves the exact raw request body
+  o.middleware(fn)  a standalone middleware typed over the request context
+
+Extend a base with .use(). Whatever you pass to next({ context }) is merged and
+typed downstream:
+
+  export const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin') throw errors.FORBIDDEN({ message: 'Admin only' })
+    return next()
+  })
+
+HANDLER CONTEXT
+
+  db            typed Drizzle instance for your schema
+  env           validated environment, typed from the env schema
+  storage       StorageFacade: delete, bucket, sweep, getUrl, upload
+  email         send()
+  jobs          enqueue()
+  realtime      publish()
+  auth          the Better Auth instance
+  request       the original Request
+  resHeaders    response headers you can set
+  getSession()  resolves the session, memoized per request
+  peekSession() the already-resolved session or undefined; never resolves
+  getRawBody()  the exact bytes, memoized; safe for signature checks
+
+o.protected additionally guarantees context.user and
+context.session.activeOrganizationId.
+
+MIDDLEWARE
+
+Two placements, and the difference is the thing people get wrong.
+
+.use() on a base reaches only procedures built from that base. Use it for
+rules about a group of procedures: role checks, organization scope, quotas.
+
+middleware: [...] in createBunderstack reaches EVERY procedure, including the
+generated CRUD, storage, realtime, and health. Use it for observability. A
+tracing middleware attached to a base leaves generated CRUD unmeasured,
+because the framework builds those procedures itself and they never pass
+through an application base.
+
+  export const instrumentation = o.middleware(async ({ context, next, path }) => {
+    const name = path.join('.')
+    const startedAt = performance.now()
+    try {
+      const result = await next()
+      metrics.record(name, performance.now() - startedAt)
+      return result
+    } catch (error) {
+      metrics.error(name, error)
+      throw error
+    }
+  })
+
+  createBunderstack({ schema, database, middleware: [instrumentation], api })
+
+Rules for graph-wide middleware:
+- It runs before authentication. context.user does not exist there.
+- Read the caller with context.peekSession(), after await next(). Do not call
+  getSession(): that forces resolution on every request and makes signed
+  webhooks pay for authentication they do not need.
+- peekSession() is for observability only, never for authorization. An
+  anonymous request and an unresolved session look identical.
+- A realtime subscription is one long-lived call. Code after await next() runs
+  when the stream closes, not when it starts. Filter by path[0] === 'realtime'
+  when that matters.
+- Middlewares run outermost first, in array order.
+
+TYPED ERRORS
+
+Declared codes: BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT,
+PAYLOAD_TOO_LARGE, TOO_MANY_REQUESTS. Each maps to its standard HTTP status.
+
+Inside a handler or middleware, raise from the errors argument:
+
+  throw errors.NOT_FOUND({ message: 'Board not found' })
+  throw errors.CONFLICT({ message: 'Already running', data: { details: { id } } })
+
+Outside a handler — a service function, a job — there is no errors argument.
+Throw BunderstackError; the framework maps it to the same typed error:
+
+  import { BunderstackError } from 'bunderstack'
+  throw new BunderstackError('FORBIDDEN', 'Insufficient credits')
+
+Do not construct ORPCError by hand. Clients narrow on these with the oRPC
+isDefinedError helpers.
+
+GENERATED CRUD
+
+Per exposed table: list, get, create, update, delete. HTTP equivalents are
+GET /api/:table, GET /api/:table/:id, POST /api/:table, PATCH /api/:table/:id,
+DELETE /api/:table/:id.
+
+List parameters, identical over RPC and query string: limit (default 20, capped
+at 200), offset, sort, order, q, count, cursor, filters. filters[col]=value is
+equality, filters[col][]=a&filters[col][]=b is IN, filters[col]=null is IS
+NULL. A bare ?col=value is not a filter and returns 400. cursor and offset
+cannot be combined.
+
+List response: { items, limit, offset, hasMore, total, sort, order, nextCursor }.
+total is present only with count: true.
+
+Exposure and rules come from the access option:
+
+  access: defineAccess(schema, {
+    posts: {
+      list: 'authenticated',
+      get: 'owner',
+      create: 'authenticated',
+      update: 'owner',
+      delete: 'owner',
+      filterableColumns: ['authorId'],
+      sortableColumns: ['createdAt'],
+      defaultSort: { column: 'createdAt', order: 'desc' },
+      scope: { read: (ctx) => ({ userId: ctx.user?.id ?? '' }) },
+    },
+    auditLog: { crud: false },
+  })
+
+Rules are 'public', 'authenticated', 'owner', 'deny', or a predicate. Without
+an access entry, a table with a userId column is exposed by convention. Owner
+checks use ownerColumn, detected as userId unless stated.
+
+LIST ENDPOINTS OUTSIDE CRUD
+
+listSpec gives a procedure you write the same list contract, for tables that
+are not exposed as CRUD or that need a different policy:
+
+  import { listSpec } from 'bunderstack'
+
+  const logsList = listSpec(appLogs, {
+    filterable: ['level', 'userId'],
+    sortable: ['createdAt'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  })
+
+  export const adminRouter = {
+    logs: adminProcedure.input(logsList.input).handler(logsList.handler),
+  }
+
+It returns the schema and the handler separately, not a finished procedure.
+That is deliberate: the base procedure must stay concrete at the call site, or
+TypeScript resolves the builder through a generic constraint and the row type
+is erased. listSpec reads no access configuration; the base carries the policy.
+
+TYPING HELPERS
+
+A service function in its own module cannot use typeof app.db without an import
+cycle. Use the exported types:
+
+  import type { BunderstackDb, BunderstackTx } from 'bunderstack'
+  import type { schema } from './schema'
+
+  type Db = BunderstackDb<typeof schema>
+  type Tx = BunderstackTx<typeof schema>
+
+WEBHOOKS AND HTTP
+
+A webhook is an ordinary procedure with a route. getRawBody() returns the exact
+bytes, so signature verification is correct, and the session is never resolved
+unless the handler asks for it:
+
+  stripeWebhook: o.webhook
+    .route({ method: 'POST', path: '/webhooks/stripe' })
+    .handler(async ({ context }) => {
+      const raw = await context.getRawBody()
+      verify(raw, context.request.headers.get('stripe-signature'), context.env.STRIPE_SECRET)
+      return { received: true }
+    })
+
+For typed headers, query parameters, status codes, or response headers, use
+oRPC inputStructure: 'detailed' and outputStructure.
+
+ENV
+
+  env: { server: { STRIPE_KEY: v.string() }, client: { PUBLIC_NAME: v.string() } }
+
+Server variables must not start with PUBLIC_; client variables must. Validated
+at boot; app.env and context.env are typed from the schema. Declare the schema
+in its own module so both createBunderstack and defineApi can use it.
+
+AUTH
+
+auth takes Better Auth options directly, or defineAuth(schema, ({ db, env }) =>
+options) when database hooks need the app's own connection. Better Auth owns
+/api/auth/*. context.user carries id, email, name, and role. authResolver
+replaces session reading with your own implementation.
+
+BACKGROUND JOBS
+
+One table, one loop. A cron is a job created on a schedule.
+
+  jobs: (j) => j.define({
+    sendEmail: j.job({
+      input: v.object({ userId: v.string() }),
+      retries: 3,
+      handler: async ({ userId }, ctx) => { /* ctx.db, ctx.email, ... */ },
+    }),
+    daily: j.cron({ schedule: '0 9 * * *', handler: async (_inv, ctx) => {} }),
+  })
+
+Enqueue with app.jobs.enqueue(name, input, { dedupeKey }). The background loop
+starts on its own, gated by BUNDERSTACK_ROLE: all (default), web, or worker.
+
+STORAGE
+
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      avatars: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: { maxSize: '2mb', accept: ['image/jpeg', 'image/png'] },
+        transforms: true,
+      },
+    },
+  }
+
+Canonical URL: /api/files/{bucket}/{+path}. transforms: true enables on-the-fly
+image derivatives through sharp. app.storage exposes delete, bucket, sweep,
+getUrl, and upload for server-generated files.
+
+REALTIME
+
+realtime: true uses an in-memory publisher; { redis: url } fans out across
+processes. Generated writes publish automatically. After a custom write,
+publish the complete returned row:
+
+  await context.realtime.publish(schema.posts, 'update', post)
+
+Clients subscribe through the same graph; there is no separate SSE transport to
+configure.
+
+CLIENT
+
+  import { createClient } from 'bunderstack-query'
+  import type { App } from './bunderstack'
+
+  export const api = createClient<App>({ queryClient, realtime: true })
+
+  await api.posts.list.call({ limit: 20 })
+  useQuery(api.posts.list.queryOptions({ input: { limit: 20 } }))
+  useMutation(api.posts.create.mutationOptions())
+  await api.files.avatars.upload.call(file)
+  api.files.avatars.url(fileId, { width: 320, format: 'webp' })
+
+App is a type-only import, so server code never enters the browser bundle.
+bunderstack-sync layers TanStack DB collections over the same procedures.
+
+CONFIG KEYS
+
+schema (required), database (required: adapter, url), access, auth,
+authResolver, storage, email, env, jobs, api, middleware, realtime, rateLimit,
+idempotency, background, openapi, processEnv.
+
+OPENAPI
+
+openapi: true serves /api/openapi.json. RPC types remain the source of truth; a
+procedure without .output() has an unspecified response body. OpenAPI failures
+never break normal boot.
+
+COMMON MISTAKES
+
+- Writing router factories that take a procedure bag. Use module-scope bases.
+- Declaring middleware with os.$context<...>(). Use o.middleware(...).
+- Attaching observability to a base and expecting it to cover generated CRUD.
+  Use the middleware config option.
+- Calling getSession() in graph-wide middleware. Use peekSession().
+- Constructing ORPCError by hand. Use errors.CODE() or BunderstackError.
+- Using any for a db parameter. Use BunderstackDb<typeof schema>.
+- Importing the app from a module the app imports. Both the api router and any
+  module it pulls in are evaluated at import time, so a cycle through the app
+  breaks initialization. Load the app lazily there instead.
+- Reading env from an imported module inside a handler. Use context.env.

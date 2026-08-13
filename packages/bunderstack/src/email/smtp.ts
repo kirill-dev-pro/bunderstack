@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 
-import type { EmailAdapter, EmailMessage } from '../email'
+import type { EmailAdapter } from '../email'
 
 type SmtpTransport = {
   sendMail(message: Record<string, unknown>): Promise<{ messageId?: string }>

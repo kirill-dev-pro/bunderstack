@@ -24,7 +24,7 @@ export function ReplyComposer({
   const [body, setBody] = React.useState('')
 
   const createMutation = useToastMutation(
-    api.posts.createMutation({
+    api.posts.create.mutationOptions({
       onSuccess: () => {
         setBody('')
         onPosted?.()

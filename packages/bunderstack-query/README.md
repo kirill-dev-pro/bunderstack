@@ -1,67 +1,42 @@
 # bunderstack-query
 
-Typed client for [bunderstack](https://github.com/kirill-dev-pro/bunderstack)
-backends: tRPC client, TanStack Query option factories, realtime
-subscriptions, and React hooks.
+One typed oRPC client with TanStack Query option factories, file helpers, and
+Publisher-driven realtime cache sync.
 
 ```sh
-bun add bunderstack-query
+bun add bunderstack-query @tanstack/react-query
 ```
 
 ```ts
-import { createClient } from 'bunderstack-query'
-import type { App } from '../server/app'
+import { QueryClient } from '@tanstack/react-query'
+import { createClient, syncRealtime } from 'bunderstack-query'
+import type { App } from '../server/bunderstack'
 
-const client = createClient<App>({ baseUrl: '/api' })
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient })
+
+await api.posts.create.call({ title: 'Hello' })
+const options = api.posts.list.queryOptions({ input: { limit: 20 } })
+
+const realtime = syncRealtime({
+  api,
+  queryClient,
+  tables: ['posts'],
+})
 ```
 
-The root entrypoint exposes REST tables and files. If the server declares tRPC,
-use the optional entrypoint to add a typed `client.trpc` namespace:
+The same root contains generated CRUD, application procedures,
+`realtime.changes`, and `files.<bucket>`. File buckets add `upload`, `url`, and
+`delete` helpers. `syncRealtime` consumes the typed async iterator, resumes
+from Publisher metadata after reconnects, and invalidates affected query
+caches.
+
+This package publishes TypeScript source. Node-based SSR bundlers should bundle
+it instead of externalizing it; for Vite:
 
 ```ts
-import { createTRPCClient } from 'bunderstack-query/trpc'
-import type { App } from '../server/app'
-
-const client = createTRPCClient<App>({ baseUrl: '/api' })
+ssr: { noExternal: [/^bunderstack/] }
 ```
-
-Full documentation and examples:
-[github.com/kirill-dev-pro/bunderstack](https://github.com/kirill-dev-pro/bunderstack)
-
-## Shipping TypeScript source
-
-This package publishes raw TypeScript (`exports` point at `.ts`/`.tsx`
-files). Bun consumes it natively. If a Node-based bundler or SSR server
-processes it, make sure the package is bundled rather than externalized —
-e.g. in Vite:
-
-```ts
-ssr: {
-  noExternal: [/^bunderstack/]
-}
-```
-
-Because `exports` point straight at source, your TypeScript and bundler
-resolve modules *inside this package's own directory* rather than a compiled
-`dist`. That makes a stray `node_modules/bunderstack-query/node_modules/`
-uniquely dangerous: if one is ever present (e.g. left over from an earlier
-`link:`/`file:` dependency on a local checkout, then never cleaned up after
-switching to a registry version), both `tsc` and the bundler will resolve
-peer packages like `@tanstack/react-query`, `@trpc/client`, or `react` from
-inside it instead of your app's own `node_modules`. Two copies of a
-context-carrying package like `@tanstack/query-core` means two separate
-module instances at runtime — a `QueryClientProvider` from one copy is
-invisible to a `useQuery` from the other, surfacing as "No QueryClient set"
-or a mismatched-type error on `QueryClient`'s private fields. If you hit
-either, check for nested `node_modules` under this package's install
-location before assuming it's an application bug:
-
-```sh
-find node_modules -path '*/bunderstack-query/node_modules/@tanstack*'
-```
-
-A clean `rm -rf node_modules && bun install` removes any that a normal
-install wouldn't have produced on its own.
 
 ## License
 

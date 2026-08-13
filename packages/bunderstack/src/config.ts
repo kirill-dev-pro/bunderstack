@@ -1,14 +1,18 @@
 // src/config.ts
 import { betterAuth } from 'better-auth'
-import { z } from 'zod'
+import * as v from 'valibot'
 
+import type { AnyMiddleware, AnyRouter } from '@orpc/server'
 import type { AuthSessionResolver, TableAccessInput } from './access'
+import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
+import type { DbFor } from './db'
+import type { AnyDb } from './dialect'
 import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
-import { validateEnv, type BaseEnv, type EnvConfigInput } from './env'
+import { validateEnv, type BaseEnv, type EnvConfigInput, type ValidatedEnv } from './env'
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,
@@ -20,37 +24,104 @@ export type BetterAuthConfig = Omit<
   'database'
 >
 
+/**
+ * What an `auth` builder is handed. `db` is the app's own connection, typed
+ * from `schema` alone — that is what keeps the builder cycle-free: better-auth
+ * hooks living in another file get a db without importing the app whose type
+ * they help produce.
+ */
+export type AuthConfigContext<
+  TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined = undefined,
+> = {
+  db: DbFor<TSchema>
+  env: ValidatedEnv<TEnv>
+}
+
+export type AuthConfigInput<
+  TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined = undefined,
+> =
+  | BetterAuthConfig
+  | ((ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig)
+
+/**
+ * Identity helper for defining an auth config in a separate file with full
+ * type inference — no explicit generic annotations required.
+ *
+ * Follows the `defineConfig` / `defineComponent` ecosystem convention:
+ * the function does nothing at runtime but gives TypeScript an inference
+ * anchor through the `schema` parameter.
+ *
+ * @example
+ * ```ts
+ * // Static config (no db/env access needed)
+ * export const authConfig = defineAuth({ ... })
+ *
+ * // Builder with schema-typed db
+ * export const authConfig = defineAuth(schema, ({ db }) => ({
+ *   databaseHooks: {
+ *     user: { create: { after: async (user) => { await db.insert(...) } } }
+ *   }
+ * }))
+ * ```
+ */
+export function defineAuth(config: BetterAuthConfig): BetterAuthConfig
+export function defineAuth<
+  TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined = undefined,
+>(
+  schema: TSchema,
+  builder: (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig,
+): (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig
+export function defineAuth(
+  schemaOrConfig: Record<string, unknown>,
+  builder?: (ctx: any) => BetterAuthConfig,
+) {
+  return builder ?? schemaOrConfig
+}
+
+/**
+ * The builder as {@link ResolvedConfig} carries it: schema-agnostic, because
+ * ResolvedConfig is not generic. {@link resolveAuthConfig} is the only caller.
+ */
+export type AuthConfigFactory = (ctx: {
+  db: AnyDb
+  env: BaseEnv
+}) => BetterAuthConfig
+
 // Only the union-shaped options need runtime validation: they are the ones a
 // JavaScript caller can plausibly get wrong in a way that fails confusingly
 // downstream. Everything else is either typed-only or read raw from `options`.
-const RuntimeOptionsSchema = z.object({
-  rateLimit: z
-    .union([
-      z.boolean(),
-      z.object({
-        windowMs: z.number().optional(),
-        max: z.number().optional(),
+const RuntimeOptionsSchema = v.object({
+  rateLimit: v.optional(
+    v.union([
+      v.boolean(),
+      v.object({
+        windowMs: v.optional(v.number()),
+        max: v.optional(v.number()),
       }),
-    ])
-    .optional(),
-  idempotency: z
-    .union([z.boolean(), z.object({ ttlMs: z.number().optional() })])
-    .optional(),
-  realtime: z
-    .union([
-      z.boolean(),
-      z.object({
-        keepaliveMs: z.number().optional(),
-        bufferSize: z.number().optional(),
-        redis: z
-          .union([
-            z.string(),
-            z.object({ url: z.string(), token: z.string().optional() }),
-          ])
-          .optional(),
+    ]),
+  ),
+  idempotency: v.optional(
+    v.union([v.boolean(), v.object({ ttlMs: v.optional(v.number()) })]),
+  ),
+  realtime: v.optional(
+    v.union([
+      v.boolean(),
+      v.object({
+        bufferSize: v.optional(v.number()),
+        resumeSeconds: v.optional(v.number()),
+        redis: v.optional(
+          v.union([
+            v.string(),
+            v.object({ url: v.string(), token: v.optional(v.string()) }),
+          ]),
+        ),
       }),
-    ])
-    .optional(),
+    ]),
+  ),
+  openapi: v.optional(v.boolean()),
 })
 
 export type BunderstackConfig<
@@ -62,6 +133,7 @@ export type BunderstackConfig<
     | StorageConfigInput
     | undefined,
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
+  TCustomApiRouter extends AnyRouter | undefined = AnyRouter | undefined,
 > = {
   schema: TSchema
   access?: TAccess
@@ -71,10 +143,16 @@ export type BunderstackConfig<
     authToken?: string
     migrations?: string
   }
-  auth?: BetterAuthConfig
   /**
-   * Reuse an application-owned session reader for CRUD, realtime, storage,
-   * and tRPC while keeping Bunderstack's auth handler available.
+   * better-auth options, or a builder receiving `{ db, env }`. Use the builder
+   * form when database hooks need to write: it hands out the app's own
+   * connection, so the application never opens a second one just to satisfy a
+   * config that is built before the app exists.
+   */
+  auth?: AuthConfigInput<NoInfer<TSchema>, NoInfer<TEnv>>
+  /**
+   * Reuse an application-owned session reader for the unified API while
+   * keeping Bunderstack's auth handler available.
    */
   authResolver?: AuthSessionResolver
   storage?: TStorage
@@ -88,18 +166,34 @@ export type BunderstackConfig<
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
   /**
-   * Custom Hono routes, mounted at root ahead of bunderstack's own. Declared as
-   * a callback because routes in a separate file cannot import the app that is
-   * still being constructed — the same reason `trpc` takes a builder.
+   * The application's oRPC router. Pass the finished router object, or a
+   * callback when the router needs the framework builder at configuration
+   * time. Declare the router at module scope with `defineApi` and the object
+   * form keeps router modules free of factory wrappers.
    */
-  routes?: (ctx: never) => unknown
+  api?:
+    | TCustomApiRouter
+    | ((
+        builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+      ) => TCustomApiRouter)
+  /**
+   * Middleware applied to every procedure in the graph: generated CRUD,
+   * storage, realtime, health, and the application's own procedures. Declare
+   * each one with `o.middleware(...)` from `defineApi`.
+   *
+   * It runs before authentication, so `context.user` is not available inside
+   * it. Read an already-resolved caller with `context.peekSession()`.
+   */
+  middleware?: AnyMiddleware[]
   rateLimit?: boolean | RateLimitConfig
   idempotency?: boolean | IdempotencyConfig
+  /** Generate and serve `/api/openapi.json`. Disabled by default. */
+  openapi?: boolean
   realtime?:
     | boolean
     | {
-        keepaliveMs?: number
         bufferSize?: number
+        resumeSeconds?: number
         redis?: string | { url: string; token?: string }
       }
 }
@@ -111,19 +205,31 @@ export type ResolvedConfig = {
     authToken?: string
     migrations: string
   }
-  auth: BetterAuthConfig
+  auth: BetterAuthConfig | AuthConfigFactory
   storage: ResolvedStorageBuckets
   realtime?:
     | boolean
     | {
-        keepaliveMs?: number
         bufferSize?: number
+        resumeSeconds?: number
         redis?: string | { url: string; token?: string }
       }
 }
 
-export function resolveConfig<TSchema extends Record<string, unknown>>(
-  options: BunderstackConfig<TSchema>,
+export function resolveConfig<
+  TSchema extends Record<string, unknown>,
+  TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TStorage extends StorageConfigInput | undefined = undefined,
+  TEnv extends EnvConfigInput | undefined = undefined,
+  TCustomApiRouter extends AnyRouter | undefined = undefined,
+>(
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  >,
   env?: BaseEnv,
   // Platform-injected overrides (Bunderhost & co.) beat code-level config so
   // apps with hardcoded local urls deploy unchanged.
@@ -132,7 +238,7 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
     string | undefined
   >,
 ): ResolvedConfig {
-  const parsed = RuntimeOptionsSchema.parse(options)
+  const parsed = v.parse(RuntimeOptionsSchema, options)
   // Self-validate when the caller didn't pass a pre-validated env, so
   // resolveConfig stays usable standalone.
   const resolvedEnv =
@@ -161,15 +267,29 @@ export function resolveConfig<TSchema extends Record<string, unknown>>(
       migrations: options.database?.migrations ?? './migrations',
     },
     auth: (() => {
-      const authInput = options.auth ?? {}
-      return {
-        ...authInput,
-        secret: authInput.secret ?? resolvedEnv.AUTH_SECRET,
-      }
+      // The secret default has to survive the builder form too, and the builder
+      // can only run once the db exists — so wrap it and default afterwards.
+      const withSecret = (cfg: BetterAuthConfig): BetterAuthConfig => ({
+        ...cfg,
+        secret: cfg.secret ?? resolvedEnv.AUTH_SECRET,
+      })
+      const authInput = options.auth
+      return typeof authInput === 'function'
+        ? (((ctx) =>
+            withSecret(authInput(ctx as never))) satisfies AuthConfigFactory)
+        : withSecret(authInput ?? {})
     })(),
     storage: resolveBuckets(options.storage, platformSource),
     realtime: parsed.realtime,
   }
+}
+
+/** Collapse the object/builder union once the db is up. */
+export function resolveAuthConfig(
+  auth: ResolvedConfig['auth'],
+  ctx: { db: AnyDb; env: BaseEnv },
+): BetterAuthConfig {
+  return typeof auth === 'function' ? auth(ctx) : auth
 }
 
 export function resolveRealtimeRedisUrl(

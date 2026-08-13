@@ -38,16 +38,6 @@ export type ScopeResolver = (ctx: AccessContext) => ScopeMap
 
 export type CrudOperation = 'list' | 'get' | 'create' | 'update' | 'delete'
 
-const RESERVED_LIST_PARAMS = new Set([
-  'limit',
-  'offset',
-  'sort',
-  'order',
-  'q',
-  'cursor',
-  'count',
-])
-
 export type SortOrder = 'asc' | 'desc'
 
 export type DefaultSort = {
@@ -65,6 +55,8 @@ export type TableAccessInput = {
   create?: OperationRule
   update?: OperationRule
   delete?: OperationRule
+  /** Explicit write allowlist. Entries override matching system-readonly
+   * defaults such as `updatedAt`; `id` remains immutable on update. */
   writableColumns?: string[]
   readonlyColumns?: string[]
   /** Columns matched by `?q=` on list — opt-in; omitted columns are never searched. */
@@ -174,11 +166,6 @@ function resolveListAccess(
 
   const filterableColumns = input.filterableColumns ?? []
   for (const col of filterableColumns) {
-    if (RESERVED_LIST_PARAMS.has(col)) {
-      throw new Error(
-        `[bunderstack] filterableColumns cannot include reserved query param "${col}"`,
-      )
-    }
     if (!columns.includes(col)) {
       throw new Error(
         `[bunderstack] filterableColumns references unknown column "${col}"`,
@@ -187,11 +174,6 @@ function resolveListAccess(
   }
 
   for (const col of sortableColumns) {
-    if (RESERVED_LIST_PARAMS.has(col)) {
-      throw new Error(
-        `[bunderstack] sortableColumns cannot include reserved query param "${col}"`,
-      )
-    }
     if (!columns.includes(col)) {
       throw new Error(
         `[bunderstack] sortableColumns references unknown column "${col}"`,
@@ -208,6 +190,7 @@ function resolveDefaults(
   columns: string[],
 ): Omit<ResolvedTableAccess, 'tableKey' | 'tableName' | 'enabled'> {
   const listAccess = resolveListAccess(input, columns)
+  const explicitlyWritable = new Set(input.writableColumns ?? [])
   return {
     ownerColumn,
     list: input.list ?? 'public',
@@ -217,7 +200,9 @@ function resolveDefaults(
     delete: input.delete ?? (ownerColumn ? 'owner' : 'deny'),
     writableColumns: input.writableColumns,
     readonlyColumns: [
-      ...DEFAULT_READONLY,
+      ...DEFAULT_READONLY.filter(
+        (column) => column === 'id' || !explicitlyWritable.has(column),
+      ),
       ...(input.readonlyColumns ?? []),
       ...(ownerColumn ? [ownerColumn] : []),
     ],

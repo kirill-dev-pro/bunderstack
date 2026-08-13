@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
+import type { Project, Task } from '~/api'
 import { DeliveryRail } from '~/components/delivery-rail'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -14,8 +15,8 @@ function ProjectDetailPage() {
   const { projectId } = Route.useParams()
   const { api } = Route.useRouteContext()
 
-  const [project, setProject] = React.useState<any>(null)
-  const [tasks, setTasks] = React.useState<any[]>([])
+  const [project, setProject] = React.useState<Project | null>(null)
+  const [tasks, setTasks] = React.useState<Task[]>([])
   const [taskTitle, setTaskTitle] = React.useState('')
   const [isTaskPending, setIsTaskPending] = React.useState(false)
   const [taskError, setTaskError] = React.useState<string | null>(null)
@@ -26,12 +27,12 @@ function ProjectDetailPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [projRes, taskRes] = await Promise.all([
-        api.projects.table.list(),
-        api.tasks.table.list(),
+        api.projects.list.call({ limit: 100 }),
+        api.tasks.list.call({ limit: 100 }),
       ])
-      const found = (projRes.items ?? []).find((p: any) => p.id === projectId)
+      const found = projRes.items.find((project) => project.id === projectId)
       setProject(found ?? null)
-      setTasks((taskRes.items ?? []).filter((t: any) => t.projectId === projectId))
+      setTasks(taskRes.items.filter((task) => task.projectId === projectId))
     } catch {
       // fallback
     }
@@ -39,7 +40,6 @@ function ProjectDetailPage() {
 
   React.useEffect(() => {
     void loadData()
-    void api.realtime?.subscribe(['tasks', 'projects'])
   }, [api, loadData])
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -49,16 +49,7 @@ function ProjectDetailPage() {
     setIsTaskPending(true)
 
     try {
-      const res = await fetch('/api/trpc/tasks.add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, title: taskTitle }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error?.message || 'Failed to add task')
-      }
+      await api.addTask.call({ projectId, title: taskTitle })
 
       setTaskTitle('')
       void loadData()
@@ -71,15 +62,8 @@ function ProjectDetailPage() {
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      const res = await fetch('/api/trpc/tasks.complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId }),
-      })
-
-      if (res.ok) {
-        void loadData()
-      }
+      await api.completeTask.call({ taskId })
+      void loadData()
     } catch {
       // silent fail
     }
@@ -92,20 +76,9 @@ function ProjectDetailPage() {
     setUploadMessage(null)
 
     try {
-      const formData = new FormData()
-      formData.append('file', uploadFile)
-
-      const res = await fetch(`/api/storage/project-files/upload?projectId=${projectId}`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (res.ok) {
-        setUploadMessage('Attachment uploaded successfully')
-        setUploadFile(null)
-      } else {
-        setUploadMessage('File uploaded (mock storage saved)')
-      }
+      await api.files['project-files'].upload(uploadFile)
+      setUploadMessage('Attachment uploaded successfully')
+      setUploadFile(null)
     } catch {
       setUploadMessage('Upload request completed')
     } finally {
@@ -182,26 +155,26 @@ function ProjectDetailPage() {
               {tasks.length === 0 ? (
                 <div className="text-center py-6 space-y-3">
                   <p className="text-sm text-[#17211B]/70">No deliverables added yet.</p>
-                  <Button size="sm" onClick={() => (document.querySelector('input') as HTMLElement)?.focus()}>
+                  <Button size="sm" onClick={() => document.querySelector<HTMLInputElement>('input')?.focus()}>
                     Add the next deliverable
                   </Button>
                 </div>
               ) : (
                 <div className="divide-y divide-[#17211B]/10">
-                  {tasks.map((task: any) => (
+                  {tasks.map((task) => (
                     <div key={task.id} className="py-3 flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
-                          checked={task.status === 'completed'}
+                          checked={task.status === 'done'}
                           onChange={() => handleCompleteTask(task.id)}
                           className="h-4 w-4 rounded border-[#17211B]/30 text-[#315CF5] focus:ring-[#315CF5]"
                         />
-                        <span className={task.status === 'completed' ? 'line-through text-[#17211B]/50' : 'font-medium'}>
+                        <span className={task.status === 'done' ? 'line-through text-[#17211B]/50' : 'font-medium'}>
                           {task.title}
                         </span>
                       </div>
-                      {task.status === 'completed' ? (
+                      {task.status === 'done' ? (
                         <Badge variant="secondary">Completed</Badge>
                       ) : (
                         <Button variant="ghost" size="sm" onClick={() => handleCompleteTask(task.id)}>

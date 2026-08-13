@@ -5,11 +5,10 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
-import { BunderstackApiError } from 'bunderstack-query'
 import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
-import { byColumnIn, replyParams } from '~/api-client'
+import { byColumnIn, infiniteListInput, replyParams } from '~/api-client'
 import { AppShell } from '~/components/AppShell'
 import { LoadMore } from '~/components/LoadMore'
 import { PostCard } from '~/components/PostCard'
@@ -31,9 +30,9 @@ export const Route = createFileRoute('/posts/$postId')({
 
     try {
       const [post, repliesPage] = await Promise.all([
-        queryClient.ensureQueryData(api.posts.getQuery(postId)),
+        queryClient.ensureQueryData(api.posts.get.queryOptions({ input: { id: postId } })),
         queryClient.fetchInfiniteQuery(
-          api.posts.listInfiniteQuery(repliesQuery),
+          api.posts.list.infiniteOptions(infiniteListInput(repliesQuery)),
         ),
       ])
       const replyItems = repliesPage.pages.flatMap((page) => page.items)
@@ -43,18 +42,18 @@ export const Route = createFileRoute('/posts/$postId')({
 
       await Promise.all([
         queryClient.ensureQueryData(
-          api.user.listQuery(byColumnIn('id', authorIds)),
+          api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
         ),
         queryClient.ensureQueryData(
-          api.likes.listQuery(byColumnIn('postId', postIds)),
+          api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         queryClient.ensureQueryData(
-          api.retweets.listQuery(byColumnIn('postId', postIds)),
+          api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
       ])
       return { repliesQuery }
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404)
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
         throw notFound()
       throw err
     }
@@ -70,13 +69,13 @@ function PostThreadPage() {
   const router = useRouter()
   const repliesQuery = initial.repliesQuery
 
-  const { data: postData } = useQuery(api.posts.getQuery(postId))
+  const { data: postData } = useQuery(api.posts.get.queryOptions({ input: { id: postId } }))
   const {
     data: repliesData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery(api.posts.listInfiniteQuery(repliesQuery))
+  } = useInfiniteQuery(api.posts.list.infiniteOptions(infiniteListInput(repliesQuery)))
 
   const post = postData
 
@@ -98,15 +97,15 @@ function PostThreadPage() {
 
   // Scoped to exactly the post + loaded replies — not the whole table.
   const { data: usersData } = useQuery({
-    ...api.user.listQuery(byColumnIn('id', authorIds)),
+    ...api.user.list.queryOptions({ input: byColumnIn('id', authorIds) }),
     enabled: authorIds.length > 0,
   })
   const { data: likesData } = useQuery({
-    ...api.likes.listQuery(byColumnIn('postId', postIds)),
+    ...api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
   const { data: retweetsData } = useQuery({
-    ...api.retweets.listQuery(byColumnIn('postId', postIds)),
+    ...api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
     enabled: postIds.length > 0,
   })
 

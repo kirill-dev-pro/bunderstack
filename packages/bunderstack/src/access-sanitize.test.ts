@@ -7,6 +7,7 @@ const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('user_id'),
+  updatedAt: text('updated_at'),
 })
 const schema = { posts }
 
@@ -69,5 +70,27 @@ describe('sanitizeWriteBody', () => {
     )
     expect(out.id).toBeUndefined()
     expect(out.title).toBe('t')
+  })
+
+  it('explicit writableColumns can opt a default-readonly timestamp into updates', () => {
+    const access = resolvedAccess({
+      posts: {
+        list: 'public',
+        get: 'public',
+        create: 'public',
+        update: 'public',
+        delete: 'public',
+        writableColumns: ['title', 'updatedAt'],
+      },
+    })
+
+    const out = sanitizeWriteBody(
+      { id: 'replacement', updatedAt: '2026-08-11T12:00:00.000Z' },
+      access,
+      'update',
+      null,
+    )
+
+    expect(out).toEqual({ updatedAt: '2026-08-11T12:00:00.000Z' })
   })
 })

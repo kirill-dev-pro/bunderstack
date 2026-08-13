@@ -35,7 +35,7 @@ function bunderstackApiDevMiddleware(): Plugin {
             headers: requestHeaders(req),
           }
           if (method !== 'GET' && method !== 'HEAD') {
-            init.body = req as unknown as BodyInit
+            init.body = await readBody(req)
             init.duplex = 'half'
           }
 
@@ -60,6 +60,25 @@ function bunderstackApiDevMiddleware(): Plugin {
       })
     },
   }
+}
+
+async function readBody(req: IncomingMessage): Promise<Uint8Array<ArrayBuffer>> {
+  const chunks: Uint8Array[] = []
+  for await (const chunk of req) {
+    chunks.push(
+      typeof chunk === 'string'
+        ? new TextEncoder().encode(chunk)
+        : new Uint8Array(chunk),
+    )
+  }
+  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
+  const body = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    body.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return body
 }
 
 export default defineConfig({

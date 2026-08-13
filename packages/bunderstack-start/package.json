@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-start",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "TanStack Start integration for bunderstack: isomorphic fetch wiring, auth client, and query/sync setup for SSR apps.",
   "keywords": [
     "auth",
@@ -18,20 +18,27 @@
     "directory": "packages/bunderstack-start"
   },
   "files": [
-    "src",
-    "!src/**/*.test.ts",
+    "dist",
     "README.md",
     "LICENSE"
   ],
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./auth": "./src/auth-client.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth-client.d.ts",
+      "default": "./dist/auth-client.js"
+    }
   },
   "scripts": {
+    "build": "bun ../../scripts/build-package.ts bunderstack-start",
+    "prepack": "bun run build",
     "test": "bun test"
   },
   "dependencies": {

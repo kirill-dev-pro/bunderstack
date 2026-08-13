@@ -8,8 +8,8 @@ A Trello-like kanban board showcasing Bunderstack's **org-scoped access** (`scop
 - Denormalized `organizationId` on every app row for cheap scope checks
 - BetterAuth `organization` plugin (orgs, members)
 - Auto-CRUD at `/api/:table` with scope enforced on list/get/create/update/delete
-- Realtime via `GET/POST /api/realtime` — broadcast-on-write, per-event get-rule + scope authorization
-- Solid 1.9 + Vite + Oat UI, `@tanstack/solid-query` + `bunderstack-query` realtime client
+- Realtime via the typed `api.realtime.changes` iterator — broadcast-on-write, per-event get-rule + scope authorization
+- Solid 1.9 + Vite + Oat UI, `@tanstack/solid-query` + the unified `bunderstack-query` client
 
 > **Note:** The plan targets Solid 2 beta; this example uses Solid 1.9 until `@thisbeyond/solid-dnd`, `@solidjs/router`, and `@tanstack/solid-query` publish Solid 2–compatible releases.
 
@@ -69,11 +69,9 @@ Seed creates org **Acme** with a **Roadmap** board (Backlog / In Progress / Done
 
 ## Realtime model
 
-1. Browser opens `GET /api/realtime` (SSE) → receives `{ clientId }`
-2. Browser `POST /api/realtime` with `{ clientId, subscriptions: ['boards', ...] }`
-3. On every CRUD write, the server publishes `{ action, table, record }` to subscribers whose get-rule + scope admit the row
-
-No `Last-Event-ID` replay in v1.
+1. `syncRealtime` calls `api.realtime.changes` with the subscribed table names
+2. On every CRUD write, the server publishes `{ action, table, record }` to subscribers whose get-rule + scope admit the row
+3. oRPC Publisher metadata carries event IDs and enables resumable reconnects
 
 ## Stretch goals (not implemented)
 

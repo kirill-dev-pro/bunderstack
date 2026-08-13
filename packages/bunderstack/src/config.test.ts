@@ -5,6 +5,8 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { DatabaseAdapter } from './database/adapter'
 
 import {
+  defineAuth,
+  resolveAuthConfig,
   resolveConfig,
   resolveRealtimeRedisUrl,
   type BunderstackConfig,
@@ -17,6 +19,11 @@ const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
   connect: async () => ({}) as never,
   migrate: async () => {},
 })
+
+// `auth` resolves to an object or a builder; these cases all use the object
+// form, so collapse the union the same way createBunderstack does.
+const authOf = (cfg: ReturnType<typeof resolveConfig>) =>
+  resolveAuthConfig(cfg.auth, { db: {} as never, env: {} as never })
 
 const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
@@ -95,7 +102,7 @@ test('resolveConfig s3 true reads env vars', () => {
 
 test('resolveConfig auth defaults', () => {
   const cfg = resolveConfig({ schema, database: { adapter: fakeAdapter() } })
-  expect(typeof cfg.auth.secret).toBe('string')
+  expect(typeof authOf(cfg).secret).toBe('string')
 })
 
 test('resolveConfig consumes a validated env for database url', () => {
@@ -129,7 +136,7 @@ test('resolveConfig auth secret comes from validated env', () => {
     { schema: {}, database: { adapter: fakeAdapter() } },
     env,
   )
-  expect(cfg.auth.secret).toBe('from-env')
+  expect(authOf(cfg).secret).toBe('from-env')
 })
 
 test('BUNDERSTACK_DATABASE_URL overrides code-level database config', () => {
@@ -225,13 +232,13 @@ test('resolveConfig still passes realtime through', () => {
     {
       schema: {},
       database: { adapter: { dialect: 'sqlite' } as never },
-      realtime: { keepaliveMs: 5_000, redis: 'redis://localhost:6379' },
+      realtime: { resumeSeconds: 300, redis: 'redis://localhost:6379' },
     } as never,
     { DATABASE_URL: 'file::memory:' } as never,
     {},
   )
   expect(resolved.realtime).toEqual({
-    keepaliveMs: 5_000,
+    resumeSeconds: 300,
     redis: 'redis://localhost:6379',
   })
 })
@@ -242,7 +249,7 @@ test('a malformed realtime option still throws', () => {
       {
         schema: {},
         database: { adapter: { dialect: 'sqlite' } as never },
-        realtime: { keepaliveMs: 'soon' },
+        realtime: { resumeSeconds: 'soon' },
       } as never,
       { DATABASE_URL: 'file::memory:' } as never,
       {},
@@ -269,3 +276,32 @@ test('BunderstackOptionsSchema is no longer exported', async () => {
   expect('BunderstackOptionsSchema' in mod).toBe(false)
 })
 
+test('defineAuth returns a static config as-is', () => {
+  const config = defineAuth({ secret: 'test-secret' })
+  expect(config).toEqual({ secret: 'test-secret' })
+})
+
+test('defineAuth returns the builder function when given schema', () => {
+  const builder = defineAuth(schema, () => ({
+    secret: 'built',
+  }))
+  expect(typeof builder).toBe('function')
+  const result = builder({ db: {} as never, env: {} as never })
+  expect(result.secret).toBe('built')
+})
+
+test('defineAuth builder is accepted as auth config by resolveConfig', () => {
+  const authConfig = defineAuth(schema, () => ({
+    secret: 'from-builder',
+  }))
+  const cfg = resolveConfig({
+    schema,
+    database: { adapter: fakeAdapter() },
+    auth: authConfig,
+  })
+  const resolved = resolveAuthConfig(cfg.auth, {
+    db: {} as never,
+    env: {} as never,
+  })
+  expect(resolved.secret).toBe('from-builder')
+})

@@ -1,388 +1,233 @@
 ---
 title: API Reference
-description: Complete exported surface of Bunderstack
+description: Current public surface of Bunderstack and its client packages
 ---
 
 # API Reference
 
-## createBunderstack(options)
+This page summarizes the stable public concepts. TypeScript remains the exact
+reference for generic details and adapter-specific types.
+
+## `createBunderstack(options)`
 
 ```ts
-async function createBunderstack<
-  TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined =
-    undefined,
-  const TStorage extends StorageConfigInput | undefined = undefined,
-  const TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter extends AnyRouter = AnyRouter,
->(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
-  },
-): Promise<
-  BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TRouter>
->
+function createBunderstack<
+  TSchema,
+  TAccess,
+  TStorage,
+  TEnv,
+  TJobs,
+  TApi,
+>(options: BunderstackConfig<...>): Promise<BunderstackApp<...>>
 ```
 
-Also accepts `trpc?: AnyRouter` (prebuilt router) or no `trpc` key at all.
-Generics are captured so clients can infer tables, buckets, and the tRPC
-router from `typeof app` (see `$inferClient` below).
+Required options:
 
-`createBunderstack` is `async`. Select a database integration with a static
-subpath import, install only that adapter's optional peer, and then await app
-creation:
+- `schema`: a record containing the application's Drizzle tables;
+- `database.adapter`: one statically imported database adapter.
 
-```ts
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+Major optional groups:
 
-export const app = await createBunderstack({
-  schema,
-  database: { adapter: libsql(), url: 'file:./data.db' },
-})
-```
+- `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
+- `auth` / `authResolver`: Better Auth and custom session resolution;
+- `storage`, `email`, `env`, and `jobs`: application facilities;
+- `api`: your oRPC router, as an object or as `(o) => router`;
+- `middleware`: oRPC middleware applied to every procedure in the graph;
+- `realtime`: memory or Redis Publisher configuration;
+- `rateLimit`, `idempotency`, `background`, and `openapi`.
 
-### BunderstackConfig
+See [Configuration](/docs/configuration) for examples and defaults.
 
-```ts
-type BunderstackConfig<TSchema, TAccess, TStorage, TEnv> = {
-  schema: TSchema
-  access?: TAccess // Record<tableKey, TableAccessInput>
-  database: {
-    adapter: DatabaseAdapter
-    url?: string
-    authToken?: string
-    migrations?: string
-  }
-  auth?: BetterAuthConfig // native BetterAuth options (except database)
-  storage?: TStorage // StorageConfigInput: backends, defaultBucket, buckets
-  email?: EmailConfigInput // { from: string; provider?: 'resend' | 'console' | adapter }
-  env?: TEnv // EnvConfigInput: server + client Zod schemas
-  // trpc is declared on createBunderstack's overloads for contextual typing
-  rateLimit?: boolean | RateLimitConfig
-  idempotency?: boolean | IdempotencyConfig
-  realtime?:
-    | boolean
-    | {
-        keepaliveMs?: number
-        bufferSize?: number
-        redis?: string | { url: string; token?: string }
-      }
-}
-```
-
-### BunderstackApp
+## `BunderstackApp`
 
 ```ts
-type BunderstackApp<TSchema, TAccess, TBuckets, TEnv, TRouter> = {
-  handler: (req: Request) => Promise<Response>
-  // Typed for your schema's dialect: LibSQLDatabase for sqliteTable,
-  // PgDatabase for pgTable (see Database dialect below)
+type BunderstackApp = {
+  handler(request: Request): Promise<Response>
   db: DbFor<TSchema>
-  auth: Auth
+  auth: AuthInstance
   storage: StorageFacade
-  router: Hono
-  /** Validated env: base vars + config's `env` extension, fully typed. */
-  env: ValidatedEnv<TEnv>
-  /** Email facade — always present; send() throws if email isn't configured. */
   email: EmailFacade
-  /** Typed custom row publication and selected runtime transport. */
+  env: ValidatedEnv<TEnv>
+  jobs: JobsFacade<TJobs>
   realtime: RealtimeFacade<TSchema>
-  /** True when this process runs the background tick loop (BUNDERSTACK_ROLE). */
-  readonly backgroundRunning: boolean
-  /** Escape hatches — the loop starts automatically from BUNDERSTACK_ROLE. */
-  startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
-  runWorker(options?: AppRunWorkerOptions): Promise<void>
-  /** Deploy-time description, including realtimeTransport. */
-  manifest: BunderstackManifest
-  /** Raw tRPC router when the config declared one — escape hatch. */
-  trpcRouter?: AnyRouter
-  /** Closes real database clients and other app-owned resources. */
+  startWorker(options?): Promise<WorkerHandle>
+  runWorker(options?): Promise<void>
   close(): Promise<void>
-  /** Type-only carrier for client inference — never assigned at runtime. */
-  readonly $inferClient?: {
-    schema: TSchema
-    access: TAccess
-    buckets: TBuckets
-    trpc: TRouter
-  }
+  readonly status: LifecycleStatus
+  readonly signal: AbortSignal
+  readonly backgroundRunning: boolean
+  readonly manifest: BunderstackManifest
+  readonly $inferClient?: ClientTypeCarrier
 }
 ```
 
-Export `type App = typeof app` and the client packages infer everything from
-it.
+`$inferClient` is type-only and does not exist at runtime. Export
+`type App = typeof app` for client inference.
 
-## Database adapters
-
-The schema selects its dialect (`sqliteTable` → SQLite; `pgTable` → Postgres),
-while `database.adapter` selects the client. The adapter dialect must match the
-schema and its URL:
-
-| Subpath                            | Factory        | Optional peer                 | URL                      |
-| ---------------------------------- | -------------- | ----------------------------- | ------------------------ |
-| `bunderstack/database/libsql`      | `libsql()`     | `@libsql/client`              | `file:…` or `libsql://…` |
-| `bunderstack/database/pglite`      | `pglite()`     | `@electric-sql/pglite`        | `file:…` or `memory://`  |
-| `bunderstack/database/bun-sql`     | `bunSql()`     | none (Bun provides `Bun.sql`) | `postgres://…`           |
-| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres`                    | `postgres://…`           |
-
-Install only the selected optional peer. `drizzle-orm`, `better-auth`, Hono,
-and Zod are required peers because the root entrypoint uses them. Drivers,
-Nodemailer, drizzle-kit, and TypeScript are optional peers; TypeScript remains
-`>=5` because the package publishes `.ts` source, while optional peer metadata
-does not force it into Bun installations that already transpile that source.
-
-With `BUNDERSTACK_INTROSPECT=1`, the selected adapter returns
-`drizzle.mock({ schema })` and does not create a database connection. Real
-libSQL, PGlite, postgres.js, and Bun SQL clients are app-owned and closed by
-`await app.close()`.
-
-**Import Drizzle builders and operators directly from `drizzle-orm`** —
-`sqliteTable`/`pgTable`/`eq`/`desc`/`sql`/etc. are not re-exported from
-`bunderstack`. Two dialect-specific subpaths remain for the pieces that must
-be static per dialect: `bunderstack/schema` (sqlite) / `bunderstack/schema/pg`
-(Postgres) export the internal file-meta/idempotency tables; `bunderstack/typeid`
-(sqlite) / `bunderstack/typeid/pg` (Postgres) export the `typeid()` column
-builder.
-
-## bunderstack/provision
+## API builder
 
 ```ts
-function provision(app: object, options?: { force?: boolean }): Promise<void>
+const o = defineApi({ schema, env: envSchema })
+
+o.public // no session resolution
+o.protected // resolves the session, narrows context.user
+o.webhook // public, preserves the exact raw body
+o.middleware(fn) // a standalone middleware over ApiContext
 ```
 
-Optional entry point — import it only if you want Bunderstack to manage the
-database on boot. When `<migrations>/meta/_journal.json` exists (folder set by
-`database.migrations`, default `./migrations`), applies pending migrations via
-drizzle-orm's migrator. Otherwise pushes the schema via drizzle-kit (dev-only
-dependency; `bun add -d drizzle-kit`). `force` allows a push that would drop
-data. The low-level `provisionSchema(db, schema, options?)` (push only) is
-exported from the same entry.
+`defineApi` infers `TSchema` and `TEnv` from the values it receives, so an
+application never writes `BunderstackApiBuilder<…>` by hand. It reads nothing
+at runtime and can be called at module scope. `createApiBuilder<TSchema,
+TEnv>()` remains available when you want to pass the generics explicitly.
 
-**Postgres + `Bun.sql` + dev push:** drizzle-kit's schema push does not yet
-support the `Bun.sql` driver (it assumes raw query results carry a `.rows`
-property, which `Bun.sql` doesn't provide) — this affects only the no-migrations
-dev-push path, not committed migrations. If you hit it, generate and commit
-migrations (`bunx drizzle-kit generate`) instead of relying on push, or run
-against Postgres via `postgres.js` (Node) during development.
-
-## Client packages
-
-### bunderstack-query
+The three bases are oRPC procedure builders with the shared Bunderstack error
+contract and `ApiContext`:
 
 ```ts
-function createClient<TApp extends AnyBunderstackApp>(options?: {
-  baseUrl?: string // default '/api'
-  fetch?: (input, init?) => Promise<Response>
-  queryClient?: QueryClient // enables mutation cache invalidation
+type ApiContext = {
+  db: DbFor<TSchema>
+  env: ValidatedEnv<TEnv>
+  storage: StorageFacade
+  email: EmailFacade
+  jobs: JobsRuntimeFacade
+  realtime: RealtimeFacade<TSchema>
+  auth: AuthInstance
+  request: Request
+  resHeaders: Headers
+  getRawBody(): Promise<string>
+  getSession(): Promise<{
+    user: AccessUser | null
+    activeOrganizationId: string | null
+  }>
+  /** The already-resolved session, or undefined. Never starts a resolution. */
+  peekSession():
+    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | undefined
+}
+```
+
+`o.protected` adds non-null `context.user` and the active organization session
+to handlers. Inputs and optional outputs accept Standard Schema.
+
+`peekSession()` exists for graph-wide middleware, which runs before
+authentication. Use it for observability only, never for authorization — see
+[Middleware](/docs/middleware#reading-the-caller).
+
+## Helper exports
+
+| Export                     | Purpose                                                    |
+| -------------------------- | ---------------------------------------------------------- |
+| `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
+| `listSpec(table, options)` | Input schema and handler for a list endpoint outside CRUD  |
+| `BunderstackError`         | Typed error for code outside a handler                     |
+| `BunderstackDb<TSchema>`   | The database type for a helper parameter                   |
+| `BunderstackTx<TSchema>`   | The transaction handle inside `db.transaction`             |
+
+## Database and provisioning
+
+Import one of `libsql()`, `pglite()`, `bunSql()`, or `postgresJs()` from its
+`bunderstack/database/*` subpath. The schema dialect and adapter dialect must
+match.
+
+```ts
+import { provision } from 'bunderstack/provision'
+
+await provision(app, { force: false })
+```
+
+Without a migration journal, provisioning uses the development schema push.
+With committed migrations, it applies pending migrations.
+
+## `bunderstack-query`
+
+```ts
+function createClient<TApp>(options?: {
+  baseUrl?: string
+  fetch?: TransportFetch
+  queryClient?: QueryClient
 }): BunderstackClient<TApp>
 ```
 
-Lazy proxy: `api.<table>` (list/get/create/update/delete + TanStack Query
-option factories) and `api.files.<bucket>` (upload/url/delete). Also exports
-`MAX_LIST_LIMIT` (200 — the server's per-request list cap), `InferSelect`,
-`InferInsert`, and the explicit `createBunderstackQueryClient` builder.
-
-For a client that also exposes the typed `api.trpc` proxy, use the optional
-entrypoint:
+The result contains the complete oRPC router utilities and file helpers:
 
 ```ts
-import { createTRPCClient } from 'bunderstack-query/trpc'
-
-const api = createTRPCClient<App>({ queryClient })
+api.posts.list.call(input)
+api.posts.list.queryOptions({ input })
+api.posts.create.mutationOptions(options)
+api.customProcedure.call(input)
+api.files.images.upload(file)
+api.files.images.url(id, transforms)
 ```
 
-### bunderstack-sync
+Other exports include `createApiClient`, `syncRealtime`, `InferSchema`,
+`InferSelect`, `InferInsert`, and the list input helpers.
+
+## `bunderstack-sync`
 
 ```ts
-function createSyncClient<TApp extends AnyBunderstackApp>(options: {
+function createSyncClient<TApp>(options: {
   queryClient: QueryClient
   baseUrl?: string
-  fetch?: (input, init?) => Promise<Response>
-  realtime?: boolean // default: true in the browser, false during SSR
+  fetch?: TransportFetch
+  realtime?: boolean
 }): BunderstackSyncClient<TApp>
 ```
 
-Per table: `collection`, `table`, `scopedCollection(options)`,
-`collectionByIds(ids)`; plus `files.<bucket>` and `realtime` — see
-[Sync Collections](/docs/sync-collections).
+Each generated table exposes `collection`, `table`,
+`scopedCollection(options)`, and `collectionByIds(ids)`. The client starts its
+typed realtime iterator in the browser by default and keeps it disabled during
+SSR.
 
-### bunderstack-start
+## `bunderstack-start`
 
 ```ts
-bunderstackStart<TApp>(options?): { createQueryClient(); createApi(queryClient) }
-createApiHandlers(app): { GET; POST; PATCH; DELETE } // catch-all API route
-createIsomorphicFetch(options?): fetch // SSR-aware relative-URL fetch
-getSessionUser(app, request): Promise<SessionUser | null>
-createStartAuthClient(options?) // BetterAuth browser client
+createApiHandlers(app)
+createIsomorphicFetch(options?)
+getSessionUser(app, request)
+createStartAuthClient(options?)
+bunderstackStart<TApp>(options?)
 ```
 
-## StorageAdapter
+These adapters mount `app.handler`, resolve relative API URLs during SSR, and
+create app-inferred clients without changing the server graph.
+
+## `RealtimeFacade`
 
 ```ts
-interface StorageAdapter {
-  upload(
-    fileId: string,
-    data: Blob | ArrayBuffer,
-    contentType: string,
-  ): Promise<void>
-  get(fileId: string): Promise<Response>
-  delete(fileId: string): Promise<void>
-  exists(fileId: string): Promise<boolean>
-}
-```
-
-## UploadRules
-
-```ts
-interface UploadRules {
-  allowedMimeTypes?: string[]
-  maxSizeBytes?: number
-}
-```
-
-## TransformSpec
-
-```ts
-interface TransformSpec {
-  w?: number
-  h?: number
-  fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside'
-  format?: 'webp' | 'jpeg' | 'png' | 'avif'
-  quality?: number
-}
-```
-
-## EmailFacade
-
-```ts
-interface EmailFacade {
-  send(msg: EmailMessage): Promise<SentEmail>
-}
-
-type EmailMessage = {
-  to: string | string[]
-  subject: string
-  html?: string
-  text?: string
-  from?: string
-  replyTo?: string
-  cc?: string | string[]
-  bcc?: string | string[]
-}
-
-type SentEmail = { id?: string }
-```
-
-## EmailConfigInput
-
-```ts
-type EmailConfigInput = {
-  from: string
-  provider?: 'resend' | 'console' | EmailAdapter | EmailAdapter['send']
-}
-
-type EmailAdapter = {
-  send(msg: EmailMessage & { from: string }): Promise<SentEmail>
-}
-```
-
-For SMTP, import `smtp` from `bunderstack/email/smtp` and use
-`provider: smtp({ url })`; the old `'smtp'` provider string is not supported.
-
-## EnvConfigInput
-
-```ts
-type EnvConfigInput = {
-  server?: Record<string, ZodType>
-  client?: Record<string, ZodType>
-  runtimeEnv?: Record<string, unknown>
-}
-```
-
-## ValidatedEnv / BaseEnv
-
-```ts
-type BaseEnv = {
-  NODE_ENV?: string
-  DATABASE_URL: string
-  DATABASE_AUTH_TOKEN?: string
-  AUTH_SECRET: string
-  REDIS_URL?: string
-  RESEND_API_KEY?: string
-  SMTP_URL?: string
-}
-
-type ValidatedEnv<TEnv> = BaseEnv &
-  InferVars<TEnv['server']> &
-  InferVars<TEnv['client']>
-```
-
-## BunderstackTRPC
-
-```ts
-type BunderstackTRPC<TSchema, TEnvResult> = {
-  router: /* tRPC router builder */
-  middleware: /* tRPC middleware builder */
-  mergeRouters: /* tRPC mergeRouters */
-  procedure: /* public procedure builder */
-  protectedProcedure: /* rejects UNAUTHORIZED when no session */
-}
-```
-
-## RealtimeFacade
-
-```ts
-type RealtimeTransport = 'disabled' | 'memory' | 'redis'
-
 interface RealtimeFacade<TSchema> {
   readonly enabled: boolean
-  readonly transport: RealtimeTransport
-
+  readonly transport: 'disabled' | 'memory' | 'redis'
   publish<TTable extends SchemaTable<TSchema>>(
     table: TTable,
-    action: RealtimeAction,
+    action: 'create' | 'update' | 'delete',
     record: InferSelectModel<TTable>,
   ): Promise<void>
 }
 ```
 
-Exposed as `app.realtime` and `ctx.realtime` (in tRPC, jobs, and cron). Used to publish custom write operations to clients subscribed to realtime tables.
+Generated writes publish automatically. Call `publish()` only for custom
+writes performed through `context.db` or background jobs.
 
-- `publish(table, action, record)`: Takes a Drizzle `table` object (which guarantees the physical table exists in `schema`), an `action` string (like `'create' | 'update' | 'delete'`), and the full `record` (which TypeScript constrains to the table's `InferSelectModel`).
-- `transport`: The active runtime transport: `'disabled'`, process-local
-  `'memory'`, or shared `'redis'`.
+## Storage
 
-If server realtime is disabled or no broker is available, `realtime.enabled` is `false` and `publish` is a no-op. Publishing is async and fire-and-forget: failure to publish into Redis does not crash the caller.
+`StorageFacade` provides server-side `upload`, `getUrl`, and bucket-aware
+operations. Browser clients receive `upload`, `url`, and `delete` helpers per
+declared bucket. Upload and image-transform rules are documented in
+[Storage](/docs/storage) and [Thumbnails](/docs/thumbnails).
 
-## Worker realtime safety
+## Email
 
 ```ts
-type AppRunWorkerOptions = AppStartWorkerOptions & {
-  allowProcessLocalRealtime?: boolean
+interface EmailFacade {
+  send(message: EmailMessage): Promise<SentEmail>
 }
 ```
 
-`app.runWorker()` is for a standalone worker process. Since 0.9.0 it rejects
-`realtime.transport === 'memory'`, because publications from that broker cannot
-reach SSE clients connected to a separate web process. Configure `REDIS_URL` or
-`realtime.redis`, embed the worker with `app.startWorker()`, or set
-`allowProcessLocalRealtime: true` only when jobs never publish realtime events.
+`EmailMessage` supports `to`, `subject`, HTML or text bodies, sender override,
+reply-to, CC, and BCC. Configure the console, Resend, SMTP, or a custom adapter.
 
-`app.manifest.realtimeTransport` exposes the configured transport as
-`'disabled' | 'memory' | 'redis'` for deploy tooling.
+## Testing
 
-## Server exports
-
-```ts
-// Email
-export { createEmail } from 'bunderstack'
-export type { EmailMessage, EmailAdapter, EmailConfigInput, EmailFacade }
-
-// Env
-export { validateEnv, createClientEnv, BunderstackEnvError }
-export type { EnvConfigInput, BaseEnv, ValidatedEnv }
-
-// tRPC
-export { createTRPC }
-export type { BunderstackTRPC, TRPCContext }
-```
+The root package exports `mockAuthSession` for scoped session tests. Disable
+the automatic worker with `background: { autoStart: false }`, then drive
+`app.jobs.tick()` directly for deterministic job tests.

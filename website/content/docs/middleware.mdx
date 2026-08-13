@@ -1,0 +1,112 @@
+---
+title: Middleware
+description: Run code around one base, or around every procedure in the graph
+---
+
+# Middleware
+
+A middleware wraps a procedure call. It sees the request before the handler,
+can add to the context, and can observe or replace the result. Bunderstack has
+two places to put one, and the difference matters.
+
+| Where                                | Reaches                                                     |
+| ------------------------------------ | ----------------------------------------------------------- |
+| `.use()` on a base                   | Only procedures built from that base                        |
+| `middleware: [...]` in the config    | Every procedure: generated CRUD, files, realtime, and yours  |
+
+## Per-base middleware
+
+Use `.use()` when the middleware expresses a rule about a group of procedures —
+a role check, an organization scope, a quota. It belongs next to the base it
+guards. See [Extend a base](/docs/api-procedures#extend-a-base).
+
+## Graph-wide middleware
+
+Observability is the common case, and it is the one that per-base middleware
+gets wrong. Bunderstack builds the CRUD, storage, and realtime procedures
+itself, so they never pass through a base your application declares. A tracing
+middleware attached to `o.protected` covers your own procedures and leaves the
+generated CRUD — usually the larger share of traffic — unmeasured.
+
+Register it in the config instead:
+
+```ts
+// src/api/base.ts
+export const instrumentation = o.middleware(async ({ context, next, path }) => {
+  const name = path.join('.')
+  const startedAt = performance.now()
+  try {
+    const result = await next()
+    metrics.record(name, performance.now() - startedAt, 'ok')
+    return result
+  } catch (error) {
+    metrics.record(name, performance.now() - startedAt, 'error')
+    throw error
+  }
+})
+```
+
+```ts
+const app = await createBunderstack({
+  schema,
+  database,
+  middleware: [instrumentation],
+  api,
+})
+```
+
+`o.middleware(...)` types the function over the request context, so you never
+write `os.$context<…>()` by hand. The middleware receives `path` — the
+procedure's path segments, such as `['boards', 'stats']` or `['todos',
+'list']` — plus `context`, `next`, and `errors`.
+
+Middleware in the list runs outermost first, in array order.
+
+## Reading the caller
+
+A graph-wide middleware runs **before** authentication, so `context.user` does
+not exist there. Do not call `context.getSession()` to get it either: the
+session is resolved lazily on purpose, and forcing it makes every request pay
+for authentication — including signed webhooks that never needed it.
+
+Use `context.peekSession()`. It returns the session that some later code
+already resolved, or `undefined`, and never starts a resolution:
+
+```ts
+const result = await next()
+log({ path: path.join('.'), userId: context.peekSession()?.user?.id })
+return result
+```
+
+Read it **after** `await next()`, when a protected procedure has resolved the
+session. Use it for observability only. Never use it for authorization — an
+unauthenticated request and an unresolved session look the same.
+
+## Long-lived procedures
+
+A realtime subscription is one procedure call that lives as long as the client
+stays connected. Code after `await next()` runs when the stream closes, not
+when the subscription starts. Filter those paths when that matters:
+
+```ts
+export const instrumentation = o.middleware(async ({ next, path }) => {
+  if (path[0] === 'realtime') return next()
+  /* … */
+})
+```
+
+## Adding to the context
+
+`next({ context })` merges into the context, and the addition is typed for
+everything downstream:
+
+```ts
+const withRequestId = o.middleware(async ({ context, next }) => {
+  const requestId = context.request.headers.get('x-request-id') ?? crypto.randomUUID()
+  return next({ context: { requestId } })
+})
+```
+
+A graph-wide middleware that adds context extends it for generated procedures
+too, which do not read your fields. Keep additions cheap; anything expensive
+belongs on the base that actually needs it.

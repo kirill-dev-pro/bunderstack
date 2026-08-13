@@ -2,9 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-import type { RealtimeBroker } from './index'
-
 import { createRealtimeFacade } from './facade'
+import { createMemoryRealtimePublisher } from './publisher'
 
 const boards = sqliteTable('workspace_boards', {
   id: text('id').primaryKey(),
@@ -21,28 +20,14 @@ const auditLogs = pgTable('audit_log', {
   message: pgText('message').notNull(),
 })
 
-function recordingBroker(
-  events: Array<Record<string, unknown>>,
-): RealtimeBroker {
-  return {
-    async start() {},
-    async close() {},
-    register: () => ({ id: 'subscriber' }),
-    setContext: () => ({ gap: false }),
-    unregister() {},
-    async publish(table, action, record) {
-      events.push({ table, action, record })
-    },
-  }
-}
-
 describe('RealtimeFacade', () => {
   test('derives SQLite and Postgres physical table names and delegates rows', async () => {
-    const events: Array<Record<string, unknown>> = []
+    const publisher = createMemoryRealtimePublisher()
+    const events = publisher.subscribe('change')
     const realtime = createRealtimeFacade<{
       boards: typeof boards
       auditLogs: typeof auditLogs
-    }>(recordingBroker(events))
+    }>(publisher)
 
     expect(realtime.enabled).toBe(true)
     await realtime.publish(boards, 'create', { id: 'b1', title: 'Board' })
@@ -51,7 +36,7 @@ describe('RealtimeFacade', () => {
       message: 'removed',
     })
 
-    expect(events).toEqual([
+    expect([(await events.next()).value, (await events.next()).value]).toEqual([
       {
         table: 'workspace_boards',
         action: 'create',
@@ -65,7 +50,7 @@ describe('RealtimeFacade', () => {
     ])
   })
 
-  test('is an enabled=false no-op without a broker', async () => {
+  test('is an enabled=false no-op without a publisher', async () => {
     const realtime = createRealtimeFacade<{ boards: typeof boards }>()
 
     expect(realtime.enabled).toBe(false)
@@ -99,7 +84,7 @@ describe('RealtimeFacade', () => {
     expect(realtime.enabled).toBe(false)
   })
 
-  test('reports disabled without a broker', () => {
+  test('reports disabled without a publisher', () => {
     const realtime = createRealtimeFacade()
     expect(realtime.enabled).toBe(false)
     expect(realtime.transport).toBe('disabled')
@@ -112,7 +97,10 @@ describe('RealtimeFacade', () => {
     import('./facade').RealtimeTransport,
     import('./facade').RealtimeTransport,
   ][])('reports %s transport', (transport, expected) => {
-    const realtime = createRealtimeFacade(recordingBroker([]), transport)
+    const realtime = createRealtimeFacade(
+      createMemoryRealtimePublisher(),
+      transport,
+    )
     expect(realtime.enabled).toBe(true)
     expect(realtime.transport).toBe(expected)
   })

@@ -7,6 +7,7 @@ import {
   presenceColor,
   presenceInitials,
 } from './presence'
+import * as presence from './presence'
 
 function memoryStore(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial))
@@ -33,6 +34,29 @@ test('presenceInitials creates compact avatar text', () => {
   expect(presenceInitials('Guest Otter 27')).toBe('GO')
   expect(presenceInitials('Ada Lovelace')).toBe('AL')
   expect(presenceInitials('ada')).toBe('A')
+})
+
+test('presence join inserts only when the local row is absent', () => {
+  const insertPresenceIfAbsent = Reflect.get(presence, 'insertPresenceIfAbsent')
+  const rows = new Map<string, { id: string }>()
+  let inserts = 0
+  const collection = {
+    get: (id: string) => rows.get(id),
+    insert: (row: { id: string }) => {
+      inserts += 1
+      rows.set(row.id, row)
+      return { persisted: true }
+    },
+  }
+
+  expect(insertPresenceIfAbsent).toBeFunction()
+  expect(insertPresenceIfAbsent(collection, { id: 'presence_1' })).toEqual({
+    persisted: true,
+  })
+  expect(
+    insertPresenceIfAbsent(collection, { id: 'presence_1' }),
+  ).toBeUndefined()
+  expect(inserts).toBe(1)
 })
 
 test('isPresenceFresh cuts off at the ttl', () => {

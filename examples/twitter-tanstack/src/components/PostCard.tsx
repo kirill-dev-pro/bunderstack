@@ -57,7 +57,7 @@ export function PostCard({
   const parentAuthor = parentPost ? authorMap.get(parentPost.userId) : undefined
 
   const updateMutation = useToastMutation(
-    api.posts.updateMutation({
+    api.posts.update.mutationOptions({
       onSuccess: () => {
         closeDialog(editDialogRef.current)
         toast.success('Post updated')
@@ -69,7 +69,7 @@ export function PostCard({
   )
 
   const deleteMutation = useToastMutation(
-    api.posts.deleteMutation({
+    api.posts.delete.mutationOptions({
       onSuccess: () => {
         toast.success('Post deleted')
       },
@@ -135,7 +135,7 @@ export function PostCard({
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                if (confirm('Delete this post?')) deleteMutation.mutate(post.id)
+                if (confirm('Delete this post?')) deleteMutation.mutate({ id: post.id })
               }}
             >
               Delete
@@ -209,8 +209,7 @@ export function PostCard({
             e.preventDefault()
             if (!editBody.trim()) return
             updateMutation.mutate({
-              id: post.id,
-              data: {
+              params: { id: post.id }, query: {}, headers: {}, body: {
                 body: editBody.trim(),
                 title: editBody.trim().slice(0, 80) || 'Post',
               },

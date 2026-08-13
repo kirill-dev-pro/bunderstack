@@ -10,7 +10,7 @@ export type Dialect = 'sqlite' | 'pg'
  * Minimal structural view of a drizzle db shared by both dialects. Internal
  * modules run dynamic tables (Record<string, unknown> schemas) where drizzle's
  * generics add no safety, so they accept this instead of a per-dialect union.
- * The public surface (`app.db`, tRPC ctx) keeps full per-dialect typing via
+ * The public surface (`app.db`, API context) keeps full per-dialect typing via
  * `DbFor` in db.ts.
  */
 export type AnyDb = {

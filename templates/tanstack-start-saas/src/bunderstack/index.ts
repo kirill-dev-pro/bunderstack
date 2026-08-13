@@ -3,11 +3,11 @@ import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
+import { api, requestTiming } from './api'
 import { authConfig } from './auth'
 import { envSchema } from './env'
 import { defineJobs } from './jobs'
 import * as schema from './schema'
-import { createAppRouter } from './trpc'
 
 /**
  * Factory form so tests can own an isolated in-memory database. Production
@@ -41,7 +41,8 @@ export async function createBunderSaaSApp(options: { databaseUrl?: string } = {}
     // process, because the in-memory broker cannot cross process boundaries.
     realtime: process.env.REDIS_URL ? { redis: process.env.REDIS_URL } : true,
     jobs: defineJobs,
-    trpc: createAppRouter,
+    middleware: [requestTiming],
+    api,
   })
 }
 

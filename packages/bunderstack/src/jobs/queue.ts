@@ -5,8 +5,8 @@ import type { AnyDb } from '../dialect'
 import type { EnqueueOptions, JobsDefs } from './define'
 
 import { jobsTableFor } from '../internal-tables'
+import { validateStandardSchema } from '../standard-schema'
 import { generate } from '../typeid'
-
 import { CRON_PREFIX } from './slots'
 
 export async function enqueueJob(
@@ -23,7 +23,11 @@ export async function enqueueJob(
   const isCron = def.kind === 'cron'
   const type = isCron ? `${CRON_PREFIX}${name}` : name
   // Cron slots carry no payload; queue jobs validate theirs at the call site.
-  const parsed = isCron ? null : def.input ? def.input.parse(input) : null
+  const parsed = isCron
+    ? null
+    : def.input
+      ? validateStandardSchema(def.input, input, `job "${name}" input`)
+      : null
   const t = jobsTableFor(db)
   const now = Date.now()
   const runAt =

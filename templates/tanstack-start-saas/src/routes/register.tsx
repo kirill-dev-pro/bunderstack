@@ -36,7 +36,7 @@ function RegisterPage() {
         setError(res.error.message ?? 'Failed to create account')
         setIsPending(false)
       } else {
-        await navigate({ to: '/app' as any })
+        await navigate({ to: '/app' })
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')

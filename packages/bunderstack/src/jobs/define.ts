@@ -1,14 +1,13 @@
 // src/jobs/define.ts — job definition types and the typed builder.
-// `createJobsBuilder` mirrors `createTRPC`: it exists purely to carry
+// `createJobsBuilder` exists purely to carry
 // TSchema/TEnvResult typing into inline callbacks and extracted files.
-import type { ZodType } from 'zod'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import type { DbFor } from '../db'
 import type { EmailFacade } from '../email'
 import type { StorageFacade } from '../index'
 
 import { parseCron } from './cron'
-
 import { CRON_PREFIX, type CatchUp } from './slots'
 
 export const DEFAULT_RETRIES = 3
@@ -33,7 +32,7 @@ export type TickResult = {
 }
 
 /**
- * The untyped runtime facade. Handler ctx and tRPC ctx expose this shape;
+ * The untyped runtime facade. Job handlers and API context expose this shape;
  * `app.jobs` narrows `enqueue` to the declared job names/payloads.
  */
 export type JobsRuntimeFacade = {
@@ -71,8 +70,8 @@ export type QueueJobDefinition<
   TEnvResult = Record<string, unknown>,
 > = {
   kind: 'job'
-  /** zod schema for the payload; parsed at enqueue AND before the handler runs. */
-  input?: ZodType<TInput>
+  /** Standard Schema payload; parsed at enqueue AND before the handler runs. */
+  input?: StandardSchemaV1<unknown, TInput>
   /** Attempts after the first failure. Default 3 (so 4 total attempts). */
   retries?: number
   /** Delay before retry N (1-based). Default exponential: 1s, 2s, 4s, … */
@@ -232,7 +231,7 @@ export function createJobsBuilder<
   TEnvResult = Record<string, unknown>,
 >() {
   return {
-    /** Identity with inference: pins TInput from the zod schema. */
+    /** Identity with inference: pins TInput from the schema output. */
     job<TInput = undefined>(
       def: Omit<QueueJobDefinition<TInput, TSchema, TEnvResult>, 'kind'>,
     ): QueueJobDefinition<TInput, TSchema, TEnvResult> {
@@ -260,9 +259,8 @@ export type BunderstackJobsBuilder<
 
 // Infers TInput from the JobDefinition's own type argument rather than
 // pattern-matching the (optional, so union-with-undefined) `input` property —
-// `TDef extends { input: ZodType<infer I> }` fails structurally because
-// `input?: ZodType<TInput>` desugars to `ZodType<TInput> | undefined`, which
-// can never satisfy a required-property pattern.
+// A required-property pattern fails structurally because `input` is optional,
+// so infer from the definition's own type argument instead.
 type JobInputOf<TDef> =
   TDef extends QueueJobDefinition<infer TInput, any, any> ? TInput : undefined
 

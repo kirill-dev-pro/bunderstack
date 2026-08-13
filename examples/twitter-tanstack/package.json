@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "bun --bun vite dev",
-    "build": "vite build",
+    "build": "bun --bun vite build",
     "start": "node .output/server/index.mjs",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
@@ -24,18 +24,13 @@
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
-    "@trpc/client": "^11.0.0",
-    "@trpc/server": "^11.0.0",
-    "@trpc/tanstack-react-query": "^11.0.0",
     "better-auth": "^1.0.0",
     "bunderstack": "workspace:*",
     "bunderstack-query": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "superjson": "^2.2.0",
-    "zod": "^4.4.3"
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.0",

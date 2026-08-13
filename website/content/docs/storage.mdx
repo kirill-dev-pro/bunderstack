@@ -26,11 +26,17 @@ curl -X DELETE /api/files/abc123.jpg  # 204 — owner only by default
 ```ts
 await createBunderstack({
   schema,
-  storageOptions: {
-    access: {
-      create: 'authenticated', // default
-      get: 'public', // default
-      delete: 'owner', // default
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        access: {
+          create: 'authenticated', // default
+          get: 'public', // default
+          delete: 'owner', // default
+        },
+      },
     },
   },
 })
@@ -53,10 +59,16 @@ await createBunderstack({ schema, storage: { s3: true } })
 ```ts
 await createBunderstack({
   schema,
-  storageOptions: {
-    uploadRules: {
-      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      maxSizeBytes: 5 * 1024 * 1024,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        upload: {
+          accept: ['image/jpeg', 'image/png', 'image/webp'],
+          maxSize: '5mb',
+        },
+      },
     },
   },
 })
@@ -75,7 +87,10 @@ const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', {
 
 ## Server-side uploads (`app.storage.upload`)
 
-Use `app.storage.upload` (or `ctx.storage.upload` in background jobs and tRPC procedures) to upload server-generated files (e.g. generated PDFs or exported reports). It uploads the bytes to storage and automatically registers a `file_meta` record so the file can be retrieved via `GET /api/files/<key>`:
+Use `app.storage.upload` (or `context.storage.upload` in jobs and API procedures)
+to upload server-generated files such as PDFs and exports. It registers the
+storage metadata automatically, so the file is available through the generated
+download procedure and HTTP route:
 
 ```ts
 await app.storage.upload(

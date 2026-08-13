@@ -15,7 +15,6 @@ import {
   canvasListParams,
   createClientTypeId,
   formatCanvasDate,
-  type CanvasRow,
 } from '~/utils/canvas-data'
 
 export const Route = createFileRoute('/canvas')({
@@ -69,20 +68,13 @@ function CanvasesClient() {
   const { data: rawCanvases = [] } = useLiveQuery((query) =>
     query
       .from({
-        canvas: api.canvas.collection as unknown as Parameters<
-          typeof query.from
-        >[0]['canvas'],
+        canvas: api.canvas.collection,
       })
-      .where(({ canvas }: { canvas: CanvasRow }) =>
-        eq(canvas.ownerId, params.ownerId),
-      )
-      .orderBy(
-        ({ canvas }: { canvas: CanvasRow }) => canvas.updatedAt,
-        params.order,
-      )
+      .where(({ canvas }) => eq(canvas.ownerId, params.ownerId))
+      .orderBy(({ canvas }) => canvas.updatedAt, params.order)
       .limit(params.limit),
   )
-  const canvases = rawCanvases as unknown as CanvasRow[]
+  const canvases = rawCanvases
 
   const title = name.trim() || 'Untitled canvas'
 

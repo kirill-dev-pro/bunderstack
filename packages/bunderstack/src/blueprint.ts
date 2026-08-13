@@ -1,9 +1,10 @@
+import * as v from 'valibot'
 import { parse, stringify } from 'yaml'
-import { z } from 'zod'
 
 import type { BunderstackManifest } from './manifest'
 
 import { parseCron } from './jobs/cron'
+import { validateStandardSchema } from './standard-schema'
 
 export type MigrationMode = 'migrations' | 'push'
 
@@ -26,119 +27,97 @@ export type BunderstackBlueprint = {
   }
 }
 
-const nonEmpty = z.string().min(1)
-const relativePath = nonEmpty.refine(
-  (value) =>
-    !value.startsWith('/') &&
-    !value.includes('\\') &&
-    value.split('/').every((part) => part !== '' && part !== '..'),
-  { message: 'entry must be a relative path without traversal' },
+const nonEmpty = v.pipe(v.string(), v.minLength(1))
+const relativePath = v.pipe(
+  nonEmpty,
+  v.check(
+    (value) =>
+      !value.startsWith('/') &&
+      !value.includes('\\') &&
+      value.split('/').every((part) => part !== '' && part !== '..'),
+    'entry must be a relative path without traversal',
+  ),
 )
-const cronSchedule = nonEmpty.refine(
-  (value) => {
+const cronSchedule = v.pipe(
+  nonEmpty,
+  v.check((value) => {
     try {
       parseCron(value)
       return true
     } catch {
       return false
     }
-  },
-  { message: 'invalid cron schedule' },
+  }, 'invalid cron schedule'),
 )
 
-const blueprintSchema = z
-  .object({
-    version: z.literal(1),
-    generator: z
-      .object({ name: z.literal('bunderstack'), version: nonEmpty })
-      .strict(),
-    application: z
-      .object({
-        framework: z.literal('tanstack-start'),
-        scripts: z
-          .object({
-            build: z.literal('build'),
-            start: z.literal('start'),
-            worker: z.literal('worker').optional(),
-          })
-          .strict(),
-      })
-      .strict(),
-    bunderstack: z
-      .object({ entry: relativePath, manifestVersion: z.literal(3) })
-      .strict(),
-    resources: z
-      .object({
-        database: z
-          .object({
-            dialect: z.enum(['sqlite', 'pg']),
-            migrationsDirectory: relativePath,
-            migrationMode: z.enum(['migrations', 'push']),
-            tables: z.array(
-              z
-                .object({
-                  exportName: nonEmpty,
-                  physicalName: nonEmpty,
-                  system: z.boolean(),
-                })
-                .strict(),
-            ),
-          })
-          .strict(),
-        storage: z
-          .object({
-            defaultBucket: nonEmpty,
-            buckets: z.array(
-              z
-                .object({
-                  name: nonEmpty,
-                  visibility: z.enum(['public', 'private']),
-                })
-                .strict(),
-            ),
-          })
-          .strict(),
-        realtime: z
-          .object({ required: z.literal(true) })
-          .strict()
-          .optional(),
-      })
-      .strict(),
-    environment: z.array(
-      z
-        .object({
-          key: nonEmpty,
-          required: z.boolean(),
-          scope: z.enum(['server', 'client']),
-        })
-        .strict(),
+const blueprintSchema = v.strictObject({
+  version: v.literal(1),
+  generator: v.strictObject({
+    name: v.literal('bunderstack'),
+    version: nonEmpty,
+  }),
+  application: v.strictObject({
+    framework: v.literal('tanstack-start'),
+    scripts: v.strictObject({
+      build: v.literal('build'),
+      start: v.literal('start'),
+      worker: v.optional(v.literal('worker')),
+    }),
+  }),
+  bunderstack: v.strictObject({
+    entry: relativePath,
+    manifestVersion: v.literal(3),
+  }),
+  resources: v.strictObject({
+    database: v.strictObject({
+      dialect: v.picklist(['sqlite', 'pg']),
+      migrationsDirectory: relativePath,
+      migrationMode: v.picklist(['migrations', 'push']),
+      tables: v.array(
+        v.strictObject({
+          exportName: nonEmpty,
+          physicalName: nonEmpty,
+          system: v.boolean(),
+        }),
+      ),
+    }),
+    storage: v.strictObject({
+      defaultBucket: nonEmpty,
+      buckets: v.array(
+        v.strictObject({
+          name: nonEmpty,
+          visibility: v.picklist(['public', 'private']),
+        }),
+      ),
+    }),
+    realtime: v.optional(v.strictObject({ required: v.literal(true) })),
+  }),
+  environment: v.array(
+    v.strictObject({
+      key: nonEmpty,
+      required: v.boolean(),
+      scope: v.picklist(['server', 'client']),
+    }),
+  ),
+  background: v.strictObject({
+    worker: v.strictObject({ required: v.boolean() }),
+    jobs: v.array(v.strictObject({ name: nonEmpty })),
+    cron: v.array(
+      v.strictObject({
+        name: nonEmpty,
+        schedule: cronSchedule,
+        timezone: v.literal('UTC'),
+      }),
     ),
-    background: z
-      .object({
-        worker: z.object({ required: z.boolean() }).strict(),
-        jobs: z.array(z.object({ name: nonEmpty }).strict()),
-        cron: z.array(
-          z
-            .object({
-              name: nonEmpty,
-              schedule: cronSchedule,
-              timezone: z.literal('UTC'),
-            })
-            .strict(),
-        ),
-        maintenance: z.array(
-          z
-            .object({
-              name: z.literal('storage-sweep'),
-              schedule: cronSchedule,
-              timezone: z.literal('UTC'),
-            })
-            .strict(),
-        ),
-      })
-      .strict(),
-  })
-  .strict()
+    maintenance: v.array(
+      v.strictObject({
+        name: v.literal('storage-sweep'),
+        schedule: cronSchedule,
+        timezone: v.literal('UTC'),
+      }),
+    ),
+  }),
+})
 
 function sortBy<T>(entries: readonly T[], key: (entry: T) => string): T[] {
   return [...entries].sort((left, right) => key(left).localeCompare(key(right)))
@@ -154,7 +133,11 @@ function rejectDuplicates(collection: string, values: readonly string[]): void {
 }
 
 export function parseBlueprint(value: unknown): BunderstackBlueprint {
-  const blueprint = blueprintSchema.parse(value) as BunderstackBlueprint
+  const blueprint = validateStandardSchema(
+    blueprintSchema,
+    value,
+    'blueprint',
+  ) as BunderstackBlueprint
   rejectDuplicates(
     'database physical table',
     blueprint.resources.database.tables.map((entry) => entry.physicalName),

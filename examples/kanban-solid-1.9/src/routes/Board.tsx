@@ -4,15 +4,14 @@ import {
   DragDropProvider,
   DragDropSensors,
   closestCenter,
+  type DragEvent,
 } from '@thisbeyond/solid-dnd'
 import { onMount, For, createMemo } from 'solid-js'
 
 import { CardDialog } from '../components/CardDialog.tsx'
 import { ListColumn } from '../components/ListColumn.tsx'
-import { tableClients } from '../lib/query.ts'
+import { api } from '../lib/query.ts'
 import { getRealtime } from '../lib/realtime.ts'
-
-const { lists: listsC, cards: cardsC, activity: activityC } = tableClients
 
 export function Board() {
   const params = useParams()
@@ -24,14 +23,19 @@ export function Board() {
   })
 
   const lists = useQuery(() => ({
-    ...listsC.listQuery({ boardId: boardId(), limit: 100 }),
+    ...api.lists.list.queryOptions({
+      input: { filters: { boardId: boardId() }, limit: 100 },
+    }),
   }))
   const cards = useQuery(() => ({
-    ...cardsC.listQuery({ boardId: boardId(), limit: 500 }),
+    ...api.cards.list.queryOptions({
+      input: { filters: { boardId: boardId() }, limit: 200 },
+    }),
   }))
+  type Card = NonNullable<typeof cards.data>['items'][number]
 
   const cardsByList = createMemo(() => {
-    const map = new Map<string, any[]>()
+    const map = new Map<string, Card[]>()
     for (const c of cards.data?.items ?? []) {
       const arr = map.get(c.listId) ?? []
       arr.push(c)
@@ -41,7 +45,7 @@ export function Board() {
     return map
   })
 
-  async function onDragEnd({ draggable, droppable }: any) {
+  async function onDragEnd({ draggable, droppable }: DragEvent) {
     if (!draggable || !droppable) return
     const cardId = String(draggable.id)
     const targetListId = String(droppable.id)
@@ -49,14 +53,19 @@ export function Board() {
       (c) => c.id !== cardId,
     )
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
-    await cardsC.update(cardId, { listId: targetListId, position: newPos })
-    await activityC.create({
+    await api.cards.update.call({
+      params: { id: cardId },
+      query: {},
+      headers: {},
+      body: { listId: targetListId, position: newPos },
+    })
+    await api.activity.create.call({
       boardId: boardId(),
       cardId,
       type: 'moved',
       data: { listId: targetListId },
     })
-    qc.invalidateQueries({ queryKey: cardsC.keys.list({ boardId: boardId() }) })
+    qc.invalidateQueries({ queryKey: api.cards.key({ type: 'query' }) })
   }
 
   return (

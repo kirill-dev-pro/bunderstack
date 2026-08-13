@@ -95,7 +95,7 @@ bun run --cwd examples/tldraw migrate   # once
 
 ### Twitter (TanStack Start)
 
-Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via **bunderstack-query**. Includes a tRPC `feed` procedure — posts, authors, and like counts in one call (`api.trpc.feed.queryOptions()`).
+Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via the unified **bunderstack-query** client. Its custom `feed` oRPC procedure returns posts, authors, and like counts in one typed call (`api.feed.queryOptions(...)`).
 
 ```bash
 bun run dev:twitter-tanstack
@@ -121,7 +121,7 @@ bun run dev:nextjs
 
 ### Kanban (Solid)
 
-Realtime kanban — orgs, boards, lists, cards, comments, activity. Solid 1.9 + Oat, SSE realtime via `bunderstack-query`.
+Realtime kanban — orgs, boards, lists, cards, comments, activity. Solid 1.9 + Oat, with oRPC Publisher realtime via `bunderstack-query`.
 
 ```bash
 bun run dev:kanban
@@ -154,8 +154,8 @@ files (see `examples/todo/README.md` for the tour):
 
 - **Auto-CRUD + access**: generated `api.todos.*`, per-user `scope` resolver
 - **Env validation**: `app.env.PUBLIC_APP_NAME` and `NOTIFY_COMPLETED` validated at boot
-- **Email**: completing a task via tRPC sends a notification email (console in dev, SMTP in prod)
-- **tRPC**: `api.trpc.stats` for counts, `api.trpc.complete` for atomic update + email
+- **Email**: completing a task via `api.complete` sends a notification email (console in dev, SMTP in prod)
+- **oRPC**: `api.stats` for counts and `api.complete` for an atomic update + email
 - **Storage**: image attachments with on-the-fly sharp thumbnails
 - **Realtime**: SSE broadcast-on-write — open two tabs and watch them sync
 
@@ -165,7 +165,7 @@ bun run dev:todo
 
 No signup or seed step: auth is username-only via BetterAuth's `anonymous`
 plugin (only `user` + `session` tables), and the schema is pushed on boot.
-Everything lives on the single `/` route.
+The UI has a board list and a shareable board route.
 
 ## Tests
 

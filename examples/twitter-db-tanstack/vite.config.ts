@@ -5,7 +5,6 @@ import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
-import { Readable } from 'node:stream'
 import { defineConfig, type Plugin } from 'vite'
 
 function requestHeaders(req: IncomingMessage): Headers {
@@ -37,7 +36,7 @@ function bunderstackApiDevMiddleware(): Plugin {
             headers: requestHeaders(req),
           }
           if (method !== 'GET' && method !== 'HEAD') {
-            init.body = req as unknown as BodyInit
+            init.body = await readBody(req)
             init.duplex = 'half'
           }
 
@@ -55,24 +54,32 @@ function bunderstackApiDevMiddleware(): Plugin {
           })
           if (setCookie.length) res.setHeader('set-cookie', setCookie)
 
-          if (response.body) {
-            // `response.body` is the DOM lib's ReadableStream type; Node's
-            // Readable.fromWeb wants node:stream/web's own (structurally
-            // identical at runtime, nominally different generic instantiation).
-            Readable.fromWeb(
-              response.body as unknown as import('node:stream/web').ReadableStream,
-            )
-              .on('error', (err) => res.destroy(err))
-              .pipe(res)
-          } else {
-            res.end()
-          }
+          res.end(Buffer.from(await response.arrayBuffer()))
         } catch (err) {
           next(err)
         }
       })
     },
   }
+}
+
+async function readBody(req: IncomingMessage): Promise<Uint8Array<ArrayBuffer>> {
+  const chunks: Uint8Array[] = []
+  for await (const chunk of req) {
+    chunks.push(
+      typeof chunk === 'string'
+        ? new TextEncoder().encode(chunk)
+        : new Uint8Array(chunk),
+    )
+  }
+  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0)
+  const body = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    body.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return body
 }
 
 export default defineConfig({

@@ -24,14 +24,10 @@
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
-    "@trpc/client": "^11.15.0",
-    "@trpc/server": "^11.15.0",
-    "@trpc/tanstack-react-query": "^11.15.0",
     "better-auth": "^1.6.23",
     "bunderstack": "workspace:*",
     "bunderstack-query": "workspace:*",
     "bunderstack-start": "workspace:*",
-    "bunderstack-sync": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
@@ -39,7 +35,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "valibot": "^1.4.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",

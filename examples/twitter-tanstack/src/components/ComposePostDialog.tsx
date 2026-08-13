@@ -33,7 +33,7 @@ export function ComposePostDialog({
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const createMutation = useToastMutation(
-    api.posts.createMutation({
+    api.posts.create.mutationOptions({
       onSuccess: () => {
         setBody('')
         setImageUrl(null)

@@ -12,6 +12,7 @@ import type {
 } from './define'
 
 import { jobsTableFor } from '../internal-tables'
+import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
 import { enqueueJob } from './queue'
@@ -73,7 +74,9 @@ export function createJobRunner(deps: {
       return { scheduledFor: new Date(Number(row.runAt)) }
     }
     const raw = JSON.parse(row.payloadJson)
-    return def.input ? def.input.parse(raw) : undefined
+    return def.input
+      ? validateStandardSchema(def.input, raw, 'job payload')
+      : undefined
   }
 
   /**

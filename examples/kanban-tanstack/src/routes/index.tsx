@@ -16,7 +16,7 @@ export const Route = createFileRoute('/')({
   },
   loader: async () => {
     await queryClient.ensureQueryData(
-      api.boards.listQuery({ ...listParams, limit: 50 }),
+      api.boards.list.queryOptions({ input: { ...listParams, limit: 50 } }),
     )
   },
   component: BoardsPage,
@@ -58,11 +58,11 @@ function BoardsPage() {
   })
 
   const { data, isLoading } = useQuery(
-    api.boards.listQuery({ ...listParams, limit: 50 }),
+    api.boards.list.queryOptions({ input: { ...listParams, limit: 50 } }),
   )
 
   const createBoard = useToastMutation({
-    ...api.boards.createMutation({
+    ...api.boards.create.mutationOptions({
       onSuccess: () => setTitle(''),
     }),
     successMessage: 'Board created',

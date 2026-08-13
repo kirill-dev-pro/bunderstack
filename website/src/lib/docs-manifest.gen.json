@@ -14,7 +14,7 @@
           "$id": "index.mdx",
           "type": "page",
           "name": "Introduction",
-          "description": "What Bunderstack is and why it exists",
+          "description": "One typed backend graph for Bun applications",
           "url": "/docs",
           "$ref": "index.mdx"
         },
@@ -22,33 +22,57 @@
           "$id": "getting-started.mdx",
           "type": "page",
           "name": "Getting Started",
-          "description": "Install Bunderstack and have a working backend in under 5 minutes",
+          "description": "Build and call a typed Bunderstack API in five minutes",
           "url": "/docs/getting-started",
           "$ref": "getting-started.mdx"
-        },
-        {
-          "$id": "templates-and-skills.mdx",
-          "type": "page",
-          "name": "Templates &amp; Agent Skills",
-          "description": "Production-ready BunderSaaS template and TanStack AI agent skills",
-          "url": "/docs/templates-and-skills",
-          "$ref": "templates-and-skills.mdx"
-        },
-        {
-          "$id": "configuration.mdx",
-          "type": "page",
-          "name": "Configuration",
-          "description": "All createBunderstack options and environment variables",
-          "url": "/docs/configuration",
-          "$ref": "configuration.mdx"
         },
         {
           "$id": "crud.mdx",
           "type": "page",
           "name": "Auto CRUD",
-          "description": "REST routes generated from your Drizzle schema with row-level access control",
+          "description": "Generated oRPC procedures with row-level access control",
           "url": "/docs/crud",
           "$ref": "crud.mdx"
+        },
+        {
+          "$id": "api-procedures.mdx",
+          "type": "page",
+          "name": "API Procedures",
+          "description": "Typed application behavior with oRPC and Standard Schema",
+          "url": "/docs/api-procedures",
+          "$ref": "api-procedures.mdx"
+        },
+        {
+          "$id": "query-client.mdx",
+          "type": "page",
+          "name": "Query Client",
+          "description": "An oRPC and TanStack Query client inferred from your app",
+          "url": "/docs/query-client",
+          "$ref": "query-client.mdx"
+        },
+        {
+          "$id": "sync-collections.mdx",
+          "type": "page",
+          "name": "Sync &amp; Realtime",
+          "description": "Typed TanStack DB collections over the oRPC Publisher transport",
+          "url": "/docs/sync-collections",
+          "$ref": "sync-collections.mdx"
+        },
+        {
+          "$id": "http-webhooks.mdx",
+          "type": "page",
+          "name": "HTTP &amp; Webhooks",
+          "description": "Ordinary HTTP routes and signed provider callbacks in the same API graph",
+          "url": "/docs/http-webhooks",
+          "$ref": "http-webhooks.mdx"
+        },
+        {
+          "$id": "configuration.mdx",
+          "type": "page",
+          "name": "Configuration",
+          "description": "createBunderstack options, transports, adapters, and lifecycle",
+          "url": "/docs/configuration",
+          "$ref": "configuration.mdx"
         },
         {
           "$id": "auth.mdx",
@@ -57,22 +81,6 @@
           "description": "BetterAuth wired to your Drizzle database",
           "url": "/docs/auth",
           "$ref": "auth.mdx"
-        },
-        {
-          "$id": "trpc.mdx",
-          "type": "page",
-          "name": "tRPC Endpoints",
-          "description": "Pre-wired tRPC with superjson, protected procedures, and typed TanStack Query client",
-          "url": "/docs/trpc",
-          "$ref": "trpc.mdx"
-        },
-        {
-          "$id": "custom-routes.mdx",
-          "type": "page",
-          "name": "Custom routes",
-          "description": "Hand-written Hono endpoints with the framework's context",
-          "url": "/docs/custom-routes",
-          "$ref": "custom-routes.mdx"
         },
         {
           "$id": "email.mdx",
@@ -86,7 +94,7 @@
           "$id": "env.mdx",
           "type": "page",
           "name": "Environment Validation",
-          "description": "Validate env vars at boot with Zod schemas, typed server-side and browser-safe",
+          "description": "Standard Schema validation for server and browser environment values",
           "url": "/docs/env",
           "$ref": "env.mdx"
         },
@@ -115,22 +123,6 @@
           "$ref": "thumbnails.mdx"
         },
         {
-          "$id": "query-client.mdx",
-          "type": "page",
-          "name": "Query Client",
-          "description": "Typed TanStack Query clients inferred from your server app",
-          "url": "/docs/query-client",
-          "$ref": "query-client.mdx"
-        },
-        {
-          "$id": "sync-collections.mdx",
-          "type": "page",
-          "name": "Sync Collections",
-          "description": "TanStack DB collections with realtime sync, inferred from your app",
-          "url": "/docs/sync-collections",
-          "$ref": "sync-collections.mdx"
-        },
-        {
           "$id": "framework-portability.mdx",
           "type": "page",
           "name": "Framework Portability",
@@ -139,10 +131,18 @@
           "$ref": "framework-portability.mdx"
         },
         {
+          "$id": "templates-and-skills.mdx",
+          "type": "page",
+          "name": "Templates &amp; Agent Skills",
+          "description": "Production-ready BunderSaaS template and TanStack AI agent skills",
+          "url": "/docs/templates-and-skills",
+          "$ref": "templates-and-skills.mdx"
+        },
+        {
           "$id": "api-reference.mdx",
           "type": "page",
           "name": "API Reference",
-          "description": "Complete exported surface of Bunderstack",
+          "description": "Current public surface of Bunderstack and its client packages",
           "url": "/docs/api-reference",
           "$ref": "api-reference.mdx"
         }
@@ -150,22 +150,22 @@
     }
   },
   "paths": {
+    "api-procedures": "api-procedures.mdx",
     "api-reference": "api-reference.mdx",
     "auth": "auth.mdx",
     "background-jobs": "background-jobs.mdx",
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
-    "custom-routes": "custom-routes.mdx",
     "email": "email.mdx",
     "env": "env.mdx",
     "framework-portability": "framework-portability.mdx",
     "getting-started": "getting-started.mdx",
+    "http-webhooks": "http-webhooks.mdx",
     "": "index.mdx",
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
     "sync-collections": "sync-collections.mdx",
     "templates-and-skills": "templates-and-skills.mdx",
-    "thumbnails": "thumbnails.mdx",
-    "trpc": "trpc.mdx"
+    "thumbnails": "thumbnails.mdx"
   }
 }

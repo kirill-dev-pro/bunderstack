@@ -16,11 +16,11 @@ export function SearchBox({ className }: SearchBoxProps) {
   const term = q.trim()
 
   const { data: postsData, isFetching: postsFetching } = useQuery({
-    ...api.posts.listQuery({ ...listParams, q: term }),
+    ...api.posts.list.queryOptions({ input: { ...listParams, q: term } }),
     enabled: term.length >= 2,
   })
   const { data: usersData, isFetching: usersFetching } = useQuery({
-    ...api.user.listQuery({ ...listParams, q: term }),
+    ...api.user.list.queryOptions({ input: { ...listParams, q: term } }),
     enabled: term.length >= 2,
   })
 

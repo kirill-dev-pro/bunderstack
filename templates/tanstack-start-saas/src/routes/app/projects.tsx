@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
+import type { Project } from '~/api'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
@@ -13,7 +14,7 @@ function ProjectsPage() {
   const { api } = Route.useRouteContext()
   const navigate = useNavigate()
 
-  const [projects, setProjects] = React.useState<any[]>([])
+  const [projects, setProjects] = React.useState<Project[]>([])
   const [name, setName] = React.useState('')
   const [clientName, setClientName] = React.useState('')
   const [isPending, setIsPending] = React.useState(false)
@@ -21,7 +22,7 @@ function ProjectsPage() {
 
   const loadProjects = React.useCallback(async () => {
     try {
-      const res = await api.projects.table.list()
+      const res = await api.projects.list.call({ limit: 100 })
       setProjects(res.items ?? [])
     } catch {
       // fallback
@@ -30,7 +31,6 @@ function ProjectsPage() {
 
   React.useEffect(() => {
     void loadProjects()
-    void api.realtime?.subscribe(['projects'])
   }, [api, loadProjects])
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -40,27 +40,16 @@ function ProjectsPage() {
     setIsPending(true)
 
     try {
-      const res = await fetch('/api/trpc/projects.create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, clientName }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error?.message || 'Failed to create project')
-      }
-
-      const created = await res.json()
+      const created = await api.createProject.call({ name, clientName })
       setName('')
       setClientName('')
 
       void loadProjects()
 
-      if (created?.result?.data?.id) {
+      if (created.id) {
         await navigate({
-          to: '/app/projects/$projectId' as any,
-          params: { projectId: created.result.data.id } as any,
+          to: '/app/projects/$projectId',
+          params: { projectId: created.id },
         })
       }
     } catch (err: unknown) {
@@ -144,12 +133,12 @@ function ProjectsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {projects.map((project: any) => (
+            {projects.map((project) => (
               <Card key={project.id} className="hover:border-[#315CF5]/40 transition-colors">
                 <CardHeader className="p-5 pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      <Link to="/app/projects/$projectId" params={{ projectId: project.id } as any} className="hover:underline">
+                      <Link to="/app/projects/$projectId" params={{ projectId: project.id }} className="hover:underline">
                         {project.name}
                       </Link>
                     </CardTitle>
@@ -161,7 +150,7 @@ function ProjectsPage() {
                 </CardHeader>
                 <CardContent className="p-5 pt-0 flex justify-end">
                   <Button variant="outline" size="sm" asChild>
-                    <Link to="/app/projects/$projectId" params={{ projectId: project.id } as any}>
+                    <Link to="/app/projects/$projectId" params={{ projectId: project.id }}>
                       Open Workspace →
                     </Link>
                   </Button>

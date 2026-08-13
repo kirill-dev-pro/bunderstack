@@ -54,7 +54,7 @@ export function createRateLimiter(
       return new Response(
         JSON.stringify({
           error: 'Too many requests',
-          code: 'RATE_LIMITED',
+          code: 'TOO_MANY_REQUESTS',
         }),
         {
           status: 429,

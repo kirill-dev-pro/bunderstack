@@ -1,48 +1,41 @@
 # bunderstack-sync
 
-TanStack DB collections synced live to a
-[bunderstack](https://github.com/kirill-dev-pro/bunderstack) backend:
-optimistic mutations with SSE-driven realtime sync.
+Optimistic TanStack DB collections backed by Bunderstack's unified oRPC graph
+and Publisher realtime.
 
 ```sh
-bun add bunderstack-sync
+bun add bunderstack-sync @tanstack/db @tanstack/react-query
 ```
-
-Full documentation and examples:
-[github.com/kirill-dev-pro/bunderstack](https://github.com/kirill-dev-pro/bunderstack)
-
-## Shipping TypeScript source
-
-This package publishes raw TypeScript (`exports` point at `.ts` files). Bun
-consumes it natively. If a Node-based bundler or SSR server processes it,
-make sure the package is bundled rather than externalized — e.g. in Vite:
 
 ```ts
-ssr: {
-  noExternal: [/^bunderstack/]
-}
+import { QueryClient } from '@tanstack/react-query'
+import { createSyncClient } from 'bunderstack-sync'
+import type { App } from '../server/bunderstack'
+
+const queryClient = new QueryClient()
+const api = createSyncClient<App>({ queryClient })
+
+const allPosts = api.posts.collection
+const feed = api.posts.scopedCollection({
+  filters: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+})
+
+await feed.loadMore()
+api.realtime?.close()
 ```
 
-Because `exports` point straight at source, your TypeScript and bundler
-resolve modules *inside this package's own directory* rather than a compiled
-`dist`. That makes a stray `node_modules/bunderstack-sync/node_modules/`
-uniquely dangerous: if one is ever present (e.g. left over from an earlier
-`link:`/`file:` dependency on a local checkout, then never cleaned up after
-switching to a registry version), both `tsc` and the bundler will resolve
-peer packages like `@tanstack/db`, `@tanstack/react-query`, or `react` from
-inside it instead of your app's own `node_modules`. Two copies of a
-context-carrying package means two separate module instances at runtime —
-collections, providers, or contexts from one copy become invisible to hooks
-from the other. If you hit unexplained "not found"/mismatched-type errors,
-check for nested `node_modules` under this package's install location before
-assuming it's an application bug:
+Collections map optimistic inserts, updates, and deletes directly to generated
+oRPC procedures. Every materialized view receives access-filtered row changes
+from `realtime.changes`; reconnects are handled by oRPC Publisher metadata.
 
-```sh
-find node_modules -path '*/bunderstack-sync/node_modules/@tanstack*'
+This package publishes TypeScript source. Node-based SSR bundlers should bundle
+it instead of externalizing it; for Vite:
+
+```ts
+ssr: { noExternal: [/^bunderstack/] }
 ```
-
-A clean `rm -rf node_modules && bun install` removes any that a normal
-install wouldn't have produced on its own.
 
 ## License
 

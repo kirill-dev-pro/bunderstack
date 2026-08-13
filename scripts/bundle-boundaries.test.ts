@@ -36,16 +36,24 @@ function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
 }
 
 describe('browser bundle boundaries', () => {
-  test('query root stays schema-only', async () => {
-    const output = await bundle('packages/bunderstack-query/src/index.ts')
+  test('unified query root stays browser-only', async () => {
+    const output = await bundle('packages/bunderstack-query/src/index.ts', [
+      '@orpc/client',
+      '@orpc/client/fetch',
+      '@orpc/tanstack-query',
+      '@standardserver/core',
+    ])
     expect(output.size).toBeLessThan(32 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/@tanstack/react-query/',
-      '/@trpc/',
-      '/superjson/',
       '/better-auth/',
       'packages/bunderstack/src',
     ])
+    expect(output.text).toContain('@orpc/client')
+    expect(output.text).toContain('@orpc/tanstack-query')
+    expect(output.text).not.toContain('@orpc/server')
+    expect(output.text).not.toContain('@orpc/openapi')
+    expect(output.text).not.toContain('@orpc/valibot')
   })
 
   test('start root keeps TanStack server external and excludes auth', async () => {

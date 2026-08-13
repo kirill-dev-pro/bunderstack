@@ -96,7 +96,14 @@ describe('getSessionUser', () => {
 
 describe('auth isolation', () => {
   it('exports auth subpath', () => {
-    expect((pkg.exports as any)['./auth']).toBe('./src/auth-client.ts')
+    // The auth client lives behind its own entry so importing the root never
+    // pulls better-auth into a bundle that does not use it.
+    const auth = (pkg.exports as any)['./auth'] as {
+      types: string
+      default: string
+    }
+    expect(auth.default).toMatch(/\/auth-client\.js$/)
+    expect(auth.types).toMatch(/\/auth-client\.d\.ts$/)
   })
   it('exposes createStartAuthClient from the subpath', () => {
     expect(typeof createStartAuthClient).toBe('function')

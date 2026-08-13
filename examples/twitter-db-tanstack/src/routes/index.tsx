@@ -99,7 +99,7 @@ function FeedList({
   // same instance survives re-renders and "load more" refetches in place —
   // already-rendered posts never unmount (no scroll jumps).
   const feedWindow = api.posts.scopedCollection({
-    filter: { replyToId: null },
+    filters: { replyToId: null },
     sort: 'createdAt',
     order: 'desc',
   })

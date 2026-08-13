@@ -1,852 +1,495 @@
-import type { ReactNode } from 'react'
-
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import '@shikijs/twoslash/style-rich.css'
 
 import snippets from '@/lib/code-snippets.gen.json'
 
 const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
 
-/* Signature mark: a cumulus drawn in glyphs — the sky and the terminal in
- * one object. Kept as a line array so no character needs escaping. */
-const ASCII_CLOUD = [
-  '                _  _',
-  "             (  '   ) _",
-  "          (            ' )  _",
-  "       ('       (        )  ' )",
-  '      (     (      )   (      )',
-  "       '~~-(_____)-~(_____)-~~'",
-].join('\n')
-
-const CLIENT_TABS = [
+const CAPABILITIES = [
   {
-    key: 'query' as const,
-    file: 'api-client.ts',
-    label: 'bunderstack-query',
-    note: 'typed fetch + TanStack Query options',
+    group: 'data',
+    items: [
+      ['Drizzle schema', 'Your tables remain the source of truth.'],
+      ['Generated CRUD', 'Access, filters, pagination, idempotency.'],
+      ['SQLite + Postgres', 'Choose one adapter; keep the same app model.'],
+    ],
   },
   {
-    key: 'sync' as const,
-    file: 'collections.ts',
-    label: 'bunderstack-sync',
-    note: 'live TanStack DB collections',
+    group: 'application',
+    items: [
+      ['oRPC procedures', 'Public, protected, HTTP, and webhook.'],
+      ['Better Auth', 'Sessions and providers on the same database.'],
+      [
+        'Standard Schema',
+        'Valibot, Zod, ArkType, or your preferred validator.',
+      ],
+    ],
+  },
+  {
+    group: 'runtime',
+    items: [
+      ['Realtime Publisher', 'Typed changes, resume, heartbeat, backoff.'],
+      ['Background jobs', 'Durable queue and cron from one process model.'],
+      ['Files + email', 'Local or S3 storage; console, Resend, or SMTP.'],
+    ],
   },
 ]
-
-const BATTERIES = [
-  {
-    key: 'crud' as const,
-    name: 'Auto CRUD',
-    file: 'server.ts',
-    text: 'Every table in your Drizzle schema gets REST routes at /api — list with pagination and search, create, update, delete. No route files.',
-  },
-  {
-    key: 'access' as const,
-    name: 'Access rules',
-    file: 'access.ts',
-    text: 'public, authenticated, or owner — per table, per operation. Row scoping and column guards are enforced server-side, never in the client.',
-  },
-  {
-    key: 'auth' as const,
-    name: 'Auth',
-    file: 'session.ts',
-    text: 'BetterAuth wired to your database. Sign-up, sessions, OAuth providers — /api/auth/* is mounted before you think about it.',
-  },
-  {
-    key: 'files' as const,
-    name: 'File storage',
-    file: 'upload.ts',
-    text: 'Uploads into local or S3 buckets with size and MIME rules, plus sharp image transforms straight from URL params.',
-  },
-  {
-    key: 'realtime' as const,
-    name: 'Realtime',
-    file: 'live.ts',
-    text: 'Broadcast-on-write over SSE. Client collections apply every event live — including filtered views and scoped windows.',
-  },
-  {
-    key: 'env' as const,
-    name: 'Env validation',
-    file: 'bunderstack.ts',
-    text: 'Every variable validated with zod at boot — the app refuses to start half-configured. Server vars stay server-only; PUBLIC_ vars are typed for the client.',
-  },
-  {
-    key: 'email' as const,
-    name: 'Email',
-    file: 'notify.ts',
-    text: 'One send() call: console provider in development, SMTP via a single env var in production. BetterAuth verification and reset emails ride the same transport.',
-  },
-  {
-    key: 'trpc' as const,
-    name: 'tRPC',
-    file: 'client.ts',
-    text: 'Custom procedures with db, user, env, and email in a typed context. The client gets queryOptions / mutationOptions factories inferred from the router — superjson included.',
-  },
-  {
-    key: 'inference' as const,
-    name: 'Type inference',
-    file: 'inference.ts',
-    text: 'Clients derive tables and buckets from typeof app. Add a table server-side and the client type-checks it instantly — and what is not exposed simply does not exist.',
-  },
-]
-
-/* The glue a typical app carries for the same behavior — what a battery
- * replaces. Counts are honest ballparks, marked as such in the UI. */
-const GLUE_FILES = [
-  {
-    file: 'routes/posts.ts',
-    lines: 120,
-    note: 'CRUD handlers, pagination, search',
-  },
-  {
-    file: 'validators/posts.ts',
-    lines: 50,
-    note: 'request schemas, write guards',
-  },
-  { file: 'api-client.ts', lines: 90, note: 'fetch wrappers + response types' },
-  { file: 'auth/…', lines: 210, note: 'sessions, sign-in, OAuth callbacks' },
-  { file: 'upload.ts', lines: 90, note: 'multipart, S3, thumbnail resizes' },
-  { file: 'realtime.ts', lines: 140, note: 'socket server, event fan-out' },
-  { file: 'env.ts', lines: 40, note: 'parse, validate, type process.env' },
-  { file: 'mailer.ts', lines: 60, note: 'transport setup, dev/prod switch' },
-  {
-    file: 'types.gen.ts',
-    lines: 0,
-    note: 'a codegen step you re-run and commit',
-  },
-]
-
-const COMPARISON = {
-  columns: ['bunderstack', 'Supabase', 'PocketBase', 'hand-rolled'],
-  rows: [
-    {
-      label: 'runs as',
-      cells: [
-        'a library in your app',
-        'hosted service / Docker',
-        'a Go binary next to it',
-        'your own code',
-      ],
-    },
-    {
-      label: 'client types',
-      cells: [
-        'inferred from typeof app',
-        'codegen CLI step',
-        'untyped REST + SDK',
-        'you write and sync them',
-      ],
-    },
-    {
-      label: 'escape hatch',
-      cells: [
-        'the raw db / auth / router',
-        'SQL + edge functions',
-        'Go hooks, then a fork',
-        'everything, all the time',
-      ],
-    },
-    {
-      label: 'realtime',
-      cells: [
-        'SSE, broadcast-on-write',
-        'websocket channels',
-        'subscriptions',
-        'you build the fan-out',
-      ],
-    },
-    {
-      label: 'your schema',
-      cells: [
-        'Drizzle, in your repo',
-        'theirs, in their dashboard',
-        'theirs, in their admin',
-        'yours',
-      ],
-    },
-  ],
-}
 
 const EXAMPLES = [
   {
     dir: 'todo',
-    desc: 'The minimal full-feature app — CRUD, access, env, email, tRPC, image storage, and realtime in ~10 files. Username-only auth, no signup.',
-    cmd: 'bun run dev:todo',
-  },
-  {
-    dir: 'twitter-db-tanstack',
-    desc: 'Twitter-style feed on TanStack DB collections — growing-window pagination, live via SSE.',
-    cmd: 'bun run dev:twitter-db-tanstack',
+    label: 'Everything, kept small',
+    description:
+      'Custom procedures, generated CRUD, auth, storage, jobs, and realtime in one readable app.',
   },
   {
     dir: 'tldraw',
-    desc: 'Collaborative whiteboard with live cursors and guest editing — share a board by URL. Presence is just another synced table.',
-    cmd: 'bun run dev:tldraw',
+    label: 'Collaborative canvas',
+    description:
+      'Live cursors and shared drawings with typed presence and resilient reconnect behavior.',
   },
   {
     dir: 'kanban-tanstack',
-    desc: 'Realtime kanban on TanStack Start — boards, lists, cards, comments.',
-    cmd: 'bun run dev:kanban-tanstack',
+    label: 'Realtime product UI',
+    description:
+      'TanStack Start, Query, and generated API procedures across boards, cards, and comments.',
   },
   {
-    dir: 'kanban-solid-1.9',
-    desc: 'The same kanban in Solid 1.9, driven by bunderstack-query and SSE.',
-    cmd: 'bun run dev:kanban',
+    dir: 'twitter-db-tanstack',
+    label: 'Growing live collections',
+    description:
+      'A feed built on scoped TanStack DB collections, cursor windows, and typed updates.',
   },
-  {
-    dir: 'twitter-tanstack',
-    desc: 'The Twitter demo on plain TanStack Query — no sync layer, just typed query options.',
-    cmd: 'bun run dev:twitter-tanstack',
-  },
+]
+
+const COMPARISON = [
+  ['Application shape', 'library in your app', 'service beside your app'],
+  ['API contract', 'one inferred procedure graph', 'SDK or generated client'],
+  [
+    'Schema ownership',
+    'Drizzle in your repository',
+    'remote dashboard or service',
+  ],
+  [
+    'Escape hatch',
+    'raw database and facilities',
+    'platform-specific extension',
+  ],
+  [
+    'Realtime recovery',
+    'Publisher resume + refetch',
+    'channel-specific behavior',
+  ],
 ]
 
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'Bunderstack — batteries-included backend for Bun' },
+      { title: 'Bunderstack — one typed backend graph for Bun' },
       {
         name: 'description',
         content:
-          'Point Bunderstack at a Drizzle schema and get CRUD, auth, file storage, and realtime — with clients inferred from your server types.',
+          'Schema, application procedures, clients, and realtime in one type-safe backend graph for Bun.',
       },
     ],
   }),
   component: Landing,
 })
 
-function CopyInstall() {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText('bun add bunderstack')
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1600)
-      }}
-      className="group inline-flex items-center gap-3 rounded-md border border-dashed border-[#b9cade] bg-white/70 px-4 py-2.5 font-mono text-sm text-[#1c2430] shadow-[0_1px_0_#e3ecf6] backdrop-blur transition-colors hover:border-[#4a90d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
-      aria-label="Copy install command"
-    >
-      <span className="select-none text-[#4a90d9]">$</span>
-      <span>bun add bunderstack</span>
-      <span className="w-8 text-left text-xs text-[#5c6b80] transition-colors group-hover:text-[#4a90d9]">
-        {copied ? 'ok ✓' : 'copy'}
-      </span>
-    </button>
-  )
-}
-
-function SectionTitle({
-  eyebrow,
-  title,
-  sub,
+function CopyButton({
+  code,
+  label = 'Copy',
 }: {
-  eyebrow: string
-  title: string
-  sub?: string
+  code: string
+  label?: string
 }) {
-  return (
-    <div className="mb-10">
-      <div className="font-mono text-xs tracking-[0.22em] text-[#4a90d9] uppercase">
-        {eyebrow}
-      </div>
-      <h2 className="mt-2 text-3xl font-semibold tracking-tight text-[#1c2430] sm:text-4xl">
-        {title}
-      </h2>
-      {sub ? (
-        <p className="mt-3 max-w-2xl text-base leading-7 text-[#5c6b80]">
-          {sub}
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-function CopyCodeButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
+
   return (
     <button
       type="button"
+      className="blueprint-copy"
       onClick={() => {
         void navigator.clipboard.writeText(code)
         setCopied(true)
-        setTimeout(() => setCopied(false), 1600)
+        window.setTimeout(() => setCopied(false), 1_600)
       }}
-      aria-label="Copy code"
-      className="rounded px-2 py-0.5 font-mono text-[11px] text-[#8296ad] transition-colors hover:bg-[#eaf2fb] hover:text-[#3b7dc4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
     >
-      {copied ? 'copied ✓' : 'copy'}
+      {copied ? 'Copied ✓' : label}
     </button>
   )
 }
 
-function CodeCard({
-  title,
-  snippet,
-  header,
-  className = '',
+function TypeTrace({
+  value,
+  type,
+  live = false,
 }: {
-  title?: string
-  snippet: { html: string; code: string }
-  header?: ReactNode
-  className?: string
+  value: string
+  type: string
+  live?: boolean
 }) {
   return (
-    // NOTE: no backdrop-blur here — backdrop-filter creates a stacking
-    // context that would trap the twoslash hover popups under sibling cards.
-    <div
-      className={`snippet min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)] ${className}`}
-    >
-      {header ?? (
-        <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-2 pl-4">
-          <span className="font-mono text-xs text-[#5c6b80]">{title}</span>
-          <CopyCodeButton code={snippet.code} />
-        </div>
-      )}
-      {/* Generated at build time by scripts/gen-code-snippets.ts (shiki + twoslash) */}
-      <div dangerouslySetInnerHTML={{ __html: snippet.html }} />
+    <div className={`type-trace ${live ? 'type-trace--live' : ''}`}>
+      <span className="type-trace__value">{value}</span>
+      <span aria-hidden className="type-trace__line" />
+      <code>{type}</code>
     </div>
   )
 }
 
-/** Click/tap pins a type popup open (hover still works with a mouse). */
-function usePinnablePopups() {
-  useEffect(() => {
-    const onClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      const hover = target.closest?.('.twoslash-hover')
-      document.querySelectorAll('.twoslash-pinned').forEach((el) => {
-        if (el !== hover) el.classList.remove('twoslash-pinned')
-      })
-      if (hover && !target.closest('.twoslash-popup-container')) {
-        hover.classList.toggle('twoslash-pinned')
-      }
-    }
-    document.addEventListener('click', onClick)
-    return () => document.removeEventListener('click', onClick)
-  }, [])
-}
-
-function DeclareOnce() {
-  const [tab, setTab] = useState<(typeof CLIENT_TABS)[number]['key']>('query')
-  const active = CLIENT_TABS.find((t) => t.key === tab)!
-
+function CodePanel({
+  title,
+  snippet,
+  trace,
+}: {
+  title: string
+  snippet: { html: string; code: string }
+  trace?: { value: string; type: string; live?: boolean }
+}) {
   return (
-    <section className="pb-24">
-      <SectionTitle
-        eyebrow="the idea"
-        title="Declare once"
-        sub="Schema, access rules, storage — one server file. Every client is inferred from its type: no table lists, no codegen, no OpenAPI step. Hover the code — the types are real."
-      />
-      <div className="flex flex-col gap-5 lg:flex-row">
-        <CodeCard title="bunderstack.ts" snippet={snippets.server} />
-        <div
-          aria-hidden
-          className="hidden items-center font-mono text-xl text-[#9fb6cf] lg:flex"
-        >
-          →
-        </div>
-        <CodeCard
-          snippet={snippets[tab]}
-          header={
-            <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-2 pl-2">
-              <div
-                className="flex gap-1"
-                role="tablist"
-                aria-label="Client package"
-              >
-                {CLIENT_TABS.map((t) => (
-                  <button
-                    key={t.key}
-                    role="tab"
-                    aria-selected={tab === t.key}
-                    onClick={() => setTab(t.key)}
-                    className={`rounded px-2.5 py-1 font-mono text-xs whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9] ${
-                      tab === t.key
-                        ? 'bg-[#eaf2fb] text-[#3b7dc4]'
-                        : 'text-[#5c6b80] hover:text-[#3b7dc4]'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="hidden px-1 font-mono text-[11px] text-[#9fb6cf] xl:inline">
-                  {active.note}
-                </span>
-                <CopyCodeButton code={snippets[tab].code} />
-              </div>
-            </div>
-          }
-        />
+    <div className="blueprint-code">
+      <div className="blueprint-code__header">
+        <span>
+          <i /> {title}
+        </span>
+        <CopyButton code={snippet.code} />
       </div>
-    </section>
-  )
-}
-
-function Batteries() {
-  const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
-  const active = BATTERIES[index]!
-
-  useEffect(() => {
-    if (paused) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const timer = setInterval(
-      () => setIndex((i) => (i + 1) % BATTERIES.length),
-      6500,
-    )
-    return () => clearInterval(timer)
-  }, [paused])
-
-  return (
-    <section className="mb:min-h-[600px] h-[650px]">
-      <SectionTitle
-        eyebrow="what you get"
-        title="Batteries included"
-        sub="Everything a backend needs, from one config object."
-      />
       <div
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onFocus={() => setPaused(true)}
-        onBlur={() => setPaused(false)}
-      >
-        <div
-          className="mb-5 flex flex-wrap gap-1.5"
-          role="tablist"
-          aria-label="Features"
-        >
-          {BATTERIES.map((b, i) => (
-            <button
-              key={b.key}
-              role="tab"
-              aria-selected={i === index}
-              onClick={() => setIndex(i)}
-              className={`rounded-md border px-3 py-1.5 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9] ${
-                i === index
-                  ? 'border-[#4a90d9] bg-[#eaf2fb] text-[#3b7dc4]'
-                  : 'border-[#dde5ef] bg-white/60 text-[#5c6b80] hover:border-[#b9cade] hover:text-[#3b7dc4]'
-              }`}
-            >
-              {b.name}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div className="lg:w-[19rem] lg:shrink-0 lg:pt-2">
-            <h3 className="text-xl font-semibold text-[#1c2430]">
-              {active.name}
-            </h3>
-            <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
-              {active.text}
-            </p>
-            <div aria-hidden className="mt-5 flex gap-1.5">
-              {BATTERIES.map((b, i) => (
-                <span
-                  key={b.key}
-                  className={`h-1 rounded-full transition-all ${
-                    i === index ? 'w-6 bg-[#4a90d9]' : 'w-2 bg-[#c9d6e6]'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-          <CodeCard
-            title={active.file}
-            snippet={snippets[active.key]}
-            className="lg:max-w-[42rem]"
+        className="blueprint-code__source"
+        dangerouslySetInnerHTML={{ __html: snippet.html }}
+      />
+      {trace ? <TypeTrace {...trace} /> : null}
+    </div>
+  )
+}
+
+function SectionHeading({
+  signal,
+  title,
+  children,
+}: {
+  signal: string
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="section-heading">
+      <div className="section-heading__signal">{signal}</div>
+      <div>
+        <h2>{title}</h2>
+        <p>{children}</p>
+      </div>
+    </div>
+  )
+}
+
+function SystemTrace() {
+  const nodes = [
+    ['schema', 'Drizzle tables'],
+    ['procedure', 'oRPC graph'],
+    ['client', 'inferred calls'],
+    ['live', 'Publisher events'],
+  ]
+
+  return (
+    <div className="system-trace" aria-label="Bunderstack type flow">
+      <div className="system-trace__rail" aria-hidden />
+      {nodes.map(([key, label], index) => (
+        <div className="system-trace__node" key={key}>
+          <span className="system-trace__coordinate">0{index + 1}</span>
+          <span
+            className={`system-trace__dot ${key === 'live' ? 'is-live' : ''}`}
           />
+          <strong>{key}</strong>
+          <small>{label}</small>
         </div>
-      </div>
-    </section>
-  )
-}
-
-function WhatYouDontWrite() {
-  const total = GLUE_FILES.reduce((sum, f) => sum + f.lines, 0)
-
-  return (
-    <section className="pb-24">
-      <SectionTitle
-        eyebrow="the delta"
-        title="What you don't write"
-        sub="Each battery replaces a file you'd otherwise maintain by hand. Same behavior, one config object — and it stays typed end to end."
-      />
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1 rounded-lg border border-[#dde5ef] bg-white/95 shadow-[0_18px_40px_-24px_rgba(74,124,180,0.35)]">
-          <div className="flex items-center justify-between border-b border-dotted border-[#dde5ef] py-1.5 pr-4 pl-4">
-            <span className="font-mono text-xs text-[#5c6b80]">
-              <span className="text-[#4a90d9]">$</span> wc -l src/api/**
-              <span className="text-[#9fb6cf]"> # the usual glue, ±</span>
-            </span>
-          </div>
-          <div className="overflow-x-auto p-4 font-mono text-[13px] leading-7">
-            {GLUE_FILES.map((f) => (
-              <div
-                key={f.file}
-                className="flex items-baseline gap-3 whitespace-nowrap"
-              >
-                <span className="w-10 shrink-0 text-right text-[#c9d6e6]">
-                  {f.lines || '—'}
-                </span>
-                <span className="text-[#8296ad] line-through decoration-[#c9d6e6]">
-                  {f.file}
-                </span>
-                <span className="text-xs text-[#9fb6cf]">{f.note}</span>
-              </div>
-            ))}
-            <div className="mt-2 flex items-baseline gap-3 border-t border-dotted border-[#dde5ef] pt-2 whitespace-nowrap">
-              <span className="w-10 shrink-0 text-right text-[#5c6b80]">
-                ≈{total}
-              </span>
-              <span className="text-[#5c6b80]">
-                total, per project, forever
-              </span>
-            </div>
-            <div className="mt-3 flex items-baseline gap-3 whitespace-nowrap">
-              <span className="w-10 shrink-0 text-right text-[#4a90d9]">
-                14
-              </span>
-              <span className="font-semibold text-[#1c2430]">
-                bunderstack.ts
-              </span>
-              <span className="text-xs text-[#4a90d9]">
-                the config at the top of this page
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="lg:w-[19rem] lg:shrink-0 lg:pt-2">
-          <h3 className="text-xl font-semibold text-[#1c2430]">
-            The schema was the spec all along
-          </h3>
-          <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
-            Route handlers, request validation, fetch wrappers, auth wiring,
-            upload endpoints, socket fan-out — none of it says anything your
-            Drizzle schema and access rules didn&apos;t already say. Bunderstack
-            derives all of it, so there&apos;s nothing to drift, regenerate, or
-            review.
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function NoWalls() {
-  return (
-    <section className="pb-24">
-      <SectionTitle
-        eyebrow="no walls"
-        title="Never hit a ceiling"
-        sub="Bunderstack composes Drizzle, BetterAuth, and Hono — and re-exports the raw instances, never sealed behind a wrapper. When auto-CRUD stops being enough, drop one level down and keep going."
-      />
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <CodeCard
-          title="custom.ts"
-          snippet={snippets.escape}
-          className="lg:max-w-[42rem]"
-        />
-        <div className="lg:w-[19rem] lg:shrink-0 lg:pt-2">
-          <h3 className="text-xl font-semibold text-[#1c2430]">
-            A backend service you <span className="font-mono">bun add</span>
-          </h3>
-          <p className="mt-2 text-sm leading-7 text-[#5c6b80]">
-            Not a hosted platform, not a binary beside your app — a library
-            inside it. Your schema stays in your repo, your database stays
-            yours, and the day you outgrow a battery you&apos;re already holding
-            the underlying instance.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-10 overflow-x-auto rounded-lg border border-[#dde5ef] bg-white/80 shadow-[0_14px_30px_-24px_rgba(74,124,180,0.4)]">
-        <table className="w-full min-w-[46rem] border-collapse text-left font-mono text-xs">
-          <thead>
-            <tr className="border-b border-dotted border-[#dde5ef] text-[#5c6b80]">
-              <th className="px-4 py-2.5 font-normal" />
-              {COMPARISON.columns.map((col, i) => (
-                <th
-                  key={col}
-                  className={`px-4 py-2.5 font-semibold ${
-                    i === 0 ? 'text-[#3b7dc4]' : 'text-[#5c6b80]'
-                  }`}
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {COMPARISON.rows.map((row) => (
-              <tr
-                key={row.label}
-                className="border-b border-dotted border-[#dde5ef] last:border-b-0"
-              >
-                <td className="px-4 py-2.5 whitespace-nowrap text-[#9fb6cf]">
-                  {row.label}
-                </td>
-                {row.cells.map((cell, i) => (
-                  <td
-                    key={COMPARISON.columns[i]}
-                    className={`px-4 py-2.5 ${
-                      i === 0
-                        ? 'bg-[#eaf2fb]/60 text-[#1c2430]'
-                        : 'text-[#5c6b80]'
-                    }`}
-                  >
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      ))}
+    </div>
   )
 }
 
 function Landing() {
-  usePinnablePopups()
-
   return (
-    <main className="relative min-h-screen overflow-x-clip bg-[#fbfcfe] text-[#1c2430]">
+    <main className="blueprint-site">
       <style>{`
         @media (prefers-reduced-motion: no-preference) {
-          .cloud-blob-a { animation: cloud-drift-a 46s ease-in-out infinite alternate; }
-          .cloud-blob-b { animation: cloud-drift-b 58s ease-in-out infinite alternate; }
-          .ascii-cloud { animation: cloud-bob 9s ease-in-out infinite alternate; }
-        }
-        @keyframes cloud-drift-a { from { transform: translate(0, 0); } to { transform: translate(9rem, 2.5rem); } }
-        @keyframes cloud-drift-b { from { transform: translate(0, 0); } to { transform: translate(-11rem, -2rem); } }
-        @keyframes cloud-bob { from { transform: translateY(0); } to { transform: translateY(10px); } }
-
-        /* shiki + twoslash, tuned to the page palette */
-        /* Mobile-first: wrap long lines instead of scrolling — snippets never
-           show scrollbars anywhere. */
-        .snippet pre.shiki {
-          margin: 0;
-          padding: 1rem 1.25rem;
-          background: transparent !important;
-          font-size: 12px;
-          line-height: 1.6;
-          overflow: hidden;
-          white-space: pre-wrap;
-          word-break: break-word;
-        }
-        /* Desktop with a mouse: lines fit, keep them unwrapped and let hover
-           popups overflow the pane freely (no scroll container to clip them). */
-        @media (hover: hover) and (min-width: 1024px) {
-          .snippet pre.shiki {
-            font-size: 13px;
-            overflow: visible;
-            white-space: pre;
-            word-break: normal;
-          }
-        }
-        /* Popups escape the pane; lift the hovered card above its siblings
-           so they never hide under a neighboring block. */
-        .snippet { position: relative; }
-        .snippet:hover { z-index: 50; }
-        /* Click/tap pins a popup open (usePinnablePopups toggles the class). */
-        .snippet .twoslash .twoslash-pinned .twoslash-popup-container {
-          opacity: 1;
-          pointer-events: auto;
-        }
-        .snippet .twoslash-hover { cursor: pointer; }
-        .snippet .twoslash-hover { border-bottom: 1px dotted #b9cade; }
-        .snippet {
-          --twoslash-border-color: #dde5ef;
-          --twoslash-popup-bg: #ffffff;
-          --twoslash-popup-shadow: 0 14px 34px -18px rgba(60, 100, 150, 0.45);
-          --twoslash-docs-color: #5c6b80;
-          --twoslash-underline-color: #4a90d9;
-          --twoslash-error-color: #c25454;
-          --twoslash-cursor-color: #4a90d9;
-        }
-        .snippet .twoslash .twoslash-popup-container {
-          z-index: 40;
-          width: max-content;
-          max-width: min(32rem, 86vw);
-          border-radius: 8px;
-        }
-        .snippet .twoslash .twoslash-popup-code {
-          display: block;
-          max-height: 18rem;
-          overflow-y: auto;
-          overflow-x: hidden;
-          white-space: pre-wrap;
-          word-break: normal;
-          overflow-wrap: break-word;
-          font-size: 12px;
-        }
-        /* Phones: a tapped popup becomes a bottom sheet — no clipping or
-           off-screen positioning to fight. */
-        @media (max-width: 640px) {
-          .snippet .twoslash .twoslash-popup-container {
-            position: fixed;
-            left: 0.75rem;
-            right: 0.75rem;
-            bottom: 0.75rem;
-            top: auto;
-            width: auto;
-            max-width: none;
-            transform: none;
-            box-shadow: 0 -8px 40px -12px rgba(60, 100, 150, 0.5);
-          }
-          .snippet .twoslash .twoslash-popup-arrow { display: none; }
-          .snippet .twoslash .twoslash-popup-code { max-height: 40vh; }
-        }
-        .snippet .twoslash .twoslash-popup-docs {
-          font-size: 12px;
-          line-height: 1.5;
+          .system-trace__rail::after { animation: trace-scan 4.8s ease-in-out infinite; }
+          .system-trace__dot.is-live { animation: live-pulse 2.4s ease-out infinite; }
         }
       `}</style>
 
-      {/* sky */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="cloud-blob-a absolute -top-24 left-[8%] h-96 w-[42rem] rounded-full bg-[#dbeafe] opacity-70 blur-3xl" />
-        <div className="cloud-blob-b absolute top-40 right-[-10%] h-80 w-[36rem] rounded-full bg-[#ede9fe] opacity-60 blur-3xl" />
-        <div className="cloud-blob-a absolute top-[36rem] left-[-8%] h-72 w-[30rem] rounded-full bg-[#e0f2fe] opacity-60 blur-3xl" />
-        <div
-          className="absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage: 'radial-gradient(#c9d6e6 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
-        />
-      </div>
+      <nav className="blueprint-nav" aria-label="Main navigation">
+        <Link className="blueprint-brand" to="/">
+          <span aria-hidden>⌁</span>
+          bunderstack
+          <small>beta</small>
+        </Link>
+        <div className="blueprint-nav__links">
+          <Link to="/docs/$" params={{ _splat: '' }}>
+            Docs
+          </Link>
+          <a href="#examples">Examples</a>
+          <a href={GITHUB} target="_blank" rel="noreferrer">
+            GitHub ↗
+          </a>
+        </div>
+      </nav>
 
-      <div className="relative mx-auto max-w-5xl px-5 sm:px-8">
-        {/* nav */}
-        <nav className="flex items-center justify-between py-6 font-mono text-sm">
-          <span className="text-[#1c2430]">
-            <span className="text-[#5c6b80]">~/</span>bunderstack
-          </span>
-          <div className="flex items-center gap-6 text-[#5c6b80]">
+      <header className="blueprint-hero">
+        <div className="blueprint-hero__copy">
+          <p className="blueprint-kicker">
+            <span>Backend system / Bun</span>
+            <span>Contract / TypeScript</span>
+          </p>
+          <h1>One graph. Every boundary typed.</h1>
+          <p className="blueprint-hero__lede">
+            Start with a Drizzle schema. Add application behavior as oRPC
+            procedures. The HTTP API, client, and realtime stream stay one
+            coherent system.
+          </p>
+          <div className="blueprint-actions">
             <Link
+              className="blueprint-button blueprint-button--primary"
               to="/docs/$"
-              params={{ _splat: '' }}
-              className="transition-colors hover:text-[#4a90d9]"
+              params={{ _splat: 'getting-started' }}
             >
-              docs
+              Build the first procedure
             </Link>
+            <div className="install-command">
+              <code>bun add bunderstack</code>
+              <CopyButton code="bun add bunderstack" label="Copy command" />
+            </div>
+          </div>
+        </div>
+        <div className="blueprint-hero__diagram">
+          <div className="diagram-label">system/type-flow.ts</div>
+          <SystemTrace />
+          <div className="diagram-note">
+            <span>no codegen</span>
+            <span>one error contract</span>
+            <span>Standard Schema</span>
+          </div>
+        </div>
+      </header>
+
+      <section className="blueprint-section blueprint-section--story">
+        <SectionHeading
+          signal="A / Declare"
+          title="Behavior belongs in the graph"
+        >
+          Public pages, authenticated actions, HTTP routes, and webhooks use the
+          same procedure primitive. Output types come from the handler unless a
+          runtime output schema has a real job to do.
+        </SectionHeading>
+        <div className="story-grid story-grid--server">
+          <CodePanel
+            title="src/bunderstack.ts"
+            snippet={snippets.procedure}
+            trace={{
+              value: 'context.user',
+              type: 'AccessUser — narrowed by o.protected',
+            }}
+          />
+          <aside className="story-aside">
+            <span className="story-aside__mark">A.1</span>
+            <h3>Validation where trust changes</h3>
+            <p>
+              Inputs accept Standard Schema. Handler returns remain inferred.
+              Add output validation for external contracts or transformations,
+              not as repeated ceremony.
+            </p>
+            <Link to="/docs/$" params={{ _splat: 'api-procedures' }}>
+              API procedure model →
+            </Link>
+          </aside>
+        </div>
+      </section>
+
+      <section className="blueprint-section blueprint-section--story">
+        <SectionHeading
+          signal="B / Infer"
+          title="The useful types arrive at the call site"
+        >
+          Import only <code>type App</code>. The client knows generated tables,
+          custom procedures, inputs, outputs, errors, and TanStack Query option
+          factories without a generation step.
+        </SectionHeading>
+        <div className="story-grid story-grid--client">
+          <aside className="story-aside story-aside--accent">
+            <span className="story-aside__mark">B.1</span>
+            <h3>Inspect the boundary, not every token</h3>
+            <p>
+              The result is the important fact here. Its compact type trace
+              stays visible; library internals stay out of the way.
+            </p>
+            <Link to="/docs/$" params={{ _splat: 'query-client' }}>
+              Query client →
+            </Link>
+          </aside>
+          <CodePanel
+            title="src/api-client.ts"
+            snippet={snippets.client}
+            trace={{
+              value: 'result',
+              type: '{ boardId: string; total: number; requestedBy: string }',
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="blueprint-section blueprint-section--live">
+        <SectionHeading
+          signal="C / Live"
+          title="Realtime is transport, not application glue"
+        >
+          oRPC Publisher carries the same typed writes to query caches and live
+          collections. Resume, heartbeat, and exponential reconnect are library
+          behavior, not loops copied into every application.
+        </SectionHeading>
+        <div className="story-grid story-grid--server">
+          <CodePanel
+            title="src/realtime.ts"
+            snippet={snippets.realtime}
+            trace={{
+              value: 'connection',
+              type: 'RealtimeSync — one lifecycle per client',
+              live: true,
+            }}
+          />
+          <div className="reliability-stack">
+            {[
+              ['publish', 'Canonical rows from CRUD and custom writes'],
+              ['resume', 'Retained event IDs recover short disconnects'],
+              ['verify', 'One refetch closes an expired replay window'],
+              [
+                'settle',
+                'Mutation reconciliation avoids a follow-up list call',
+              ],
+            ].map(([verb, text]) => (
+              <div className="reliability-step" key={verb}>
+                <span>{verb}</span>
+                <p>{text}</p>
+              </div>
+            ))}
+            <Link to="/docs/$" params={{ _splat: 'sync-collections' }}>
+              Sync and reliability →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="blueprint-section">
+        <SectionHeading
+          signal="D / System"
+          title="Batteries that share one context"
+        >
+          Each facility is useful alone. Together they remove the adapters,
+          wrappers, duplicate validation, and lifecycle code that usually sit
+          between them.
+        </SectionHeading>
+        <div className="capability-map">
+          {CAPABILITIES.map((column) => (
+            <div className="capability-column" key={column.group}>
+              <div className="capability-column__title">{column.group}</div>
+              {column.items.map(([title, description]) => (
+                <article key={title}>
+                  <span aria-hidden>+</span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{description}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="examples" className="blueprint-section">
+        <SectionHeading
+          signal="E / Proof"
+          title="Examples that exercise the system"
+        >
+          The examples are application-sized tests of the mental model, not
+          isolated feature demos.
+        </SectionHeading>
+        <div className="example-grid">
+          {EXAMPLES.map((example, index) => (
             <a
-              href="#examples"
-              className="transition-colors hover:text-[#4a90d9]"
-            >
-              examples
-            </a>
-            <a
-              href={GITHUB}
-              className="transition-colors hover:text-[#4a90d9]"
+              className="example-card"
+              href={`${GITHUB}/tree/main/examples/${example.dir}`}
+              key={example.dir}
               target="_blank"
               rel="noreferrer"
             >
-              github ↗
+              <span className="example-card__index">E.{index + 1}</span>
+              <h3>{example.label}</h3>
+              <code>examples/{example.dir}</code>
+              <p>{example.description}</p>
+              <span className="example-card__arrow">Open source ↗</span>
             </a>
-          </div>
-        </nav>
+          ))}
+        </div>
+      </section>
 
-        {/* hero */}
-        <header className="pt-10 pb-24 text-center sm:pt-14">
-          <pre
-            aria-hidden
-            className="ascii-cloud mx-auto mb-2 inline-block text-left font-mono text-[11px] leading-[1.15] text-[#9fb6cf] select-none sm:text-[13px]"
-          >
-            {ASCII_CLOUD}
-          </pre>
-          <h1 className="font-mono text-4xl font-semibold tracking-tight sm:text-5xl">
-            bunderstack
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#5c6b80] sm:text-lg">
-            A batteries-included backend framework for{' '}
-            <span className="font-mono text-[#1c2430]">Bun</span>. Point it at a
-            Drizzle schema — CRUD, auth, files, realtime, email, and tRPC fall
-            out, with your env validated at boot. The client is inferred from
-            your server&apos;s types.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <CopyInstall />
-            <div className="flex items-center gap-5 font-mono text-sm">
-              <Link
-                to="/docs/$"
-                params={{ _splat: 'getting-started' }}
-                className="rounded-md bg-[#4a90d9] px-4 py-2 text-white shadow-[0_10px_24px_-12px_rgba(74,144,217,0.8)] transition-colors hover:bg-[#3b7dc4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
-              >
-                read the docs →
-              </Link>
-              <a
-                href="#examples"
-                className="text-[#5c6b80] underline decoration-dotted underline-offset-4 transition-colors hover:text-[#4a90d9]"
-              >
-                browse examples
-              </a>
+      <section className="blueprint-section">
+        <SectionHeading
+          signal="F / Shape"
+          title="A library, not another control plane"
+        >
+          Bunderstack keeps the leverage of an integrated backend while your
+          application still owns its schema, process, and infrastructure.
+        </SectionHeading>
+        <div
+          className="comparison-table"
+          role="table"
+          aria-label="Backend shape comparison"
+        >
+          <div className="comparison-row comparison-row--header" role="row">
+            <span role="columnheader">Decision</span>
+            <strong role="columnheader">Bunderstack</strong>
+            <span role="columnheader">Hosted backend</span>
+          </div>
+          {COMPARISON.map(([label, ours, theirs]) => (
+            <div className="comparison-row" role="row" key={label}>
+              <span role="cell">{label}</span>
+              <strong role="cell">{ours}</strong>
+              <span role="cell">{theirs}</span>
             </div>
-          </div>
-        </header>
+          ))}
+        </div>
+      </section>
 
-        <DeclareOnce />
-        <Batteries />
-        <WhatYouDontWrite />
-        <NoWalls />
-
-        {/* examples */}
-        <section id="examples" className="pb-24">
-          <SectionTitle
-            eyebrow="in the repo"
-            title="Examples"
-            sub="Real apps, each one a directory you can run."
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            {EXAMPLES.map((ex) => (
-              <a
-                key={ex.dir}
-                href={`${GITHUB}/tree/main/examples/${ex.dir}`}
-                target="_blank"
-                rel="noreferrer"
-                className="group rounded-lg border border-[#dde5ef] bg-white/80 p-5 shadow-[0_14px_30px_-24px_rgba(74,124,180,0.4)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-[#4a90d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4a90d9]"
-              >
-                <div className="flex items-baseline justify-between font-mono text-sm">
-                  <span className="text-[#1c2430]">
-                    examples/
-                    <span className="font-semibold">{ex.dir}</span>
-                  </span>
-                  <span className="text-[#9fb6cf] transition-colors group-hover:text-[#4a90d9]">
-                    ↗
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-[#5c6b80]">
-                  {ex.desc}
-                </p>
-                <div className="mt-3 font-mono text-xs text-[#8296ad]">
-                  <span className="text-[#4a90d9]">$</span> {ex.cmd}
-                </div>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        {/* footer */}
-        <footer className="flex flex-col items-center gap-2 border-t border-dotted border-[#c9d6e6] py-10 font-mono text-xs text-[#8296ad] sm:flex-row sm:justify-between">
-          <span>
-            <span className="text-[#4a90d9]">#</span> MIT — built on bun ·
-            drizzle · better-auth · hono
-          </span>
+      <section className="blueprint-cta">
+        <div>
+          <span className="blueprint-kicker">Ready / 0.17 beta</span>
+          <h2>Start with a schema. Keep one graph.</h2>
+        </div>
+        <div className="blueprint-cta__actions">
+          <Link
+            className="blueprint-button blueprint-button--primary"
+            to="/docs/$"
+            params={{ _splat: 'getting-started' }}
+          >
+            Read the five-minute guide
+          </Link>
           <a
+            className="blueprint-button"
             href={GITHUB}
-            className="transition-colors hover:text-[#4a90d9]"
             target="_blank"
             rel="noreferrer"
           >
-            github.com/kirill-dev-pro/bunderstack
+            Browse GitHub ↗
           </a>
-        </footer>
-      </div>
+        </div>
+      </section>
+
+      <footer className="blueprint-footer">
+        <span>MIT licensed · built for Bun and TypeScript</span>
+        <span>Drizzle · Better Auth · oRPC · Valibot</span>
+      </footer>
     </main>
   )
 }

@@ -50,6 +50,7 @@ export const access = defineAccess(schema, {
     create: 'public',
     update: 'public',
     delete: 'public',
+    writableColumns: ['id', 'canvasId', 'name', 'color', 'x', 'y', 'updatedAt'],
     filterableColumns: ['canvasId'],
     sortableColumns: ['updatedAt', 'id'],
   },

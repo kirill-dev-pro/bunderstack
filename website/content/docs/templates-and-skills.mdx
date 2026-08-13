@@ -14,6 +14,7 @@ Bunderstack ships with a production-ready SaaS template and a suite of AI coding
 The **BunderSaaS** template is a complete, full-stack SaaS workspace built on **Bunderstack** and **TanStack Start**.
 
 ### Key Features
+
 - **Dual Dashboards & Auth Contexts**:
   - **Client Workspace (`/app/*`)**: Guarded by `clientAuth` route context in `src/routes/app/layout.tsx` using `requireClientAuth`.
   - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context in `src/routes/admin/layout.tsx` using `requireAdminAuth` (`role === 'admin'`).
@@ -40,13 +41,52 @@ bun run worker
 
 ---
 
+## Bunderstack Agent Skills
+
+Two skills ship with the `bunderstack` package, so the guidance an agent reads
+always matches the version you installed.
+
+| Skill | Use it for |
+| --- | --- |
+| `creating-bunderstack-apps` | Structuring an app; declaring procedures, bases, middleware, access rules, jobs, storage, realtime |
+| `migrating-to-bunderstack` | Replacing separate auth, database, API, storage, email, jobs, cron, or realtime infrastructure |
+
+### Install them
+
+```bash
+bunx bunderstack skills
+```
+
+That copies both skills into `.agents/skills/` and adds a Bunderstack block to
+`AGENTS.md`. The pointer matters as much as the files: agents read `AGENTS.md`
+before they search for anything, so it is what actually pulls the skills into
+context when the model works in your repository.
+
+Re-run the command after upgrading Bunderstack to pick up the current guidance.
+It replaces its own block and leaves the rest of `AGENTS.md` alone.
+
+Keep them honest in CI:
+
+```bash
+bunx bunderstack skills --check
+```
+
+That exits non-zero when the installed skills drift from the package or the
+`AGENTS.md` block is missing. Use `--dir` to install somewhere other than
+`.agents/skills`.
+
+The package also ships `llms.txt`, a dense plain-text reference for the whole
+framework at `node_modules/bunderstack/llms.txt` and at
+[/llms.txt](/llms.txt). Both skills point at it.
+
 ## TanStack Agent Skills
 
 Bunderstack integrates [TanStack Agent Skills](https://github.com/DeckardGer/tanstack-agent-skills) to guide AI coding assistants (Antigravity, Cursor, Claude Code, etc.) in following best practices when generating or modifying code.
 
 ### Available Skills
+
 1. **`tanstack-start-best-practices`**:
-   - Server functions (`createServerFn`), Zod input validation, isomorphic session checks, SSR hydration safety.
+   - Server functions (`createServerFn`), Standard Schema input validation, isomorphic session checks, SSR hydration safety.
 2. **`tanstack-router-best-practices`**:
    - Root context typing (`createRootRouteWithContext`), `beforeLoad` route guards, search parameter validation (`validateSearch`), and `notFoundComponent` / `errorComponent` handling.
 3. **`tanstack-query-best-practices`**:
@@ -62,4 +102,5 @@ To add the TanStack Agent Skills to your project workspace:
 npx -y skills add https://github.com/deckardger/tanstack-agent-skills
 ```
 
-Or copy `.agents/skills/` directly into your workspace root.
+These are third-party skills pulled from GitHub, so they are versioned
+independently of Bunderstack.

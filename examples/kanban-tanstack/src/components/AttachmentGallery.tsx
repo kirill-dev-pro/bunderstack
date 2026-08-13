@@ -25,12 +25,12 @@ export function AttachmentGallery({
 }: AttachmentGalleryProps) {
   const deleteAttachment = useToastMutation({
     mutationFn: async (att: Attachment) => {
-      await api.attachments.delete(att.id)
+      await api.attachments.delete.call({ id: att.id })
       const fileId = fileIdFromUrl(att.fileUrl)
       if (fileId) await api.files.attachments.delete(fileId)
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: api.attachments.keys.all })
+      void queryClient.invalidateQueries({ queryKey: api.attachments.key({ type: 'query' }) })
       onDelete?.()
     },
     successMessage: 'Attachment removed',

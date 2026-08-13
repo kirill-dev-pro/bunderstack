@@ -1,146 +1,114 @@
 ---
 title: Configuration
-description: All createBunderstack options and environment variables
+description: createBunderstack options, transports, adapters, and lifecycle
 ---
 
 # Configuration
 
-## Options
+## Application options
 
 ```ts
-import { libsql } from 'bunderstack/database/libsql'
-import { smtp } from 'bunderstack/email/smtp'
-
 await createBunderstack({
   schema,
   database: {
     adapter: libsql(),
-    url?: string,
-    authToken?: string,
-    migrations?: string, // migrations folder, default './migrations'
+    url,
+    authToken,
+    migrations: './migrations',
   },
-  access?: Record<string, {
-    crud?: boolean,
-    ownerColumn?: string,
-    list?: 'public' | 'authenticated' | 'owner' | 'deny',
-    get?: 'public' | 'authenticated' | 'owner' | 'deny',
-    create?: 'public' | 'authenticated' | 'owner' | 'deny',
-    update?: 'public' | 'authenticated' | 'owner' | 'deny',
-    delete?: 'public' | 'authenticated' | 'owner' | 'deny',
-    writableColumns?: string[],
-    readonlyColumns?: string[],
-  }>,
-  auth?: BetterAuthConfig, // native BetterAuth options (except database) — see better-auth.com/docs
-  storage?: {
-    local?: string | true,
-    s3?: true | { endpoint?: string },
-    defaultBucket?: string,
-    buckets?: Record<string, {
-      upload?: { maxSize?: string | number, accept?: string[] },
-      transforms?: boolean,
-      access?: { create?: OperationRule, get?: OperationRule, delete?: OperationRule },
-    }>,
-  },
-  email?: {
-    from: string,
-    provider?: 'resend' | 'console' | EmailAdapter | EmailAdapter['send'],
-  },
-  env?: {
-    server?: Record<string, ZodType>,  // must NOT start with PUBLIC_
-    client?: Record<string, ZodType>,  // MUST start with PUBLIC_
-    runtimeEnv?: Record<string, unknown>, // browser value source (Vite's import.meta.env)
-  },
-  trpc?: ((t: BunderstackTRPC) => AnyRouter) | AnyRouter, // builder callback or prebuilt router
-  rateLimit?: boolean | RateLimitConfig,
-  idempotency?: boolean | IdempotencyConfig,
-  realtime?: boolean | {
-    keepaliveMs?: number,
-    bufferSize?: number,
-    redis?: string | { url: string; token?: string },
-  },
-  jobs?: (j: BunderstackJobsBuilder) => JobsDefs,
+  access,
+  auth,
+  authResolver,
+  storage,
+  email,
+  env,
+  jobs: (j) => j.define({}),
+  api,
+  middleware: [instrumentation],
+  background: { autoStart: true },
+  rateLimit: { windowMs: 60_000, max: 100 },
+  idempotency: { ttlMs: 86_400_000 },
+  realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
+  openapi: true,
 })
 ```
 
+`schema` and `database.adapter` are required. All validation slots accept
+Standard Schema. `api` takes your oRPC router — an object built from bases you
+declared with [`defineApi`](/docs/api-procedures#declare-the-builder), or a
+callback receiving the framework builder. `middleware` applies oRPC middleware
+to every procedure in the graph, generated ones included; see
+[Middleware](/docs/middleware). `openapi` serves the optional projection at
+`/api/openapi.json`. `auth` takes better-auth options directly, or
+a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
+own connection — see [Auth](/docs/auth#database-hooks).
+
 ## Realtime transport
 
-| Configuration                         | Selected transport | Intended use                              |
-| ------------------------------------- | ------------------ | ----------------------------------------- |
-| Realtime omitted or `false`           | `disabled`         | No SSE subscriptions or publications      |
-| `realtime: true`                      | `memory`           | One process, including an embedded worker |
-| `realtime: true` + `REDIS_URL`        | `redis`            | Separate web and worker processes         |
-| `realtime: { redis: "redis://…" }`    | `redis`            | Explicit shared broker URL                |
-| `realtime: { redis: { url, token } }` | `redis`            | Shared broker with a token                |
+| Configuration                     | Transport | Intended use                            |
+| --------------------------------- | --------- | --------------------------------------- |
+| omitted or `false`                | disabled  | no subscriptions or publications        |
+| `realtime: true`                  | memory    | one application process                 |
+| `realtime: true` plus `REDIS_URL` | Redis     | separate web and worker processes       |
+| `realtime: { redis }`             | Redis     | explicit shared publisher configuration |
 
-The web server and every standalone worker must use the same Redis instance
-when job handlers call `ctx.realtime.publish()`. Memory transport is
-process-local: an event published in the worker cannot reach a browser
-subscribed through another process.
+`bufferSize` and `resumeSeconds` configure Publisher retention. Heartbeats and
+exponential reconnect belong to the client transport and require no
+application setting.
 
-Since 0.9.0, `app.runWorker()` fails at startup when it detects memory
-transport. Use `app.startWorker()` to embed the worker, configure Redis, or pass
-`allowProcessLocalRealtime: true` only when job handlers never publish
-realtime events.
+When a standalone worker uses the memory publisher,
+`app.runWorker()` rejects startup unless
+`allowProcessLocalRealtime: true` is explicit. This prevents silently
+publishing events that cannot reach another process.
 
-At runtime, inspect `app.realtime.transport`. During deploy introspection,
-`app.manifest.realtimeTransport` reports the configured transport without
-opening a Redis connection.
+## Database adapters
 
-## Database adapters and URLs
+| Import                             | Dialect  | Optional peer          | Typical URL                       |
+| ---------------------------------- | -------- | ---------------------- | --------------------------------- |
+| `bunderstack/database/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
+| `bunderstack/database/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
+| `bunderstack/database/bun-sql`     | Postgres | none                   | `postgres://…`                    |
+| `bunderstack/database/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
 
-Import exactly one adapter from `bunderstack/database/<adapter>`. Its dialect
-must match the schema (`sqliteTable` for libSQL; `pgTable` for the Postgres
-adapters). The schema dialect, not the adapter, selects the default URL:
-SQLite defaults to `file:./data.db` and Postgres defaults to the local PGlite
-path `file:./data.pglite`.
+The adapter dialect must match the Drizzle schema. Import only the adapter you
+use so optional drivers stay outside the application dependency graph.
 
-| Adapter import                                      | Optional peer to install      | URLs                                                           |
-| --------------------------------------------------- | ----------------------------- | -------------------------------------------------------------- |
-| `bunderstack/database/libsql` (`libsql()`)          | `@libsql/client`              | SQLite's default `file:./data.db`; `libsql://…` for Turso      |
-| `bunderstack/database/pglite` (`pglite()`)          | `@electric-sql/pglite`        | Postgres's default `file:./data.pglite`; `memory://` for tests |
-| `bunderstack/database/bun-sql` (`bunSql()`)         | none — Bun provides `Bun.sql` | explicit `postgres://…` URL required                           |
-| `bunderstack/database/postgres-js` (`postgresJs()`) | `postgres`                    | explicit `postgres://…` URL required                           |
+## Email and storage adapters
 
-Install only the selected adapter's peer. `DATABASE_URL` (or `database.url`)
-supplies its URL; Bun SQL and postgres.js require an explicit Postgres URL
-because the Postgres dialect default is a local PGlite path. An incompatible
-adapter/schema pair or URL fails at startup.
-
-## SMTP
-
-SMTP is an explicit email adapter rather than an `email.provider` string. Add
-Nodemailer only when using it, then pass the factory result. Do not assign the
-old `'smtp'` string to `email`; `email: smtp(...)` also omits the required
-sender. Keep the email config and use the factory as `provider`:
+Email defaults to the console provider in development. Use Resend directly or
+the optional SMTP adapter:
 
 ```ts
+import { smtp } from 'bunderstack/email/smtp'
+
 email: {
   from: 'My app <hello@example.com>',
   provider: smtp({ url: process.env.SMTP_URL! }),
 }
 ```
 
-## Introspection and lifecycle
+Storage may use a local directory or S3-compatible infrastructure. Buckets
+carry their own upload, access, and image-transform rules; see
+[Storage](/docs/storage).
 
-Set `BUNDERSTACK_INTROSPECT=1` to load a manifest without connecting to a
-database. The selected adapter returns `drizzle.mock({ schema })`, so no
-database client is created; Redis is also skipped. Real PGlite, libSQL,
-postgres.js, and Bun SQL clients are owned by the app and closed by
-`await app.close()`.
+## Lifecycle and introspection
 
-## Environment variables
+`await app.close()` stops background work and closes application-owned database
+and Publisher resources. `app.status`, `app.signal`, and
+`app.backgroundRunning` expose lifecycle state.
 
-| Variable                  | Default                                               | Description                                              |
-| ------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`            | `file:./data.db` (sqlite) / `file:./data.pglite` (pg) | Connection string — see the table above                  |
-| `DATABASE_AUTH_TOKEN`     | —                                                     | Turso auth token                                         |
-| `AUTH_SECRET`             | dev default                                           | BetterAuth secret — required in production               |
-| `REDIS_URL`               | —                                                     | Shared realtime broker for separate web/worker processes |
-| `RESEND_API_KEY`          | —                                                     | Required when email provider is 'resend'                 |
-| `SMTP_URL`                | —                                                     | SMTP connection URL passed to `smtp({ url })`            |
-| `S3_BUCKET`               | —                                                     | S3 bucket name                                           |
-| `S3_REGION`               | `us-east-1`                                           | S3 region                                                |
-| `S3_ACCESS_KEY_ID`        | —                                                     | S3 access key                                            |
-| `S3_SECRET_ACCESS_KEY`    | —                                                     | S3 secret                                                |
-| `S3_ENDPOINT`             | —                                                     | Custom endpoint for R2 / MinIO                           |
-| `BUNDERSTACK_ROLE`        | `all`                                                 | `all` \| `web` \| `worker` — whether this process serves HTTP, runs background work, or both |
+Set `BUNDERSTACK_INTROSPECT=1` when deployment tooling needs
+`app.manifest` without opening database or Redis connections.
+
+## Common environment variables
+
+| Variable                                | Purpose                                    |
+| --------------------------------------- | ------------------------------------------ |
+| `DATABASE_URL`                          | selected database connection               |
+| `DATABASE_AUTH_TOKEN`                   | hosted libSQL authentication               |
+| `AUTH_SECRET`                           | Better Auth secret; required in production |
+| `REDIS_URL`                             | shared Publisher for split processes       |
+| `RESEND_API_KEY`                        | Resend provider                            |
+| `SMTP_URL`                              | optional SMTP adapter                      |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` | S3-compatible storage                      |
+| `BUNDERSTACK_ROLE`                      | `all`, `web`, or `worker`                  |

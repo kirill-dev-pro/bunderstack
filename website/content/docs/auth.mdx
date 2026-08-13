@@ -49,6 +49,35 @@ await createBunderstack({
 })
 ```
 
+## Database hooks
+
+BetterAuth hooks often need to write — seed a balance on sign-up, log the event.
+Pass `auth` as a builder to get the app's own database instead of opening a
+second connection:
+
+```ts
+await createBunderstack({
+  schema,
+  auth: ({ db, env }) => ({
+    emailAndPassword: { enabled: true },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await db.insert(schema.credits).values({ userId: user.id, amount: 0 })
+          },
+        },
+      },
+    },
+  }),
+})
+```
+
+`db` is typed from `schema` alone, so the builder can live in its own file — it
+never imports the app whose type it helps produce. Same reason `api`, `jobs`,
+and `routes` take builders. The plain object form keeps working when no hook
+needs the database.
+
 ## Reading the session in server functions
 
 ```ts

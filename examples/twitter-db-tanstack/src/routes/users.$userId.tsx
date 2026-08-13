@@ -7,7 +7,6 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
-import { BunderstackApiError } from 'bunderstack-sync'
 import { asTypeId } from 'bunderstack/typeid'
 import { ArrowLeft } from 'lucide-react'
 import * as React from 'react'
@@ -33,9 +32,12 @@ export const Route = createFileRoute('/users/$userId')({
   loader: async ({ params, context: { queryClient, api } }) => {
     const userId = parseUserIdParam(params.userId)
     try {
-      await queryClient.ensureQueryData(api.user.table.getQuery(userId))
+      await queryClient.ensureQueryData({
+        queryKey: ['user', 'get', userId],
+        queryFn: () => api.user.table.get(userId),
+      })
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404)
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
         throw notFound()
       throw err
     }
@@ -88,7 +90,10 @@ function UserProfile({
   const [loadingMore, setLoadingMore] = React.useState(false)
 
   const { data: profile } = useQuery(
-    api.user.table.getQuery(userId),
+    {
+      queryKey: ['user', 'get', userId],
+      queryFn: () => api.user.table.get(userId),
+    },
     queryClient,
   )
 
@@ -96,7 +101,7 @@ function UserProfile({
   // survives re-renders and "load more" refetches in place instead of
   // swapping in a brand new collection.
   const userPosts = api.posts.scopedCollection({
-    filter: { userId },
+    filters: { userId },
     sort: 'createdAt',
     order: 'desc',
   })
@@ -131,11 +136,17 @@ function UserProfile({
   // DB collections don't expose a server-side count aggregate, so this goes
   // through the raw REST list() primitive directly, same as before.
   const { data: followerCountData } = useQuery(
-    api.follows.table.listQuery({ followingId: userId, count: true, limit: 1 }),
+    {
+      queryKey: ['follows', 'count', 'followingId', userId],
+      queryFn: () => api.follows.table.list({ followingId: userId, count: true, limit: 1 }),
+    },
     queryClient,
   )
   const { data: followingCountData } = useQuery(
-    api.follows.table.listQuery({ followerId: userId, count: true, limit: 1 }),
+    {
+      queryKey: ['follows', 'count', 'followerId', userId],
+      queryFn: () => api.follows.table.list({ followerId: userId, count: true, limit: 1 }),
+    },
     queryClient,
   )
 

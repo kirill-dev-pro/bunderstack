@@ -25,6 +25,29 @@ async function sourceFiles(dir: string): Promise<string[]> {
 }
 
 describe('published dependency boundaries', () => {
+  test('runtime sources and manifests contain no legacy transport stack', async () => {
+    const forbidden = [
+      /from ['"]hono(?:\/|['"])/,
+      /@trpc\//,
+      /from ['"]zod['"]/,
+      /drizzle-zod/,
+      /@orpc\/zod/,
+      /createRealtimeClient/,
+      /createBunderstackQueryClient/,
+    ]
+
+    for (const name of packages) {
+      for (const path of await sourceFiles(join(repoRoot, 'packages', name, 'src'))) {
+        const source = await Bun.file(path).text()
+        for (const pattern of forbidden) expect(source, path).not.toMatch(pattern)
+      }
+
+      const manifestPath = join(repoRoot, 'packages', name, 'package.json')
+      const manifest = await Bun.file(manifestPath).text()
+      for (const pattern of forbidden) expect(manifest, manifestPath).not.toMatch(pattern)
+    }
+  })
+
   test('canonical docs show an explicit database adapter', async () => {
     for (const path of [
       'README.md',
@@ -84,12 +107,12 @@ describe('published dependency boundaries', () => {
     }
   })
 
-  test('lightweight client roots do not import optional integrations', async () => {
+  test('client roots do not import server implementations or optional auth', async () => {
     const query = await Bun.file(
       join(repoRoot, 'packages/bunderstack-query/src/index.ts'),
     ).text()
     expect(query).not.toMatch(
-      /from ['"](?:bunderstack(?:\/|['"])|@trpc\/|superjson)/,
+      /from ['"](?:bunderstack(?:\/|['"])|better-auth)/,
     )
 
     const start = await Bun.file(
@@ -123,11 +146,13 @@ describe('published dependency boundaries', () => {
     const core = await Bun.file(
       join(repoRoot, 'packages/bunderstack/package.json'),
     ).json()
-    expect(core.peerDependencies['@trpc/server']).toBeDefined()
     expect(core.peerDependencies['better-auth']).toBeDefined()
     expect(core.peerDependencies['drizzle-orm']).toBeDefined()
-    expect(core.peerDependencies['hono']).toBeDefined()
-    expect(core.peerDependencies['zod']).toBeDefined()
+    expect(core.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
+    expect(core.peerDependencies['@orpc/publisher']).toBe('2.0.0-beta.26')
+    expect(core.peerDependencies['@orpc/bun']).toBe('2.0.0-beta.26')
+    expect(core.peerDependencies['@orpc/valibot']).toBe('2.0.0-beta.26')
+    expect(core.peerDependencies['drizzle-valibot']).toBeDefined()
 
     expect(core.peerDependencies['@electric-sql/pglite']).toBeDefined()
     expect(core.peerDependencies['@libsql/client']).toBeDefined()
@@ -135,7 +160,11 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['nodemailer']).toBe('>=6 <10')
     expect(core.peerDependencies['postgres']).toBeDefined()
 
-    expect(Object.keys(core.dependencies).sort()).toEqual(['superjson', 'yaml'])
+    expect(Object.keys(core.dependencies).sort()).toEqual([
+      '@standard-schema/spec',
+      'valibot',
+      'yaml',
+    ])
 
     const rootManifest = await Bun.file(join(repoRoot, 'package.json')).json()
     expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')
@@ -144,11 +173,11 @@ describe('published dependency boundaries', () => {
       join(repoRoot, 'packages/bunderstack-query/package.json'),
     ).json()
     expect(query.peerDependencies['@tanstack/react-query']).toBeDefined()
-    expect(query.peerDependencies['@trpc/client']).toBeDefined()
-    expect(query.peerDependencies['@trpc/server']).toBeDefined()
-    expect(query.peerDependencies['@trpc/tanstack-react-query']).toBeDefined()
+    expect(query.peerDependencies['@orpc/client']).toBe('2.0.0-beta.26')
+    expect(query.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
+    expect(query.peerDependencies['@orpc/tanstack-query']).toBe('2.0.0-beta.26')
+    expect(query.peerDependencies['@standardserver/core']).toBeDefined()
     expect(query.peerDependencies['bunderstack']).toBeDefined()
-    expect(query.peerDependencies['superjson']).toBeDefined()
     expect(query.dependencies).toBeUndefined()
 
     const sync = await Bun.file(
@@ -178,6 +207,30 @@ describe('published dependency boundaries', () => {
     expect(pkg.peerDependenciesMeta.nodemailer.optional).toBe(true)
     expect(pkg.peerDependencies.typescript).toBe('>=5')
     expect(pkg.peerDependenciesMeta.typescript.optional).toBe(true)
+
+    for (const dependency of [
+      '@orpc/openapi',
+      '@orpc/server',
+      '@orpc/bun',
+      '@orpc/publisher',
+      '@orpc/valibot',
+      'drizzle-valibot',
+    ]) {
+      expect(pkg.peerDependencies[dependency]).toBeDefined()
+      expect(pkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
+    }
+
+    const queryPkg = await Bun.file(
+      join(repoRoot, 'packages/bunderstack-query/package.json'),
+    ).json()
+    for (const dependency of [
+      '@orpc/client',
+      '@orpc/server',
+      '@orpc/tanstack-query',
+    ]) {
+      expect(queryPkg.peerDependencies[dependency]).toBeDefined()
+      expect(queryPkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
+    }
   })
 
   test('published package source does not disable TypeScript checking', async () => {

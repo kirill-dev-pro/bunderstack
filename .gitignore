@@ -40,3 +40,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .worktrees/
 
 data.db
+
+# Copied from .agents/skills by scripts/build-package.ts
+packages/bunderstack/skills/

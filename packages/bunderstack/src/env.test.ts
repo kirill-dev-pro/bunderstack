@@ -1,6 +1,6 @@
 // src/env.test.ts
 import { test, expect } from 'bun:test'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 
@@ -38,7 +38,9 @@ test('AUTH_SECRET is required in production', () => {
 })
 
 test('BUNDERSTACK_ROLE defaults to all', () => {
-  const env = validateEnv(undefined, { source: { DATABASE_URL: 'file::memory:' } })
+  const env = validateEnv(undefined, {
+    source: { DATABASE_URL: 'file::memory:' },
+  })
   expect(env.BUNDERSTACK_ROLE).toBe('all')
 })
 
@@ -86,7 +88,7 @@ test('SMTP_URL required only when email provider is smtp', () => {
 
 test('user server extension is validated and typed', () => {
   const env = validateEnv(
-    { server: { OPENAI_API_KEY: z.string() } },
+    { server: { OPENAI_API_KEY: v.string() } },
     { source: { OPENAI_API_KEY: 'sk-1' } },
   )
   const key: string = env.OPENAI_API_KEY
@@ -95,7 +97,7 @@ test('user server extension is validated and typed', () => {
 
 test('user client extension is validated and typed', () => {
   const env = validateEnv(
-    { client: { PUBLIC_APP_URL: z.string().url() } },
+    { client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) } },
     { source: { PUBLIC_APP_URL: 'https://app.example.com' } },
   )
   expect(env.PUBLIC_APP_URL).toBe('https://app.example.com')
@@ -105,8 +107,8 @@ test('all failures are aggregated into one error', () => {
   try {
     validateEnv(
       {
-        server: { OPENAI_API_KEY: z.string() },
-        client: { PUBLIC_APP_URL: z.string().url() },
+        server: { OPENAI_API_KEY: v.string() },
+        client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
       },
       { source: { PUBLIC_APP_URL: 'not-a-url' } },
     )
@@ -122,7 +124,7 @@ test('all failures are aggregated into one error', () => {
 test('server keys must not start with PUBLIC_', () => {
   expect(() =>
     validateEnv(
-      { server: { PUBLIC_LEAK: z.string() } },
+      { server: { PUBLIC_LEAK: v.string() } },
       { source: { PUBLIC_LEAK: 'x' } },
     ),
   ).toThrow(/PUBLIC_/)
@@ -131,7 +133,7 @@ test('server keys must not start with PUBLIC_', () => {
 test('client keys must start with PUBLIC_', () => {
   expect(() =>
     validateEnv(
-      { client: { APP_URL: z.string() } },
+      { client: { APP_URL: v.string() } },
       { source: { APP_URL: 'x' } },
     ),
   ).toThrow(/PUBLIC_/)
@@ -139,7 +141,7 @@ test('client keys must start with PUBLIC_', () => {
 
 test('optional user vars may be absent', () => {
   const env = validateEnv(
-    { server: { FEATURE_FLAG: z.string().optional() } },
+    { server: { FEATURE_FLAG: v.optional(v.string()) } },
     { source: {} },
   )
   expect(env.FEATURE_FLAG).toBeUndefined()
@@ -147,8 +149,8 @@ test('optional user vars may be absent', () => {
 
 test('createClientEnv validates client vars from runtimeEnv', () => {
   const env = createClientEnv({
-    server: { SECRET_KEY: z.string() },
-    client: { PUBLIC_APP_URL: z.string().url() },
+    server: { SECRET_KEY: v.string() },
+    client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
     runtimeEnv: { PUBLIC_APP_URL: 'https://app.example.com' },
   })
   expect(env.PUBLIC_APP_URL).toBe('https://app.example.com')
@@ -156,8 +158,8 @@ test('createClientEnv validates client vars from runtimeEnv', () => {
 
 test('createClientEnv throws on server key access', () => {
   const env = createClientEnv({
-    server: { SECRET_KEY: z.string() },
-    client: { PUBLIC_APP_URL: z.string() },
+    server: { SECRET_KEY: v.string() },
+    client: { PUBLIC_APP_URL: v.string() },
     runtimeEnv: { PUBLIC_APP_URL: 'x' },
   })
   expect(() => (env as Record<string, unknown>).SECRET_KEY).toThrow(
@@ -168,7 +170,7 @@ test('createClientEnv throws on server key access', () => {
 test('createClientEnv aggregates client validation failures', () => {
   expect(() =>
     createClientEnv({
-      client: { PUBLIC_APP_URL: z.string().url() },
+      client: { PUBLIC_APP_URL: v.pipe(v.string(), v.url()) },
       runtimeEnv: { PUBLIC_APP_URL: 'not-a-url' },
     }),
   ).toThrow(BunderstackEnvError)
@@ -176,14 +178,14 @@ test('createClientEnv aggregates client validation failures', () => {
 
 test('createClientEnv falls back to process.env', () => {
   process.env.PUBLIC_FROM_PROCESS = 'yes'
-  const env = createClientEnv({ client: { PUBLIC_FROM_PROCESS: z.string() } })
+  const env = createClientEnv({ client: { PUBLIC_FROM_PROCESS: v.string() } })
   expect(env.PUBLIC_FROM_PROCESS).toBe('yes')
   delete process.env.PUBLIC_FROM_PROCESS
 })
 
 test('BUNDERSTACK_INTROSPECT=1 returns instead of throwing on invalid env', () => {
   const env = validateEnv(
-    { server: { STRIPE_KEY: z.string() } },
+    { server: { STRIPE_KEY: v.string() } },
     { source: { BUNDERSTACK_INTROSPECT: '1', NODE_ENV: 'production' } },
   )
   // Missing STRIPE_KEY and missing production AUTH_SECRET are both tolerated.
@@ -194,7 +196,7 @@ test('BUNDERSTACK_INTROSPECT=1 returns instead of throwing on invalid env', () =
 test('without the introspect flag the same env still throws', () => {
   expect(() =>
     validateEnv(
-      { server: { STRIPE_KEY: z.string() } },
+      { server: { STRIPE_KEY: v.string() } },
       { source: { NODE_ENV: 'production' } },
     ),
   ).toThrow(BunderstackEnvError)

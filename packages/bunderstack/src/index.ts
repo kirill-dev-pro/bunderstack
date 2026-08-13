@@ -1,12 +1,19 @@
+import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 // src/index.ts
-import type { AnyRouter } from '@trpc/server'
-import type { Hono as HonoType } from 'hono'
 
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-
-import { getTableName, isTable } from 'drizzle-orm'
+import { SmartCoercionHandlerPlugin } from '@orpc/json-schema'
+import { OpenAPIGenerator, OpenAPIGeneratorError } from '@orpc/openapi'
+import { OpenAPIHandler } from '@orpc/openapi/fetch'
+import { RPCHandler } from '@orpc/server/fetch'
+import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 
 import type { TableAccessInput } from './access'
+import type {
+  CrudApiRouterFor,
+  MergeApiRouterTypes,
+  UnifiedApiRouter,
+} from './api/types'
+import type { RealtimeApiRouter } from './api/realtime-router'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -19,19 +26,27 @@ import type {
 import type { StorageConfigInput } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
 
+import type { BunderstackApiBuilder } from './api/builder'
+
+import { validateAndResolveAccess } from './access'
+import { createApiBuilder } from './api/builder'
+import { createApiContext } from './api/context'
+import { buildCrudApiRouter } from './api/crud-router'
+import { mergeOpenAPISpecs } from './api/openapi'
+import { buildRealtimeApiRouter } from './api/realtime-router'
+import { buildApiRouter } from './api/router'
+import { buildStorageApiRouter } from './api/storage-router'
 import {
-  resolveAccessUser,
-  tableEntryForName,
-  validateAndResolveAccess,
-} from './access'
+  buildApiRegistry,
+  normalizeForeignOpenAPISpec,
+} from './api/registry'
 import {
   createAuth,
   toAuthSessionResolver,
   withEmailAuthDefaults,
 } from './auth'
 import { resolveConfig, type BunderstackConfig } from './config'
-import { resolveRealtimeRedisUrl } from './config'
-import { buildCrudRouter } from './crud'
+import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { createEmail, emailProviderTag, type EmailFacade } from './email'
@@ -56,18 +71,17 @@ import {
   type RealtimeFacade,
   type RealtimeTransport,
 } from './realtime/facade'
-import { createRealtimeBroker, buildRealtimeRouter } from './realtime/index'
-import { createRedisRealtimeBroker } from './realtime/redis'
-import { createRouteContext, validateCustomRoutes } from './routes'
+import {
+  createMemoryRealtimePublisher,
+  createRedisRealtimePublisher,
+} from './realtime/publisher'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createBucketStorages } from './storage/registry'
-import { buildBucketStorageRouter } from './storage/router'
+import { createStorageOperations } from './storage/operations'
 import { sweepOrphans } from './storage/sweep'
-import { createTRPC, type BunderstackTRPC } from './trpc'
 
 export type AuthInstance = ReturnType<typeof createAuth>
-
 
 function waitForWorkerShutdown(
   signal: AbortSignal,
@@ -153,16 +167,13 @@ export type BunderstackApp<
   TAccess extends Record<string, TableAccessInput> | undefined = undefined,
   TBuckets extends string = string,
   TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter = undefined,
   TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
   auth: AuthInstance
   storage: StorageFacade
-  router: HonoType
-  /** Raw tRPC router when the config declared one — escape hatch. */
-  trpcRouter?: AnyRouter
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
   env: ValidatedEnv<TEnv>
   /** Email facade; always present — send() throws when email isn't configured. */
@@ -191,129 +202,40 @@ export type BunderstackApp<
     schema: TSchema
     access: TAccess
     buckets: TBuckets
-    trpc: TRouter
+    api: MergeApiRouterTypes<
+      UnifiedApiRouter<CrudApiRouterFor<TSchema, TAccess>, TCustomApiRouter>,
+      RealtimeApiRouter
+    >
   }
 }
 
-// Overloads: the builder-callback form and the prebuilt-router/none form are
-// separate signatures so the callback's `t` parameter gets contextual typing
-// and the router type lands on `$inferClient` without conditional-type
-// inference (which breaks under contextual return types). `jobs` needs the
-// same split against BOTH trpc forms — a union parameter type (`TJobsDefs |
-// (callback => TJobsDefs)`) defeats inference (TS widens TJobsDefs to its
-// constraint when a function literal could match either union arm) — hence
-// four overloads covering the trpc × jobs option cross product.
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined =
-    undefined,
+  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter extends AnyRouter = AnyRouter,
   const TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    /** Builder callback receiving the pre-wired `t` instance. */
-    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
-    /** Builder callback receiving the pre-wired `j` instance. */
-    jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
+  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv, TCustomApiRouter> & {
+    jobs?: TJobsDefs | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
   },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
-export function createBunderstack<
-  TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined =
-    undefined,
-  const TStorage extends StorageConfigInput | undefined = undefined,
-  const TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter extends AnyRouter = AnyRouter,
-  const TJobsDefs extends JobsDefs | undefined = undefined,
->(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    /** Builder callback receiving the pre-wired `t` instance. */
-    trpc: (t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => TRouter
-    /** Prebuilt job definitions (escape hatch for multi-file setups). */
-    jobs?: TJobsDefs
-  },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
-export function createBunderstack<
-  TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined =
-    undefined,
-  const TStorage extends StorageConfigInput | undefined = undefined,
-  const TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter extends AnyRouter | undefined = undefined,
-  const TJobsDefs extends JobsDefs | undefined = undefined,
->(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    /** Prebuilt tRPC router (escape hatch for multi-file setups). */
-    trpc?: TRouter
-    /** Builder callback receiving the pre-wired `j` instance. */
-    jobs: (j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs
-  },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
-export function createBunderstack<
-  TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined =
-    undefined,
-  const TStorage extends StorageConfigInput | undefined = undefined,
-  const TEnv extends EnvConfigInput | undefined = undefined,
-  TRouter extends AnyRouter | undefined = undefined,
-  const TJobsDefs extends JobsDefs | undefined = undefined,
->(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    /** Prebuilt tRPC router (escape hatch for multi-file setups). */
-    trpc?: TRouter
-    /** Prebuilt job definitions (escape hatch for multi-file setups). */
-    jobs?: TJobsDefs
-  },
-): Promise<
-  BunderstackApp<
-    TSchema,
-    TAccess,
-    BucketNamesOf<TStorage>,
-    TEnv,
-    TRouter,
-    TJobsDefs
-  >
->
+): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TJobsDefs, TCustomApiRouter>>
 export async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv> & {
-    trpc?:
-      | AnyRouter
-      | ((t: BunderstackTRPC<TSchema, ValidatedEnv<TEnv>>) => AnyRouter)
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
     jobs?:
       | JobsDefs
       | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => JobsDefs)
@@ -324,8 +246,8 @@ export async function createBunderstack<
     TAccess,
     BucketNamesOf<TStorage>,
     TEnv,
-    AnyRouter | undefined,
-    JobsDefs | undefined
+    JobsDefs | undefined,
+    TCustomApiRouter
   >
 > {
   const dialect = detectDialect(options.schema)
@@ -336,7 +258,7 @@ export async function createBunderstack<
     : undefined
   if (jobsDefs) validateJobsDefs(jobsDefs)
   // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
-  // and everything downstream (config, email, trpc ctx) consumes the result.
+  // and everything downstream consumes the result.
   const env = validateEnv(options.env, {
     emailProvider: emailProviderTag(options.email),
     defaultDatabaseUrl:
@@ -371,9 +293,12 @@ export async function createBunderstack<
     // generic schema view, so this single intentional cast produces the
     // user-facing, per-dialect db type. See `app.db` / crud below.
     const userDb = db as unknown as DbFor<TSchema>
+    // An `auth` builder gets the user-facing db, so better-auth hooks in another
+    // file can write through the app's own connection without importing the app.
+    const authConfig = resolveAuthConfig(config.auth, { db: userDb, env })
     const auth = createAuth(
       db,
-      withEmailAuthDefaults(config.auth, email, Boolean(options.email)),
+      withEmailAuthDefaults(authConfig, email, Boolean(options.email)),
       dialect,
       options.schema as Record<string, unknown>,
     )
@@ -388,81 +313,52 @@ export async function createBunderstack<
       typeof config.realtime === 'object'
         ? config.realtime.bufferSize
         : undefined
+    const realtimeResumeSeconds =
+      typeof config.realtime === 'object'
+        ? config.realtime.resumeSeconds
+        : undefined
     const configuredRedisUrl = config.realtime
       ? resolveRealtimeRedisUrl(config.realtime, env)
       : undefined
-    const configuredRealtimeTransport: RealtimeTransport = !config.realtime
-      ? 'disabled'
-      : configuredRedisUrl
-        ? 'redis'
-        : 'memory'
     const redisUrl = introspect ? undefined : configuredRedisUrl
-    const broker = config.realtime
+    const publisher = config.realtime
       ? redisUrl
-        ? createRedisRealtimeBroker({
-            access: resolvedAccess,
-            channel: process.env.BUNDERSTACK_REALTIME_CHANNEL || undefined,
-            redis: () => {
-              // Redis pub/sub requires a dedicated connection (subscribe puts the client into
-              // a restricted state). We use one client for commands and a second for subscribe.
-              const cmdClient = new Bun.RedisClient(redisUrl)
-              const subClient = new Bun.RedisClient(redisUrl)
-              return {
-                incr: (key: string) => cmdClient.incr(key),
-                publish: (channel: string, message: string) =>
-                  cmdClient.publish(channel, message),
-                subscribe: (channel: string, listener: (msg: string) => void) =>
-                  subClient.subscribe(channel, listener),
-                lpush: (key: string, value: string) =>
-                  cmdClient.lpush(key, value),
-                ltrim: (key: string, start: number, stop: number) =>
-                  cmdClient.ltrim(key, start, stop),
-                lrange: (key: string, start: number, stop: number) =>
-                  cmdClient.lrange(key, start, stop),
-                close: () => {
-                  cmdClient.close()
-                  subClient.close()
-                },
-              }
-            },
-            bufferSize: realtimeBufferSize,
-          })
-        : createRealtimeBroker({
-            access: resolvedAccess,
-            bufferSize: realtimeBufferSize,
+        ? (() => {
+            const redis = new Bun.RedisClient(redisUrl)
+            const subscriber = redis.duplicate()
+            lifecycle.add(async () => {
+              redis.close()
+              ;(await subscriber).close()
+            })
+            return createRedisRealtimePublisher(redis, subscriber, {
+              prefix:
+                process.env.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
+              maxBufferedEvents: realtimeBufferSize,
+              resumeSeconds: realtimeResumeSeconds,
+            })
+          })()
+        : createMemoryRealtimePublisher({
+            maxBufferedEvents: realtimeBufferSize,
+            resumeSeconds: realtimeResumeSeconds,
           })
       : undefined
-    const runtimeRealtimeTransport: RealtimeTransport = !broker
+    const runtimeRealtimeTransport: RealtimeTransport = !publisher
       ? 'disabled'
       : redisUrl
         ? 'redis'
         : 'memory'
     const realtime = createRealtimeFacade<TSchema>(
-      broker,
+      publisher,
       runtimeRealtimeTransport,
+      options.schema,
     )
-    const crudRouter = buildCrudRouter(options.schema, userDb, {
-      auth: authResolver,
-      access: resolvedAccess,
-      idempotency: options.idempotency,
-      realtime,
-    })
-    const realtimeRouter = broker
-      ? buildRealtimeRouter(broker, {
-          auth: authResolver,
-          keepaliveMs:
-            typeof config.realtime === 'object'
-              ? config.realtime.keepaliveMs
-              : undefined,
-        })
-      : undefined
     const registry = createBucketStorages(config.storage)
-    if (broker) lifecycle.add(() => broker.close())
-    const storageRouter = buildBucketStorageRouter({
+    const storageOperations = createStorageOperations({
       registry,
       db,
-      auth: authResolver,
     })
+    const storageApiRouter = buildStorageApiRouter(registry, storageOperations)
+    const realtimeApiRouter = buildRealtimeApiRouter(publisher, resolvedAccess)
     const storage: StorageFacade = {
       async delete(fileId) {
         const bucketName = fileId.split('/')[0] ?? ''
@@ -517,7 +413,7 @@ export async function createBunderstack<
     // ordinary cron now, so it inherits retries, timeout and onFailed.
     const resolvedDefs: JobsDefs | undefined = storageConfigured
       ? {
-          ...(jobsDefs ?? {}),
+          ...jobsDefs,
           'bunderstack:storage-sweep': {
             kind: 'cron',
             schedule: '0 4 * * *',
@@ -546,7 +442,9 @@ export async function createBunderstack<
         return result
       },
       tick(now?: number) {
-        return jobRunner ? jobRunner.tick(now) : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
+        return jobRunner
+          ? jobRunner.tick(now)
+          : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)
@@ -605,58 +503,161 @@ export async function createBunderstack<
         await lifecycle.close()
       }
     }
-    const trpcRouter: AnyRouter | undefined =
-      typeof options.trpc === 'function'
-        ? options.trpc(createTRPC<TSchema, ValidatedEnv<TEnv>>())
-        : options.trpc
-    const trpcHandler = trpcRouter
-      ? (req: Request) =>
-          fetchRequestHandler({
-            endpoint: '/api/trpc',
-            req,
-            router: trpcRouter,
-            createContext: async () => ({
-              db: userDb,
-              user: await resolveAccessUser(authResolver, req.headers),
-              env,
-              email,
-              jobs,
-              realtime,
-              storage,
-              req,
-            }),
-          })
+    const crudApiRouter = buildCrudApiRouter(options.schema, userDb, {
+      access: resolvedAccess,
+      idempotency: options.idempotency,
+      realtime,
+    })
+
+    const customApiRouter =
+      typeof options.api === 'function'
+        ? (
+            options.api as (
+              builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+            ) => TCustomApiRouter
+          )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
+        : options.api
+
+    const nativeRouter = buildApiRouter({
+      crud: crudApiRouter as Record<string, unknown>,
+      storage: storageApiRouter as Record<string, unknown>,
+      realtime: realtimeApiRouter as Record<string, unknown> | undefined,
+      custom: customApiRouter as Record<string, unknown> | undefined,
+      middleware: options.middleware,
+    }) as any
+
+    const authOpenAPISpecRaw =
+      options.openapi &&
+      auth.api &&
+      'generateOpenAPISchema' in auth.api &&
+      typeof auth.api.generateOpenAPISchema === 'function'
+        ? await auth.api.generateOpenAPISchema()
+        : undefined
+
+    const authOpenAPISpec = authOpenAPISpecRaw
+      ? normalizeForeignOpenAPISpec(authOpenAPISpecRaw, {
+          prefix: '/api/auth',
+          source: 'auth',
+        })
       : undefined
-    const customRouter = options.routes
-      ? (() => {
-          const routeCtx = createRouteContext({
-            db: userDb,
-            env,
-            storage,
-            email,
-            jobs,
-            realtime,
-            auth,
-            authResolver,
-          })
-          const built = (
-            options.routes as (ctx: unknown) => import('hono').Hono
-          )(routeCtx)
-          const enabledTables = Object.values(options.schema)
-            .filter((table) => isTable(table))
-            .map((table) => getTableName(table))
-            .filter((name) => tableEntryForName(resolvedAccess, name)?.enabled)
-          validateCustomRoutes(built.routes, enabledTables)
-          return built
-        })()
+
+    await buildApiRegistry({
+      nativeRouter,
+      foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
+      reservedCoreHandles: new Set([
+        'health',
+        ...(publisher ? ['realtime.changes'] : []),
+        ...[...registry.keys()].flatMap((name) =>
+          ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
+            (operation) => `files.${name}.${operation}`,
+          ),
+        ),
+      ]),
+    })
+
+    const valibotConverter = new ValibotToJsonSchemaConverter()
+
+    const combinedOpenAPISpec = options.openapi
+      ? mergeOpenAPISpecs({
+          nativeSpec: await new OpenAPIGenerator({
+            converters: [
+              valibotConverter,
+              {
+                condition: (schema: any) =>
+                  Boolean(
+                    schema?.['~standard'] &&
+                      !schema['~standard'].jsonSchema,
+                  ),
+                convert: (schema: any) => {
+                  const vendor = schema?.['~standard']?.vendor ?? 'unknown'
+                  throw new OpenAPIGeneratorError(
+                    `No JSON Schema converter is configured for Standard Schema vendor "${vendor}"`,
+                  )
+                },
+              },
+            ],
+          }).generate(nativeRouter),
+          authSpec: authOpenAPISpec,
+        })
       : undefined
-    const { handler, router } = buildHandler({
-      customRouter,
-      crudRouter,
+
+    const openapiHandler = new OpenAPIHandler(nativeRouter, {
+      // Query strings and form bodies are strings; this coerces them to the
+      // types each procedure's input schema declares, so schemas stay honest
+      // (`v.number()`, not a string-union pipe) and REST matches RPC.
+      plugins: [
+        new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
+      ],
+      customErrorResponseBodyEncoder: (error: any) => ({
+        error: error.message,
+        code: error.data?.code ?? error.code,
+        // oRPC reports schema failures as `data.issues`; forwarding them tells
+        // the client which field was rejected instead of just "invalid".
+        ...(error.data?.details !== undefined
+          ? { details: error.data.details }
+          : error.data?.issues !== undefined
+            ? { details: error.data.issues }
+            : {}),
+      }),
+      fetchInterceptors: [
+        async (options) => {
+          const res = await options.next()
+          if (res.matched && options.context.resHeaders) {
+            options.context.resHeaders.forEach((v: string, k: string) =>
+              res.response.headers.set(k, v),
+            )
+          }
+          return res
+        },
+      ],
+    })
+    const rpcHandler = new RPCHandler(nativeRouter)
+
+    const apiHandler = async (req: Request): Promise<Response | null> => {
+      const urlString = typeof req === 'string' ? (req as string) : req.url
+      if (!urlString) return null
+      const url = new URL(urlString, 'http://localhost')
+      if (
+        combinedOpenAPISpec &&
+        url.pathname === '/api/openapi.json' &&
+        req.method === 'GET'
+      ) {
+        return new Response(JSON.stringify(combinedOpenAPISpec), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      const apiCtx = createApiContext(
+        {
+          db: userDb,
+          env,
+          storage,
+          email,
+          jobs,
+          realtime,
+          auth,
+          authResolver,
+        },
+        req,
+      )
+
+      if (url.pathname.startsWith('/api/rpc')) {
+        const res = await rpcHandler.handle(req, {
+          prefix: '/api/rpc',
+          context: apiCtx,
+        })
+        if (res.matched) return res.response
+      }
+
+      const openapiRes = await openapiHandler.handle(req, { context: apiCtx })
+      if (openapiRes.matched) return openapiRes.response
+
+      return null
+    }
+
+    const handler = buildHandler({
       authHandler: (req) => auth.handler(req),
-      storageRouter,
-      realtimeRouter,
-      trpcHandler,
+      apiHandler,
       rateLimit: options.rateLimit,
     })
 
@@ -678,15 +679,14 @@ export async function createBunderstack<
       TAccess,
       BucketNamesOf<TStorage>,
       TEnv,
-      AnyRouter | undefined,
-      JobsDefs | undefined
+      JobsDefs | undefined,
+      TCustomApiRouter
     > = {
       handler,
       // Internal tables live on the runtime db but stay out of the public type.
       db: userDb,
       auth,
       storage,
-      router,
       env,
       email,
       realtime,
@@ -702,7 +702,6 @@ export async function createBunderstack<
         return lifecycle.status
       },
       signal: lifecycle.signal,
-      trpcRouter,
       manifest: buildManifest({
         schema: options.schema,
         dialect,
@@ -742,9 +741,17 @@ export async function createBunderstack<
   }
 }
 
+export { listSpec } from './api/list-spec'
+export type { ListSpecOptions } from './api/list-spec'
+export type { BunderstackDb, BunderstackTx } from './db'
 export { MAX_LIST_LIMIT } from './list-query'
-export { resolveConfig } from './config'
+export { BunderstackError } from './errors'
+export type { BunderstackErrorCode } from './errors'
+export { resolveConfig, resolveAuthConfig, defineAuth } from './config'
 export type {
+  AuthConfigContext,
+  AuthConfigFactory,
+  AuthConfigInput,
   BetterAuthConfig,
   BunderstackConfig,
   ResolvedConfig,
@@ -760,8 +767,6 @@ export type {
   EmailConfigInput,
   EmailFacade,
 } from './email'
-export { createTRPC } from './trpc'
-export type { BunderstackTRPC, TRPCContext } from './trpc'
 export { createJobsBuilder } from './jobs/index'
 export type {
   BunderstackJobContext,
@@ -817,7 +822,7 @@ export type {
 export type { TransformSpec } from './storage/thumbnails'
 export { mockAuthSession } from './testing'
 
-export type { RealtimeAction } from './realtime/index'
+export type { RealtimeAction } from './realtime/publisher'
 export { createRealtimeFacade } from './realtime/facade'
 export type {
   RealtimeFacade,
@@ -825,9 +830,22 @@ export type {
   SchemaTable,
 } from './realtime/facade'
 
+export { createApiBuilder, defineApi } from './api/builder'
+export type { BunderstackApiBuilder, ApiFactory } from './api/builder'
+// Needed to declare shared middleware over the app's context, e.g.
+// `os.$context<ApiContext<typeof schema>>().middleware(...)`.
+export type { ApiContext } from './api/context'
 export type {
-  BunderstackRouteContext,
-  RouteContext,
-  RoutesBuilder,
-} from './routes'
-
+  CrudApiRouterFor,
+  ExposedApiTables,
+  MergeApiRouterTypes,
+  UnifiedApiRouter,
+} from './api/types'
+export type { TableCrudProcedures } from './api/crud-router'
+export {
+  buildApiRegistry,
+  mergeApiRoutersStrict,
+  normalizeApiPath,
+  normalizeForeignOpenAPISpec,
+} from './api/registry'
+export { mergeOpenAPISpecs } from './api/openapi'

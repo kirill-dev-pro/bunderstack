@@ -16,7 +16,7 @@ export const Route = createFileRoute('/profile')({
     if (!context.user) throw redirect({ to: '/login' })
   },
   loader: async ({ context: { queryClient, api, user } }) => {
-    await queryClient.ensureQueryData(api.user.getQuery(user!.id))
+    await queryClient.ensureQueryData(api.user.get.queryOptions({ input: { id: user!.id } }))
   },
   component: ProfilePage,
 })
@@ -24,7 +24,7 @@ export const Route = createFileRoute('/profile')({
 function ProfilePage() {
   const { api, user } = Route.useRouteContext()
   const router = useRouter()
-  const { data: profile } = useQuery(api.user.getQuery(user!.id))
+  const { data: profile } = useQuery(api.user.get.queryOptions({ input: { id: user!.id } }))
   const [about, setAbout] = React.useState('')
 
   React.useEffect(() => {
@@ -32,7 +32,7 @@ function ProfilePage() {
   }, [profile?.about])
 
   const avatarMutation = useToastMutation(
-    api.user.updateMutation({
+    api.user.update.mutationOptions({
       onSuccess: () => {
         router.invalidate()
         toast.success('Avatar updated')
@@ -44,7 +44,7 @@ function ProfilePage() {
   )
 
   const aboutMutation = useToastMutation(
-    api.user.updateMutation({
+    api.user.update.mutationOptions({
       onSuccess: () => {
         router.invalidate()
         toast.success('Bio updated')
@@ -94,8 +94,7 @@ function ProfilePage() {
               bucket={AVATARS_BUCKET}
               onUploaded={async (file) => {
                 await avatarMutation.mutateAsync({
-                  id: user.id,
-                  data: { image: file.url },
+                  params: { id: user.id }, query: {}, headers: {}, body: { image: file.url },
                 })
               }}
               disabled={avatarMutation.isPending}
@@ -107,7 +106,7 @@ function ProfilePage() {
                 className="outline"
                 disabled={avatarMutation.isPending}
                 onClick={() =>
-                  avatarMutation.mutate({ id: user.id, data: { image: null } })
+                  avatarMutation.mutate({ params: { id: user.id }, query: {}, headers: {}, body: { image: null } })
                 }
               >
                 Remove avatar
@@ -120,7 +119,7 @@ function ProfilePage() {
           className="vstack"
           onSubmit={(e) => {
             e.preventDefault()
-            aboutMutation.mutate({ id: user.id, data: { about: about.trim() } })
+            aboutMutation.mutate({ params: { id: user.id }, query: {}, headers: {}, body: { about: about.trim() } })
           }}
         >
           <label>

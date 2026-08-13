@@ -15,19 +15,16 @@ interface OverviewData {
 }
 
 function AdminOverviewPage() {
-  const { adminAuth } = Route.useRouteContext()
+  const { adminAuth, api } = Route.useRouteContext()
   const [data, setData] = React.useState<OverviewData | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
     let active = true
-    fetch('/api/trpc/admin.overview')
-      .then((res) => (res.ok ? res.json() : null))
+    api.adminOverview.call()
       .then((json) => {
-        if (active && json?.result?.data) {
-          setData(json.result.data)
-          setLoading(false)
-        } else if (active) {
+        if (active) {
+          setData(json)
           setLoading(false)
         }
       })
@@ -37,7 +34,7 @@ function AdminOverviewPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [api])
 
   return (
     <div className="space-y-8">

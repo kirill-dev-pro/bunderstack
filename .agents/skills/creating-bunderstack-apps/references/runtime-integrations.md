@@ -52,3 +52,17 @@ retries.
 If workers publish realtime events, configure the same shared Redis transport
 for web and worker processes. `realtime: true` alone is process-local and is
 only safe when the worker is embedded with `app.startWorker()` for local work.
+
+## Realtime and synced collections
+
+Clients consume the typed `realtime.changes` async iterator. Idle HTTP streams
+receive a transport-only `heartbeat` every five seconds; the Bunderstack query
+client filters it before cache callbacks and does not advance the Publisher
+resume ID. Do not add an application polling loop or publish heartbeat events
+through oRPC Publisher.
+
+`bunderstack-sync` reconciles successful mutations from the canonical row
+returned by generated CRUD, without a follow-up list refetch. Realtime echoes
+are idempotent, and reconnect performs the full refetch used to repair drift.
+Keep custom replacement procedures compatible by returning the complete row,
+including `id`.

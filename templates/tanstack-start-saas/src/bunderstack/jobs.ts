@@ -1,6 +1,6 @@
 import type { BunderstackJobsBuilder } from 'bunderstack'
 import { and, eq, lt } from 'drizzle-orm'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { RelayEnv } from './env'
 import * as schema from './schema'
@@ -15,7 +15,7 @@ export const defineJobs = (
 ) =>
   jobs.define({
     sendProjectDigest: jobs.job({
-      input: z.object({ projectId: z.string().min(1) }),
+      input: v.object({ projectId: v.pipe(v.string(), v.minLength(1)) }),
       concurrency: 2,
       timeout: 60_000,
       handler: async ({ projectId }, ctx) => {

@@ -1,6 +1,6 @@
 import { Router, Route, Navigate } from '@solidjs/router'
 import { QueryClientProvider } from '@tanstack/solid-query'
-import { Show } from 'solid-js'
+import { Show, type JSX } from 'solid-js'
 
 import { authClient } from './lib/auth-client.ts'
 import { queryClient } from './lib/query.ts'
@@ -8,7 +8,7 @@ import { Board } from './routes/Board.tsx'
 import { Boards } from './routes/Boards.tsx'
 import { Login } from './routes/Login.tsx'
 
-function Protected(props: { children: any }) {
+function Protected(props: { children: JSX.Element }) {
   const session = authClient.useSession()
   return (
     <Show

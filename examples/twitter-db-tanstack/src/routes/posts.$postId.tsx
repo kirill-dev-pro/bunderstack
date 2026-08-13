@@ -7,7 +7,6 @@ import {
   notFound,
   useRouter,
 } from '@tanstack/react-router'
-import { BunderstackApiError } from 'bunderstack-sync'
 import { asTypeId } from 'bunderstack/typeid'
 import { ArrowLeft } from 'lucide-react'
 import * as React from 'react'
@@ -33,9 +32,12 @@ export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params, context: { queryClient, api } }) => {
     const postId = parsePostIdParam(params.postId)
     try {
-      await queryClient.ensureQueryData(api.posts.table.getQuery(postId))
+      await queryClient.ensureQueryData({
+        queryKey: ['posts', 'get', postId],
+        queryFn: () => api.posts.table.get(postId),
+      })
     } catch (err) {
-      if (err instanceof BunderstackApiError && err.status === 404)
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
         throw notFound()
       throw err
     }
@@ -91,13 +93,19 @@ function PostThread({
   const { api, queryClient } = Route.useRouteContext()
   const [loadingMore, setLoadingMore] = React.useState(false)
 
-  const { data: post } = useQuery(api.posts.table.getQuery(postId), queryClient)
+  const { data: post } = useQuery(
+    {
+      queryKey: ['posts', 'get', postId],
+      queryFn: () => api.posts.table.get(postId),
+    },
+    queryClient,
+  )
 
   // Growing-window replies: cached by options, so the same instance
   // survives re-renders and "load more" refetches in place instead of
   // swapping in a brand new collection.
   const repliesWindow = api.posts.scopedCollection({
-    filter: { replyToId: postId },
+    filters: { replyToId: postId },
     sort: 'createdAt',
     order: 'asc',
   })

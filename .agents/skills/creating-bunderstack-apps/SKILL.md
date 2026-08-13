@@ -1,6 +1,6 @@
 ---
 name: creating-bunderstack-apps
-description: Use when starting or structuring a Bunderstack application, choosing its runtime integration, or preparing a Bunderstack SaaS for production.
+description: Use when working in a repository that depends on bunderstack - starting or structuring the application, adding or changing oRPC procedures, bases, middleware, access rules, jobs, storage, or realtime, choosing a runtime integration, or preparing it for production.
 ---
 
 # Creating Bunderstack Apps
@@ -10,16 +10,16 @@ description: Use when starting or structuring a Bunderstack application, choosin
 1. Inspect the product brief and target runtime.
 2. Choose the layout from the table below.
 3. For a full TanStack Start SaaS, copy `templates/tanstack-start-saas/`.
-4. Configure schema, access, auth, env, storage, jobs, realtime, and tRPC.
+4. Configure schema, access, auth, env, storage, jobs, realtime, and the oRPC API graph.
 5. Mount the single `app.handler` integration.
 6. Add committed migrations and a deployment blueprint before production.
 7. Run the verification contract.
 
-| Condition | Layout |
-| --- | --- |
-| Small API with short configuration | `src/bunderstack.ts` |
-| Auth, access, jobs, env, or tRPC need independent modules | `src/bunderstack/` |
-| Full SaaS | Copy `templates/tanstack-start-saas/` and keep its modular layout |
+| Condition                                                                   | Layout                                                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Small API with short configuration                                          | `src/bunderstack.ts`                                              |
+| Auth, access, jobs, env, or custom oRPC procedures need independent modules | `src/bunderstack/`                                                |
+| Full SaaS                                                                   | Copy `templates/tanstack-start-saas/` and keep its modular layout |
 
 ## Runtime decision recipe
 
@@ -34,8 +34,12 @@ contains the React build. The API process owns `app.handler`; the browser
 client receives a configured API base URL and calls that process. Include both
 processes and the configured browser-to-API path in the proposed structure.
 
+`node_modules/bunderstack/llms.txt` is a dense plain-text reference for the
+whole framework. Read it when a detail is not covered here.
+
 Read [application structure](references/application-structure.md) before placing
-the Bunderstack entry, schemas, authorization, or configuration modules.
+the Bunderstack entry, schemas, authorization, or configuration modules, and
+before declaring procedures, bases, middleware, or errors.
 Read [runtime integrations](references/runtime-integrations.md) before mounting
 HTTP, adding a worker, or choosing a framework adapter. Read the
 [verification contract](references/verification.md) after adding the app

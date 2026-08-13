@@ -11,7 +11,7 @@ import {
   DocsPage,
   DocsTitle,
 } from 'fumadocs-ui/layouts/docs/page'
-import { Suspense } from 'react'
+import { Suspense, useMemo } from 'react'
 
 import { useMDXComponents } from '@/components/mdx'
 // Build-time page tree + slug→file map (scripts/gen-docs-manifest.ts). Keeping
@@ -56,7 +56,15 @@ const clientLoader = browserCollections.docs.createClientLoader({
 })
 
 function Page() {
-  const data = useFumadocsLoader(Route.useLoaderData())
+  const serialized = Route.useLoaderData()
+  // Fumadocs deserializes page names into React elements in place. Clone the
+  // input so TanStack Router can still serialize its original loader data
+  // after SSR rendering during prerender.
+  const deserializationCopy = useMemo(
+    () => structuredClone(serialized),
+    [serialized],
+  )
+  const data = useFumadocsLoader(deserializationCopy)
 
   return (
     <DocsLayout {...baseOptions()} tree={data.pageTree}>

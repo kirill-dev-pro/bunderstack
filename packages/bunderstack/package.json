@@ -1,7 +1,7 @@
 {
   "name": "bunderstack",
-  "version": "0.16.0",
-  "description": "Batteries-included backend framework for Bun: CRUD APIs, auth, file storage, realtime, tRPC, email, and validated env from a single Drizzle schema and config object.",
+  "version": "0.17.0",
+  "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
     "better-auth",
@@ -9,9 +9,9 @@
     "crud",
     "drizzle",
     "framework",
-    "hono",
+    "orpc",
     "realtime",
-    "trpc"
+    "typesafe"
   ],
   "homepage": "https://github.com/kirill-dev-pro/bunderstack#readme",
   "license": "MIT",
@@ -21,70 +21,131 @@
     "directory": "packages/bunderstack"
   },
   "bin": {
-    "bunderstack": "./src/cli.ts"
+    "bunderstack": "./dist/cli.js"
   },
   "files": [
-    "src",
-    "!src/**/*.test.ts",
+    "dist",
+    "skills",
+    "llms.txt",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./access": "./src/access.ts",
-    "./database/bun-sql": "./src/database/bun-sql.ts",
-    "./database/libsql": "./src/database/libsql.ts",
-    "./database/pglite": "./src/database/pglite.ts",
-    "./database/postgres-js": "./src/database/postgres-js.ts",
-    "./provision": "./src/provision.ts",
-    "./schema": "./src/schema-export.ts",
-    "./schema/pg": "./src/schema-export-pg.ts",
-    "./typeid": "./src/typeid.ts",
-    "./typeid/pg": "./src/typeid-pg.ts",
-    "./env": "./src/env.ts",
-    "./blueprint": "./src/blueprint.ts",
-    "./trpc": "./src/trpc.ts",
-    "./cron": "./src/cron.ts",
-    "./email/smtp": "./src/email/smtp.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./access": {
+      "types": "./dist/access.d.ts",
+      "default": "./dist/access.js"
+    },
+    "./database/bun-sql": {
+      "types": "./dist/database/bun-sql.d.ts",
+      "default": "./dist/database/bun-sql.js"
+    },
+    "./database/libsql": {
+      "types": "./dist/database/libsql.d.ts",
+      "default": "./dist/database/libsql.js"
+    },
+    "./database/pglite": {
+      "types": "./dist/database/pglite.d.ts",
+      "default": "./dist/database/pglite.js"
+    },
+    "./database/postgres-js": {
+      "types": "./dist/database/postgres-js.d.ts",
+      "default": "./dist/database/postgres-js.js"
+    },
+    "./provision": {
+      "types": "./dist/provision.d.ts",
+      "default": "./dist/provision.js"
+    },
+    "./schema": {
+      "types": "./dist/schema-export.d.ts",
+      "default": "./dist/schema-export.js"
+    },
+    "./schema/pg": {
+      "types": "./dist/schema-export-pg.d.ts",
+      "default": "./dist/schema-export-pg.js"
+    },
+    "./typeid": {
+      "types": "./dist/typeid.d.ts",
+      "default": "./dist/typeid.js"
+    },
+    "./typeid/pg": {
+      "types": "./dist/typeid-pg.d.ts",
+      "default": "./dist/typeid-pg.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
+    },
+    "./blueprint": {
+      "types": "./dist/blueprint.d.ts",
+      "default": "./dist/blueprint.js"
+    },
+    "./cron": {
+      "types": "./dist/cron.d.ts",
+      "default": "./dist/cron.js"
+    },
+    "./email/smtp": {
+      "types": "./dist/email/smtp.d.ts",
+      "default": "./dist/email/smtp.js"
+    },
+    "./api": {
+      "types": "./dist/api/types.d.ts",
+      "default": "./dist/api/types.js"
+    }
   },
   "scripts": {
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "dev": "bun --hot ../../examples/standalone/server.ts",
+    "build": "bun ../../scripts/build-package.ts bunderstack",
+    "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "drizzle-kit migrate"
+    "dev": "bun --hot ../../examples/standalone/server.ts",
+    "prepack": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "superjson": "^2.2.0",
+    "@standard-schema/spec": "1.1.0",
+    "valibot": "1.4.2",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
-    "@trpc/server": "^11.0.0",
+    "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/json-schema": "2.0.0-beta.26",
+    "@orpc/openapi": "2.0.0-beta.26",
+    "@orpc/publisher": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
+    "@orpc/valibot": "2.0.0-beta.26",
     "@types/nodemailer": "^6",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.0.0",
-    "zod": "^4.4.3"
+    "drizzle-valibot": "0.4.2"
   },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
-    "@trpc/server": "^11.0.0",
+    "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/json-schema": "2.0.0-beta.26",
+    "@orpc/openapi": "2.0.0-beta.26",
+    "@orpc/publisher": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
+    "@orpc/valibot": "2.0.0-beta.26",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
-    "hono": "^4.0.0",
+    "drizzle-valibot": "0.4.2",
     "nodemailer": ">=6 <10",
     "postgres": ">=3.4.0",
-    "typescript": ">=5",
-    "zod": "^4.4.3"
+    "typescript": ">=5"
   },
   "peerDependenciesMeta": {
     "@electric-sql/pglite": {

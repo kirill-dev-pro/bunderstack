@@ -1,5 +1,7 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
+
 import { getTableName, isTable } from 'drizzle-orm'
-import { z, type ZodType } from 'zod'
+import * as v from 'valibot'
 
 import type { Dialect } from './dialect'
 import type { EnvConfigInput } from './env'
@@ -12,6 +14,10 @@ import {
   bunderstackJobs,
 } from './internal-tables'
 import { parseCron } from './jobs/cron'
+import {
+  StandardSchemaValidationError,
+  validateStandardSchema,
+} from './standard-schema'
 
 export type ManifestEnvVar = {
   key: string
@@ -43,95 +49,77 @@ export type BunderstackManifest = {
   }
 }
 
-const nonEmpty = z.string().min(1)
-const migrationDirectory = nonEmpty.refine(
-  (value) =>
-    value.startsWith('/') ||
-    (!value.includes('\\') &&
-      value.split('/').every((part) => part !== '..' && part !== '')),
-  {
-    message:
-      'migrationsDirectory must be an absolute path or a relative path without traversal',
-  },
+const nonEmpty = v.pipe(v.string(), v.minLength(1))
+const migrationDirectory = v.pipe(
+  nonEmpty,
+  v.check(
+    (value) =>
+      value.startsWith('/') ||
+      (!value.includes('\\') &&
+        value.split('/').every((part) => part !== '..' && part !== '')),
+    'migrationsDirectory must be an absolute path or a relative path without traversal',
+  ),
 )
-const cronSchedule = nonEmpty.refine(
-  (value) => {
+const cronSchedule = v.pipe(
+  nonEmpty,
+  v.check((value) => {
     try {
       parseCron(value)
       return true
     } catch {
       return false
     }
-  },
-  { message: 'invalid cron schedule' },
+  }, 'invalid cron schedule'),
 )
 
-const manifestSchema = z
-  .object({
-    version: z.literal(3),
-    database: z
-      .object({
-        dialect: z.enum(['sqlite', 'pg']),
-        migrationsDirectory: migrationDirectory,
-        tables: z.array(
-          z
-            .object({
-              exportName: nonEmpty,
-              physicalName: nonEmpty,
-              system: z.boolean(),
-            })
-            .strict(),
-        ),
-      })
-      .strict(),
-    storage: z
-      .object({
-        defaultBucket: nonEmpty,
-        buckets: z.array(
-          z
-            .object({
-              name: nonEmpty,
-              visibility: z.enum(['public', 'private']),
-            })
-            .strict(),
-        ),
-      })
-      .strict(),
-    realtime: z.object({ required: z.boolean() }).strict(),
-    environment: z.array(
-      z
-        .object({
-          key: nonEmpty,
-          required: z.boolean(),
-          scope: z.enum(['server', 'client']),
-        })
-        .strict(),
+const manifestSchema = v.strictObject({
+  version: v.literal(3),
+  database: v.strictObject({
+    dialect: v.picklist(['sqlite', 'pg']),
+    migrationsDirectory: migrationDirectory,
+    tables: v.array(
+      v.strictObject({
+        exportName: nonEmpty,
+        physicalName: nonEmpty,
+        system: v.boolean(),
+      }),
     ),
-    background: z
-      .object({
-        jobs: z.array(z.object({ name: nonEmpty }).strict()),
-        cron: z.array(
-          z
-            .object({
-              name: nonEmpty,
-              schedule: cronSchedule,
-              timezone: z.literal('UTC'),
-            })
-            .strict(),
-        ),
-        maintenance: z.array(
-          z
-            .object({
-              name: z.literal('storage-sweep'),
-              schedule: cronSchedule,
-              timezone: z.literal('UTC'),
-            })
-            .strict(),
-        ),
-      })
-      .strict(),
-  })
-  .strict()
+  }),
+  storage: v.strictObject({
+    defaultBucket: nonEmpty,
+    buckets: v.array(
+      v.strictObject({
+        name: nonEmpty,
+        visibility: v.picklist(['public', 'private']),
+      }),
+    ),
+  }),
+  realtime: v.strictObject({ required: v.boolean() }),
+  environment: v.array(
+    v.strictObject({
+      key: nonEmpty,
+      required: v.boolean(),
+      scope: v.picklist(['server', 'client']),
+    }),
+  ),
+  background: v.strictObject({
+    jobs: v.array(v.strictObject({ name: nonEmpty })),
+    cron: v.array(
+      v.strictObject({
+        name: nonEmpty,
+        schedule: cronSchedule,
+        timezone: v.literal('UTC'),
+      }),
+    ),
+    maintenance: v.array(
+      v.strictObject({
+        name: v.literal('storage-sweep'),
+        schedule: cronSchedule,
+        timezone: v.literal('UTC'),
+      }),
+    ),
+  }),
+})
 
 function sortBy<T>(entries: readonly T[], key: (entry: T) => string): T[] {
   return [...entries].sort((left, right) => key(left).localeCompare(key(right)))
@@ -161,14 +149,19 @@ function describeTables(schema: Record<string, unknown>) {
 }
 
 function describeSection(
-  section: Record<string, ZodType> | undefined,
+  section: Record<string, StandardSchemaV1> | undefined,
   scope: ManifestEnvVar['scope'],
 ): ManifestEnvVar[] {
-  return Object.entries(section ?? {}).map(([key, schema]) => ({
-    key,
-    required: !schema.safeParse(undefined).success,
-    scope,
-  }))
+  return Object.entries(section ?? {}).map(([key, schema]) => {
+    let required = false
+    try {
+      validateStandardSchema(schema, undefined, 'env')
+    } catch (error) {
+      if (!(error instanceof StandardSchemaValidationError)) throw error
+      required = true
+    }
+    return { key, required, scope }
+  })
 }
 
 function systemTables() {
@@ -192,7 +185,11 @@ function systemTables() {
 }
 
 export function parseManifest(value: unknown): BunderstackManifest {
-  const manifest = manifestSchema.parse(value) as BunderstackManifest
+  const manifest = validateStandardSchema(
+    manifestSchema,
+    value,
+    'manifest',
+  ) as BunderstackManifest
   rejectDuplicates(
     'database physical table',
     manifest.database.tables.map((entry) => entry.physicalName),

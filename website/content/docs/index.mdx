@@ -1,25 +1,56 @@
 ---
 title: Introduction
-description: What Bunderstack is and why it exists
+description: One typed backend graph for Bun applications
 ---
 
 # Bunderstack
 
-A batteries-included backend framework for TypeScript on Bun.
+Bunderstack is a batteries-included backend library for TypeScript on Bun. Give
+it a Drizzle schema and it builds one oRPC procedure graph containing generated
+CRUD, files, realtime, health checks, and your application procedures.
 
-You give Bunderstack a Drizzle schema; it gives you auth, CRUD routes, file storage,
-on-the-fly image thumbnails, email sending, env validation, and typed tRPC endpoints —
-wired together and typed end to end.
+That graph is available in three useful forms:
 
-## Why it exists
+- a fully inferred TypeScript client;
+- ordinary HTTP routes for browsers, mobile apps, and webhooks;
+- an optional OpenAPI document for external tooling.
 
-PocketBase gives you auth, realtime, and file storage in a single binary.
-Its limits: schema lives in SQLite behind an admin UI (not in your codebase),
-the client is loosely typed, and the internals are sealed in Go.
+RPC types are the primary contract. HTTP and OpenAPI are projections of the
+same procedures, not parallel implementations.
 
-Bunderstack gives you the same batteries, but as a **library** you compose into
-your own project — mountable in TanStack Start, Next.js, or a standalone Bun server
-through a single Web-Standard `Request → Response` handler.
+## One mental model
 
-The stack it uses: Drizzle, BetterAuth, Hono, Bun.s3, sharp, tRPC, superjson.
-None of these are hidden. `app.db` is just Drizzle. `app.auth` is just BetterAuth.
+```text
+Drizzle schema + access rules
+              │
+              ▼
+     one oRPC procedure graph
+       ├── typed client
+       ├── ordinary HTTP
+       └── realtime iterator
+```
+
+`app.handler` is the single Web Standard `Request → Response` entry point.
+Better Auth owns `/api/auth/*`; oRPC owns generated and application routes.
+There is no general-purpose router to configure alongside them.
+
+## Batteries, without a platform
+
+Bunderstack includes database provisioning, Better Auth, access-controlled
+CRUD, file storage and transforms, email, validated environment variables,
+background jobs, rate limiting, idempotency, and realtime publication.
+
+It remains a library inside your application. `app.db` is Drizzle,
+`app.auth` is Better Auth, and `app.storage`, `app.email`, `app.jobs`, and
+`app.realtime` are available in every procedure context. Your schema and data
+stay in your repository and infrastructure.
+
+## Validation without lock-in
+
+Every application validation slot accepts [Standard Schema](https://standardschema.dev/).
+The examples use Valibot because it is compact and tree-shakeable, but Zod,
+ArkType, and other Standard Schema implementations work too.
+
+Start with [Getting Started](/docs/getting-started), then follow the primary
+path through [Auto CRUD](/docs/crud), [API Procedures](/docs/api-procedures),
+[Query Client](/docs/query-client), and [Sync & Realtime](/docs/sync-collections).

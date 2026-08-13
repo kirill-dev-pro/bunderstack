@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
 import { createBunderstack } from '../index'
@@ -19,7 +19,7 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
     jobs: (j) =>
       j.define({
         writeNote: j.job({
-          input: z.object({ id: z.string(), body: z.string() }),
+          input: v.object({ id: v.string(), body: v.string() }),
           handler: async (input, ctx) => {
             await ctx.db
               .insert(notes)
@@ -56,15 +56,14 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
   void _badInput
 })
 
-test('tRPC ctx exposes the jobs facade', async () => {
+test('oRPC context exposes the jobs facade', async () => {
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-    trpc: (t) =>
-      t.router({
-        kick: t.procedure.mutation(async ({ ctx }) => {
-          const { id } = await ctx.jobs.enqueue('noop')
+    api: (o) => ({
+        kick: o.public.handler(async ({ context }) => {
+          const { id } = await context.jobs.enqueue('noop')
           return { id }
         }),
       }),
@@ -72,7 +71,7 @@ test('tRPC ctx exposes the jobs facade', async () => {
   await provision(app, { force: true })
 
   const res = await app.handler(
-    new Request('http://localhost/api/trpc/kick', {
+    new Request('http://localhost/api/rpc/kick', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ json: null }),
@@ -85,7 +84,11 @@ test('the built-in storage sweep is registered as an ordinary cron', async () =>
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    storage: { local: './uploads', defaultBucket: 'files', buckets: { files: {} } },
+    storage: {
+      local: './uploads',
+      defaultBucket: 'files',
+      buckets: { files: {} },
+    },
   } as never)
   expect(app.manifest.background.cron.map((c) => c.name)).toContain(
     'bunderstack:storage-sweep',

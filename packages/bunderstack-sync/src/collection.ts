@@ -6,16 +6,47 @@ import {
   type StandardSchema,
 } from '@tanstack/db'
 import { queryCollectionOptions } from '@tanstack/query-db-collection'
-import {
-  createTableClient,
-  MAX_LIST_LIMIT,
-  type TableClient,
-} from 'bunderstack-query'
+
+import { createUpdateQueue } from './update-queue'
+const MAX_LIST_LIMIT = 200
+
+type TableListResult<TRow> = {
+  items: TRow[]
+  hasMore: boolean
+  nextCursor?: string
+  total?: number
+  limit?: number
+  offset?: number
+}
+
+type TableProcedures<TRow, TCreate, TUpdate> = {
+  list: {
+    call(input?: Record<string, unknown>): Promise<TableListResult<TRow>>
+  }
+  get: { call(input: { id: string }): Promise<TRow> }
+  create: { call(input: TCreate): Promise<TRow> }
+  update: {
+    call(input: {
+      params: { id: string }
+      query: {}
+      headers: {}
+      body: TUpdate
+    }): Promise<TRow>
+  }
+  delete: { call(input: { id: string }): Promise<void> }
+}
+
+export type DirectTableApi<TRow, TCreate, TUpdate> = {
+  list(input?: Record<string, unknown>): Promise<TableListResult<TRow>>
+  get(id: string | number): Promise<TRow>
+  create(input: TCreate): Promise<TRow>
+  update(id: string | number, input: TUpdate): Promise<TRow>
+  delete(id: string | number): Promise<void>
+}
 
 export type TableCollectionConfig = {
   tableName: string
-  baseUrl: string
-  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  procedures: TableProcedures<any, any, any>
   queryClient: QueryClient
   /** Rows the default `.collection` syncs per fetch. Defaults to 100. For
    * feed-shaped tables that need real pagination use `scopedCollection`. */
@@ -31,8 +62,9 @@ export type ScopedFilterValue =
 
 export type ScopedCollectionOptions = {
   /** Equality filters, e.g. `{ replyToId: null }` — columns must be in the
-   * table's `filterableColumns` server-side. */
-  filter?: Record<string, ScopedFilterValue>
+   * table's `filterableColumns` server-side. Same name and shape as the
+   * `filters` accepted by the list procedure. */
+  filters?: Record<string, ScopedFilterValue>
   sort?: string
   order?: 'asc' | 'desc'
   /** Rows per underlying request; clamped to the server cap (200). */
@@ -43,9 +75,9 @@ export type ScopedCollectionOptions = {
 
 function matchesFilter(
   record: Record<string, unknown>,
-  filter: Record<string, ScopedFilterValue>,
+  filters: Record<string, ScopedFilterValue>,
 ): boolean {
-  for (const [col, expected] of Object.entries(filter)) {
+  for (const [col, expected] of Object.entries(filters)) {
     const actual = record[col]
     if (expected === null) {
       if (actual != null) return false
@@ -71,47 +103,97 @@ export function createTableCollection<
   TCreate = Partial<TRow>,
   TUpdate = Partial<TRow>,
 >(config: TableCollectionConfig) {
-  const table = createTableClient<TRow, TCreate, TUpdate>({
-    tableName: config.tableName,
-    baseUrl: config.baseUrl,
-    fetch: config.fetch,
-  })
+  const table = config.procedures as TableProcedures<TRow, TCreate, TUpdate>
+  const direct: DirectTableApi<TRow, TCreate, TUpdate> = {
+    list: (input = {}) => table.list.call(input),
+    get: (id) => table.get.call({ id: String(id) }),
+    create: (input) => table.create.call(input),
+    update: (id, input) =>
+      table.update.call({
+        params: { id: String(id) },
+        query: {},
+        headers: {},
+        body: input,
+      }),
+    delete: (id) => table.delete.call({ id: String(id) }),
+  }
 
   const collection = createCollection(
     queryCollectionOptions<TRow>({
       queryKey: [config.tableName, 'collection'],
       queryFn: async () => {
-        const page = await table.list({ limit: config.limit ?? 100 })
+        const page = await table.list.call({ limit: config.limit ?? 100 })
         return page.items
       },
       queryClient: config.queryClient,
       getKey: (item) => item.id,
       onInsert: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        // Pass the client-generated `id` through as-is. TanStack DB's
-        // optimistic insert keys the local row by this `id` (via `getKey`),
-        // and this matches `sanitizeWriteBody`'s default on the server: a
-        // client-supplied `id` on create is accepted unless the table's
-        // access config sets an explicit `writableColumns` allowlist that
-        // excludes `id`. Apps that DO restrict it that way will see the
-        // server regenerate the id, and the optimistic entry's key will get
-        // swapped once the synced row comes back — a known, narrower
-        // trade-off in that uncommon case, not the default.
-        await table.create(mutation.modified as unknown as Partial<TCreate>)
+        let reconciled = true
+        for (const mutation of transaction.mutations) {
+          // Pass the client-generated `id` through as-is. TanStack DB's
+          // optimistic insert keys the local row by this `id` (via `getKey`),
+          // and this matches `sanitizeWriteBody`'s default on the server: a
+          // client-supplied `id` on create is accepted unless the table's
+          // access config sets an explicit `writableColumns` allowlist that
+          // excludes `id`.
+          const row = (await table.create.call(
+            mutation.modified as unknown as TCreate,
+          )) as TRow | undefined
+          // Apps that DO restrict it that way get a server-assigned id, which
+          // leaves the optimistic row keyed under the client's — `writeUpsert`
+          // can't retire that, so those fall back to the refetch.
+          if (row?.id != null && String(row.id) === String(mutation.key)) {
+            applyRealtimeEvent('create', row as Record<string, unknown>)
+          } else {
+            reconciled = false
+          }
+        }
+        return reconciled ? { refetch: false } : {}
       },
       onUpdate: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        await table.update(
-          mutation.key as string | number,
-          mutation.changes as unknown as TUpdate,
+        await Promise.all(
+          transaction.mutations.map((mutation) =>
+            updateQueue.enqueue(
+              mutation.key as TRow['id'],
+              mutation.changes as Record<string, unknown>,
+            ),
+          ),
         )
+        return { refetch: false }
       },
       onDelete: async ({ transaction }) => {
-        const mutation = transaction.mutations[0]!
-        await table.delete(mutation.key as string | number)
+        for (const mutation of transaction.mutations) {
+          // Updates still queued for this row are superseded, and one already
+          // in flight must land before the DELETE or the two race.
+          await updateQueue.settle(mutation.key as TRow['id'])
+          await table.delete.call({ id: String(mutation.key) })
+          applyRealtimeEvent('delete', { id: mutation.key })
+        }
+        return { refetch: false }
       },
     }),
   )
+
+  // Cursor-shaped workloads call `update()` many times a second. The queue
+  // merges everything that piles up for a row while its request is in flight
+  // into a single follow-up, so request rate tracks RTT, not call rate.
+  const updateQueue = createUpdateQueue<TRow['id'], TRow>({
+    send: (id, changes) =>
+      table.update.call({
+        params: { id: String(id) },
+        query: {},
+        headers: {},
+        body: changes as unknown as TUpdate,
+      }),
+    onResult: async (row) => {
+      // `writeUpsert` writes the response whole, so mutation endpoints are
+      // contracted to return a full row. A body without an id can't be
+      // reconciled locally — fall back to the refetch rather than write it.
+      if ((row as TRow | undefined)?.id == null)
+        await collection.utils.refetch()
+      else applyRealtimeEvent('update', row as Record<string, unknown>)
+    },
+  })
 
   type Collection = typeof collection
 
@@ -144,9 +226,9 @@ export function createTableCollection<
       MAX_LIST_LIMIT,
     )
     const initialCount = options.initialCount ?? 20
-    const filter = options.filter ?? {}
+    const filters = options.filters ?? {}
     const cacheKey = stableKey({
-      filter,
+      filters,
       sort: options.sort ?? null,
       order: options.order ?? null,
       pageSize,
@@ -172,11 +254,10 @@ export function createTableCollection<
           let more = false
           while (items.length < desiredCount) {
             const remaining = Math.min(pageSize, desiredCount - items.length)
-            const page = await table.list({
-              ...filter,
+            const page = await table.list.call({
+              ...(Object.keys(filters).length ? { filters } : {}),
               ...(options.sort ? { sort: options.sort } : {}),
               ...(options.order ? { order: options.order } : {}),
-              cursorMode: true,
               limit: remaining,
               ...(cursor ? { cursor } : {}),
             })
@@ -204,7 +285,7 @@ export function createTableCollection<
     }
     registry.push({
       collection: scoped,
-      matches: (record) => matchesFilter(record, filter),
+      matches: (record) => matchesFilter(record, filters),
       refetch: async () => {
         await scoped.utils.refetch()
       },
@@ -235,8 +316,8 @@ export function createTableCollection<
           // Chunked at the server's IN-filter cap so any id set works.
           for (let i = 0; i < unique.length; i += MAX_LIST_LIMIT) {
             const chunk = unique.slice(i, i + MAX_LIST_LIMIT)
-            const page = await table.list({
-              [column]: chunk,
+            const page = await table.list.call({
+              filters: { [column]: chunk },
               limit: chunk.length,
             })
             items.push(...page.items)
@@ -281,7 +362,7 @@ export function createTableCollection<
     for (const entry of registry) apply(entry.collection, entry.matches)
   }
 
-  /** Refetch the base collection plus every scoped/byIds view (gap recovery). */
+  /** Refetch the base collection plus every scoped/byIds view after reconnect. */
   async function refetchAll() {
     await Promise.all([
       collection.utils.refetch(),
@@ -291,7 +372,7 @@ export function createTableCollection<
 
   return {
     collection,
-    table: table as TableClient<TRow, TCreate, TUpdate>,
+    table: direct,
     scopedCollection,
     collectionByIds,
     applyRealtimeEvent,
@@ -322,7 +403,7 @@ export type TableCollection<
     Record<string, any>,
     StandardSchema<TRow>
   >
-  table: TableClient<TRow, TCreate, TUpdate>
+  table: DirectTableApi<TRow, TCreate, TUpdate>
   scopedCollection: (
     options?: ScopedCollectionOptions,
   ) => ScopedCollection<TRow>

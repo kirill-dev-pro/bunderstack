@@ -3,7 +3,7 @@ import type { TypeId } from 'bunderstack/typeid'
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import { createRealtimeClient } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack-query'
 
 import { createApi, createQueryClient, type AppApi } from './api-client'
 import { routeTree } from './routeTree.gen'
@@ -26,12 +26,11 @@ export function getRouter() {
   // Realtime: SSE stream that patches the query cache on every write.
   // Open two tabs — todos stay in sync. Browser-only (no SSE during SSR).
   if (typeof document !== 'undefined') {
-    const realtime = createRealtimeClient({
-      baseUrl: '/api',
+    syncRealtime({
+      api,
       queryClient,
       tables: ['todos'],
     })
-    void realtime.subscribe(['todos'])
   }
 
   const router = createRouter({

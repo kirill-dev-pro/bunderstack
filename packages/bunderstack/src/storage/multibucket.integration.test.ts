@@ -101,3 +101,11 @@ test('app.storage.bucket returns the adapter for a declared bucket', async () =>
   expect(app.storage.bucket('docs')).toBeDefined()
   expect(app.storage.bucket('nope')).toBeUndefined()
 })
+
+test('legacy /files alias is not registered', async () => {
+  const app = await buildApp()
+  const response = await app.handler(
+    new Request('http://localhost/files/docs/anything.txt'),
+  )
+  expect(response.status).toBe(404)
+})

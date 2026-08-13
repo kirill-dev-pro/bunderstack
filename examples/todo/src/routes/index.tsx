@@ -37,12 +37,12 @@ function BoardList({
   const navigate = useNavigate()
   const [name, setName] = useState('')
 
-  // tRPC: only the owner's boards — boards are never listable via CRUD.
-  const boardsOptions = api.trpc.myBoards.queryOptions()
+  // oRPC: only the owner's boards — boards are never listable via CRUD.
+  const boardsOptions = api.myBoards.queryOptions({ input: {} })
   const boards = useQuery(boardsOptions)
 
   const createBoard = useMutation({
-    ...api.trpc.createBoard.mutationOptions(),
+    ...api.createBoard.mutationOptions(),
     onSuccess: (board) => {
       void queryClient.invalidateQueries({ queryKey: boardsOptions.queryKey })
       void navigate({ to: '/b/$boardId', params: { boardId: board.id } })
@@ -51,7 +51,7 @@ function BoardList({
 
   // Auto-CRUD: delete is guarded by the `owner` rule in access.ts.
   const deleteBoard = useMutation(
-    api.boards.deleteMutation({
+    api.boards.delete.mutationOptions({
       onSuccess: () =>
         void queryClient.invalidateQueries({
           queryKey: boardsOptions.queryKey,
@@ -90,7 +90,7 @@ function BoardList({
       )}
 
       <ul className="boards">
-        {boards.data?.map((board) => (
+        {boards.data?.map((board: typeof import('../schema').boards.$inferSelect) => (
           <li key={board.id}>
             <Link to="/b/$boardId" params={{ boardId: board.id }}>
               {board.name}
@@ -100,7 +100,7 @@ function BoardList({
             </span>
             <button
               className="remove"
-              onClick={() => deleteBoard.mutate(board.id)}
+              onClick={() => deleteBoard.mutate({ id: board.id })}
             >
               ×
             </button>

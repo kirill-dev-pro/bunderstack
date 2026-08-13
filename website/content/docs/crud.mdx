@@ -1,32 +1,44 @@
 ---
 title: Auto CRUD
-description: REST routes generated from your Drizzle schema with row-level access control
+description: Generated oRPC procedures with row-level access control
 ---
 
 # Auto CRUD
 
-Bunderstack generates secured REST routes from your Drizzle schema.
+Bunderstack generates secured oRPC procedures from your Drizzle schema. The
+same procedures are available through the typed client and ordinary HTTP.
 
-## Routes
+## Procedure graph and HTTP routes
 
-| Method | Path          | Description                                |
-| ------ | ------------- | ------------------------------------------ |
-| `GET`  | `/api/:table` | List — see [List query](#list-query) below |
+| Client procedure     | HTTP                     | Description       |
+| -------------------- | ------------------------ | ----------------- |
+| `api.<table>.list`   | `GET /api/:table`        | List and paginate |
+| `api.<table>.get`    | `GET /api/:table/:id`    | Get by id         |
+| `api.<table>.create` | `POST /api/:table`       | Create            |
+| `api.<table>.update` | `PATCH /api/:table/:id`  | Update            |
+| `api.<table>.delete` | `DELETE /api/:table/:id` | Delete            |
 
 ## List query
 
-Reserved query params: `limit`, `offset`, `sort`, `order`, `q`, `cursor`, `count`.
+Every parameter below is part of the procedure's schema, so REST and RPC accept
+exactly the same thing and query strings are coerced to the column types.
 
-| Param    | Example           | Description                                      |
-| -------- | ----------------- | ------------------------------------------------ |
-| `limit`  | `?limit=20`       | Page size (1–100, default 20)                    |
-| `offset` | `?offset=0`       | Skip rows (offset mode)                          |
-| `sort`   | `?sort=createdAt` | Sort column (must be in `sortableColumns`)       |
-| `order`  | `?order=desc`     | `asc` or `desc`                                  |
-| `q`      | `?q=hello`        | Text search on `searchableColumns`               |
-| `count`  | `?count=true`     | Include `total` in response                      |
-| `cursor` | `?cursor=...`     | Keyset pagination (cannot combine with `offset`) |
-| Filters  | `?replyToId=5`    | Equality filter on `filterableColumns`           |
+| Param     | Example                           | Description                                        |
+| --------- | --------------------------------- | -------------------------------------------------- |
+| `limit`   | `?limit=20`                       | Page size (default 20, clamped to 200)             |
+| `offset`  | `?offset=0`                       | Skip rows (offset mode)                            |
+| `sort`    | `?sort=createdAt`                 | Sort column (must be in `sortableColumns`)         |
+| `order`   | `?order=desc`                     | `asc` or `desc`                                    |
+| `q`       | `?q=hello`                        | Text search on `searchableColumns`                 |
+| `count`   | `?count=true`                     | Include `total` in response                        |
+| `cursor`  | `?cursor=...`                     | Keyset pagination (cannot combine with `offset`)    |
+| `filters` | `?filters[replyToId]=5`           | Equality filter on a `filterableColumns` column     |
+| `filters` | `?filters[id][]=a&filters[id][]=b` | `IN (...)` — pass a list                            |
+| `filters` | `?filters[replyToId]=null`        | `IS NULL`                                          |
+
+Anything else is rejected with 400: a bare `?replyToId=5` is not a filter, and an
+unknown filter column or a value the column cannot hold fails validation with a
+`details` entry naming the field.
 
 List response:
 
@@ -55,10 +67,17 @@ GET /api/posts?limit=20&sort=createdAt&order=desc
 GET /api/posts?limit=20&sort=createdAt&order=desc&cursor=<nextCursor>
 ```
 
-| `GET` | `/api/:table/:id` | Get by id |
-| `POST` | `/api/:table` | Create (body: JSON) |
-| `PATCH` | `/api/:table/:id` | Update (body: JSON) |
-| `DELETE` | `/api/:table/:id` | Delete — 204 No Content |
+Typed calls use structured inputs rather than URL encoding:
+
+```ts
+const page = await api.posts.list.call({
+  filters: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+  limit: 20,
+})
+const created = await api.posts.create.call({ title: 'Hello' })
+```
 
 ## Which tables get routes
 
@@ -121,12 +140,12 @@ Add `searchableColumns` to enable `?q=` on list:
 
 ```bash
 GET /api/posts?q=hello&limit=20&offset=0
-GET /api/posts?replyToId=5&sort=createdAt&order=asc
+GET /api/posts?filters[replyToId]=5&sort=createdAt&order=asc
 ```
 
 ### Filters and sorting
 
-Add `filterableColumns` for flat equality filters (`?column=value`). Add `sortableColumns` and optional `defaultSort`:
+Add `filterableColumns` to allow filtering on a column (`?filters[column]=value`). Add `sortableColumns` and optional `defaultSort`:
 
 ```ts
 posts: {
@@ -136,7 +155,13 @@ posts: {
 }
 ```
 
-Filter values are coerced to the column type. Pass `null` with `?replyToId=null` for top-level posts.
+Filter values are typed by the column: `?filters[likes]=5` arrives as a number,
+`?filters[createdAt]=2026-06-01` as a `Date`, and `?filters[replyToId]=null`
+matches top-level posts. Typed clients get the same shape with autocomplete:
+
+```ts
+await api.posts.list.call({ filters: { replyToId: null }, limit: 20 })
+```
 
 ## Error responses
 
@@ -144,12 +169,17 @@ Errors return `{ error, code?, details? }`:
 
 | Code                   | Status  | When                                       |
 | ---------------------- | ------- | ------------------------------------------ |
-| `VALIDATION_ERROR`     | 400     | Bad query params or JSON body              |
+| `BAD_REQUEST`          | 400     | Bad query params or JSON body              |
 | `INVALID_CURSOR`       | 400     | Malformed or mismatched cursor             |
-| `FORBIDDEN`            | 401/403 | Access denied                              |
+| `UNAUTHORIZED`         | 401     | Authentication required                    |
+| `FORBIDDEN`            | 403     | Access denied                              |
 | `NOT_FOUND`            | 404     | Missing record                             |
-| `RATE_LIMITED`         | 429     | Rate limit exceeded                        |
-| `IDEMPOTENCY_CONFLICT` | 409     | Idempotency key reused with different body |
+| `CONFLICT`             | 409     | Idempotency key reused with different body |
+| `TOO_MANY_REQUESTS`    | 429     | Rate limit exceeded                        |
+
+Codes are oRPC's own, so the HTTP status always matches the code. Sub-codes that
+carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in
+`details.code`.
 
 ## Rate limiting (opt-in)
 
@@ -203,14 +233,18 @@ export const access = defineAccess(schema, {
 })
 ```
 
-## Escape hatch
+## Application-specific behavior
 
-Skip Bunderstack entirely for a table and use `app.db` directly:
+Use `context.db` inside an [API procedure](/docs/api-procedures) when generated
+CRUD is not the right domain operation:
 
 ```ts
-const { db } = app
-const posts = await db
-  .select()
-  .from(schema.posts)
-  .where(eq(schema.posts.userId, userId))
+api: (o) => ({
+  archiveOwnPosts: o.protected.handler(({ context }) =>
+    context.db
+      .update(schema.posts)
+      .set({ archived: true })
+      .where(eq(schema.posts.userId, context.user.id)),
+  ),
+})
 ```

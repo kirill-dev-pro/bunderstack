@@ -1,32 +1,23 @@
 import { expect, test } from 'bun:test'
 
 import { createClient } from './index'
-import { createBunderstackSchemaClient } from './schema'
-import { createTRPCClient } from './trpc'
 
 type MockApp = {
   $inferClient?: {
-    schema: { users: { id: string } }
+    schema: Record<string, unknown>
     access: undefined
     buckets: 'images'
-    trpc: any
+    api: any
   }
 }
 
-test('createClient exposes tables and files but no trpc', () => {
-  const client = createClient<MockApp>()
-  expect(client.files).toBeDefined()
-  expect(client.users).toBeDefined()
+test('the package exposes one client entrypoint', () => {
+  expect(typeof createClient<MockApp>).toBe('function')
 })
 
-test('createTRPCClient exposes tables, files, and trpc', () => {
-  const client = createTRPCClient<MockApp>()
-  expect(client.files).toBeDefined()
-  expect(client.users).toBeDefined()
-  expect(client.trpc).toBeDefined()
-})
-
-test('createBunderstackSchemaClient exposes withSchema', () => {
-  const client = createBunderstackSchemaClient()
-  expect(client.withSchema).toBeDefined()
+test('removed split-client entrypoints stay removed', async () => {
+  const source = await Bun.file(new URL('./index.ts', import.meta.url)).text()
+  expect(source).not.toContain('createTRPCClient')
+  expect(source).not.toContain('createRealtimeClient')
+  expect(source).not.toContain('createBunderstackQueryClient')
 })

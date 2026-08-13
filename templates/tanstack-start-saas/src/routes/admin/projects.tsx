@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
+import type { Project } from '~/api'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 
 export const Route = createFileRoute('/admin/projects')({
@@ -8,14 +9,14 @@ export const Route = createFileRoute('/admin/projects')({
 
 function AdminProjectsPage() {
   const { api } = Route.useRouteContext()
-  const [projects, setProjects] = React.useState<any[]>([])
+  const [projects, setProjects] = React.useState<Project[]>([])
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
     let active = true
-    api.projects.table
-      .list()
-      .then((res: { items: any[] }) => {
+    api.projects.list
+      .call({ limit: 100 })
+      .then((res) => {
         if (active) {
           setProjects(res.items || [])
           setLoading(false)
