@@ -2,6 +2,13 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Documented the provider-neutral production container contract and
+  Bunderhost's custom Dockerfile convention.
+
 ## [0.17.1] - 2026-08-13
 
 ### Added

@@ -85,3 +85,11 @@ describe('published packages', () => {
     })
   }
 })
+
+test('the npm package ships the canonical Bunderstack changelog', async () => {
+  const [canonical, packaged] = await Promise.all([
+    Bun.file(join(repoRoot, 'CHANGELOG.md')).text(),
+    Bun.file(join(repoRoot, 'packages/bunderstack/CHANGELOG.md')).text(),
+  ])
+  expect(packaged).toBe(canonical)
+})
