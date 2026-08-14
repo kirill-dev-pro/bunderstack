@@ -213,10 +213,31 @@ bunx bunderstack blueprint
 bunx bunderstack blueprint --check
 ```
 
+### Production container contract
+
+Bunderstack does not require a particular Dockerfile layout. A production
+image must:
+
+- contain the built server and production dependencies;
+- include any operating-system packages the application needs;
+- start the application using its image command;
+- listen on `0.0.0.0` and the hosting platform's `PORT`;
+- expose the application's `/api/health` route;
+- receive database, storage, auth, and application configuration at runtime;
+- run jobs and cron in-process unless the host deliberately selects another
+  supported `BUNDERSTACK_ROLE`.
+
+[Bunderhost](https://github.com/kirill-dev-pro/bunderhost#custom-application-image)
+generates a standard production image by default. When an application needs OS
+packages such as Chromium or custom image construction, Bunderhost instead uses
+a committed repository-root `Dockerfile.bunderhost` unchanged. That filename is
+a Bunderhost deployment convention, not part of the Bunderstack API or
+blueprint schema.
+
 Call `await app.close()` in tests and standalone scripts that own the app.
-Queue workers are explicit (`await app.runWorker()`). When a separate worker
-publishes realtime changes it must share the Redis Publisher with the web
-process.
+Jobs and cron run in the application process by default. When a deliberately
+separate worker publishes realtime changes, it must share the Redis Publisher
+with the web process.
 
 Examples live in [`examples`](./examples), including Todo, Twitter, Kanban,
 TanStack DB, and tldraw applications.
@@ -228,6 +249,10 @@ bun install
 bun run test
 bun run typecheck:all
 ```
+
+Every notable user-facing change must update the root `[Unreleased]` section
+of [`CHANGELOG.md`](./CHANGELOG.md). A packaging contract test keeps the copy
+shipped with the `bunderstack` npm package identical.
 
 ## License
 
