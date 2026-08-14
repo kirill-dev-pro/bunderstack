@@ -1,6 +1,6 @@
 # Solid 2 todo example
 
-A bare-bones example mounting Bunderstack in a Solid 2.0 RC application, using
+A bare-bones SPA mounting Bunderstack in a Solid 2.0 RC application, using
 Solid's own async primitives as the entire client data layer.
 
 ## Why
@@ -20,8 +20,7 @@ type Middleware = (
 ) => Response | Promise<Response>
 ```
 
-That is `app.handler`'s shape. The integration collapses to six lines that work
-identically in dev, preview, and production.
+That is `app.handler`'s shape. The dev integration collapses to six lines.
 
 The second reason is the client. Solid 2's headline feature is async in the
 reactive graph: `createOptimisticStore`, `action`, `refresh`, and the `Loading`
@@ -32,43 +31,51 @@ library at all. No existing example shows this.
 
 ## Verified behaviour
 
-The following were confirmed against a scaffolded `create-solid@0.10.0` project
-using `@solidjs/vite-plugin@3.0.0-next.28`, `solid-js@2.0.0-rc.0`, and
-`vite@8.2.1`, not inferred from documentation:
+Confirmed against a scaffolded `create-solid@0.10.0` project using
+`@solidjs/vite-plugin@3.0.0-next.28`, `solid-js@2.0.0-rc.0`, and `vite@8.2.1`,
+not inferred from documentation:
 
-- Start-mode middleware intercepts `/api/*` ahead of page rendering in dev,
-  in both client mode and SSR mode.
-- With `ssr: true`, `vite build` emits `dist/server/server.js` exporting
-  `handleRequest`. Served under `Bun.serve`, that single handler returned both
-  the server-rendered page and the middleware's `/api` response.
-- With `ssr` off and no server functions, the build emits `dist/server` and
-  then **deletes** it. A client-mode production build is static-only and its
-  API would 404. This is why the example enables `ssr: true`.
+- Start-mode middleware intercepts `/api/*` ahead of page serving in dev, in
+  client mode.
+- A client-mode `vite build` emits `dist/client` with a static `index.html`
+  that loads the entry script. It also builds `dist/server` and then **deletes**
+  it, so the production output is static assets only and carries no request
+  handler. This is why the example ships its own server.
+- A `Bun.serve` fronting `dist/client` with an SPA fallback, delegating `/api`
+  to a handler, served assets, index, deep links, and the API correctly.
+- The Solid dev server returns 404 for `/` unless the request sends
+  `Accept: text/html`. This surprises anyone probing it with `curl`; the README
+  should say so.
 
 ## Decisions
 
 | Decision | Choice | Reason |
 | --- | --- | --- |
-| Rendering | `ssr: true` | The only client-shape configuration whose production build retains a request handler, so dev and prod share one serving path. |
-| Project shape | `bare` + SSR | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`. |
+| Rendering | Client SPA, `start: true` | Simplest shape. No SSR, no server functions, no hydration. |
+| Project shape | `bare` | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`. |
+| Dev API mount | Start-mode middleware | One process for app and API. |
+| Prod API mount | Own `src/server.ts` | A client-mode build has no request handler, so the example ships an ~18-line `Bun.serve` for static assets plus `app.handler`. |
 | Client data | Solid 2 async primitives | The point of the example. No TanStack Query. |
-| SSR data | None — `clientOnly` | A relative `/api` URL does not resolve on the server. Isomorphic fetch is real work that would dominate a bare-bones example; `examples/todo` already carries the SSR data story. |
 | Features | Auto-CRUD only | No auth, storage, email, jobs, or realtime. `examples/todo` is the full-feature tour. |
+
+The tradeoff of client mode is two mount points: `src/middleware.ts` in dev and
+`src/server.ts` in production. Both are a few lines wrapping the same
+`app.handler`, and the production server is a file the example wants anyway.
 
 ## Architecture
 
 ```
-vite dev  /  bun dist/server/server.js
-        │
-        └─ handleRequest(request)                    one entry, two branches
-             ├─ src/middleware.ts  → /api/*  → app.handler        (server only)
-             └─ page render        → Document > App > clientOnly(TodoList)
-                                                          │
-   browser ─────────── POST /api/rpc ─────────────────────┘
-                       api.todos.*.call()
+dev                                   production
+───                                   ──────────
+vite dev                              bun src/server.ts
+  └─ handleRequest                      ├─ /api/*  → app.handler
+       ├─ /api/* → app.handler          ├─ /assets → dist/client
+       └─ SPA shell + HMR               └─ *       → dist/client/index.html
+                    │                                    │
+                    └──── browser: api.todos.*.call() ────┘
 ```
 
-### The mount
+### The dev mount
 
 ```ts
 // src/middleware.ts — server-only module, never bundled for the browser
@@ -84,7 +91,29 @@ export default [
 
 ```ts
 // vite.config.ts
-solid({ start: { middleware: './src/middleware.ts' }, ssr: true })
+solid({ start: { middleware: './src/middleware.ts' } })
+```
+
+### The production server
+
+```ts
+// src/server.ts
+import { app } from './bunderstack'
+
+const index = Bun.file('./dist/client/index.html')
+
+Bun.serve({
+  port: Number(process.env.PORT ?? 3006),
+  async fetch(request) {
+    const { pathname } = new URL(request.url)
+    if (pathname.startsWith('/api')) return app.handler(request)
+
+    const asset = Bun.file(`./dist/client${pathname}`)
+    if (await asset.exists()) return new Response(asset)
+
+    return new Response(index, { headers: { 'content-type': 'text/html' } })
+  },
+})
 ```
 
 ### The client
@@ -116,28 +145,32 @@ The optimistic write is visible immediately, reverts if the call rejects, and
 `refresh` reconciles against the server. `<Loading>` renders the first-load
 fallback; `<Errored>` renders a retry. No loading flags, no rollback handlers.
 
-Because the data is browser-only, `TodoList` is wrapped in `clientOnly()` from
-`@solidjs/web`. SSR renders the document and the `Loading` fallback; the browser
-mounts the list.
+Nothing renders on the server, so `TodoList` is an ordinary import — no
+`clientOnly` boundary and no isomorphic fetch.
 
 ## Files
 
 ```
 examples/todo-solid-2/
-  package.json          port 3006
+  package.json          dev on port 3006
   tsconfig.json         jsxImportSource: "@solidjs/web"
-  vite.config.ts        solid({ start: { middleware }, ssr: true })
+  vite.config.ts        solid({ start: { middleware: './src/middleware.ts' } })
   README.md
   src/schema.ts         one todos table, plus export * from 'bunderstack/schema'
   src/access.ts         todos: { crud: true, list/get/create/update/delete: 'public' }
   src/bunderstack.ts    createBunderstack + provision + export type App
-  src/middleware.ts     the six lines above
+  src/middleware.ts     dev mount, the six lines above
+  src/server.ts         production server
   src/api.ts            createClient<App>({})
-  src/Document.tsx      html shell + <HydrationScript />
-  src/App.tsx           layout + clientOnly(TodoList)
+  src/Document.tsx      document shell — optional, sets the title
+  src/App.tsx           layout + <TodoList />
   src/TodoList.tsx      createOptimisticStore + action + Loading/Errored
   src/app.css
 ```
+
+`Document.tsx` exists only to set the page title and favicon; deleting it falls
+back to the plugin's built-in shell. It needs no `<HydrationScript />` because
+client mode strips that output.
 
 Dependencies: `solid-js@2.0.0-rc.0`, `@solidjs/web@2.0.0-rc.0`,
 `@solidjs/vite-plugin@3.0.0-next.28` (dev), `vite@^8`, `bunderstack`,
@@ -167,29 +200,29 @@ change:
 Without this, a Solid example would have to install `@tanstack/react-query` so
 TypeScript can resolve a type it never uses.
 
-The change is source-compatible: `@tanstack/react-query` re-exports
-`QueryClient` from `@tanstack/query-core`, so React consumers passing a
-`QueryClient` continue to typecheck. `bunderstack-sync` and `bunderstack-start`
+The change is source-compatible: `@tanstack/react-query` imports `QueryClient`
+from `@tanstack/query-core` and re-exports it, so it is the same type and React
+consumers continue to typecheck. `bunderstack-sync` and `bunderstack-start`
 keep their React peers — they are React packages.
 
 ## Verification
 
 - `bun run dev:todo-solid-2`, then add, toggle, and delete a todo.
-- Request `/` with `Accept: text/html` and confirm the shell renders
-  server-side. (A request without that header returns 404 from the Solid dev
-  server — expected, not a bug.)
-- `vite build` and confirm `dist/server/server.js` exists, then serve it and
-  confirm `/api/rpc` responds.
+- `bun run --cwd examples/todo-solid-2 build`, confirm `dist/` holds only
+  `client/`, then `bun src/server.ts` and exercise the same three operations
+  against the built app.
 - `bun test scripts/` for the boundary tests.
-- `bunx tsc --noEmit -p examples/todo-solid-2/tsconfig.json`, and add that to
-  the root `typecheck:examples` script.
+- `bunx tsc --noEmit -p examples/todo-solid-2/tsconfig.json`, added to the root
+  `typecheck:examples` script.
 - `bun run typecheck` — the `bunderstack-query` type import change.
+- Register the example in the root `package.json` scripts and in the run table
+  in `examples/README.md`.
 
 ## Out of scope
 
 Auth, file uploads, email, jobs, and realtime. Realtime deserves its own
 example later: `syncRealtime` invalidates TanStack query keys, so a
-query-library-free Solid app would consume the
-`api.realtime.changes.call()` async iterable and call `refresh()` directly.
-Server functions and server components are also out of scope; the Solid RC
-notes flag those integration seams as still changing.
+query-library-free Solid app would consume the `api.realtime.changes.call()`
+async iterable and call `refresh()` directly. SSR, server functions, and server
+components are also out of scope; the Solid RC notes flag those integration
+seams as still changing.
