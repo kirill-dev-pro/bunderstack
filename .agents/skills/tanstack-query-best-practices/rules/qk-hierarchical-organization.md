@@ -53,8 +53,8 @@ const { data: filteredTodos } = useQuery({
 })
 
 // Now we can invalidate at any level:
-queryClient.invalidateQueries({ queryKey: ['todos'] })        // All todos
-queryClient.invalidateQueries({ queryKey: ['todos', 5] })     // Todo 5 and its sub-resources
+queryClient.invalidateQueries({ queryKey: ['todos'] }) // All todos
+queryClient.invalidateQueries({ queryKey: ['todos', 5] }) // Todo 5 and its sub-resources
 queryClient.invalidateQueries({ queryKey: ['todos', 5, 'comments'] }) // Just comments
 ```
 

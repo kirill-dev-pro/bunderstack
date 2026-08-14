@@ -140,16 +140,16 @@ test('published docs describe the implemented realtime behavior', () => {
 
 describe('skills delivery', () => {
   test('the package ships the skills it installs', () => {
-    const pkg = JSON.parse(
-      read('packages/bunderstack/package.json'),
-    ) as { files: string[] }
+    const pkg = JSON.parse(read('packages/bunderstack/package.json')) as {
+      files: string[]
+    }
     expect(pkg.files).toContain('skills')
 
     // The canonical copy stays in .agents/skills; the build copies it.
     const build = read('scripts/build-package.ts')
     expect(build).toContain("'creating-bunderstack-apps'")
     expect(build).toContain("'migrating-to-bunderstack'")
-    expect(build).toContain(".agents/skills")
+    expect(build).toContain('.agents/skills')
   })
 
   test('the CLI documents and implements the install command', () => {

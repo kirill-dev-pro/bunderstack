@@ -6,7 +6,9 @@ import { floorSlot, slotsDue, SLOT_MS } from './slots'
 const T = (iso: string) => Date.parse(iso)
 
 test('floorSlot aligns down to the minute', () => {
-  expect(floorSlot(T('2026-08-07T10:00:59.999Z'))).toBe(T('2026-08-07T10:00:00Z'))
+  expect(floorSlot(T('2026-08-07T10:00:59.999Z'))).toBe(
+    T('2026-08-07T10:00:00Z'),
+  )
   expect(floorSlot(T('2026-08-07T10:00:00Z'))).toBe(T('2026-08-07T10:00:00Z'))
 })
 

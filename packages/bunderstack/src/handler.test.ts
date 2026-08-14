@@ -30,12 +30,12 @@ test('dispatches rate limit, auth, API, then 404', async () => {
         ? new Response('api')
         : null,
   })
-  expect(await (await normal(new Request('http://test/api/auth/x'))).text()).toBe(
-    'auth',
-  )
-  expect(await (await normal(new Request('http://test/api/value'))).text()).toBe(
-    'api',
-  )
+  expect(
+    await (await normal(new Request('http://test/api/auth/x'))).text(),
+  ).toBe('auth')
+  expect(
+    await (await normal(new Request('http://test/api/value'))).text(),
+  ).toBe('api')
   expect((await normal(new Request('http://test/missing'))).status).toBe(404)
 })
 
@@ -69,8 +69,7 @@ test('webhook receives exact raw bytes and does not resolve auth', async () => {
           }),
         )
         .handler(async ({ input, context }) => ({
-          valid:
-            input.headers['x-signature'] === (await context.getRawBody()),
+          valid: input.headers['x-signature'] === (await context.getRawBody()),
         })),
     }),
   })

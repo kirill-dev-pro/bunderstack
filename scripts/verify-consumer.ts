@@ -40,7 +40,9 @@ const keep = process.argv.includes('--keep')
 console.log(`workdir ${workDir}`)
 
 const version = (
-  (await Bun.file(join(repoRoot, 'packages/bunderstack/package.json')).json()) as {
+  (await Bun.file(
+    join(repoRoot, 'packages/bunderstack/package.json'),
+  ).json()) as {
     version: string
   }
 ).version
@@ -58,7 +60,8 @@ for (const name of PACKAGES) {
       ['npm', 'pack', '--pack-destination', workDir, '--silent'],
       dir,
     )
-    if (packed.code !== 0) throw new Error(`npm pack failed for ${name}:\n${packed.out}`)
+    if (packed.code !== 0)
+      throw new Error(`npm pack failed for ${name}:\n${packed.out}`)
     // npm names the tarball deterministically; parsing its stdout would also
     // pick up whatever `prepack` printed.
     const tarball = join(workDir, `${name}-${version}.tgz`)
@@ -292,7 +295,9 @@ const fromApp = diagnostics.filter((line) => !line.includes('node_modules'))
 
 console.log(`\ndiagnostics: ${diagnostics.length}`)
 console.log(`  from bunderstack packages: ${fromBunderstack.length}`)
-console.log(`  from other vendors:        ${fromOtherVendors.length} (not ours; suppressed by skipLibCheck)`)
+console.log(
+  `  from other vendors:        ${fromOtherVendors.length} (not ours; suppressed by skipLibCheck)`,
+)
 console.log(`  from app code:             ${fromApp.length}`)
 for (const line of [...fromBunderstack, ...fromApp].slice(0, 30)) {
   console.log(`  ${line}`)

@@ -1,6 +1,7 @@
 # Unified oRPC API Spike & Hardening Findings & Final Evaluation
 
 ## Summary Recommendation
+
 - **Verdict**: **GO / ADOPT (HARDENED & VERIFIED)**
 - **Recommendation**: Transition Bunderstack from the legacy Hono CRUD + tRPC split architecture to the unified oRPC architecture.
 
@@ -9,6 +10,7 @@
 ## Hardening Pass Evaluation & Empirical Evidence
 
 ### Task 1: Preserve Custom oRPC Router Inference
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Threaded generic `TCustomApiRouter extends AnyRouter | undefined` through `BunderstackConfig`, `resolveConfig`, `createBunderstack` overloads, and `BunderstackApp`.
@@ -16,6 +18,7 @@
   - Compile-time type assertions in `api-types.types.ts` verify contextual type inference for `o.protected`, `context.user.id`, `context.db`, `context.env`, and `input` without `any` annotations.
 
 ### Task 2: Infer Generated CRUD Procedure Types
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Created `packages/bunderstack/src/api/types.ts` exporting `ExposedApiTables`, `CrudApiRouterFor<TSchema, TAccess>`, and `UnifiedApiRouter`.
@@ -23,6 +26,7 @@
   - Single exported `ExposedApiTables` server/client exposure utility consumed by `bunderstack-query`.
 
 ### Task 3: End-to-End Type-Safe `client.api`
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Updated `bunderstack-query` to expose `client.api` typed with `ApiQueryUtils<TRouter> = RouterUtils<RouterClient<TRouter>>`.
@@ -31,6 +35,7 @@
   - Verified `bun run test:boundaries` and `bun run test:bundles` pass without leaking imports to lightweight client roots.
 
 ### Task 4: Canonical Route and OpenAPI Collision Validation
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Replaced permissive `__collision` renaming in router composition with `mergeApiRoutersStrict` throwing on duplicate handles (e.g. `posts.list`).
@@ -38,6 +43,7 @@
   - Strict OpenAPI path overwrite check in `mergeOpenAPISpecs` rejecting overlapping path operations unless structurally equal.
 
 ### Task 5: Transport-Neutral CRUD Execution Core
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Created `createCrudOperations(deps)` in `packages/bunderstack/src/crud-operations.ts` containing pure execution logic for `list`, `get`, `create`, `update`, and `delete`.
@@ -45,6 +51,7 @@
   - Adapter parity tests in `crud-operations.test.ts` verify 100% status code, payload, error envelope, scope, idempotency replay, and realtime event parity across both transports.
 
 ### Task 6: Reproducible OpenAPI Client Generation & Example Ergonomics
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Created `packages/bunderstack/src/api/openapi-client-generation.test.ts` testing pinned `openapi-typescript@7.13.0` binary code generation in `mkdtemp()` and compilation with `tsc --noEmit`.
@@ -52,6 +59,7 @@
   - Added root verification command `bun run test:orpc-contract`.
 
 ### Final Corrective Pass: Contract and Runtime Guardrails
+
 - **Status**: GO (Verified)
 - **Evidence**:
   - Aligned `ExposedApiTables<TSchema, undefined>` with runtime access resolution: only tables following the `userId` convention are exposed when explicit access rules are absent.
@@ -74,4 +82,5 @@
 ---
 
 ## Final Decision
+
 **GO / ADOPT**: The unified oRPC architecture has been thoroughly hardened, refactored onto a single CRUD execution core, and verified end-to-end for type-safety and OpenAPI contract generation.

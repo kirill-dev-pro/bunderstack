@@ -37,7 +37,12 @@ export const Route = createFileRoute('/posts/$postId')({
         queryFn: () => api.posts.table.get(postId),
       })
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'NOT_FOUND'
+      )
         throw notFound()
       throw err
     }

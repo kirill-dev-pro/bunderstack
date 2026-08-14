@@ -52,7 +52,9 @@ export function CardDialog({
   })
 
   const { data: comments, refetch: refetchComments } = useQuery({
-    ...api.comments.list.queryOptions({ input: { filters: { cardId: cardId ?? '' }, limit: 100 } }),
+    ...api.comments.list.queryOptions({
+      input: { filters: { cardId: cardId ?? '' }, limit: 100 },
+    }),
     enabled: !!cardId,
   })
 
@@ -184,7 +186,12 @@ export function CardDialog({
                     const next = (title || card.title).trim()
                     if (next && next !== card.title) {
                       updateCard.mutate(
-                        { params: { id: card.id }, query: {}, headers: {}, body: { title: next } },
+                        {
+                          params: { id: card.id },
+                          query: {},
+                          headers: {},
+                          body: { title: next },
+                        },
                         {
                           onSuccess: () =>
                             logCardActivity('updated', { field: 'title' }),
@@ -228,7 +235,12 @@ export function CardDialog({
                     onClick={() => {
                       const description = desc || card.description || ''
                       updateCard.mutate(
-                        { params: { id: card.id }, query: {}, headers: {}, body: { description } },
+                        {
+                          params: { id: card.id },
+                          query: {},
+                          headers: {},
+                          body: { description },
+                        },
                         {
                           onSuccess: () =>
                             logCardActivity('updated', {
@@ -400,7 +412,12 @@ export function CardDialog({
                       const raw = e.target.value
                       const assigneeId = raw ? asTypeId('user', raw) : null
                       updateCard.mutate(
-                        { params: { id: card.id }, query: {}, headers: {}, body: { assigneeId } },
+                        {
+                          params: { id: card.id },
+                          query: {},
+                          headers: {},
+                          body: { assigneeId },
+                        },
                         {
                           onSuccess: () =>
                             logCardActivity('assigned', { assigneeId }),

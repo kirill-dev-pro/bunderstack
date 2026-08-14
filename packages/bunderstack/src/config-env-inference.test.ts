@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import { libsql } from './database/libsql'
 import { defineAuth } from './config'
+import { libsql } from './database/libsql'
 import { createBunderstack } from './index'
 
 const user = sqliteTable('user', {

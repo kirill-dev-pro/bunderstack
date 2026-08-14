@@ -12,14 +12,15 @@ Sessions maintain user authentication state across requests. Use HTTP-only cooki
 // Storing auth in localStorage - vulnerable to XSS
 function login(credentials: Credentials) {
   const token = await authenticate(credentials)
-  localStorage.setItem('authToken', token)  // XSS can steal this
+  localStorage.setItem('authToken', token) // XSS can steal this
 }
 
 // Non-HTTP-only cookie - JavaScript accessible
-export const setSession = createServerFn({ method: 'POST' })
-  .handler(async ({ data }) => {
-    setResponseHeader('Set-Cookie', `session=${data.token}`)  // Not secure
-  })
+export const setSession = createServerFn({ method: 'POST' }).handler(
+  async ({ data }) => {
+    setResponseHeader('Set-Cookie', `session=${data.token}`) // Not secure
+  },
+)
 ```
 
 ## Good Example: Secure Session Cookie
@@ -31,12 +32,12 @@ import { useSession } from '@tanstack/react-start/server'
 // Configure session with secure defaults
 export function getSession() {
   return useSession({
-    password: process.env.SESSION_SECRET!,  // At least 32 characters
+    password: process.env.SESSION_SECRET!, // At least 32 characters
     cookie: {
       name: '__session',
-      httpOnly: true,          // Not accessible via JavaScript
-      secure: process.env.NODE_ENV === 'production',  // HTTPS only in prod
-      sameSite: 'lax',         // CSRF protection
+      httpOnly: true, // Not accessible via JavaScript
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+      sameSite: 'lax', // CSRF protection
       maxAge: 60 * 60 * 24 * 7, // 7 days
     },
   })
@@ -76,16 +77,18 @@ import { hashPassword, verifyPassword } from './password.server'
 
 // Login
 export const login = createServerFn({ method: 'POST' })
-  .validator(z.object({
-    email: z.string().email(),
-    password: z.string().min(1),
-  }))
+  .validator(
+    z.object({
+      email: z.string().email(),
+      password: z.string().min(1),
+    }),
+  )
   .handler(async ({ data }) => {
     const user = await db.users.findUnique({
       where: { email: data.email },
     })
 
-    if (!user || !await verifyPassword(data.password, user.passwordHash)) {
+    if (!user || !(await verifyPassword(data.password, user.passwordHash))) {
       throw new Error('Invalid email or password')
     }
 
@@ -99,36 +102,34 @@ export const login = createServerFn({ method: 'POST' })
   })
 
 // Logout
-export const logout = createServerFn({ method: 'POST' })
-  .handler(async () => {
-    const session = await getSession()
-    await session.clear()
-    throw redirect({ to: '/' })
-  })
+export const logout = createServerFn({ method: 'POST' }).handler(async () => {
+  const session = await getSession()
+  await session.clear()
+  throw redirect({ to: '/' })
+})
 
 // Get current user
-export const getCurrentUser = createServerFn()
-  .handler(async () => {
-    const session = await getSession()
-    const data = await session.data
+export const getCurrentUser = createServerFn().handler(async () => {
+  const session = await getSession()
+  const data = await session.data
 
-    if (!data?.userId) {
-      return null
-    }
+  if (!data?.userId) {
+    return null
+  }
 
-    const user = await db.users.findUnique({
-      where: { id: data.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        // Don't include passwordHash!
-      },
-    })
-
-    return user
+  const user = await db.users.findUnique({
+    where: { id: data.userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      // Don't include passwordHash!
+    },
   })
+
+  return user
+})
 ```
 
 ## Good Example: Session with Role-Based Access
@@ -149,7 +150,7 @@ export async function getSessionData(): Promise<SessionData | null> {
   if (!data?.userId) return null
 
   // Validate session age
-  const maxAge = 7 * 24 * 60 * 60 * 1000  // 7 days
+  const maxAge = 7 * 24 * 60 * 60 * 1000 // 7 days
   if (Date.now() - data.createdAt > maxAge) {
     await session.clear()
     return null
@@ -159,27 +160,26 @@ export async function getSessionData(): Promise<SessionData | null> {
 }
 
 // Middleware for admin-only routes
-export const requireAdmin = createMiddleware()
-  .server(async ({ next }) => {
-    const session = await getSessionData()
+export const requireAdmin = createMiddleware().server(async ({ next }) => {
+  const session = await getSessionData()
 
-    if (!session || session.role !== 'admin') {
-      throw redirect({ to: '/unauthorized' })
-    }
+  if (!session || session.role !== 'admin') {
+    throw redirect({ to: '/unauthorized' })
+  }
 
-    return next({ context: { session } })
-  })
+  return next({ context: { session } })
+})
 ```
 
 ## Session Security Checklist
 
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `httpOnly` | `true` | Prevents XSS from accessing cookie |
-| `secure` | `true` in prod | Requires HTTPS |
-| `sameSite` | `'lax'` or `'strict'` | CSRF protection |
-| `maxAge` | Application-specific | Session duration |
-| `password` | 32+ random chars | Encryption key |
+| Setting    | Value                 | Purpose                            |
+| ---------- | --------------------- | ---------------------------------- |
+| `httpOnly` | `true`                | Prevents XSS from accessing cookie |
+| `secure`   | `true` in prod        | Requires HTTPS                     |
+| `sameSite` | `'lax'` or `'strict'` | CSRF protection                    |
+| `maxAge`   | Application-specific  | Session duration                   |
+| `password` | 32+ random chars      | Encryption key                     |
 
 ## Context
 

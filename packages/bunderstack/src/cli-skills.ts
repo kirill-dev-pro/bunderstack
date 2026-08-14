@@ -124,9 +124,10 @@ export async function installSkills(
   }
 
   if (options.check) {
-    const pointer = await readFile(join(options.cwd, 'AGENTS.md'), 'utf8').catch(
-      () => '',
-    )
+    const pointer = await readFile(
+      join(options.cwd, 'AGENTS.md'),
+      'utf8',
+    ).catch(() => '')
     const pointerStale = !pointer.includes(MARKER_START)
     if (stale.length === 0 && !pointerStale) {
       io.stdout(`${directory} is current`)
@@ -135,7 +136,8 @@ export async function installSkills(
     for (const skill of stale) {
       io.stderr(`[bunderstack] ${directory}/${skill} is missing or outdated`)
     }
-    if (pointerStale) io.stderr('[bunderstack] AGENTS.md has no Bunderstack block')
+    if (pointerStale)
+      io.stderr('[bunderstack] AGENTS.md has no Bunderstack block')
     io.stderr('[bunderstack] run: bunx bunderstack skills')
     return 1
   }

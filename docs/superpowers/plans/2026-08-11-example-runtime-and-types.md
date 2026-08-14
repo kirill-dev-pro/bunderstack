@@ -20,12 +20,14 @@
 ### Task 1: TanStack collection runtime identity
 
 **Files:**
+
 - Create: `examples/tldraw/src/utils/collection-identity.test.ts`
 - Modify: `examples/tldraw/package.json`
 - Modify: `examples/tldraw/vite.config.ts`
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Consumes: `createSyncClient<TApp>({ queryClient, realtime: false })` and `CollectionImpl` exported by `@tanstack/react-db`.
 - Produces: a collection accepted by React DB's nominal runtime check.
 
@@ -54,11 +56,13 @@ Run: `bun install && bun test src/utils/collection-identity.test.ts`
 ### Task 2: Remove unsafe example casts
 
 **Files:**
+
 - Modify: `examples/tldraw/src/routes/canvas.tsx`
 - Modify: `examples/tldraw/src/routes/canvas.$id.tsx`
 - Modify: other files under `examples/` and `templates/tanstack-start-saas/src/` identified by the production cast audit.
 
 **Interfaces:**
+
 - Consumes: inferred `TableCollection` row types and router-generated route types.
 - Produces: live-query results and component state whose types are inferred without `as unknown as` or `any` escape hatches.
 
@@ -75,9 +79,11 @@ Run: `bun run --cwd examples/tldraw build`
 ### Task 3: Full example verification
 
 **Files:**
+
 - Modify only files implicated by a reproducible build/runtime failure.
 
 **Interfaces:**
+
 - Consumes: each example's declared `build` script.
 - Produces: six independently buildable example applications.
 

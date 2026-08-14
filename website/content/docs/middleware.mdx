@@ -9,10 +9,10 @@ A middleware wraps a procedure call. It sees the request before the handler,
 can add to the context, and can observe or replace the result. Bunderstack has
 two places to put one, and the difference matters.
 
-| Where                                | Reaches                                                     |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `.use()` on a base                   | Only procedures built from that base                        |
-| `middleware: [...]` in the config    | Every procedure: generated CRUD, files, realtime, and yours  |
+| Where                             | Reaches                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `.use()` on a base                | Only procedures built from that base                        |
+| `middleware: [...]` in the config | Every procedure: generated CRUD, files, realtime, and yours |
 
 ## Per-base middleware
 
@@ -102,7 +102,8 @@ everything downstream:
 
 ```ts
 const withRequestId = o.middleware(async ({ context, next }) => {
-  const requestId = context.request.headers.get('x-request-id') ?? crypto.randomUUID()
+  const requestId =
+    context.request.headers.get('x-request-id') ?? crypto.randomUUID()
   return next({ context: { requestId } })
 })
 ```

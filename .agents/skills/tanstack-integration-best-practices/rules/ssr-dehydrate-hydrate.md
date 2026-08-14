@@ -26,9 +26,7 @@ const router = createRouter({
   },
 
   Wrap: ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   ),
 })
 ```
@@ -65,8 +63,8 @@ export function getRouter() {
   setupRouterSsrQueryIntegration({
     router,
     queryClient,
-    handleRedirects: true,  // Intercept redirects from queries/mutations
-    wrapQueryClient: true,  // Auto-wrap with QueryClientProvider
+    handleRedirects: true, // Intercept redirects from queries/mutations
+    wrapQueryClient: true, // Auto-wrap with QueryClientProvider
   })
 
   return router
@@ -153,13 +151,13 @@ export function getRouter() {
 
 ```ts
 // vite.config.ts
-import { tanstackStart } from "@tanstack/start/plugin/vite"
-import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react"
+import { tanstackStart } from '@tanstack/start/plugin/vite'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [
-    tanstackStart(),  // Handles SSR entry points automatically
+    tanstackStart(), // Handles SSR entry points automatically
     react(),
   ],
 })
@@ -169,12 +167,12 @@ TanStack Start handles client hydration and SSR automatically via the Vite plugi
 
 ## setupRouterSsrQueryIntegration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `router` | Router | Required | Your router instance |
-| `queryClient` | QueryClient | Required | Your QueryClient instance |
-| `handleRedirects` | boolean | `true` | Intercept and handle redirects from queries/mutations |
-| `wrapQueryClient` | boolean | `true` | Wrap router with QueryClientProvider automatically |
+| Option            | Type        | Default  | Description                                           |
+| ----------------- | ----------- | -------- | ----------------------------------------------------- |
+| `router`          | Router      | Required | Your router instance                                  |
+| `queryClient`     | QueryClient | Required | Your QueryClient instance                             |
+| `handleRedirects` | boolean     | `true`   | Intercept and handle redirects from queries/mutations |
+| `wrapQueryClient` | boolean     | `true`   | Wrap router with QueryClientProvider automatically    |
 
 ## SSR Data Flow
 

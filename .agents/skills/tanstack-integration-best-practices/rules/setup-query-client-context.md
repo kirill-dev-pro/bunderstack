@@ -89,7 +89,12 @@ export const Route = createFileRoute('/posts')({
 
 ```tsx
 // routes/__root.tsx
-import { createRootRouteWithContext, Outlet, HeadContent, Scripts } from '@tanstack/react-router'
+import {
+  createRootRouteWithContext,
+  Outlet,
+  HeadContent,
+  Scripts,
+} from '@tanstack/react-router'
 import { QueryClient } from '@tanstack/react-query'
 
 interface RouterContext {
@@ -141,9 +146,7 @@ function renderWithProviders(route: string) {
     routeTree,
     context: { queryClient },
     Wrap: ({ children }) => (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
   })
 

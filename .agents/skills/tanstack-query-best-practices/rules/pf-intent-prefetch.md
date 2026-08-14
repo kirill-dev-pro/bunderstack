@@ -13,11 +13,9 @@ Prefetch data when users show intent to navigate (hover, focus) rather than wait
 function PostList({ posts }: { posts: Post[] }) {
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>
-          <Link to={`/posts/${post.id}`}>
-            {post.title}
-          </Link>
+          <Link to={`/posts/${post.id}`}>{post.title}</Link>
           {/* User clicks, waits for data to load */}
         </li>
       ))}
@@ -38,13 +36,13 @@ function PostList({ posts }: { posts: Post[] }) {
   const handlePrefetch = (postId: number) => {
     queryClient.prefetchQuery({
       ...postQueries.detail(postId),
-      staleTime: 60 * 1000,  // Consider fresh for 1 minute
+      staleTime: 60 * 1000, // Consider fresh for 1 minute
     })
   }
 
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>
           <Link
             to={`/posts/${post.id}`}
@@ -69,12 +67,12 @@ import { Link } from '@tanstack/react-router'
 function PostList({ posts }: { posts: Post[] }) {
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>
           <Link
             to="/posts/$postId"
             params={{ postId: post.id }}
-            preload="intent"  // Prefetch on hover/focus
+            preload="intent" // Prefetch on hover/focus
           >
             {post.title}
           </Link>
@@ -88,7 +86,7 @@ function PostList({ posts }: { posts: Post[] }) {
 const router = createRouter({
   routeTree,
   defaultPreload: 'intent',
-  defaultPreloadDelay: 100,  // Wait 100ms before prefetching
+  defaultPreloadDelay: 100, // Wait 100ms before prefetching
 })
 ```
 
@@ -126,13 +124,13 @@ function PostLink({ post }: { post: Post }) {
 
 ## Prefetch Triggers
 
-| Trigger | When to Use |
-|---------|-------------|
-| `onMouseEnter` | Desktop, links/buttons user will likely click |
-| `onFocus` | Keyboard navigation, accessibility |
-| `onTouchStart` | Mobile, before navigation |
-| Component mount | Likely next pages, wizard steps |
-| Intersection Observer | Below-fold content |
+| Trigger               | When to Use                                   |
+| --------------------- | --------------------------------------------- |
+| `onMouseEnter`        | Desktop, links/buttons user will likely click |
+| `onFocus`             | Keyboard navigation, accessibility            |
+| `onTouchStart`        | Mobile, before navigation                     |
+| Component mount       | Likely next pages, wizard steps               |
+| Intersection Observer | Below-fold content                            |
 
 ## Context
 

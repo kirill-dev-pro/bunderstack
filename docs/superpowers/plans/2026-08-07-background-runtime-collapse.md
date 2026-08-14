@@ -15,7 +15,7 @@
 - Cron is five-field, minute-granularity, evaluated in **UTC**. No seconds field, no `@`-shortcuts.
 - Slot alignment is exactly `60_000` ms. A slot timestamp always satisfies `slot % 60_000 === 0`.
 - Default `catchUp` is `'latest'`. Default `catchUpWindow` is `3_600_000` ms (1 hour).
-- Succeeded-row retention stays 24h (`SUCCEEDED_RETENTION_MS`). Only the reap *frequency* changes.
+- Succeeded-row retention stays 24h (`SUCCEEDED_RETENTION_MS`). Only the reap _frequency_ changes.
 - `failed` rows are never reaped. Do not add a cleanup for them.
 - Reserved type prefix is `cron:`. Queue jobs may not use it.
 - Tests live beside their source as `<name>.test.ts` and use `import { test, expect } from 'bun:test'`.
@@ -28,29 +28,31 @@ The spec clamps catch-up to `catchUpWindow` only for `catchUp: 'all'`. This plan
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/bunderstack/src/jobs/slots.ts` *(new)* | Pure slot enumeration: `slotsDue`, `floorSlot`, `SLOT_MS`, `CRON_PREFIX` |
-| `packages/bunderstack/src/jobs/slots.test.ts` *(new)* | Unit tests for the above |
-| `packages/bunderstack/src/jobs/define.ts` | Cron gains retry options; `concurrency` rejected on cron; `cron:` prefix reserved; jitter in `backoffMs` |
-| `packages/bunderstack/src/jobs/worker.ts` | Materialization phase, cron dispatch, lease fencing, hourly reap, `TickResult` |
-| `packages/bunderstack/src/jobs/index.ts` | Re-export surface; drop deleted modules |
-| `packages/bunderstack/src/env.ts` | `BUNDERSTACK_ROLE`; remove `BUNDERSTACK_CRON_SECRET` |
-| `packages/bunderstack/src/index.ts` | Role-driven auto-start; remove `startCronScheduler`, cron router wiring |
-| `packages/bunderstack/src/handler.ts` | Remove `cronRouter` part |
-| `packages/bunderstack/src/internal-tables.ts` | Drop `bunderstackCronRuns` |
-| **Deleted** | `jobs/cron-runner.ts`, `jobs/cron-router.ts`, `jobs/cron-auth.ts`, `jobs/local-cron.ts` and their `.test.ts` / `.pg.test.ts` siblings |
-| `templates/tanstack-start-saas/` | Remove `worker` script and `src/worker.ts` |
+| File                                                  | Responsibility                                                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/bunderstack/src/jobs/slots.ts` _(new)_      | Pure slot enumeration: `slotsDue`, `floorSlot`, `SLOT_MS`, `CRON_PREFIX`                                                              |
+| `packages/bunderstack/src/jobs/slots.test.ts` _(new)_ | Unit tests for the above                                                                                                              |
+| `packages/bunderstack/src/jobs/define.ts`             | Cron gains retry options; `concurrency` rejected on cron; `cron:` prefix reserved; jitter in `backoffMs`                              |
+| `packages/bunderstack/src/jobs/worker.ts`             | Materialization phase, cron dispatch, lease fencing, hourly reap, `TickResult`                                                        |
+| `packages/bunderstack/src/jobs/index.ts`              | Re-export surface; drop deleted modules                                                                                               |
+| `packages/bunderstack/src/env.ts`                     | `BUNDERSTACK_ROLE`; remove `BUNDERSTACK_CRON_SECRET`                                                                                  |
+| `packages/bunderstack/src/index.ts`                   | Role-driven auto-start; remove `startCronScheduler`, cron router wiring                                                               |
+| `packages/bunderstack/src/handler.ts`                 | Remove `cronRouter` part                                                                                                              |
+| `packages/bunderstack/src/internal-tables.ts`         | Drop `bunderstackCronRuns`                                                                                                            |
+| **Deleted**                                           | `jobs/cron-runner.ts`, `jobs/cron-router.ts`, `jobs/cron-auth.ts`, `jobs/local-cron.ts` and their `.test.ts` / `.pg.test.ts` siblings |
+| `templates/tanstack-start-saas/`                      | Remove `worker` script and `src/worker.ts`                                                                                            |
 
 ---
 
 ### Task 1: Slot enumeration
 
 **Files:**
+
 - Create: `packages/bunderstack/src/jobs/slots.ts`
 - Test: `packages/bunderstack/src/jobs/slots.test.ts`
 
 **Interfaces:**
+
 - Consumes: `parseCron`, `cronMatches`, `ParsedCron` from `./cron`
 - Produces: `SLOT_MS: 60_000`, `CRON_PREFIX: 'cron:'`, `DEFAULT_CATCH_UP_WINDOW_MS: 3_600_000`, `floorSlot(ms: number): number`, `type CatchUp = 'latest' | 'all'`, `slotsDue(args: { cron: ParsedCron; from: number; to: number; catchUp?: CatchUp; catchUpWindowMs?: number }): number[]`
 
@@ -67,7 +69,9 @@ import { floorSlot, slotsDue, SLOT_MS } from './slots'
 const T = (iso: string) => Date.parse(iso)
 
 test('floorSlot aligns down to the minute', () => {
-  expect(floorSlot(T('2026-08-07T10:00:59.999Z'))).toBe(T('2026-08-07T10:00:00Z'))
+  expect(floorSlot(T('2026-08-07T10:00:59.999Z'))).toBe(
+    T('2026-08-07T10:00:00Z'),
+  )
   expect(floorSlot(T('2026-08-07T10:00:00Z'))).toBe(T('2026-08-07T10:00:00Z'))
 })
 
@@ -235,10 +239,12 @@ git commit -m "feat(jobs): add pure cron slot enumeration"
 ### Task 2: Cron definitions gain retry parity
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/define.ts`
 - Test: `packages/bunderstack/src/jobs/define.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CRON_PREFIX`, `CatchUp` from `./slots`
 - Produces: `CronDefinition` gains `retries?`, `backoff?`, `timeout?`, `onFailed?`, `catchUp?`, `catchUpWindow?`. New exported type `AnyBackgroundDefinition = QueueJobDefinition<any, any, any> | CronDefinition<any, any, any>`. `backoffMs(def: AnyBackgroundDefinition, attempt: number): number` — widened from `AnyJobDefinition`.
 
@@ -282,7 +288,12 @@ test('cron rejects concurrency', () => {
 test('cron validates retries and timeout like jobs', () => {
   expect(() =>
     validateBackgroundDefs({
-      a: { kind: 'cron', schedule: '* * * * *', retries: -1, handler: () => {} },
+      a: {
+        kind: 'cron',
+        schedule: '* * * * *',
+        retries: -1,
+        handler: () => {},
+      },
     }),
   ).toThrow(/retries must be a non-negative integer/)
   expect(() =>
@@ -459,10 +470,12 @@ git commit -m "feat(jobs): give cron definitions retry parity with queue jobs"
 ### Task 3: Materialize cron slots in the worker tick
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 
 **Interfaces:**
+
 - Consumes: `slotsDue`, `floorSlot`, `SLOT_MS`, `CRON_PREFIX` from `./slots`; `enqueueJob` from `./queue`; `parseCron` from `./cron`
 - Produces: `tick()` enqueues a row per due slot with `type = 'cron:<name>'`, `runAt = slot`, `dedupeKey = String(slot)`, `payloadJson = 'null'`
 
@@ -497,7 +510,12 @@ test('tick materializes the current slot on first sight', async () => {
 
 test('tick does not backfill from epoch on first sight', async () => {
   const defs: JobsDefs = {
-    beat: { kind: 'cron', schedule: '* * * * *', catchUp: 'all', handler: () => {} },
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      catchUp: 'all',
+      handler: () => {},
+    },
   }
   await runner(defs).tick(Date.parse('2026-08-07T10:00:30Z'))
   expect(await cronRows('beat')).toHaveLength(1)
@@ -569,55 +587,55 @@ import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
 Add inside `createJobRunner`, before `runClaimable`:
 
 ```ts
-  /**
-   * The watermark is the newest slot we already stored for this cron. When no
-   * rows exist — a newly declared cron, or one whose rows were reaped — anchor
-   * one slot before now so the current minute is eligible and nothing older is.
-   */
-  async function cronWatermark(type: string, now: number): Promise<number> {
-    const rows = await db
-      .select({ latest: max(t.runAt) })
-      .from(t)
-      .where(eq(t.type, type))
-    const latest = rows[0]?.latest
-    return latest == null ? floorSlot(now) - SLOT_MS : Number(latest)
-  }
+/**
+ * The watermark is the newest slot we already stored for this cron. When no
+ * rows exist — a newly declared cron, or one whose rows were reaped — anchor
+ * one slot before now so the current minute is eligible and nothing older is.
+ */
+async function cronWatermark(type: string, now: number): Promise<number> {
+  const rows = await db
+    .select({ latest: max(t.runAt) })
+    .from(t)
+    .where(eq(t.type, type))
+  const latest = rows[0]?.latest
+  return latest == null ? floorSlot(now) - SLOT_MS : Number(latest)
+}
 
-  /** Enqueue a row per due slot. The unique(type, dedupeKey) constraint makes
-   *  this safe to run concurrently in any number of processes. */
-  async function materializeCronSlots(now: number) {
-    for (const [name, def] of Object.entries(defs)) {
-      if (def.kind !== 'cron') continue
-      const type = `${CRON_PREFIX}${name}`
-      const from = await cronWatermark(type, now)
-      const slots = slotsDue({
-        cron: parseCron(def.schedule),
-        from,
-        to: now,
-        catchUp: def.catchUp,
-        catchUpWindowMs: def.catchUpWindow,
+/** Enqueue a row per due slot. The unique(type, dedupeKey) constraint makes
+ *  this safe to run concurrently in any number of processes. */
+async function materializeCronSlots(now: number) {
+  for (const [name, def] of Object.entries(defs)) {
+    if (def.kind !== 'cron') continue
+    const type = `${CRON_PREFIX}${name}`
+    const from = await cronWatermark(type, now)
+    const slots = slotsDue({
+      cron: parseCron(def.schedule),
+      from,
+      to: now,
+      catchUp: def.catchUp,
+      catchUpWindowMs: def.catchUpWindow,
+    })
+    for (const slot of slots) {
+      await enqueueJob(db, defs, name, null, {
+        runAt: slot,
+        dedupeKey: String(slot),
       })
-      for (const slot of slots) {
-        await enqueueJob(db, defs, name, null, {
-          runAt: slot,
-          dedupeKey: String(slot),
-        })
-      }
     }
   }
+}
 ```
 
 `enqueueJob` currently rejects anything that is not `kind === 'job'` and writes `type: name`. Change its signature to accept cron. In `packages/bunderstack/src/jobs/queue.ts`, replace the guard and the inserted type:
 
 ```ts
-  const def = defs[name]
-  if (!def) {
-    throw new Error(`[bunderstack] unknown background task "${name}"`)
-  }
-  const isCron = def.kind === 'cron'
-  const type = isCron ? `${CRON_PREFIX}${name}` : name
-  // Cron slots carry no payload; queue jobs validate theirs at the call site.
-  const parsed = isCron ? null : def.input ? def.input.parse(input) : null
+const def = defs[name]
+if (!def) {
+  throw new Error(`[bunderstack] unknown background task "${name}"`)
+}
+const isCron = def.kind === 'cron'
+const type = isCron ? `${CRON_PREFIX}${name}` : name
+// Cron slots carry no payload; queue jobs validate theirs at the call site.
+const parsed = isCron ? null : def.input ? def.input.parse(input) : null
 ```
 
 and use `type` in place of `name` in the `.values({ type: ... })`, in the `eq(t.type, ...)` lookup, and in the error message. Import `CRON_PREFIX` from `./slots` in `queue.ts`.
@@ -650,10 +668,12 @@ git commit -m "feat(jobs): materialize cron slots as queue rows in tick"
 ### Task 4: Run cron slots through the job execution path
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AnyBackgroundDefinition`, `CronInvocation` from `./define`; `CRON_PREFIX` from `./slots`
 - Produces: cron handlers receive `{ scheduledFor: Date }`; cron failures retry with backoff and fire `onFailed`
 
@@ -772,22 +792,22 @@ function definitionFor(
 Change `fireOnFailed` to take the already-resolved input rather than re-parsing:
 
 ```ts
-  async function fireOnFailed(
-    def: AnyBackgroundDefinition,
-    input: unknown,
-    error: Error,
-  ) {
-    if (!def.onFailed) return
-    try {
-      await (def.onFailed as (i: unknown, e: Error, c: unknown) => unknown)(
-        input,
-        error,
-        ctx,
-      )
-    } catch (hookErr) {
-      console.error('[bunderstack] onFailed hook threw:', hookErr)
-    }
+async function fireOnFailed(
+  def: AnyBackgroundDefinition,
+  input: unknown,
+  error: Error,
+) {
+  if (!def.onFailed) return
+  try {
+    await (def.onFailed as (i: unknown, e: Error, c: unknown) => unknown)(
+      input,
+      error,
+      ctx,
+    )
+  } catch (hookErr) {
+    console.error('[bunderstack] onFailed hook threw:', hookErr)
   }
+}
 ```
 
 Update its two call sites: in `recoverExpiredLeases` pass `resolveInput(def, row)`, and in `runJob` pass the `input` already computed.
@@ -795,14 +815,14 @@ Update its two call sites: in `recoverExpiredLeases` pass `resolveInput(def, row
 Add the input resolver:
 
 ```ts
-  /** Cron rows carry no payload — their handler input is the slot itself. */
-  function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
-    if (def.kind === 'cron') {
-      return { scheduledFor: new Date(Number(row.runAt)) }
-    }
-    const raw = JSON.parse(row.payloadJson)
-    return def.input ? def.input.parse(raw) : undefined
+/** Cron rows carry no payload — their handler input is the slot itself. */
+function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
+  if (def.kind === 'cron') {
+    return { scheduledFor: new Date(Number(row.runAt)) }
   }
+  const raw = JSON.parse(row.payloadJson)
+  return def.input ? def.input.parse(raw) : undefined
+}
 ```
 
 In `runJob`, replace the inline parse block with `resolveInput(def, row)` inside the existing `try`/`catch` that fails the row on unparseable payloads.
@@ -818,26 +838,26 @@ Replace `recoverExpiredLeases`'s `defs[row.type]` lookup and its `!def || def.ki
 Replace `runClaimable` so it iterates both kinds:
 
 ```ts
-  async function runClaimable(now: number) {
-    const work: Promise<void>[] = []
-    for (const [name, def] of Object.entries(defs)) {
-      const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      let limit = CLAIM_BATCH
-      if (def.kind === 'job' && def.concurrency !== undefined) {
-        const runningRows = await db
-          .select({ id: t.id })
-          .from(t)
-          .where(and(eq(t.type, type), eq(t.status, 'running')))
-        const capacity = def.concurrency - runningRows.length
-        if (capacity <= 0) continue
-        limit = Math.min(limit, capacity)
-      }
-      const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
-      const claimed = await claim(type, limit, now, leaseUntil)
-      for (const row of claimed) work.push(runJob(row, def, now))
+async function runClaimable(now: number) {
+  const work: Promise<void>[] = []
+  for (const [name, def] of Object.entries(defs)) {
+    const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
+    let limit = CLAIM_BATCH
+    if (def.kind === 'job' && def.concurrency !== undefined) {
+      const runningRows = await db
+        .select({ id: t.id })
+        .from(t)
+        .where(and(eq(t.type, type), eq(t.status, 'running')))
+      const capacity = def.concurrency - runningRows.length
+      if (capacity <= 0) continue
+      limit = Math.min(limit, capacity)
     }
-    await Promise.all(work)
+    const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
+    const claimed = await claim(type, limit, now, leaseUntil)
+    for (const row of claimed) work.push(runJob(row, def, now))
   }
+  await Promise.all(work)
+}
 ```
 
 Change every `AnyJobDefinition` annotation in this file to `AnyBackgroundDefinition` and update the import from `./define`.
@@ -859,10 +879,12 @@ git commit -m "feat(jobs): run cron slots through the queue execution path"
 ### Task 5: Fence terminal updates on the lease
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `runJob` only writes terminal state while it still holds the lease it claimed
 
@@ -918,19 +940,19 @@ In `packages/bunderstack/src/jobs/worker.ts`, thread the lease through `runJob`.
 Add `and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil))` to every terminal `.where(...)` inside `runJob` — the success update, the retry update, and the exhausted-attempts update — and add `.returning({ id: t.id })` to each. Guard the success path:
 
 ```ts
-      const updated = await db
-        .update(t)
-        .set({
-          status: 'succeeded',
-          finishedAt: Date.now(),
-          lockedUntil: null,
-          ...terminalPatch(),
-        })
-        .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
-        .returning({ id: t.id })
-      // Zero rows means another worker re-claimed this job after our lease
-      // expired. It owns the outcome now; silently drop ours.
-      if (!updated[0]) return
+const updated = await db
+  .update(t)
+  .set({
+    status: 'succeeded',
+    finishedAt: Date.now(),
+    lockedUntil: null,
+    ...terminalPatch(),
+  })
+  .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+  .returning({ id: t.id })
+// Zero rows means another worker re-claimed this job after our lease
+// expired. It owns the outcome now; silently drop ours.
+if (!updated[0]) return
 ```
 
 Apply the same zero-row check to the failure paths, returning before `fireOnFailed` so the hook cannot fire twice.
@@ -952,10 +974,12 @@ git commit -m "fix(jobs): fence terminal job updates on the held lease"
 ### Task 6: Move the reap off the hot path and return `TickResult`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`, `packages/bunderstack/src/jobs/define.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `export type TickResult = { claimed: number; ran: number; failed: number }` in `./define`; `JobsRuntimeFacade.tick(now?: number): Promise<TickResult>`; reap runs at most hourly
 
@@ -1039,22 +1063,22 @@ const REAP_INTERVAL_MS = 60 * 60_000
 Track counters. Have `runJob` return `'ran' | 'failed' | 'lost'`, have `runClaimable` return `{ claimed, ran, failed }` by awaiting `Promise.all(work)` and tallying the results, and gate the reap:
 
 ```ts
-  let lastReapAt = 0
+let lastReapAt = 0
 
-  return {
-    async tick(now: number = Date.now()): Promise<TickResult> {
-      await materializeCronSlots(now)
-      await recoverExpiredLeases(now)
-      if (now - lastReapAt >= REAP_INTERVAL_MS) {
-        lastReapAt = now
-        await reapSucceeded(now)
-      }
-      return runClaimable(now)
-    },
-    setJobsFacade(f: JobsRuntimeFacade) {
-      ctx.jobs = f
-    },
-  }
+return {
+  async tick(now: number = Date.now()): Promise<TickResult> {
+    await materializeCronSlots(now)
+    await recoverExpiredLeases(now)
+    if (now - lastReapAt >= REAP_INTERVAL_MS) {
+      lastReapAt = now
+      await reapSucceeded(now)
+    }
+    return runClaimable(now)
+  },
+  setJobsFacade(f: JobsRuntimeFacade) {
+    ctx.jobs = f
+  },
+}
 ```
 
 Note `lastReapAt` starts at `0`, so the first tick of a process always reaps.
@@ -1076,10 +1100,12 @@ git commit -m "refactor(jobs): return TickResult and reap at most hourly"
 ### Task 7: `BUNDERSTACK_ROLE` environment validation
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/env.ts`
 - Test: `packages/bunderstack/src/env.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `export type BunderstackRole = 'all' | 'web' | 'worker'`; `BaseEnv.BUNDERSTACK_ROLE: BunderstackRole`; `BaseEnv.BUNDERSTACK_CRON_SECRET` removed
 
@@ -1144,14 +1170,14 @@ In the `base` object, delete the `BUNDERSTACK_CRON_SECRET` line and add:
 Delete the `options.cronConfigured && !source.BUNDERSTACK_CRON_SECRET` issue block entirely, along with the `cronConfigured` option from the options type and every caller. Add:
 
 ```ts
-  if (
-    source.BUNDERSTACK_ROLE !== undefined &&
-    !ROLES.includes(source.BUNDERSTACK_ROLE as BunderstackRole)
-  ) {
-    issues.push(
-      `BUNDERSTACK_ROLE: must be one of ${ROLES.join(', ')} (got "${String(source.BUNDERSTACK_ROLE)}")`,
-    )
-  }
+if (
+  source.BUNDERSTACK_ROLE !== undefined &&
+  !ROLES.includes(source.BUNDERSTACK_ROLE as BunderstackRole)
+) {
+  issues.push(
+    `BUNDERSTACK_ROLE: must be one of ${ROLES.join(', ')} (got "${String(source.BUNDERSTACK_ROLE)}")`,
+  )
+}
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -1171,10 +1197,12 @@ git commit -m "feat(env): add BUNDERSTACK_ROLE and drop BUNDERSTACK_CRON_SECRET"
 ### Task 8: Role-driven worker auto-start
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/app-env.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BunderstackRole` from `./env`
 - Produces: `createBunderstack` starts the tick loop when the resolved role is `all` or `worker`; config option `background?: { autoStart?: boolean }` overrides it
 
@@ -1188,7 +1216,8 @@ test('role=all starts the background loop', async () => {
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     env: undefined,
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j) =>
+      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)
   expect(app.backgroundRunning).toBe(true)
@@ -1199,7 +1228,8 @@ test('role=web does not start the background loop', async () => {
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j) =>
+      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
   } as never)
   expect(app.backgroundRunning).toBe(false)
@@ -1210,7 +1240,8 @@ test('background.autoStart false wins over role=all', async () => {
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    jobs: (j) => j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
+    jobs: (j) =>
+      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
     background: { autoStart: false },
     envSource: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   } as never)
@@ -1242,18 +1273,18 @@ Add to `BunderstackApp`:
 After `startWorker` and `runWorker` are defined and before the `app` object is assembled:
 
 ```ts
-    // Topology is a deployment concern: the role decides whether this process
-    // runs background work, so application code never has to.
-    const roleWantsWorker =
-      env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
-    const autoStart =
-      options.background?.autoStart ??
-      (roleWantsWorker && !introspect && jobsDefs !== undefined)
-    let backgroundRunning = false
-    if (autoStart) {
-      await startWorker()
-      backgroundRunning = true
-    }
+// Topology is a deployment concern: the role decides whether this process
+// runs background work, so application code never has to.
+const roleWantsWorker =
+  env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
+const autoStart =
+  options.background?.autoStart ??
+  (roleWantsWorker && !introspect && jobsDefs !== undefined)
+let backgroundRunning = false
+if (autoStart) {
+  await startWorker()
+  backgroundRunning = true
+}
 ```
 
 Add `backgroundRunning` to the assembled `app` object. `lifecycle.add` already registers the handle returned by `startWorker`, so `app.close()` stops the loop.
@@ -1275,11 +1306,13 @@ git commit -m "feat: start background work from BUNDERSTACK_ROLE, not user code"
 ### Task 9: Delete the cron machinery
 
 **Files:**
+
 - Delete: `packages/bunderstack/src/jobs/cron-runner.ts`, `cron-runner.test.ts`, `cron-runner.pg.test.ts`, `cron-router.ts`, `cron-router.test.ts`, `cron-auth.ts`, `cron-auth.test.ts`, `local-cron.ts`, `local-cron.test.ts`
 - Modify: `packages/bunderstack/src/jobs/index.ts`, `packages/bunderstack/src/index.ts`, `packages/bunderstack/src/handler.ts`
 - Test: `packages/bunderstack/src/jobs/integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CRON_PREFIX` from `./slots`
 - Produces: no cron exports remain; `storage-sweep` is an ordinary registered cron
 
@@ -1292,7 +1325,11 @@ test('the built-in storage sweep is registered as an ordinary cron', async () =>
   const app = await createBunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
-    storage: { local: './uploads', defaultBucket: 'files', buckets: { files: {} } },
+    storage: {
+      local: './uploads',
+      defaultBucket: 'files',
+      buckets: { files: {} },
+    },
   } as never)
   expect(app.manifest.background.cron.map((c) => c.name)).toContain(
     'bunderstack:storage-sweep',
@@ -1323,25 +1360,26 @@ export type { TickResult } from './define'
 In `packages/bunderstack/src/handler.ts`, delete `cronRouter` from `HandlerParts` and delete the `if (parts.cronRouter)` block.
 
 In `packages/bunderstack/src/index.ts`:
+
 - Delete the `cronRouter` local, its `buildCronRouter` import, and the `cronRouter` argument to `buildHandler`.
 - Delete `startCronScheduler`, its `AppStartCronSchedulerOptions` type, its entry on `BunderstackApp`, and the `startLocalCronScheduler` / `runCronSlot` / `LocalCronScheduler` imports.
 - Register the sweep as a built-in cron by merging it into the resolved defs before `validateBackgroundDefs` runs, only when storage is configured:
 
 ```ts
-    // The storage sweep used to be a hardcoded maintenance route. It is an
-    // ordinary cron now, so it inherits retries, timeout and onFailed.
-    const resolvedDefs: JobsDefs | undefined = storageConfigured
-      ? {
-          ...(jobsDefs ?? {}),
-          'bunderstack:storage-sweep': {
-            kind: 'cron',
-            schedule: '0 4 * * *',
-            handler: async () => {
-              await storage.sweep()
-            },
-          },
-        }
-      : jobsDefs
+// The storage sweep used to be a hardcoded maintenance route. It is an
+// ordinary cron now, so it inherits retries, timeout and onFailed.
+const resolvedDefs: JobsDefs | undefined = storageConfigured
+  ? {
+      ...(jobsDefs ?? {}),
+      'bunderstack:storage-sweep': {
+        kind: 'cron',
+        schedule: '0 4 * * *',
+        handler: async () => {
+          await storage.sweep()
+        },
+      },
+    }
+  : jobsDefs
 ```
 
 and use `resolvedDefs` everywhere `jobsDefs` was previously passed to the runner, the manifest, and the jobs facade. The reserved-prefix check in Task 2 only rejects `cron:`, so the `bunderstack:` name is legal.
@@ -1363,10 +1401,12 @@ git commit -m "refactor(jobs): delete cron runner, router, auth and local schedu
 ### Task 10: Drop the `_bunderstack_cron_runs` table
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/internal-tables.ts`
 - Test: `packages/bunderstack/src/internal-tables.test.ts` (create if absent)
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `bunderstackCronRuns`, `bunderstackCronRunsPg` and `cronRunsTableFor` no longer exist
 
@@ -1422,10 +1462,12 @@ git commit -m "refactor(db): drop the _bunderstack_cron_runs table"
 ### Task 11: Template drops its separate worker
 
 **Files:**
+
 - Delete: `templates/tanstack-start-saas/src/worker.ts`
 - Modify: `templates/tanstack-start-saas/package.json`, `templates/tanstack-start-saas/README.md`
 
 **Interfaces:**
+
 - Consumes: role auto-start from Task 8
 - Produces: booting the app is the whole deployment
 
@@ -1475,10 +1517,12 @@ git commit -m "build(template): run background work in-process via BUNDERSTACK_R
 ### Task 12: Postgres parity
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/jobs.pg.test.ts`
 - Delete: `packages/bunderstack/src/jobs/cron-runner.pg.test.ts` (already removed in Task 9 — verify)
 
 **Interfaces:**
+
 - Consumes: everything above
 - Produces: cron materialization and dispatch verified on Postgres
 
@@ -1539,30 +1583,30 @@ git commit -m "test(jobs): verify cron slot uniqueness on postgres"
 
 **Spec coverage**
 
-| Spec requirement | Task |
-|---|---|
-| Cron occurrence = job with slot dedupe key | 3 |
-| No new columns on `_bunderstack_jobs` | 3 (verified by schema untouched) |
-| Cron gains `retries` / `timeout` / `onFailed` | 2, 4 |
-| `concurrency` rejected on cron | 2 |
-| Reserved `cron:` prefix | 2 |
-| `catchUp` default `latest`, `all` bounded by `catchUpWindow` | 1, 3 |
-| Watermark = `max(runAt)`, no epoch backfill | 3 |
-| Materialization idempotent under concurrency | 3, 12 |
-| `tick()` phase order and `TickResult` | 3, 6 |
-| Lease fencing on terminal updates | 5 |
-| Backoff jitter | 2 |
-| Hourly reap, 24h retention unchanged | 6 |
-| `concurrency` documented as per-worker | 2 (error message) — **also add a doc comment on `QueueJobDefinition.concurrency` during Task 2** |
-| `BUNDERSTACK_ROLE` all/web/worker | 7, 8 |
-| Auto-start, suppressed under `introspect` | 8 |
-| `startCronScheduler` removed | 9 |
-| `BUNDERSTACK_CRON_SECRET` removed | 7, 9 |
-| Cron routes removed | 9 |
-| `storage-sweep` as built-in cron | 9 |
-| `_bunderstack_cron_runs` dropped + migration | 10 |
-| Template loses worker script/entry | 11 |
-| Dialect parity | 12 |
+| Spec requirement                                             | Task                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Cron occurrence = job with slot dedupe key                   | 3                                                                                                |
+| No new columns on `_bunderstack_jobs`                        | 3 (verified by schema untouched)                                                                 |
+| Cron gains `retries` / `timeout` / `onFailed`                | 2, 4                                                                                             |
+| `concurrency` rejected on cron                               | 2                                                                                                |
+| Reserved `cron:` prefix                                      | 2                                                                                                |
+| `catchUp` default `latest`, `all` bounded by `catchUpWindow` | 1, 3                                                                                             |
+| Watermark = `max(runAt)`, no epoch backfill                  | 3                                                                                                |
+| Materialization idempotent under concurrency                 | 3, 12                                                                                            |
+| `tick()` phase order and `TickResult`                        | 3, 6                                                                                             |
+| Lease fencing on terminal updates                            | 5                                                                                                |
+| Backoff jitter                                               | 2                                                                                                |
+| Hourly reap, 24h retention unchanged                         | 6                                                                                                |
+| `concurrency` documented as per-worker                       | 2 (error message) — **also add a doc comment on `QueueJobDefinition.concurrency` during Task 2** |
+| `BUNDERSTACK_ROLE` all/web/worker                            | 7, 8                                                                                             |
+| Auto-start, suppressed under `introspect`                    | 8                                                                                                |
+| `startCronScheduler` removed                                 | 9                                                                                                |
+| `BUNDERSTACK_CRON_SECRET` removed                            | 7, 9                                                                                             |
+| Cron routes removed                                          | 9                                                                                                |
+| `storage-sweep` as built-in cron                             | 9                                                                                                |
+| `_bunderstack_cron_runs` dropped + migration                 | 10                                                                                               |
+| Template loses worker script/entry                           | 11                                                                                               |
+| Dialect parity                                               | 12                                                                                               |
 
 **Gap found and closed:** the spec requires documenting `concurrency` as per-worker. Task 2's error message covers the cron case; the note above adds the doc comment on the queue case.
 

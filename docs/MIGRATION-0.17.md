@@ -157,8 +157,11 @@ drop; if you special-cased those 500s, remove that.
 Validation failures now also carry the offending field:
 
 ```json
-{ "error": "Input validation failed", "code": "BAD_REQUEST",
-  "details": [{ "path": ["filters", "likes"], "message": "Invalid type: …" }] }
+{
+  "error": "Input validation failed",
+  "code": "BAD_REQUEST",
+  "details": [{ "path": ["filters", "likes"], "message": "Invalid type: …" }]
+}
 ```
 
 ## 5. Realtime names tables by their schema key **(beta.2)**
@@ -193,7 +196,9 @@ useQuery(api.posts.list.queryOptions({ limit: 20 }, { staleTime: 5_000 }))
 queryClient.invalidateQueries({ queryKey: api.posts.list.keys.all })
 
 // 0.17
-useQuery(api.posts.list.queryOptions({ input: { limit: 20 }, staleTime: 5_000 }))
+useQuery(
+  api.posts.list.queryOptions({ input: { limit: 20 }, staleTime: 5_000 }),
+)
 queryClient.invalidateQueries({ queryKey: api.posts.list.key() })
 ```
 
@@ -230,7 +235,7 @@ Nothing changes in your imports. Two things change in your build:
 - Strict flags stop leaking. `exactOptionalPropertyTypes` used to produce 168
   errors inside `node_modules/bunderstack` and
   `noPropertyAccessFromIndexSignature` another 79; both are now zero.
-- Types got *more* correct, not less. Declaration emit had been inlining
+- Types got _more_ correct, not less. Declaration emit had been inlining
   drizzle-valibot's internal generics, which made `notNull` columns look
   optional through the published types. If you worked around that with `!` or a
   cast on generated CRUD results, you can drop it.
@@ -248,11 +253,17 @@ Optional, but it removes a whole class of workaround. `auth` now accepts
 // before — auth hooks need a db, but the config is built before the app exists,
 // so the app opens a second drizzle instance in its own db.ts and imports it
 import { db } from './db'
-export const authConfig = { databaseHooks: { /* writes through `db` */ } }
+export const authConfig = {
+  databaseHooks: {
+    /* writes through `db` */
+  },
+}
 
 // beta.4
 export const authConfig = ({ db }: AuthConfigContext<typeof schema>) => ({
-  databaseHooks: { /* writes through the app's own connection */ },
+  databaseHooks: {
+    /* writes through the app's own connection */
+  },
 })
 ```
 

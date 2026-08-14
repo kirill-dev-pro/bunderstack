@@ -7,7 +7,9 @@ interface HandlerParts {
   rateLimit?: boolean | RateLimitConfig
 }
 
-export function buildHandler(parts: HandlerParts): (req: Request) => Promise<Response> {
+export function buildHandler(
+  parts: HandlerParts,
+): (req: Request) => Promise<Response> {
   const checkRateLimit = createRateLimiter(parts.rateLimit)
 
   return async (req: Request): Promise<Response> => {

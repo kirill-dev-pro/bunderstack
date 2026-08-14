@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+
 import {
   createClient,
   type AnyBunderstackApp,
@@ -10,26 +11,30 @@ import {
 } from 'bunderstack-query'
 
 import { createTableCollection, type TableCollection } from './collection'
-import { createSyncRealtimeClient, type SyncRealtimeTarget } from './realtime-sync'
+import {
+  createSyncRealtimeClient,
+  type SyncRealtimeTarget,
+} from './realtime-sync'
 
-export type RowFor<TSchema extends Record<string, unknown>, K extends keyof TSchema> =
-  [InferSelect<TSchema[K]>] extends [never]
-    ? { id: string | number }
-    : InferSelect<TSchema[K]> extends { id: string | number }
-      ? InferSelect<TSchema[K]>
-      : { id: string | number }
+export type RowFor<
+  TSchema extends Record<string, unknown>,
+  K extends keyof TSchema,
+> = [InferSelect<TSchema[K]>] extends [never]
+  ? { id: string | number }
+  : InferSelect<TSchema[K]> extends { id: string | number }
+    ? InferSelect<TSchema[K]>
+    : { id: string | number }
 
-export type CreateFor<TSchema extends Record<string, unknown>, K extends keyof TSchema> =
-  [InferInsert<TSchema[K]>] extends [never]
-    ? Partial<RowFor<TSchema, K>>
-    : InferInsert<TSchema[K]>
+export type CreateFor<
+  TSchema extends Record<string, unknown>,
+  K extends keyof TSchema,
+> = [InferInsert<TSchema[K]>] extends [never]
+  ? Partial<RowFor<TSchema, K>>
+  : InferInsert<TSchema[K]>
 
 export type SyncClientOptions = {
   baseUrl?: string
-  fetch?: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => Promise<Response>
+  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   queryClient: QueryClient
   realtime?: boolean
 }
@@ -42,7 +47,9 @@ export type BunderstackSyncClient<TApp extends AnyBunderstackApp> = {
   >
 } & {
   files: BunderstackClient<TApp>['files']
-  realtime: { close(): void; subscribe(tables: string[]): Promise<void> } | undefined
+  realtime:
+    | { close(): void; subscribe(tables: string[]): Promise<void> }
+    | undefined
 }
 
 export function createSyncClient<TApp extends AnyBunderstackApp>(
@@ -68,7 +75,8 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
             }
           : undefined
       }
-      if (['then', 'toJSON', 'constructor', '$$typeof'].includes(property)) return undefined
+      if (['then', 'toJSON', 'constructor', '$$typeof'].includes(property))
+        return undefined
       const cached = tables.get(property)
       if (cached) return cached
       const collection = createTableCollection({

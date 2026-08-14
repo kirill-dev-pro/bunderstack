@@ -225,10 +225,7 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      const rows = await db
-        .select()
-        .from(table)
-        .where(eq(idCol, id))
+      const rows = await db.select().from(table).where(eq(idCol, id))
       if (!rows[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
@@ -366,10 +363,7 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      const existing = await db
-        .select()
-        .from(table)
-        .where(eq(idCol, id))
+      const existing = await db.select().from(table).where(eq(idCol, id))
       if (!existing[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
@@ -441,10 +435,7 @@ export function createCrudOperations<
       const { table, tableAccess, idCol } = resolveTable(tableName)
       const id = coerceId(rawId)
 
-      const existing = await db
-        .select()
-        .from(table)
-        .where(eq(idCol, id))
+      const existing = await db.select().from(table).where(eq(idCol, id))
       if (!existing[0]) {
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }

@@ -38,12 +38,7 @@ export default defineConfig({
   server: {
     prerender: {
       // Routes to prerender at build time
-      routes: [
-        '/',
-        '/about',
-        '/contact',
-        '/pricing',
-      ],
+      routes: ['/', '/about', '/contact', '/pricing'],
       // Or crawl from root
       crawlLinks: true,
     },
@@ -75,11 +70,7 @@ export default defineConfig({
           select: { slug: true },
         })
 
-        return [
-          '/',
-          '/blog',
-          ...posts.map(p => `/blog/${p.slug}`),
-        ]
+        return ['/', '/blog', ...posts.map((p) => `/blog/${p.slug}`)]
       },
     },
   },
@@ -181,13 +172,13 @@ export const APIRoute = createAPIFileRoute('/api/revalidate')({
 
 ## Cache-Control Directives
 
-| Directive | Meaning |
-|-----------|---------|
-| `s-maxage=N` | CDN cache duration (seconds) |
-| `max-age=N` | Browser cache duration |
-| `stale-while-revalidate=N` | Serve stale while fetching fresh |
-| `private` | Don't cache on CDN (user-specific) |
-| `no-store` | Never cache |
+| Directive                  | Meaning                            |
+| -------------------------- | ---------------------------------- |
+| `s-maxage=N`               | CDN cache duration (seconds)       |
+| `max-age=N`                | Browser cache duration             |
+| `stale-while-revalidate=N` | Serve stale while fetching fresh   |
+| `private`                  | Don't cache on CDN (user-specific) |
+| `no-store`                 | Never cache                        |
 
 ## Context
 

@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+
 import {
   syncRealtime,
   type RealtimeQueryApi,
@@ -42,20 +43,29 @@ export function createSyncRealtimeClient(
     retryMs: config.retryMs,
     onChange: (event) => {
       if (config.resolve) {
-        config.resolve(event.table)?.applyRealtimeEvent(event.action, event.record)
+        config
+          .resolve(event.table)
+          ?.applyRealtimeEvent(event.action, event.record)
         return
       }
       const collection = collections[event.table]
       if (!collection) return
-      if (event.action === 'delete') collection.utils.writeDelete(event.record['id'])
+      if (event.action === 'delete')
+        collection.utils.writeDelete(event.record['id'])
       else collection.utils.writeUpsert(event.record)
     },
     onReconnect: async () => {
       if (config.resolveAll) {
-        await Promise.all([...config.resolveAll()].map((target) => target.refetchAll()))
+        await Promise.all(
+          [...config.resolveAll()].map((target) => target.refetchAll()),
+        )
         return
       }
-      await Promise.all(Object.values(collections).map((collection) => collection.utils.refetch()))
+      await Promise.all(
+        Object.values(collections).map((collection) =>
+          collection.utils.refetch(),
+        ),
+      )
     },
   })
 }

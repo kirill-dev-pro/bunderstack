@@ -24,7 +24,11 @@ test('generated bucket procedures preserve upload and nested download HTTP route
   const operations = {
     upload: async (_bucket: string, file: File) => {
       seen.push(`upload:${file.name}`)
-      return { status: 201 as const, fileId: 'docs/id.txt', url: '/api/files/docs/id.txt' }
+      return {
+        status: 201 as const,
+        fileId: 'docs/id.txt',
+        url: '/api/files/docs/id.txt',
+      }
     },
     download: async (_bucket: string, path: string) => {
       seen.push(`download:${path}`)
@@ -59,8 +63,8 @@ test('generated bucket procedures preserve upload and nested download HTTP route
   expect({ status: upload.response?.status, body: uploadBody }).toEqual({
     status: 201,
     body: {
-    fileId: 'docs/id.txt',
-    url: '/api/files/docs/id.txt',
+      fileId: 'docs/id.txt',
+      url: '/api/files/docs/id.txt',
     },
   })
 

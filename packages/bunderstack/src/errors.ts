@@ -78,12 +78,9 @@ export const mapBunderstackErrors = os
     } catch (error) {
       const mapped =
         error instanceof StandardSchemaValidationError
-          ? new BunderstackError(
-              'BAD_REQUEST',
-              error.message,
-              error.issues,
-              { cause: error },
-            )
+          ? new BunderstackError('BAD_REQUEST', error.message, error.issues, {
+              cause: error,
+            })
           : error
       if (!(mapped instanceof BunderstackError)) throw error
 

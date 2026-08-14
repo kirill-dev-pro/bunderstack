@@ -20,7 +20,7 @@ const { data } = useQuery({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: Infinity,  // Never garbage collect - potential memory leak
+      gcTime: Infinity, // Never garbage collect - potential memory leak
     },
   },
 })
@@ -29,7 +29,7 @@ const queryClient = new QueryClient({
 const { data } = useQuery({
   queryKey: ['user-data'],
   queryFn: fetchUserData,
-  gcTime: 0,  // Loses cache benefits entirely
+  gcTime: 0, // Loses cache benefits entirely
 })
 ```
 
@@ -40,21 +40,21 @@ const { data } = useQuery({
 const { data } = useQuery({
   queryKey: ['dashboard-stats'],
   queryFn: fetchDashboardStats,
-  gcTime: 30 * 60 * 1000,  // 30 minutes - user returns to dashboard often
+  gcTime: 30 * 60 * 1000, // 30 minutes - user returns to dashboard often
 })
 
 // Shorter gcTime for rarely revisited large data
 const { data: report } = useQuery({
   queryKey: ['detailed-report', reportId],
   queryFn: () => fetchReport(reportId),
-  gcTime: 2 * 60 * 1000,  // 2 minutes - large payload, viewed once
+  gcTime: 2 * 60 * 1000, // 2 minutes - large payload, viewed once
 })
 
 // Sensible default with query-specific overrides
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: 10 * 60 * 1000,  // 10 minutes default
+      gcTime: 10 * 60 * 1000, // 10 minutes default
     },
   },
 })
@@ -76,13 +76,13 @@ Timeline example (staleTime: 1min, gcTime: 5min):
 
 ## Recommended gcTime Values
 
-| Scenario | gcTime | Rationale |
-|----------|--------|-----------|
-| Frequently revisited routes | 15 - 30min | Instant navigation |
-| Detail pages (viewed once) | 2 - 5min | Memory efficient |
-| Large payloads | 1 - 2min | Prevent memory bloat |
-| Critical user data | 30min+ | Offline-like experience |
-| SSR hydration | >= 2s | Prevent hydration issues |
+| Scenario                    | gcTime     | Rationale                |
+| --------------------------- | ---------- | ------------------------ |
+| Frequently revisited routes | 15 - 30min | Instant navigation       |
+| Detail pages (viewed once)  | 2 - 5min   | Memory efficient         |
+| Large payloads              | 1 - 2min   | Prevent memory bloat     |
+| Critical user data          | 30min+     | Offline-like experience  |
+| SSR hydration               | >= 2s      | Prevent hydration issues |
 
 ## Context
 

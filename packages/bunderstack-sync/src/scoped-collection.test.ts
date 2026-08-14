@@ -34,10 +34,25 @@ function paginatedProcedureFactory() {
       nextCursor: hasMore ? items[items.length - 1]!.id : undefined,
     }
   }
-  return { procedures: { list: { call: list }, get: { call: async ({ id }: { id: string }) => rows.find((row) => row.id === id)! }, create: { call: async (v: any) => v }, update: { call: async ({ body }: any) => body }, delete: { call: async () => {} } }, calls, rows }
+  return {
+    procedures: {
+      list: { call: list },
+      get: {
+        call: async ({ id }: { id: string }) =>
+          rows.find((row) => row.id === id)!,
+      },
+      create: { call: async (v: any) => v },
+      update: { call: async ({ body }: any) => body },
+      delete: { call: async () => {} },
+    },
+    calls,
+    rows,
+  }
 }
 
-function makeTable(procedures: ReturnType<typeof paginatedProcedureFactory>['procedures']) {
+function makeTable(
+  procedures: ReturnType<typeof paginatedProcedureFactory>['procedures'],
+) {
   return createTableCollection<Post>({
     tableName: 'posts',
     procedures,
@@ -48,8 +63,14 @@ function makeTable(procedures: ReturnType<typeof paginatedProcedureFactory>['pro
 describe('scopedCollection', () => {
   it('returns the same instance for the same options', () => {
     const t = makeTable(paginatedProcedureFactory().procedures)
-    const a = t.scopedCollection({ filters: { replyToId: null }, order: 'desc' })
-    const b = t.scopedCollection({ filters: { replyToId: null }, order: 'desc' })
+    const a = t.scopedCollection({
+      filters: { replyToId: null },
+      order: 'desc',
+    })
+    const b = t.scopedCollection({
+      filters: { replyToId: null },
+      order: 'desc',
+    })
     expect(a).toBe(b)
     const c = t.scopedCollection({
       filters: { replyToId: 'p1' },

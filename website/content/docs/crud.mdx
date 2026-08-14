@@ -23,18 +23,18 @@ same procedures are available through the typed client and ordinary HTTP.
 Every parameter below is part of the procedure's schema, so REST and RPC accept
 exactly the same thing and query strings are coerced to the column types.
 
-| Param     | Example                           | Description                                        |
-| --------- | --------------------------------- | -------------------------------------------------- |
-| `limit`   | `?limit=20`                       | Page size (default 20, clamped to 200)             |
-| `offset`  | `?offset=0`                       | Skip rows (offset mode)                            |
-| `sort`    | `?sort=createdAt`                 | Sort column (must be in `sortableColumns`)         |
-| `order`   | `?order=desc`                     | `asc` or `desc`                                    |
-| `q`       | `?q=hello`                        | Text search on `searchableColumns`                 |
-| `count`   | `?count=true`                     | Include `total` in response                        |
-| `cursor`  | `?cursor=...`                     | Keyset pagination (cannot combine with `offset`)    |
-| `filters` | `?filters[replyToId]=5`           | Equality filter on a `filterableColumns` column     |
-| `filters` | `?filters[id][]=a&filters[id][]=b` | `IN (...)` — pass a list                            |
-| `filters` | `?filters[replyToId]=null`        | `IS NULL`                                          |
+| Param     | Example                            | Description                                      |
+| --------- | ---------------------------------- | ------------------------------------------------ |
+| `limit`   | `?limit=20`                        | Page size (default 20, clamped to 200)           |
+| `offset`  | `?offset=0`                        | Skip rows (offset mode)                          |
+| `sort`    | `?sort=createdAt`                  | Sort column (must be in `sortableColumns`)       |
+| `order`   | `?order=desc`                      | `asc` or `desc`                                  |
+| `q`       | `?q=hello`                         | Text search on `searchableColumns`               |
+| `count`   | `?count=true`                      | Include `total` in response                      |
+| `cursor`  | `?cursor=...`                      | Keyset pagination (cannot combine with `offset`) |
+| `filters` | `?filters[replyToId]=5`            | Equality filter on a `filterableColumns` column  |
+| `filters` | `?filters[id][]=a&filters[id][]=b` | `IN (...)` — pass a list                         |
+| `filters` | `?filters[replyToId]=null`         | `IS NULL`                                        |
 
 Anything else is rejected with 400: a bare `?replyToId=5` is not a filter, and an
 unknown filter column or a value the column cannot hold fails validation with a
@@ -167,15 +167,15 @@ await api.posts.list.call({ filters: { replyToId: null }, limit: 20 })
 
 Errors return `{ error, code?, details? }`:
 
-| Code                   | Status  | When                                       |
-| ---------------------- | ------- | ------------------------------------------ |
-| `BAD_REQUEST`          | 400     | Bad query params or JSON body              |
-| `INVALID_CURSOR`       | 400     | Malformed or mismatched cursor             |
-| `UNAUTHORIZED`         | 401     | Authentication required                    |
-| `FORBIDDEN`            | 403     | Access denied                              |
-| `NOT_FOUND`            | 404     | Missing record                             |
-| `CONFLICT`             | 409     | Idempotency key reused with different body |
-| `TOO_MANY_REQUESTS`    | 429     | Rate limit exceeded                        |
+| Code                | Status | When                                       |
+| ------------------- | ------ | ------------------------------------------ |
+| `BAD_REQUEST`       | 400    | Bad query params or JSON body              |
+| `INVALID_CURSOR`    | 400    | Malformed or mismatched cursor             |
+| `UNAUTHORIZED`      | 401    | Authentication required                    |
+| `FORBIDDEN`         | 403    | Access denied                              |
+| `NOT_FOUND`         | 404    | Missing record                             |
+| `CONFLICT`          | 409    | Idempotency key reused with different body |
+| `TOO_MANY_REQUESTS` | 429    | Rate limit exceeded                        |
 
 Codes are oRPC's own, so the HTTP status always matches the code. Sub-codes that
 carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in

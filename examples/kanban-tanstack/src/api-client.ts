@@ -31,4 +31,3 @@ export const api = createClient<App>({
   queryClient,
   fetch: (request) => isomorphicFetch(request),
 })
-

@@ -2,7 +2,15 @@ import { syncRealtime } from 'bunderstack-query'
 
 import { api, queryClient } from '~/api-client'
 
-const tables = ['boards', 'lists', 'cards', 'comments', 'activity', 'attachments', 'reactions']
+const tables = [
+  'boards',
+  'lists',
+  'cards',
+  'comments',
+  'activity',
+  'attachments',
+  'reactions',
+]
 let client: ReturnType<typeof syncRealtime> | null = null
 
 export function getRealtime() {

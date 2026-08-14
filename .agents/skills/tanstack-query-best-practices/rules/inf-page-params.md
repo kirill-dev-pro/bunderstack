@@ -21,23 +21,19 @@ const { data, fetchNextPage } = useInfiniteQuery({
 ## Good Example: Offset-Based Pagination
 
 ```tsx
-const {
-  data,
-  fetchNextPage,
-  hasNextPage,
-  isFetchingNextPage,
-} = useInfiniteQuery({
-  queryKey: ['posts'],
-  queryFn: ({ pageParam }) => fetchPosts({ page: pageParam, limit: 20 }),
-  initialPageParam: 1,
-  getNextPageParam: (lastPage, allPages) => {
-    // Return next page number, or undefined if no more pages
-    if (lastPage.length < 20) {
-      return undefined  // No more pages
-    }
-    return allPages.length + 1
-  },
-})
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  useInfiniteQuery({
+    queryKey: ['posts'],
+    queryFn: ({ pageParam }) => fetchPosts({ page: pageParam, limit: 20 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      // Return next page number, or undefined if no more pages
+      if (lastPage.length < 20) {
+        return undefined // No more pages
+      }
+      return allPages.length + 1
+    },
+  })
 ```
 
 ## Good Example: Cursor-Based Pagination
@@ -66,7 +62,9 @@ const { data, fetchNextPage, fetchPreviousPage, hasNextPage, hasPreviousPage } =
     queryFn: ({ pageParam }) => fetchMessages({ chatId, cursor: pageParam }),
     initialPageParam: { direction: 'initial' } as PageParam,
     getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? { cursor: lastPage.nextCursor, direction: 'next' } : undefined,
+      lastPage.hasMore
+        ? { cursor: lastPage.nextCursor, direction: 'next' }
+        : undefined,
     getPreviousPageParam: (firstPage) =>
       firstPage.hasPrevious
         ? { cursor: firstPage.prevCursor, direction: 'prev' }
@@ -104,18 +102,15 @@ const { data, hasNextPage } = useInfiniteQuery({
 ```tsx
 // data.pages is an array of page responses
 // Flatten for easier iteration
-const allPosts = data?.pages.flatMap(page => page.posts) ?? []
+const allPosts = data?.pages.flatMap((page) => page.posts) ?? []
 
 return (
   <div>
-    {allPosts.map(post => (
+    {allPosts.map((post) => (
       <PostCard key={post.id} post={post} />
     ))}
     {hasNextPage && (
-      <button
-        onClick={() => fetchNextPage()}
-        disabled={isFetchingNextPage}
-      >
+      <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
         {isFetchingNextPage ? 'Loading...' : 'Load More'}
       </button>
     )}

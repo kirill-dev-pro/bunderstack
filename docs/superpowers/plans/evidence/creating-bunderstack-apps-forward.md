@@ -14,11 +14,11 @@ N/A.
 
 ### Exact dispatch message
 
-````text
+```text
 Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. In a fresh context, use the repository skill `$creating-bunderstack-apps` for this task: Start a production-ready Bunderstack SaaS on TanStack Start with auth, projects, tasks, jobs, realtime, storage, email, and deployment scripts.
 
 Return only your proposed application structure and implementation plan. Do not edit files or inspect prior task evidence.
-````
+```
 
 Dispatch parameters: `task_name: forward_full_saas`, `fork_turns: none`.
 
@@ -110,15 +110,15 @@ No files were inspected beyond the requested skill instructions, and no files we
 
 ### Score
 
-| Decision | Score | Verbatim basis |
-| --- | --- | --- |
-| Layout | Pass | “Copy `templates/tanstack-start-saas/`” and `src/bunderstack/`. |
-| HTTP handler | Pass | “Mount Bunderstack once through `createApiHandlers(app)` at `/api/$`.” |
-| API process ownership | Pass | TanStack Start route tree contains the sole API mount. |
-| Worker model | Pass | `worker.ts # await app.runWorker()` and “separate `worker.ts`.” |
-| Direct-write realtime | Pass | “direct database writes return the full row and publish only after commit.” |
-| Provisioning | Pass | `index.ts # declarative createBunderstack + provision`. |
-| Template path | Pass | Exact `templates/tanstack-start-saas/` path. |
+| Decision              | Score | Verbatim basis                                                              |
+| --------------------- | ----- | --------------------------------------------------------------------------- |
+| Layout                | Pass  | “Copy `templates/tanstack-start-saas/`” and `src/bunderstack/`.             |
+| HTTP handler          | Pass  | “Mount Bunderstack once through `createApiHandlers(app)` at `/api/$`.”      |
+| API process ownership | Pass  | TanStack Start route tree contains the sole API mount.                      |
+| Worker model          | Pass  | `worker.ts # await app.runWorker()` and “separate `worker.ts`.”             |
+| Direct-write realtime | Pass  | “direct database writes return the full row and publish only after commit.” |
+| Provisioning          | Pass  | `index.ts # declarative createBunderstack + provision`.                     |
+| Template path         | Pass  | Exact `templates/tanstack-start-saas/` path.                                |
 
 Result: **7/7 applicable decisions correct.**
 
@@ -126,11 +126,11 @@ Result: **7/7 applicable decisions correct.**
 
 ### Exact dispatch message
 
-````text
+```text
 Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. In a fresh context, use the repository skill `$creating-bunderstack-apps` for this task: Add Bunderstack to a tiny Bun JSON API. Keep the setup proportionate to the project and show how HTTP traffic reaches Bunderstack.
 
 Return only your proposed application structure and implementation plan. Do not edit files or inspect prior task evidence.
-````
+```
 
 Dispatch parameters: `task_name: forward_tiny_api`, `fork_turns: none`.
 
@@ -165,12 +165,13 @@ Client → Bun.serve({ fetch: app.handler }) → Bunderstack app.handler
 4. Add `src/server.ts`:
 
    ```ts
-   import { app } from "./bunderstack"
+   import { app } from './bunderstack'
 
    Bun.serve({ fetch: app.handler })
    ```
 
    This is the sole HTTP mount—no parallel router, database client, or auth handler.
+
 5. Add minimal environment documentation in `.env.example`, using runtime-owned secrets and validated configuration rather than hard-coded credentials.
 6. Add a Bun test that sends a Web-Standard `Request` through `app.handler` (and/or starts the Bun server) to verify JSON responses and access behavior.
 7. Add Bun scripts for development, production start, and `bun test`; only add migrations/provisioning artifacts if the API persists data.
@@ -178,15 +179,15 @@ Client → Bun.serve({ fetch: app.handler }) → Bunderstack app.handler
 
 ### Score
 
-| Decision | Score | Verbatim basis |
-| --- | --- | --- |
-| Layout | Pass | “Keep the tiny API in `src/bunderstack.ts`.” |
-| HTTP handler | Pass | Exact `Bun.serve({ fetch: app.handler })` code. |
-| API process ownership | Pass | “This is the sole HTTP mount.” |
-| Worker model | N/A | No jobs requested. |
-| Direct-write realtime | N/A | No realtime write requested. |
-| Provisioning | N/A | Conditional only if the API persists data. |
-| Template path | N/A | Not a full SaaS. |
+| Decision              | Score | Verbatim basis                                  |
+| --------------------- | ----- | ----------------------------------------------- |
+| Layout                | Pass  | “Keep the tiny API in `src/bunderstack.ts`.”    |
+| HTTP handler          | Pass  | Exact `Bun.serve({ fetch: app.handler })` code. |
+| API process ownership | Pass  | “This is the sole HTTP mount.”                  |
+| Worker model          | N/A   | No jobs requested.                              |
+| Direct-write realtime | N/A   | No realtime write requested.                    |
+| Provisioning          | N/A   | Conditional only if the API persists data.      |
+| Template path         | N/A   | Not a full SaaS.                                |
 
 Result: **3/3 applicable decisions correct.**
 
@@ -194,11 +195,11 @@ Result: **3/3 applicable decisions correct.**
 
 ### Exact dispatch message
 
-````text
+```text
 Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. In a fresh context, use the repository skill `$creating-bunderstack-apps` for this task: Build a React SPA backed by Bunderstack. Explain which process owns the API and how the frontend reaches it.
 
 Return only your proposed application structure and implementation plan. Do not edit files or inspect prior task evidence.
-````
+```
 
 Dispatch parameters: `task_name: forward_react_spa`, `fork_turns: none`.
 
@@ -243,15 +244,15 @@ my-app/
 
 ### Score
 
-| Decision | Score | Verbatim basis |
-| --- | --- | --- |
-| Layout | Fail | `src/app.ts` plus nested `src/frontend/` in one app. |
-| HTTP handler | Pass | “serves `app.handler`” selects the Web Standard handler even though the process boundary is wrong. |
-| API process ownership | Fail | “Build a single Bun server process” and “no separate API host.” |
-| Worker model | N/A | No jobs requested. |
-| Direct-write realtime | N/A | No realtime write requested. |
-| Provisioning | N/A | Production persistence was not required. |
-| Template path | N/A | Not a full SaaS. |
+| Decision              | Score | Verbatim basis                                                                                     |
+| --------------------- | ----- | -------------------------------------------------------------------------------------------------- |
+| Layout                | Fail  | `src/app.ts` plus nested `src/frontend/` in one app.                                               |
+| HTTP handler          | Pass  | “serves `app.handler`” selects the Web Standard handler even though the process boundary is wrong. |
+| API process ownership | Fail  | “Build a single Bun server process” and “no separate API host.”                                    |
+| Worker model          | N/A   | No jobs requested.                                                                                 |
+| Direct-write realtime | N/A   | No realtime write requested.                                                                       |
+| Provisioning          | N/A   | Production persistence was not required.                                                           |
+| Template path         | N/A   | Not a full SaaS.                                                                                   |
 
 Observed gap: **1/3 applicable decisions correct.** The verbatim transcript
 corrects the earlier paraphrase-only score: handler selection was right, while
@@ -269,11 +270,11 @@ supplies the target shape instead of banning same-origin SPA hosting.
 
 ### Exact dispatch message
 
-````text
+```text
 Work only in /Users/kirill/pet-projects/bunderstack/.worktrees/bunderstack-saas-template-skills. In a fresh context, use the repository skill `$creating-bunderstack-apps` for this task: Build a React SPA backed by Bunderstack. Explain which process owns the API and how the frontend reaches it.
 
 Return only your proposed application structure and implementation plan. Do not edit files or inspect prior task evidence.
-````
+```
 
 Dispatch parameters: `task_name: forward_react_spa_controlled`,
 `fork_turns: none`. This message is byte-for-byte identical to Run 3's
@@ -337,15 +338,15 @@ The Bun process in `api/src/index.ts` owns the API and mounts the single Bunders
 
 ### Score
 
-| Decision | Score | Verbatim basis |
-| --- | --- | --- |
-| Layout | Pass | “independent `api` and `frontend` packages.” |
-| HTTP handler | Pass | Exact `Bun.serve({ fetch: app.handler })`. |
-| API process ownership | Pass | “The Bun process in `api/src/index.ts` owns the API.” |
-| Worker model | N/A | No jobs requested. |
-| Direct-write realtime | N/A | No realtime write requested. |
-| Provisioning | N/A | Production persistence was not required. |
-| Template path | N/A | Not a full SaaS. |
+| Decision              | Score | Verbatim basis                                        |
+| --------------------- | ----- | ----------------------------------------------------- |
+| Layout                | Pass  | “independent `api` and `frontend` packages.”          |
+| HTTP handler          | Pass  | Exact `Bun.serve({ fetch: app.handler })`.            |
+| API process ownership | Pass  | “The Bun process in `api/src/index.ts` owns the API.” |
+| Worker model          | N/A   | No jobs requested.                                    |
+| Direct-write realtime | N/A   | No realtime write requested.                          |
+| Provisioning          | N/A   | Production persistence was not required.              |
+| Template path         | N/A   | Not a full SaaS.                                      |
 
 Controlled result after refactor: **3/3 applicable decisions correct.** Because
 the dispatch is identical to Run 3, the refactor still passes without the

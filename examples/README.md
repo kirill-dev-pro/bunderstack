@@ -55,6 +55,7 @@ Use separate terminals — each binds a different port.
 | Twitter (TanStack Start)       | `bun run dev:twitter-tanstack`    | http://localhost:3000 |
 | Todo (TanStack Start)          | `bun run dev:todo`                | http://localhost:3005 |
 | Twitter (TanStack DB + shadcn) | `bun run dev:twitter-db-tanstack` | http://localhost:3003 |
+| Todo (Solid 2, no query lib)   | `bun run dev:todo-solid-2`        | http://localhost:3006 |
 | Kanban (Solid + Vite)          | `bun run dev:kanban`              | http://localhost:5174 |
 | Kanban (TanStack Start)        | `bun run dev:kanban-tanstack`     | http://localhost:5175 |
 | Whiteboard (TanStack Start)    | `bun run dev:tldraw`              | http://localhost:3000 |
@@ -110,6 +111,21 @@ Demo accounts (password `password123`): `alice@example.com`, `bob@example.com`, 
 | `/users/:id`        | Profile, follow, posts                             |
 | `/profile`          | Avatar upload (auth required)                      |
 | `/login`, `/signup` | BetterAuth                                         |
+
+### Todo (Solid 2)
+
+The same todo domain on **Solid 2.0 RC with no query library**. Solid 2's start
+mode mounts `app.handler` as fetch-style middleware — six lines, replacing the
+Vite plugin plus Nitro config the Solid 1.9 example needs — and
+`createOptimisticStore` + `action` + `refresh` replace TanStack Query outright.
+Public CRUD on one table, no auth.
+
+```bash
+bun run dev:todo-solid-2
+```
+
+See `examples/todo-solid-2/README.md` for the integration and the client
+patterns side by side.
 
 ### Next.js
 

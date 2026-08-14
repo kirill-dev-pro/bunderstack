@@ -1,4 +1,4 @@
 interface:
-  display_name: "Migrating to Bunderstack"
-  short_description: "Move existing applications onto Bunderstack"
-  default_prompt: "Use $migrating-to-bunderstack to migrate this application to Bunderstack."
+  display_name: 'Migrating to Bunderstack'
+  short_description: 'Move existing applications onto Bunderstack'
+  default_prompt: 'Use $migrating-to-bunderstack to migrate this application to Bunderstack.'

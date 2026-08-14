@@ -30,7 +30,9 @@ export const Route = createFileRoute('/posts/$postId')({
 
     try {
       const [post, repliesPage] = await Promise.all([
-        queryClient.ensureQueryData(api.posts.get.queryOptions({ input: { id: postId } })),
+        queryClient.ensureQueryData(
+          api.posts.get.queryOptions({ input: { id: postId } }),
+        ),
         queryClient.fetchInfiniteQuery(
           api.posts.list.infiniteOptions(infiniteListInput(repliesQuery)),
         ),
@@ -48,12 +50,19 @@ export const Route = createFileRoute('/posts/$postId')({
           api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         queryClient.ensureQueryData(
-          api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
+          api.retweets.list.queryOptions({
+            input: byColumnIn('postId', postIds),
+          }),
         ),
       ])
       return { repliesQuery }
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'NOT_FOUND'
+      )
         throw notFound()
       throw err
     }
@@ -69,13 +78,17 @@ function PostThreadPage() {
   const router = useRouter()
   const repliesQuery = initial.repliesQuery
 
-  const { data: postData } = useQuery(api.posts.get.queryOptions({ input: { id: postId } }))
+  const { data: postData } = useQuery(
+    api.posts.get.queryOptions({ input: { id: postId } }),
+  )
   const {
     data: repliesData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery(api.posts.list.infiniteOptions(infiniteListInput(repliesQuery)))
+  } = useInfiniteQuery(
+    api.posts.list.infiniteOptions(infiniteListInput(repliesQuery)),
+  )
 
   const post = postData
 

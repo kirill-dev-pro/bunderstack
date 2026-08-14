@@ -194,11 +194,7 @@ function buildBucketProcedures(
     .input(v.strictObject({ path: v.string() }))
     .output(v.undefined())
     .handler(async ({ input, context }) => {
-      await operations.delete(
-        name,
-        input.path,
-        await executionContext(context),
-      )
+      await operations.delete(name, input.path, await executionContext(context))
       return undefined
     })
 

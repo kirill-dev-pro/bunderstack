@@ -34,7 +34,7 @@ actual compute.
   sources that Vite must transform rather than hand to the Node resolver
 
 **The critical finding:** the template's entire dependence on TanStack Start's
-server functions is *one file, 17 lines* — `src/lib/session.ts`:
+server functions is _one file, 17 lines_ — `src/lib/session.ts`:
 
 ```ts
 export const fetchUser = createServerFn({ method: 'GET' }).handler(
@@ -60,13 +60,13 @@ concentrated almost entirely in the server-side session read.
 The instinct "use Astro, go fully static, no JavaScript" is directionally right
 but should be split by **surface**, not applied uniformly:
 
-| Surface | Needs JS? | Needs SSR? |
-|---|---|---|
-| Marketing / docs / pricing / blog | No | No — prerender, zero JS, perfect CDN cache |
-| Dashboard (behind auth) | **Yes** — interactive, driven by bunderstack-sync live queries | **No** — per-user and uncacheable, so server rendering buys almost nothing |
+| Surface                           | Needs JS?                                                      | Needs SSR?                                                                 |
+| --------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Marketing / docs / pricing / blog | No                                                             | No — prerender, zero JS, perfect CDN cache                                 |
+| Dashboard (behind auth)           | **Yes** — interactive, driven by bunderstack-sync live queries | **No** — per-user and uncacheable, so server rendering buys almost nothing |
 
 The dashboard cannot be "no JavaScript" — it is an interactive app. But it does
-not need *server rendering*, which is a different question that tends to get
+not need _server rendering_, which is a different question that tends to get
 conflated with it.
 
 **Therefore both halves can ship as static files.** Marketing is prerendered
@@ -78,7 +78,7 @@ background jobs.
 
 - Kills the entire "does this code run on the server or the client?" problem class
 - Kills the `ssr.noExternal: [/^bunderstack/]` workaround in the template's Vite config
-- Makes the deploy artifact literally *a bucket plus one process*
+- Makes the deploy artifact literally _a bucket plus one process_
 - Decouples deploy cadence — assets ship in seconds, compute rolls on its own schedule
   (this is the actual source of the original "Fly is slow" pain)
 
@@ -123,29 +123,29 @@ a purpose that no longer matches its description.
 ## Connection to the Cloudflare-as-a-target question
 
 If the app is static and the server is API-only, then the thing you would deploy
-to a Cloudflare Worker is *just an API handler* — which makes Cloudflare a far
+to a Cloudflare Worker is _just an API handler_ — which makes Cloudflare a far
 more realistic target than it first appears.
 
 A coupling audit of `packages/*/src` (excluding tests) found the Bun-specific
 surface is thinner than expected. Counts of Bun API usage:
 
-| API | Uses | Assessment |
-|---|---|---|
-| `Bun.file` / `Bun.write` | 24 | Mostly CLI + blueprint generator (build-time, irrelevant at runtime) and the local storage driver |
-| `Bun.Image` | 6 | **The real blocker.** `storage/thumbnails.ts`. No native image codec in a Worker. |
-| `Bun.S3Client` | 4 | `storage/s3.ts` — already behind a storage driver seam; R2 binding or aws4fetch replaces it |
-| `Bun.RedisClient` | 4 | `index.ts` realtime broker — disappears if realtime moves off Redis |
-| `Bun.randomUUIDv7` | 4 | `typeid.ts` — trivially replaceable |
-| `bun:sqlite` / `Bun.sql` | 6 | Already behind a dialect seam; libSQL over HTTP or Hyperdrive works |
-| `Bun.serve` | 2 | Core is already a Web-standard `Request -> Response` handler |
-| `Bun.resolveSync` | 1 | CLI only |
+| API                      | Uses | Assessment                                                                                        |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------- |
+| `Bun.file` / `Bun.write` | 24   | Mostly CLI + blueprint generator (build-time, irrelevant at runtime) and the local storage driver |
+| `Bun.Image`              | 6    | **The real blocker.** `storage/thumbnails.ts`. No native image codec in a Worker.                 |
+| `Bun.S3Client`           | 4    | `storage/s3.ts` — already behind a storage driver seam; R2 binding or aws4fetch replaces it       |
+| `Bun.RedisClient`        | 4    | `index.ts` realtime broker — disappears if realtime moves off Redis                               |
+| `Bun.randomUUIDv7`       | 4    | `typeid.ts` — trivially replaceable                                                               |
+| `bun:sqlite` / `Bun.sql` | 6    | Already behind a dialect seam; libSQL over HTTP or Hyperdrive works                               |
+| `Bun.serve`              | 2    | Core is already a Web-standard `Request -> Response` handler                                      |
+| `Bun.resolveSync`        | 1    | CLI only                                                                                          |
 
 Options for the `Bun.Image` blocker: Cloudflare Images; or keep thumbnailing as a
 background job that runs on a Bun machine; or drop thumbnails from the Cloudflare
 profile.
 
 **Strategic caveat worth carrying forward:** a second runtime target is the
-*opposite* of simplification unless the core stays strictly Web-standard and every
+_opposite_ of simplification unless the core stays strictly Web-standard and every
 platform difference lives behind the driver seams that already exist. The codebase
 is roughly 80% there already, seemingly by accident. That discipline pays off even
 if Cloudflare is never adopted.
@@ -163,7 +163,7 @@ if Cloudflare is never adopted.
    into another package?
 4. One template or two — does the SaaS template ship marketing + app together, or
    does the framework take a position that they are separate deployables?
-5. If Cloudflare becomes a target, is it a *supported profile* with its own driver
+5. If Cloudflare becomes a target, is it a _supported profile_ with its own driver
    set, or an example? Supported means committing to the Web-standard discipline
    in CI.
 

@@ -19,7 +19,7 @@ const router = createRouter({
 function PostList({ posts }: { posts: Post[] }) {
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>
           <Link to="/posts/$postId" params={{ postId: post.id }}>
             {post.title}
@@ -38,8 +38,8 @@ function PostList({ posts }: { posts: Post[] }) {
 // router.tsx - Enable preloading by default
 const router = createRouter({
   routeTree,
-  defaultPreload: 'intent',       // Preload on hover/focus
-  defaultPreloadDelay: 50,        // Wait 50ms before starting
+  defaultPreload: 'intent', // Preload on hover/focus
+  defaultPreloadDelay: 50, // Wait 50ms before starting
 })
 
 declare module '@tanstack/react-router' {
@@ -52,7 +52,7 @@ declare module '@tanstack/react-router' {
 function PostList({ posts }: { posts: Post[] }) {
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>
           <Link to="/posts/$postId" params={{ postId: post.id }}>
             {post.title}
@@ -94,12 +94,12 @@ const router = createRouter({
 
 ## Preload Strategies
 
-| Strategy | Behavior | Use Case |
-|----------|----------|----------|
-| `'intent'` | Preload on hover/focus | Default for most links |
-| `'render'` | Preload when Link mounts | Critical next pages |
-| `'viewport'` | Preload when Link enters viewport | Below-fold content |
-| `false` | No preloading | Heavy, rarely-visited pages |
+| Strategy     | Behavior                          | Use Case                    |
+| ------------ | --------------------------------- | --------------------------- |
+| `'intent'`   | Preload on hover/focus            | Default for most links      |
+| `'render'`   | Preload when Link mounts          | Critical next pages         |
+| `'viewport'` | Preload when Link enters viewport | Below-fold content          |
+| `false`      | No preloading                     | Heavy, rarely-visited pages |
 
 ## Good Example: With TanStack Query Integration
 
@@ -108,7 +108,7 @@ const router = createRouter({
 const router = createRouter({
   routeTree,
   defaultPreload: 'intent',
-  defaultPreloadStaleTime: 0,  // Let TanStack Query manage cache
+  defaultPreloadStaleTime: 0, // Let TanStack Query manage cache
   context: {
     queryClient,
   },

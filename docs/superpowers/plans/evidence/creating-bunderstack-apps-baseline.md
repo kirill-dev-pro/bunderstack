@@ -36,14 +36,14 @@ Response:
 > Before implementation, I’d confirm the deployment target (e.g. Fly.io,
 > Railway, Docker/VPS) and preferred email/storage providers.
 
-| Contract decision | Result |
-| --- | --- |
-| Modular `src/bunderstack/` layout | Not selected; only an unrelated monorepo layout was proposed. |
-| TanStack Start `createApiHandlers(app)` handler mount | Not specified. |
-| Separate `src/worker.ts` calling `app.runWorker()` | Not specified; “job queue endpoints and workers” leaves ownership ambiguous. |
-| Typed `publish(table, event, completeRow)` after direct writes | Not specified; proposed SSE instead. |
-| `provision(app)` | Not specified. |
-| `templates/tanstack-start-saas/` starting point | Not specified. |
+| Contract decision                                              | Result                                                                       |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Modular `src/bunderstack/` layout                              | Not selected; only an unrelated monorepo layout was proposed.                |
+| TanStack Start `createApiHandlers(app)` handler mount          | Not specified.                                                               |
+| Separate `src/worker.ts` calling `app.runWorker()`             | Not specified; “job queue endpoints and workers” leaves ownership ambiguous. |
+| Typed `publish(table, event, completeRow)` after direct writes | Not specified; proposed SSE instead.                                         |
+| `provision(app)`                                               | Not specified.                                                               |
+| `templates/tanstack-start-saas/` starting point                | Not specified.                                                               |
 
 ## Tiny Bun JSON API scenario
 
@@ -60,14 +60,14 @@ Response:
 > `app.handler`, document that request path inline, and verify it with the
 > project’s Bun test or a local HTTP request.
 
-| Contract decision | Result |
-| --- | --- |
-| Single `src/bunderstack.ts` layout | Not stated, though “smallest setup” is directionally proportionate. |
-| Web Standard `Request -> app.handler -> Response` | Correctly selected. |
-| Dedicated worker | Not applicable to this prompt and not added. |
-| Typed realtime publish | Not applicable to this prompt and not stated. |
-| `provision(app)` | Not specified. |
-| Full SaaS template path | Not applicable to this prompt and not stated. |
+| Contract decision                                 | Result                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| Single `src/bunderstack.ts` layout                | Not stated, though “smallest setup” is directionally proportionate. |
+| Web Standard `Request -> app.handler -> Response` | Correctly selected.                                                 |
+| Dedicated worker                                  | Not applicable to this prompt and not added.                        |
+| Typed realtime publish                            | Not applicable to this prompt and not stated.                       |
+| `provision(app)`                                  | Not specified.                                                      |
+| Full SaaS template path                           | Not applicable to this prompt and not stated.                       |
 
 ## React SPA scenario
 
@@ -94,14 +94,14 @@ Response:
 > 4. Add scripts to run the API and frontend together, plus production
 >    build/serving instructions.
 
-| Contract decision | Result |
-| --- | --- |
-| Proportionate Bunderstack layout | Not specified. |
-| API process owns `app.handler` | API process ownership is correct; handler forwarding is not specified. |
-| Dedicated worker | Not specified. |
-| Typed realtime publish | Not specified. |
-| `provision(app)` | Not specified. |
-| Full SaaS template path | Not specified. |
+| Contract decision                | Result                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| Proportionate Bunderstack layout | Not specified.                                                         |
+| API process owns `app.handler`   | API process ownership is correct; handler forwarding is not specified. |
+| Dedicated worker                 | Not specified.                                                         |
+| Typed realtime publish           | Not specified.                                                         |
+| `provision(app)`                 | Not specified.                                                         |
+| Full SaaS template path          | Not specified.                                                         |
 
 ## Baseline conclusion
 

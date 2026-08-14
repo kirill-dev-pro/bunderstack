@@ -30,7 +30,9 @@ export function AttachmentGallery({
       if (fileId) await api.files.attachments.delete(fileId)
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: api.attachments.key({ type: 'query' }) })
+      void queryClient.invalidateQueries({
+        queryKey: api.attachments.key({ type: 'query' }),
+      })
       onDelete?.()
     },
     successMessage: 'Attachment removed',

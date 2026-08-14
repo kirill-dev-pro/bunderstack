@@ -45,6 +45,7 @@
 ### Task 1: oRPC builder and request context
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/context.ts`
 - Create: `packages/bunderstack/src/api/builder.ts`
 - Test: `packages/bunderstack/src/api/builder.test.ts`
@@ -52,6 +53,7 @@
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Produces: `createApiBuilder<TSchema, TEnv>()` returning `{ public, protected }`.
 - Produces: `createApiContext(deps, request)` with memoized `getSession()`.
 - `protected` adds non-null `user` and `session` to the procedure context.
@@ -65,11 +67,13 @@
 ### Task 2: Global route registry and collision validation
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/registry.ts`
 - Test: `packages/bunderstack/src/api/registry.test.ts`
 - Modify: `packages/bunderstack/src/routes.ts`
 
 **Interfaces:**
+
 - Consumes: oRPC router metadata and foreign OpenAPI path operations.
 - Produces: `buildApiRegistry({ nativeRouter, foreignSpecs })`.
 - Produces: normalized entries `{ handle, operationId, method, path, source }`.
@@ -87,6 +91,7 @@
 ### Task 3: Generated CRUD procedures with unchanged URLs
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/crud-router.ts`
 - Test: `packages/bunderstack/src/api/crud-router.test.ts`
 - Modify: `packages/bunderstack/src/crud.ts`
@@ -95,6 +100,7 @@
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Consumes: schema, database, resolved access, idempotency, realtime, and the shared API builder.
 - Produces: `buildCrudApiRouter(schema, db, options)` with `list`, `get`, `create`, `update`, and `delete` procedures per exposed table.
 - Produces: `CrudApiRouterFor<TSchema, TAccess>` so client handles are inferred
@@ -116,6 +122,7 @@
 ### Task 4: Mount custom API and expose the combined OpenAPI document
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/openapi.ts`
 - Test: `packages/bunderstack/src/api/openapi.test.ts`
 - Modify: `packages/bunderstack/src/handler.ts`
@@ -124,6 +131,7 @@
 - Modify: `packages/bunderstack/src/auth.ts`
 
 **Interfaces:**
+
 - Adds `api: (o) => Router` to `createBunderstack` options.
 - Mounts OpenAPI HTTP operations under their declared current paths.
 - Mounts RPC transport at `/api/rpc/*`.
@@ -145,6 +153,7 @@
 ### Task 5: One TanStack Query client namespace
 
 **Files:**
+
 - Create: `packages/bunderstack-query/src/api.ts`
 - Test: `packages/bunderstack-query/tests/api-client.test.ts`
 - Modify: `packages/bunderstack-query/src/client.ts`
@@ -154,6 +163,7 @@
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Produces one `createClient<App>()` surface containing generated resource procedures and custom procedures.
 - Uses oRPC TanStack Query utilities for both categories.
 - Adds `@orpc/client` and `@orpc/tanstack-query` at the same beta version as
@@ -169,6 +179,7 @@
 ### Task 6: Migrate representative examples and evaluate the experiment
 
 **Files:**
+
 - Modify: `examples/todo/src/bunderstack.ts`
 - Modify: `examples/todo/src/api-client.ts`
 - Modify: `examples/todo/src/routes/index.tsx`
@@ -178,6 +189,7 @@
 - Create: `docs/plans/2026-08-09-unified-orpc-api-findings.md`
 
 **Interfaces:**
+
 - Consumes: the new server `api:` builder and unified client.
 - Produces: two realistic DX examples and a keep/change/stop recommendation.
 

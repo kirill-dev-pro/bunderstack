@@ -92,14 +92,14 @@ function PostsPage() {
 
 ## Cache Comparison
 
-| Feature | Router Cache | Query Cache |
-|---------|-------------|-------------|
-| Invalidation | Manual/time-based | Query keys, patterns |
-| Background refetch | No | Yes |
-| Optimistic updates | No | Yes |
-| Mutations | No built-in | Full support |
-| DevTools | Limited | Rich debugging |
-| Cross-route sharing | Full | Full |
+| Feature             | Router Cache      | Query Cache          |
+| ------------------- | ----------------- | -------------------- |
+| Invalidation        | Manual/time-based | Query keys, patterns |
+| Background refetch  | No                | Yes                  |
+| Optimistic updates  | No                | Yes                  |
+| Mutations           | No built-in       | Full support         |
+| DevTools            | Limited           | Rich debugging       |
+| Cross-route sharing | Full              | Full                 |
 
 ## Good Example: Coordinated Caching Config
 
@@ -109,8 +109,8 @@ export function getRouter() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,       // Fresh for 1 minute
-        gcTime: 10 * 60 * 1000,     // Cache for 10 minutes
+        staleTime: 60 * 1000, // Fresh for 1 minute
+        gcTime: 10 * 60 * 1000, // Cache for 10 minutes
         refetchOnWindowFocus: true, // Refetch when tab focused
         retry: 1,
       },
@@ -145,8 +145,8 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     context: { queryClient },
-    defaultPreload: 'intent',     // Preload on hover
-    defaultPreloadStaleTime: 0,   // Query decides if data is stale
+    defaultPreload: 'intent', // Preload on hover
+    defaultPreloadStaleTime: 0, // Query decides if data is stale
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient })

@@ -102,7 +102,9 @@ beforeEach(async () => {
 
 const context = (userId: string | null) => ({
   request: new Request('http://localhost/api/files/docs'),
-  user: userId ? { id: userId, email: `${userId}@test.dev`, name: userId } : null,
+  user: userId
+    ? { id: userId, email: `${userId}@test.dev`, name: userId }
+    : null,
   session: { activeOrganizationId: null },
 })
 
@@ -115,7 +117,9 @@ test('proxy upload stores bytes and metadata without HTTP framework types', asyn
 
   expect(result.status).toBe(201)
   expect(result.fileId.startsWith('docs/')).toBe(true)
-  expect(await adapter.get(result.fileId).then((res) => res.text())).toBe('hello')
+  expect(await adapter.get(result.fileId).then((res) => res.text())).toBe(
+    'hello',
+  )
   expect((await getFileMeta(db, result.fileId))?.ownerId).toBe('u1')
 })
 
@@ -137,9 +141,10 @@ test('access failures use the shared strict error model', async () => {
 })
 
 test('prepare selects proxy locally and creates pending metadata for presign', async () => {
-  expect(
-    await operations.prepareUpload('docs', {}, context('u1')),
-  ).toEqual({ mode: 'proxy', uploadUrl: '/api/files/docs' })
+  expect(await operations.prepareUpload('docs', {}, context('u1'))).toEqual({
+    mode: 'proxy',
+    uploadUrl: '/api/files/docs',
+  })
 
   const direct = new PresignAdapter()
   const directOperations = operationsFor(direct)

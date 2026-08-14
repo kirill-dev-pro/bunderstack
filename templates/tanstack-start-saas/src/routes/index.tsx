@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
+
 import { DeliveryRail } from '~/components/delivery-rail'
 import { Button } from '~/components/ui/button'
 
@@ -13,7 +14,9 @@ function LandingPage() {
       {/* Header / Nav */}
       <header className="max-w-6xl w-full mx-auto flex items-center justify-between py-4 border-b border-[#17211B]/10">
         <div className="flex items-center space-x-8">
-          <span className="font-display text-2xl font-bold tracking-tight">BunderSaaS</span>
+          <span className="font-display text-2xl font-bold tracking-tight">
+            BunderSaaS
+          </span>
           <nav className="hidden sm:flex space-x-6 text-sm font-medium text-[#17211B]/80">
             <span>Product</span>
             <span>Client Workspace</span>
@@ -40,7 +43,9 @@ function LandingPage() {
             Deliver the work, not the status meeting.
           </h1>
           <p className="text-lg text-[#17211B]/80 leading-relaxed max-w-xl">
-            BunderSaaS pairs client workspaces and admin portals with live delivery rails, owner-scoped CRUD, and background queue workers on Bunderstack.
+            BunderSaaS pairs client workspaces and admin portals with live
+            delivery rails, owner-scoped CRUD, and background queue workers on
+            Bunderstack.
           </p>
           <div className="flex flex-wrap gap-4 pt-2">
             <Button size="lg" variant="default" asChild>
@@ -60,7 +65,10 @@ function LandingPage() {
 
       {/* Footer */}
       <footer className="max-w-6xl w-full mx-auto py-6 border-t border-[#17211B]/10 flex flex-col sm:flex-row items-center justify-between text-xs text-[#17211B]/60">
-        <p>© {new Date().getFullYear()} BunderSaaS. Built on Bunderstack + TanStack Start.</p>
+        <p>
+          © {new Date().getFullYear()} BunderSaaS. Built on Bunderstack +
+          TanStack Start.
+        </p>
         <div className="flex space-x-4 mt-2 sm:mt-0">
           <span>Documentation</span>
           <span>Privacy</span>

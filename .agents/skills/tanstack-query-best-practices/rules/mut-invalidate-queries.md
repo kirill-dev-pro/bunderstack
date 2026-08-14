@@ -76,13 +76,15 @@ const assignTodoToUser = useMutation({
 const mutation = useMutation({
   mutationFn: updatePost,
   onSuccess: (
-    data,      // Server response
+    data, // Server response
     variables, // What you passed to mutate()
-    context    // What onMutate returned
+    context, // What onMutate returned
   ) => {
     // Use variables to know which queries to invalidate
     queryClient.invalidateQueries({ queryKey: ['posts', variables.id] })
-    queryClient.invalidateQueries({ queryKey: ['posts', 'list', variables.category] })
+    queryClient.invalidateQueries({
+      queryKey: ['posts', 'list', variables.category],
+    })
   },
 })
 ```
@@ -103,7 +105,10 @@ onSuccess: (newTodo) => {
 // Option 3: Hybrid - update one, invalidate others
 onSuccess: (newTodo) => {
   // Immediately add to list
-  queryClient.setQueryData(['todos', 'list'], (old: Todo[]) => [...old, newTodo])
+  queryClient.setQueryData(['todos', 'list'], (old: Todo[]) => [
+    ...old,
+    newTodo,
+  ])
   // Invalidate counts/summaries for eventual consistency
   queryClient.invalidateQueries({ queryKey: ['todos', 'count'] })
 }

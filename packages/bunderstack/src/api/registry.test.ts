@@ -1,7 +1,8 @@
-import { test, expect } from 'bun:test'
-import { os } from '@orpc/server'
 import { openapi } from '@orpc/openapi'
+import { os } from '@orpc/server'
+import { test, expect } from 'bun:test'
 import * as v from 'valibot'
+
 import { buildApiRegistry } from './registry'
 
 test('buildApiRegistry collects and normalizes native and foreign routes', async () => {
@@ -40,7 +41,9 @@ test('buildApiRegistry collects and normalizes native and foreign routes', async
   expect(postList?.path).toBe('/api/posts')
   expect(postList?.source).toBe('native')
 
-  const authSignIn = registry.entries.find((e) => e.operationId === 'auth.signIn')
+  const authSignIn = registry.entries.find(
+    (e) => e.operationId === 'auth.signIn',
+  )
   expect(authSignIn).toBeDefined()
   expect(authSignIn?.method).toBe('POST')
   expect(authSignIn?.path).toBe('/api/auth/sign-in')
@@ -224,11 +227,23 @@ test('buildApiRegistry fails when distinct handles share the same explicit opera
   const nativeRouter = {
     posts: {
       list: os
-        .meta(openapi({ method: 'GET', path: '/api/posts', operationId: 'customOp' }))
+        .meta(
+          openapi({
+            method: 'GET',
+            path: '/api/posts',
+            operationId: 'customOp',
+          }),
+        )
         .input(v.object({}))
         .handler(async () => []),
       archive: os
-        .meta(openapi({ method: 'GET', path: '/api/archive-posts', operationId: 'customOp' }))
+        .meta(
+          openapi({
+            method: 'GET',
+            path: '/api/archive-posts',
+            operationId: 'customOp',
+          }),
+        )
         .input(v.object({}))
         .handler(async () => []),
     },

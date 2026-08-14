@@ -254,18 +254,28 @@ export function createEmail(
         } as EmailMessage & {
           from: string
         })
-        await updateJournal(opts.db, id, {
-          providerId: sent.id || undefined,
-          status: 'sent',
-          updatedAt: Date.now(),
-        }, 'sending')
+        await updateJournal(
+          opts.db,
+          id,
+          {
+            providerId: sent.id || undefined,
+            status: 'sent',
+            updatedAt: Date.now(),
+          },
+          'sending',
+        )
         return { id, providerId: sent.id || undefined }
       } catch (error) {
-        await updateJournal(opts.db, id, {
-          status: 'failed',
-          error: error instanceof Error ? error.message : String(error),
-          updatedAt: Date.now(),
-        }, 'sending')
+        await updateJournal(
+          opts.db,
+          id,
+          {
+            status: 'failed',
+            error: error instanceof Error ? error.message : String(error),
+            updatedAt: Date.now(),
+          },
+          'sending',
+        )
         throw error
       }
     },

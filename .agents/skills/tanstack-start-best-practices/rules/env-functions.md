@@ -10,23 +10,22 @@ Environment functions provide type-safe access to environment variables on the s
 
 ```tsx
 // Accessing env vars directly - no validation, potential leaks
-export const getApiData = createServerFn()
-  .handler(async () => {
-    // No validation - may be undefined
-    const apiKey = process.env.API_KEY
+export const getApiData = createServerFn().handler(async () => {
+  // No validation - may be undefined
+  const apiKey = process.env.API_KEY
 
-    // Accidentally exposed in error messages
-    if (!apiKey) {
-      throw new Error(`Missing API_KEY: ${process.env}`)
-    }
+  // Accidentally exposed in error messages
+  if (!apiKey) {
+    throw new Error(`Missing API_KEY: ${process.env}`)
+  }
 
-    return fetch(url, { headers: { Authorization: apiKey } })
-  })
+  return fetch(url, { headers: { Authorization: apiKey } })
+})
 
 // Or importing env in shared files
 // lib/config.ts
 export const config = {
-  apiKey: process.env.API_KEY,  // Bundled into client!
+  apiKey: process.env.API_KEY, // Bundled into client!
   dbUrl: process.env.DATABASE_URL,
 }
 ```
@@ -47,7 +46,9 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().startsWith('whsec_'),
 
   // Optional with defaults
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'staging', 'production'])
+    .default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // Optional
@@ -72,11 +73,12 @@ function validateEnv(): Env {
 export const env = validateEnv()
 
 // Usage in server functions
-export const getPaymentIntent = createServerFn({ method: 'POST' })
-  .handler(async () => {
+export const getPaymentIntent = createServerFn({ method: 'POST' }).handler(
+  async () => {
     const stripe = new Stripe(env.STRIPE_SECRET_KEY)
     // Type-safe, validated access
-  })
+  },
+)
 ```
 
 ## Good Example: Public vs Private Config
@@ -126,17 +128,16 @@ export function log(level: string, message: string, data?: unknown) {
 }
 
 // Server function with environment checks
-export const debugInfo = createServerFn()
-  .handler(async () => {
-    if (isProduction) {
-      throw new Error('Debug endpoint not available in production')
-    }
+export const debugInfo = createServerFn().handler(async () => {
+  if (isProduction) {
+    throw new Error('Debug endpoint not available in production')
+  }
 
-    return {
-      nodeVersion: process.version,
-      env: env.NODE_ENV,
-    }
-  })
+  return {
+    nodeVersion: process.version,
+    env: env.NODE_ENV,
+  }
+})
 ```
 
 ## Good Example: Feature Flags via Environment
@@ -152,13 +153,12 @@ export const features = {
 }
 
 // Usage in server functions
-export const getCheckoutUrl = createServerFn()
-  .handler(async () => {
-    if (features.newCheckout) {
-      return '/checkout/v2'
-    }
-    return '/checkout'
-  })
+export const getCheckoutUrl = createServerFn().handler(async () => {
+  if (features.newCheckout) {
+    return '/checkout/v2'
+  }
+  return '/checkout'
+})
 
 // Usage in loaders
 export const Route = createFileRoute('/dashboard')({
@@ -193,12 +193,12 @@ declare namespace NodeJS {
 
 ## Environment Variable Checklist
 
-| Variable | Prefix | Accessible On |
-|----------|--------|---------------|
-| `DATABASE_URL` | None | Server only |
-| `SESSION_SECRET` | None | Server only |
-| `STRIPE_SECRET_KEY` | None | Server only |
-| `VITE_APP_URL` | `VITE_` | Server + Client |
+| Variable                 | Prefix  | Accessible On   |
+| ------------------------ | ------- | --------------- |
+| `DATABASE_URL`           | None    | Server only     |
+| `SESSION_SECRET`         | None    | Server only     |
+| `STRIPE_SECRET_KEY`      | None    | Server only     |
+| `VITE_APP_URL`           | `VITE_` | Server + Client |
 | `VITE_STRIPE_PUBLIC_KEY` | `VITE_` | Server + Client |
 
 ## Context

@@ -66,7 +66,8 @@ beforeAll(async () => {
   await provision(app, { force: true })
 })
 
-const rest = (path: string) => app.handler(new Request(`http://localhost${path}`))
+const rest = (path: string) =>
+  app.handler(new Request(`http://localhost${path}`))
 
 const rpc = (procedure: string, input: unknown) =>
   app.handler(

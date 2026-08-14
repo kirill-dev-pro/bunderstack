@@ -1,9 +1,17 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
+
 import type { Project } from '~/api'
+
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 
 export const Route = createFileRoute('/app/projects')({
@@ -63,7 +71,9 @@ function ProjectsPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Projects</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">
+            Projects
+          </h1>
           <p className="text-sm text-[#17211B]/70 mt-1">
             Manage your creative studio client delivery workspaces.
           </p>
@@ -75,7 +85,8 @@ function ProjectsPage() {
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-xl">Create a New Project</CardTitle>
           <CardDescription>
-            Setup a new client delivery workspace with its own live delivery rail.
+            Setup a new client delivery workspace with its own live delivery
+            rail.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -84,9 +95,15 @@ function ProjectsPage() {
               {error}
             </div>
           )}
-          <form onSubmit={handleCreateProject} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+          <form
+            onSubmit={handleCreateProject}
+            className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end"
+          >
             <div className="sm:col-span-5 space-y-1.5">
-              <label htmlFor="projectName" className="text-xs font-medium text-[#17211B]">
+              <label
+                htmlFor="projectName"
+                className="text-xs font-medium text-[#17211B]"
+              >
                 Project Name
               </label>
               <Input
@@ -100,7 +117,10 @@ function ProjectsPage() {
               />
             </div>
             <div className="sm:col-span-5 space-y-1.5">
-              <label htmlFor="clientName" className="text-xs font-medium text-[#17211B]">
+              <label
+                htmlFor="clientName"
+                className="text-xs font-medium text-[#17211B]"
+              >
                 Client Name (Optional)
               </label>
               <Input
@@ -113,7 +133,11 @@ function ProjectsPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" disabled={isPending || !name.trim()} className="w-full">
+              <Button
+                type="submit"
+                disabled={isPending || !name.trim()}
+                className="w-full"
+              >
                 {isPending ? 'Creating...' : 'Create Project'}
               </Button>
             </div>
@@ -123,7 +147,9 @@ function ProjectsPage() {
 
       {/* Projects List */}
       <div className="space-y-4">
-        <h2 className="font-display text-xl font-semibold">Your Active Workspaces</h2>
+        <h2 className="font-display text-xl font-semibold">
+          Your Active Workspaces
+        </h2>
         {projects.length === 0 ? (
           <Card className="p-8 text-center space-y-3">
             <CardTitle className="text-lg">No active projects</CardTitle>
@@ -134,11 +160,18 @@ function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {projects.map((project) => (
-              <Card key={project.id} className="hover:border-[#315CF5]/40 transition-colors">
+              <Card
+                key={project.id}
+                className="hover:border-[#315CF5]/40 transition-colors"
+              >
                 <CardHeader className="p-5 pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">
-                      <Link to="/app/projects/$projectId" params={{ projectId: project.id }} className="hover:underline">
+                      <Link
+                        to="/app/projects/$projectId"
+                        params={{ projectId: project.id }}
+                        className="hover:underline"
+                      >
                         {project.name}
                       </Link>
                     </CardTitle>
@@ -150,7 +183,10 @@ function ProjectsPage() {
                 </CardHeader>
                 <CardContent className="p-5 pt-0 flex justify-end">
                   <Button variant="outline" size="sm" asChild>
-                    <Link to="/app/projects/$projectId" params={{ projectId: project.id }}>
+                    <Link
+                      to="/app/projects/$projectId"
+                      params={{ projectId: project.id }}
+                    >
                       Open Workspace →
                     </Link>
                   </Button>

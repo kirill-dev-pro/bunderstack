@@ -8,12 +8,13 @@ import { RPCHandler } from '@orpc/server/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 
 import type { TableAccessInput } from './access'
+import type { BunderstackApiBuilder } from './api/builder'
+import type { RealtimeApiRouter } from './api/realtime-router'
 import type {
   CrudApiRouterFor,
   MergeApiRouterTypes,
   UnifiedApiRouter,
 } from './api/types'
-import type { RealtimeApiRouter } from './api/realtime-router'
 import type { DbFor } from './db'
 import type {
   BunderstackJobsBuilder,
@@ -26,20 +27,15 @@ import type {
 import type { StorageConfigInput } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
 
-import type { BunderstackApiBuilder } from './api/builder'
-
 import { validateAndResolveAccess } from './access'
 import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
 import { buildRealtimeApiRouter } from './api/realtime-router'
+import { buildApiRegistry, normalizeForeignOpenAPISpec } from './api/registry'
 import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
-import {
-  buildApiRegistry,
-  normalizeForeignOpenAPISpec,
-} from './api/registry'
 import {
   createAuth,
   toAuthSessionResolver,
@@ -77,8 +73,8 @@ import {
 } from './realtime/publisher'
 import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
-import { createBucketStorages } from './storage/registry'
 import { createStorageOperations } from './storage/operations'
+import { createBucketStorages } from './storage/registry'
 import { sweepOrphans } from './storage/sweep'
 
 export type AuthInstance = ReturnType<typeof createAuth>
@@ -211,16 +207,34 @@ export type BunderstackApp<
 
 export function createBunderstack<
   TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
   const TJobsDefs extends JobsDefs | undefined = undefined,
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
 >(
-  options: BunderstackConfig<TSchema, TAccess, TStorage, TEnv, TCustomApiRouter> & {
-    jobs?: TJobsDefs | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
+  options: BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  > & {
+    jobs?:
+      | TJobsDefs
+      | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
   },
-): Promise<BunderstackApp<TSchema, TAccess, BucketNamesOf<TStorage>, TEnv, TJobsDefs, TCustomApiRouter>>
+): Promise<
+  BunderstackApp<
+    TSchema,
+    TAccess,
+    BucketNamesOf<TStorage>,
+    TEnv,
+    TJobsDefs,
+    TCustomApiRouter
+  >
+>
 export async function createBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
@@ -333,8 +347,7 @@ export async function createBunderstack<
               ;(await subscriber).close()
             })
             return createRedisRealtimePublisher(redis, subscriber, {
-              prefix:
-                process.env.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
+              prefix: process.env.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
               maxBufferedEvents: realtimeBufferSize,
               resumeSeconds: realtimeResumeSeconds,
             })
@@ -550,9 +563,13 @@ export async function createBunderstack<
         'health',
         ...(publisher ? ['realtime.changes'] : []),
         ...[...registry.keys()].flatMap((name) =>
-          ['prepareUpload', 'upload', 'confirmUpload', 'download', 'delete'].map(
-            (operation) => `files.${name}.${operation}`,
-          ),
+          [
+            'prepareUpload',
+            'upload',
+            'confirmUpload',
+            'download',
+            'delete',
+          ].map((operation) => `files.${name}.${operation}`),
         ),
       ]),
     })
@@ -567,8 +584,7 @@ export async function createBunderstack<
               {
                 condition: (schema: any) =>
                   Boolean(
-                    schema?.['~standard'] &&
-                      !schema['~standard'].jsonSchema,
+                    schema?.['~standard'] && !schema['~standard'].jsonSchema,
                   ),
                 convert: (schema: any) => {
                   const vendor = schema?.['~standard']?.vendor ?? 'unknown'

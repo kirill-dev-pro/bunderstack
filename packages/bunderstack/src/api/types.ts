@@ -55,7 +55,9 @@ export type ExposedApiTables<TSchema, TAccess> = [TAccess] extends [undefined]
  * get `never` filters and `'id'` sorting, matching the runtime defaults.
  */
 type FilterableOf<TAccess, K extends string> = K extends keyof TAccess
-  ? TAccess[K] extends { filterableColumns: readonly (infer F extends string)[] }
+  ? TAccess[K] extends {
+      filterableColumns: readonly (infer F extends string)[]
+    }
     ? F
     : never
   : never

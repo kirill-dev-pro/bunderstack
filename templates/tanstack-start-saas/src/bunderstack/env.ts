@@ -1,4 +1,5 @@
 import type { ValidatedEnv } from 'bunderstack/env'
+
 import * as v from 'valibot'
 
 /**
@@ -8,7 +9,10 @@ import * as v from 'valibot'
  */
 export const envSchema = {
   server: {
-    EMAIL_FROM: v.optional(v.pipe(v.string(), v.minLength(1)), 'Relay <hello@example.com>'),
+    EMAIL_FROM: v.optional(
+      v.pipe(v.string(), v.minLength(1)),
+      'Relay <hello@example.com>',
+    ),
     RESEND_API_KEY: v.optional(v.string()),
     REDIS_URL: v.optional(v.string()),
   },

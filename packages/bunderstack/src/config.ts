@@ -1,8 +1,9 @@
+import type { AnyMiddleware, AnyRouter } from '@orpc/server'
+
 // src/config.ts
 import { betterAuth } from 'better-auth'
 import * as v from 'valibot'
 
-import type { AnyMiddleware, AnyRouter } from '@orpc/server'
 import type { AuthSessionResolver, TableAccessInput } from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
@@ -12,7 +13,12 @@ import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
 import type { RateLimitConfig } from './rate-limit'
 
-import { validateEnv, type BaseEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import {
+  validateEnv,
+  type BaseEnv,
+  type EnvConfigInput,
+  type ValidatedEnv,
+} from './env'
 import {
   resolveBuckets,
   type ResolvedStorageBuckets,

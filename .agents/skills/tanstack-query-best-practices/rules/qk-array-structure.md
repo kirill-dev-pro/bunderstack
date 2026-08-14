@@ -11,12 +11,12 @@ Query keys must always be arrays at the top level. This enables proper caching, 
 ```tsx
 // Never use strings or non-array types as query keys
 const { data } = useQuery({
-  queryKey: 'todos',  // Wrong: string instead of array
+  queryKey: 'todos', // Wrong: string instead of array
   queryFn: fetchTodos,
 })
 
 const { data: user } = useQuery({
-  queryKey: { id: 1, type: 'user' },  // Wrong: object instead of array
+  queryKey: { id: 1, type: 'user' }, // Wrong: object instead of array
   queryFn: fetchUser,
 })
 ```

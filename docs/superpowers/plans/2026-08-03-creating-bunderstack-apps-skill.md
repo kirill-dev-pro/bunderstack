@@ -21,10 +21,12 @@
 ### Task 1: Baseline scenarios and repository contract
 
 **Files:**
+
 - Create: `scripts/skills-contract.test.ts`
 - Create: `docs/superpowers/plans/evidence/creating-bunderstack-apps-baseline.md`
 
 **Interfaces:**
+
 - Consumes: approved design at `docs/plans/2026-08-03-bunderstack-app-skill-template-design.md`.
 - Produces: executable structural expectations and recorded no-skill failure evidence.
 
@@ -94,6 +96,7 @@ git commit -m "test: define creating Bunderstack skill contract"
 ### Task 2: Initialize and author the minimal skill
 
 **Files:**
+
 - Create: `.agents/skills/creating-bunderstack-apps/SKILL.md`
 - Create: `.agents/skills/creating-bunderstack-apps/agents/openai.yaml`
 - Create: `.agents/skills/creating-bunderstack-apps/references/application-structure.md`
@@ -101,6 +104,7 @@ git commit -m "test: define creating Bunderstack skill contract"
 - Create: `.agents/skills/creating-bunderstack-apps/references/verification.md`
 
 **Interfaces:**
+
 - Consumes: current `createBunderstack`, `createApiHandlers`, `bunderstackStart`, `provision`, `runWorker`, blueprint, access, storage, jobs, and realtime APIs.
 - Produces: `$creating-bunderstack-apps` and three directly linked references.
 
@@ -124,6 +128,7 @@ The body must contain this order:
 # Creating Bunderstack Apps
 
 ## Workflow
+
 1. Inspect the product brief and target runtime.
 2. Choose the layout from the table below.
 3. For a full TanStack Start SaaS, copy `templates/tanstack-start-saas/`.
@@ -132,11 +137,11 @@ The body must contain this order:
 6. Add committed migrations and a deployment blueprint before production.
 7. Run the verification contract.
 
-| Condition | Layout |
-| --- | --- |
-| Small API with short configuration | `src/bunderstack.ts` |
-| Auth, access, jobs, env, or tRPC need independent modules | `src/bunderstack/` |
-| Full SaaS | Copy `templates/tanstack-start-saas/` and keep its modular layout |
+| Condition                                                 | Layout                                                            |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| Small API with short configuration                        | `src/bunderstack.ts`                                              |
+| Auth, access, jobs, env, or tRPC need independent modules | `src/bunderstack/`                                                |
+| Full SaaS                                                 | Copy `templates/tanstack-start-saas/` and keep its modular layout |
 ```
 
 Link each reference directly and state exactly when to read it.
@@ -181,11 +186,13 @@ git commit -m "feat: add creating Bunderstack apps skill"
 ### Task 3: Forward-test and refactor the skill
 
 **Files:**
+
 - Modify: `.agents/skills/creating-bunderstack-apps/SKILL.md`
 - Modify as needed: `.agents/skills/creating-bunderstack-apps/references/*.md`
 - Create: `docs/superpowers/plans/evidence/creating-bunderstack-apps-forward.md`
 
 **Interfaces:**
+
 - Consumes: the same three prompts from Task 1 with explicit `$creating-bunderstack-apps` invocation.
 - Produces: evidence that layout and runtime decisions improve with the skill loaded.
 

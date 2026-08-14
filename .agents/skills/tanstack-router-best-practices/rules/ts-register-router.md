@@ -22,7 +22,7 @@ function Navigation() {
   const navigate = useNavigate()
 
   // TypeScript doesn't know valid routes - no autocomplete or type checking
-  navigate({ to: '/posts/$postId' })  // No error even if route doesn't exist
+  navigate({ to: '/posts/$postId' }) // No error even if route doesn't exist
 }
 ```
 
@@ -52,12 +52,12 @@ function Navigation() {
   navigate({ to: '/posts/$postId', params: { postId: '123' } })
 
   // Type error if route doesn't exist
-  navigate({ to: '/invalid-route' })  // Error: Type '"/invalid-route"' is not assignable...
+  navigate({ to: '/invalid-route' }) // Error: Type '"/invalid-route"' is not assignable...
 
   // Autocomplete for params
   navigate({
     to: '/users/$userId/posts/$postId',
-    params: { userId: '1', postId: '2' },  // Both required
+    params: { userId: '1', postId: '2' }, // Both required
   })
 }
 ```
@@ -90,7 +90,7 @@ const data = useLoaderData({ from: '/posts/$postId' })  // Knows loader return t
 // With file-based routing, routeTree is auto-generated
 // router.tsx
 import { createRouter } from '@tanstack/react-router'
-import { routeTree } from './routeTree.gen'  // Generated file
+import { routeTree } from './routeTree.gen' // Generated file
 
 export const router = createRouter({
   routeTree,

@@ -19,15 +19,15 @@ was disclosed in either dispatch.
 
 Exact dispatch:
 
-````text
+```text
 Use $migrating-to-bunderstack, the repository skill at /Users/kirill/Projects/bunderstack-project/bunderstack/.worktrees/bunderstack-saas-template-skills/.agents/skills/migrating-to-bunderstack/. Then answer the request below. Be concrete and specific about APIs and file layout. Aim for 250-400 words.
 
 Migrate a TanStack Start app with Better Auth, BullMQ jobs, Resend, S3 wrappers, and custom API routes to current Bunderstack. Keep production deployment safe.
-````
+```
 
 Verbatim response:
 
-````text
+```text
 Skill loaded (SKILL.md + both references). No target app exists in this worktree, so this is the migration plan against the current contracts.
 
 ## Order (each phase leaves the app working)
@@ -47,22 +47,22 @@ Skill loaded (SKILL.md + both references). No target app exists in this worktree
 ## Production safety
 
 `src/worker.ts` = `await app.runWorker()` as its own process (`bun src/worker.ts`) — never from the web entry, or every replica competes for jobs. If jobs publish realtime, web and worker need the same `REDIS_URL`; `runWorker()` refuses the in-memory broker. Publish with `ctx.realtime.publish(schema.table, 'update', fullRow)` after commit, never inside the transaction, never a partial patch. Before cutover: committed `migrations/` (no schema push), `package.json#bunderstack.entry`, `blueprint:check` green in CI. Tests/scripts building their own app must `app.close()` in `finally`.
-````
+```
 
 Score:
 
-| Criterion | Baseline | With skill | Evidence in the response |
-| --- | --- | --- | --- |
-| Duplicate auth/DB instances | Fail | Pass | "never a second `betterAuth()` call, custom session resolver, or patched `getSession`"; "`index.ts` is the only assembler". |
-| Handler mounting | Fail | Pass | "`server: { handlers: createApiHandlers(app) }`" plus deletion of the shadowing routes. |
-| Access scopes | Fail | Pass | "generated CRUD + `defineAccess(schema, rules)` (`ownerColumn`, `scope.read`)"; related-row and role cases go to protected tRPC. |
-| Jobs/cron | Fail | Pass | "`jobs.job({ input, concurrency, timeout, handler, onFailed })`", at-least-once idempotency, "Cron secrets → `jobs.cron(...)`". |
-| Worker topology | Fail | Pass | "`src/worker.ts` = `await app.runWorker()` as its own process ... never from the web entry". |
-| Realtime direct writes | Fail | Pass | "`ctx.realtime.publish(schema.table, 'update', fullRow)` after commit, never inside the transaction, never a partial patch". |
-| Storage/email facades | Fail | Pass | "`app.storage.upload/getUrl/delete`"; "`app.email.send(...)`"; "Uninstall both SDKs in the commit removing the last importer." |
-| Migrations | Partial | Pass | "committed `migrations/` (no schema push)". |
-| Blueprint | Fail | Pass | "`package.json#bunderstack.entry`, `blueprint:check` green in CI". |
-| Cleanup verification | Fail | Pass | "Write migration contract tests *before* deleting anything"; audit table filled with evidence rather than assertions. |
+| Criterion                   | Baseline | With skill | Evidence in the response                                                                                                         |
+| --------------------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Duplicate auth/DB instances | Fail     | Pass       | "never a second `betterAuth()` call, custom session resolver, or patched `getSession`"; "`index.ts` is the only assembler".      |
+| Handler mounting            | Fail     | Pass       | "`server: { handlers: createApiHandlers(app) }`" plus deletion of the shadowing routes.                                          |
+| Access scopes               | Fail     | Pass       | "generated CRUD + `defineAccess(schema, rules)` (`ownerColumn`, `scope.read`)"; related-row and role cases go to protected tRPC. |
+| Jobs/cron                   | Fail     | Pass       | "`jobs.job({ input, concurrency, timeout, handler, onFailed })`", at-least-once idempotency, "Cron secrets → `jobs.cron(...)`".  |
+| Worker topology             | Fail     | Pass       | "`src/worker.ts` = `await app.runWorker()` as its own process ... never from the web entry".                                     |
+| Realtime direct writes      | Fail     | Pass       | "`ctx.realtime.publish(schema.table, 'update', fullRow)` after commit, never inside the transaction, never a partial patch".     |
+| Storage/email facades       | Fail     | Pass       | "`app.storage.upload/getUrl/delete`"; "`app.email.send(...)`"; "Uninstall both SDKs in the commit removing the last importer."   |
+| Migrations                  | Partial  | Pass       | "committed `migrations/` (no schema push)".                                                                                      |
+| Blueprint                   | Fail     | Pass       | "`package.json#bunderstack.entry`, `blueprint:check` green in CI".                                                               |
+| Cleanup verification        | Fail     | Pass       | "Write migration contract tests _before_ deleting anything"; audit table filled with evidence rather than assertions.            |
 
 Result: 10/10 pass, up from 0/10 pass and 1 partial.
 
@@ -116,7 +116,7 @@ package.json            # no bunderstack.entry field; deploy runs `bun run start
 
 Verbatim response:
 
-````text
+```text
 ## Wrappers that must go
 
 Three in `src/lib/` are the dangerous class — a second live implementation of a capability Bunderstack already owns:
@@ -134,22 +134,22 @@ Routes: `routes/api/auth/$.ts` and `routes/api/trpc/$.ts` must be deleted — a 
 No. `src/bunderstack/index.ts` calling `await app.startWorker()` means every web replica runs a worker competing for the same jobs. Move it to `src/worker.ts` with `await app.runWorker()`, run as `bun src/worker.ts`. `runWorker()` refuses to start if jobs publish realtime over the in-memory broker — give web and worker the same `REDIS_URL`. Deploy the worker process before deleting the embedded call.
 
 `package.json` needs `bunderstack.entry: "src/bunderstack/index.ts"`, a `worker` script, and `blueprint`/`blueprint:check` (green in CI) before cutover; `bun run start` alone is not a declared topology.
-````
+```
 
 Score:
 
-| Criterion | Baseline | With skill | Evidence in the response |
-| --- | --- | --- | --- |
-| Duplicate auth/DB instances | Pass | Pass | Both named, plus the circular-import rule the baseline did not have. |
-| Handler mounting | Partial | Pass | Baseline kept the hand-written map; this run replaces it: "`routes/api/$.ts` stops being a hand-written `ALL` map and becomes `server: { handlers: createApiHandlers(app) }`". |
-| Access scopes | Fail | Not raised | Outside this prompt's question. Scored Fail at baseline on the same basis, so it is excluded from this run's delta. |
-| Jobs/cron | Pass | Pass | `jobs.define`/`enqueue` for the queue wrapper; cron route converted and "`CRON_SECRET` leaves env". |
-| Worker topology | Partial | Pass | Baseline prescribed `startWorker()` in a worker entry; this run reaches `app.runWorker()`, the `bun src/worker.ts` process, and the in-memory-broker refusal. |
-| Realtime direct writes | Fail | Partial | Transport rule is correct ("same `REDIS_URL`"), but typed publish is not raised — the prompt asks about wrappers and worker placement, not write paths. |
-| Storage/email facades | Fail | Pass | Reversal of the baseline's wrong call: both wrappers now "go under the same gate, and the package is uninstalled in the commit that removes the last importer". |
-| Migrations | Partial | Not raised | Outside this prompt's question; the layout shown has no migration configuration to review. |
-| Blueprint | Partial | Pass | Baseline framed the missing field as a process blocker; this run names the contract: entry field, worker script, and "`blueprint`/`blueprint:check` (green in CI) before cutover". |
-| Cleanup verification | Pass | Pass | Deletion gates retained and made explicit: uninstall in the last-importer commit, "Deploy the worker process before deleting the embedded call." |
+| Criterion                   | Baseline | With skill | Evidence in the response                                                                                                                                                           |
+| --------------------------- | -------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Duplicate auth/DB instances | Pass     | Pass       | Both named, plus the circular-import rule the baseline did not have.                                                                                                               |
+| Handler mounting            | Partial  | Pass       | Baseline kept the hand-written map; this run replaces it: "`routes/api/$.ts` stops being a hand-written `ALL` map and becomes `server: { handlers: createApiHandlers(app) }`".     |
+| Access scopes               | Fail     | Not raised | Outside this prompt's question. Scored Fail at baseline on the same basis, so it is excluded from this run's delta.                                                                |
+| Jobs/cron                   | Pass     | Pass       | `jobs.define`/`enqueue` for the queue wrapper; cron route converted and "`CRON_SECRET` leaves env".                                                                                |
+| Worker topology             | Partial  | Pass       | Baseline prescribed `startWorker()` in a worker entry; this run reaches `app.runWorker()`, the `bun src/worker.ts` process, and the in-memory-broker refusal.                      |
+| Realtime direct writes      | Fail     | Partial    | Transport rule is correct ("same `REDIS_URL`"), but typed publish is not raised — the prompt asks about wrappers and worker placement, not write paths.                            |
+| Storage/email facades       | Fail     | Pass       | Reversal of the baseline's wrong call: both wrappers now "go under the same gate, and the package is uninstalled in the commit that removes the last importer".                    |
+| Migrations                  | Partial  | Not raised | Outside this prompt's question; the layout shown has no migration configuration to review.                                                                                         |
+| Blueprint                   | Partial  | Pass       | Baseline framed the missing field as a process blocker; this run names the contract: entry field, worker script, and "`blueprint`/`blueprint:check` (green in CI) before cutover". |
+| Cleanup verification        | Pass     | Pass       | Deletion gates retained and made explicit: uninstall in the last-importer commit, "Deploy the worker process before deleting the embedded call."                                   |
 
 Result: 7 pass, 1 partial, 2 not raised — up from 3 pass and 4 partial. No
 criterion regressed.

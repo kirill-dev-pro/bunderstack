@@ -16,7 +16,7 @@ function PostDetail() {
   // params: { postId?: string; userId?: string; categoryId?: string; ... }
 
   // TypeScript can't guarantee postId exists
-  console.log(params.postId)  // postId: string | undefined
+  console.log(params.postId) // postId: string | undefined
 }
 
 // Similarly for search params
@@ -34,7 +34,7 @@ function PostDetail() {
   const params = useParams({ from: '/posts/$postId' })
   // params: { postId: string } - exactly what this route provides
 
-  console.log(params.postId)  // postId: string (guaranteed)
+  console.log(params.postId) // postId: string (guaranteed)
 }
 
 // Full path matching

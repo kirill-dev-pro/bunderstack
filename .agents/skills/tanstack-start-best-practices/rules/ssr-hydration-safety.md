@@ -22,7 +22,7 @@ function RandomGreeting() {
 
 // Checking window - doesn't exist on server
 function DeviceInfo() {
-  return <span>Width: {window.innerWidth}px</span>  // Error on server
+  return <span>Width: {window.innerWidth}px</span> // Error on server
 }
 
 // Conditional render based on time
@@ -74,7 +74,9 @@ function LocationPage() {
 
 // Or use useEffect for client-only state
 function WindowSize() {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  )
 
   useEffect(() => {
     setSize({
@@ -87,7 +89,11 @@ function WindowSize() {
     return <span>Loading dimensions...</span>
   }
 
-  return <span>{size.width} x {size.height}</span>
+  return (
+    <span>
+      {size.width} x {size.height}
+    </span>
+  )
 }
 ```
 
@@ -123,7 +129,7 @@ export const Route = createFileRoute('/posts/$postId')({
       formattedDate: new Intl.DateTimeFormat('en-US', {
         dateStyle: 'long',
         timeStyle: 'short',
-        timeZone: 'UTC',  // Consistent timezone
+        timeZone: 'UTC', // Consistent timezone
       }).format(post.createdAt),
     }
   },
@@ -140,22 +146,24 @@ function RelativeTime({ date }: { date: Date }) {
   }, [date])
 
   // Show absolute date initially (same server/client)
-  return <time dateTime={date.toISOString()}>
-    {formatted || date.toISOString().split('T')[0]}
-  </time>
+  return (
+    <time dateTime={date.toISOString()}>
+      {formatted || date.toISOString().split('T')[0]}
+    </time>
+  )
 }
 ```
 
 ## Common Hydration Mismatch Causes
 
-| Issue | Solution |
-|-------|----------|
-| `Date.now()` / `new Date()` | Pass timestamp from loader |
-| `Math.random()` | Generate on server, pass to client |
-| `window` / `document` | Use useEffect or lazy loading |
-| User timezone differences | Use UTC or client-only formatting |
-| Browser-specific APIs | Check `typeof window !== 'undefined'` |
-| Extension-injected content | Use `suppressHydrationWarning` |
+| Issue                       | Solution                              |
+| --------------------------- | ------------------------------------- |
+| `Date.now()` / `new Date()` | Pass timestamp from loader            |
+| `Math.random()`             | Generate on server, pass to client    |
+| `window` / `document`       | Use useEffect or lazy loading         |
+| User timezone differences   | Use UTC or client-only formatting     |
+| Browser-specific APIs       | Check `typeof window !== 'undefined'` |
+| Extension-injected content  | Use `suppressHydrationWarning`        |
 
 ## Debugging Hydration Errors
 
@@ -169,10 +177,7 @@ function RelativeTime({ date }: { date: Date }) {
 // For difficult cases, use suppressHydrationWarning sparingly
 function UserContent({ html }: { html: string }) {
   return (
-    <div
-      suppressHydrationWarning
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: html }} />
   )
 }
 ```

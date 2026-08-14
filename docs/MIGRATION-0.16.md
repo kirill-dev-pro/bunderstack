@@ -6,9 +6,9 @@
 **Two consumer types this affects differently:**
 
 - **Applications** built on bunderstack (`createBunderstack({ … })`) — see
-  *Application migration* below.
+  _Application migration_ below.
 - **Bunderhost**, the hosting platform that deploys those applications — see
-  *Platform migration*. Its changes are larger, because an entire dispatch
+  _Platform migration_. Its changes are larger, because an entire dispatch
   mechanism it owned no longer exists.
 
 ---
@@ -71,10 +71,10 @@ Deploying the app is the whole deployment.
 To split roles across processes, set an environment variable — no code change:
 
 | `BUNDERSTACK_ROLE` | Serves HTTP | Runs background work |
-| --- | --- | --- |
-| `all` *(default)* | yes | yes |
-| `web` | yes | no |
-| `worker` | no | yes |
+| ------------------ | ----------- | -------------------- |
+| `all` _(default)_  | yes         | yes                  |
+| `web`              | yes         | no                   |
+| `worker`           | no          | yes                  |
 
 `app.startWorker()` and `app.runWorker()` still exist as escape hatches.
 `app.backgroundRunning` reports whether this process runs the loop.
@@ -103,7 +103,14 @@ it from `.env` files, deployment configs, secret stores, and CI.
 import { signScheduleRequest, verifyScheduleRequest } from 'bunderstack/cron'
 
 // AFTER
-import { parseCron, cronMatches, slotsDue, floorSlot, CRON_PREFIX, SLOT_MS } from 'bunderstack/cron'
+import {
+  parseCron,
+  cronMatches,
+  slotsDue,
+  floorSlot,
+  CRON_PREFIX,
+  SLOT_MS,
+} from 'bunderstack/cron'
 ```
 
 ## 6. `envSource` → `processEnv`
@@ -145,7 +152,7 @@ weeklyDigest: j.cron({
   schedule: '0 9 * * 1',
   retries: 3,
   timeout: 120_000,
-  catchUp: 'latest',        // or 'all'
+  catchUp: 'latest', // or 'all'
   catchUpWindow: 3_600_000, // how far back catch-up looks
   onFailed: async (invocation, error, ctx) => {},
   handler: async ({ scheduledFor }, ctx) => {},
@@ -170,7 +177,7 @@ createBunderstack({
   routes: (ctx) => {
     const r = new Hono()
     r.post('/webhooks/telegram', async (c) => {
-      const raw = await c.req.text()          // raw body intact for HMAC
+      const raw = await c.req.text() // raw body intact for HMAC
       await ctx.jobs.enqueue('processMessage', { raw })
       return c.json({ ok: true })
     })

@@ -72,11 +72,15 @@ const typedApp = await createBunderstack({
 
 type Api = NonNullable<typeof typedApp.$inferClient>['api']
 
-export type _HasPosts = Expect<Equal<'posts' extends keyof Api ? true : false, true>>
+export type _HasPosts = Expect<
+  Equal<'posts' extends keyof Api ? true : false, true>
+>
 export type _HidesPrivateNotes = Expect<
   Equal<'privateNotes' extends keyof Api ? true : false, false>
 >
-export type _HasStats = Expect<Equal<'stats' extends keyof Api ? true : false, true>>
+export type _HasStats = Expect<
+  Equal<'stats' extends keyof Api ? true : false, true>
+>
 
 type PostsInputs = InferRouterInputs<Api>['posts']
 type PostsOutputs = InferRouterOutputs<Api>['posts']
@@ -89,10 +93,7 @@ type ExpectedUpdateInput = {
 }
 
 export type _CreateInput = Expect<
-  Equal<
-    PostsInputs['create'],
-    Partial<typeof posts.$inferInsert>
-  >
+  Equal<PostsInputs['create'], Partial<typeof posts.$inferInsert>>
 >
 export type _GetInput = Expect<Equal<PostsInputs['get'], { id: string }>>
 export type _UpdateInputToExpected = Expect<

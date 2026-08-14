@@ -34,9 +34,9 @@ test('app, API procedures, and jobs share the application publisher facade', asy
       },
     },
     api: (o) => ({
-        markRunning: o.public
-          .route({ method: 'POST', path: '/api/mark-running' })
-          .handler(async ({ context }) => {
+      markRunning: o.public
+        .route({ method: 'POST', path: '/api/mark-running' })
+        .handler(async ({ context }) => {
           await context.realtime.publish(avatars, 'update', {
             id: 'a1',
             userId: 'u1',
@@ -44,7 +44,7 @@ test('app, API procedures, and jobs share the application publisher facade', asy
           })
           return { published: context.realtime.enabled }
         }),
-      }),
+    }),
     jobs: (j) =>
       j.define({
         completeAvatar: j.job({

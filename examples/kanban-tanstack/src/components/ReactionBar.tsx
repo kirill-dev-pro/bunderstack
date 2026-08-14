@@ -71,8 +71,12 @@ export function ReactionBar({
     [reactions, target, currentUserId],
   )
 
-  const createReaction = useToastMutation(api.reactions.create.mutationOptions())
-  const deleteReaction = useToastMutation(api.reactions.delete.mutationOptions())
+  const createReaction = useToastMutation(
+    api.reactions.create.mutationOptions(),
+  )
+  const deleteReaction = useToastMutation(
+    api.reactions.delete.mutationOptions(),
+  )
 
   function toggle(emoji: string, mine: boolean, myReactionId?: string) {
     if (mine && myReactionId) {

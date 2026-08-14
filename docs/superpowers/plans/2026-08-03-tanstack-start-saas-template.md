@@ -58,6 +58,7 @@ Dashboard
 ### Task 1: Workspace and template contract
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `scripts/template-contract.test.ts`
 - Create: `templates/tanstack-start-saas/package.json`
@@ -68,6 +69,7 @@ Dashboard
 - Create: `templates/tanstack-start-saas/.env.example`
 
 **Interfaces:**
+
 - Consumes: root Bun workspace and published-package boundaries.
 - Produces: a named workspace package and executable template scripts.
 
@@ -84,7 +86,8 @@ test('SaaS template exposes the Bunderstack deployment contract', () => {
     worker: 'bun src/worker.ts',
     typecheck: 'tsc --noEmit',
     blueprint: 'bun ../../packages/bunderstack/src/cli.ts blueprint',
-    'blueprint:check': 'bun ../../packages/bunderstack/src/cli.ts blueprint --check',
+    'blueprint:check':
+      'bun ../../packages/bunderstack/src/cli.ts blueprint --check',
   })
 })
 ```
@@ -121,6 +124,7 @@ git commit -m "feat: scaffold TanStack Start SaaS template"
 ### Task 2: Bunderstack schema, access, auth, and runtime
 
 **Files:**
+
 - Create: `templates/tanstack-start-saas/src/bunderstack/schema/auth.ts`
 - Create: `templates/tanstack-start-saas/src/bunderstack/schema/projects.ts`
 - Create: `templates/tanstack-start-saas/src/bunderstack/schema/index.ts`
@@ -135,6 +139,7 @@ git commit -m "feat: scaffold TanStack Start SaaS template"
 - Create: `templates/tanstack-start-saas/drizzle.config.ts`
 
 **Interfaces:**
+
 - Produces: `createRelayApp({ databaseUrl? })`, `app`, `App`, owner-scoped resources, `admin.overview`, `projects.create`, `tasks.complete`, `sendProjectDigest`, and `archiveCompletedTasks`.
 
 - [ ] **Step 1: Write failing handler and manifest tests**
@@ -162,7 +167,9 @@ test('does not expose projects without a session', async () => {
   const app = await createRelayApp({ databaseUrl: 'file::memory:' })
   apps.push(app)
   await provision(app, { force: true })
-  const response = await app.handler(new Request('http://relay.test/api/projects'))
+  const response = await app.handler(
+    new Request('http://relay.test/api/projects'),
+  )
   expect(response.status).toBe(401)
 })
 ```
@@ -189,12 +196,23 @@ export async function createRelayApp(options: { databaseUrl?: string } = {}) {
     schema,
     access,
     env: envSchema,
-    database: { adapter: libsql(), url: options.databaseUrl ?? process.env.DATABASE_URL ?? 'file:./data.db' },
+    database: {
+      adapter: libsql(),
+      url: options.databaseUrl ?? process.env.DATABASE_URL ?? 'file:./data.db',
+    },
     auth: authConfig,
     email: { from: 'Relay <hello@example.com>' },
-    storage: { local: './uploads', defaultBucket: 'project-files', buckets: {
-      'project-files': { visibility: 'private', access: { create: 'authenticated', get: 'owner', delete: 'owner' }, upload: { maxSize: '10mb' } },
-    } },
+    storage: {
+      local: './uploads',
+      defaultBucket: 'project-files',
+      buckets: {
+        'project-files': {
+          visibility: 'private',
+          access: { create: 'authenticated', get: 'owner', delete: 'owner' },
+          upload: { maxSize: '10mb' },
+        },
+      },
+    },
     realtime: process.env.REDIS_URL ? { redis: process.env.REDIS_URL } : true,
     jobs: defineJobs,
     trpc: createAppRouter,
@@ -231,6 +249,7 @@ git commit -m "feat: add Relay Bunderstack runtime"
 ### Task 3: TanStack integration and auth flow
 
 **Files:**
+
 - Create: `templates/tanstack-start-saas/src/routes/api/$.tsx`
 - Create: `templates/tanstack-start-saas/src/api.ts`
 - Create: `templates/tanstack-start-saas/src/router.tsx`
@@ -242,6 +261,7 @@ git commit -m "feat: add Relay Bunderstack runtime"
 - Create: `templates/tanstack-start-saas/src/integration-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: `App`, `app.auth`, and `app.handler`.
 - Produces: catch-all API handlers, typed sync client, SSR session helpers, login and registration routes.
 
@@ -294,6 +314,7 @@ git commit -m "feat: wire Relay auth and TanStack API"
 ### Task 4: Design system, landing, and dashboards
 
 **Files:**
+
 - Create: `templates/tanstack-start-saas/src/styles.css`
 - Create: `templates/tanstack-start-saas/src/components/ui/button.tsx`
 - Create: `templates/tanstack-start-saas/src/components/ui/card.tsx`
@@ -309,6 +330,7 @@ git commit -m "feat: wire Relay auth and TanStack API"
 - Create: `templates/tanstack-start-saas/src/routes/app/admin.tsx`
 
 **Interfaces:**
+
 - Consumes: typed `api.projects`, `api.tasks`, file bucket, tRPC queries, and auth session.
 - Produces: responsive landing, user project workflow, attachment upload, realtime task state, and role-gated admin overview.
 
@@ -356,11 +378,13 @@ git commit -m "feat: add Relay landing and dashboards"
 ### Task 5: Deployment, documentation, and visual QA
 
 **Files:**
+
 - Create: `templates/tanstack-start-saas/README.md`
 - Generate: `templates/tanstack-start-saas/bunderstack.blueprint.yaml`
 - Modify: `scripts/template-contract.test.ts`
 
 **Interfaces:**
+
 - Produces: copy instructions, environment reference, migration flow, admin bootstrap instructions, and verified deployment blueprint.
 
 - [ ] **Step 1: Extend contract tests**

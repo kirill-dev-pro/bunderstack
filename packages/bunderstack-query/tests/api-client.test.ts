@@ -1,8 +1,9 @@
 import { test, expect } from 'bun:test'
-import * as v from 'valibot'
-import { pgTable, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { pglite } from 'bunderstack/database/pglite'
+import { pgTable, text } from 'drizzle-orm/pg-core'
+import * as v from 'valibot'
+
 import { createClient } from '../src/index'
 
 const posts = pgTable('posts', {
@@ -48,9 +49,7 @@ test('createClient provides unified orpc api queryOptions for CRUD and custom pr
   const statsOpts = client.stats.get.queryOptions({ input: { id: 'stat_1' } })
   expect(statsOpts.queryKey).toBeDefined()
   expect(statsOpts.queryFn).toBeDefined()
-  expect(
-    client.posts.create.mutationOptions().mutationFn,
-  ).toBeDefined()
+  expect(client.posts.create.mutationOptions().mutationFn).toBeDefined()
 
   // Execute queryFn with TanStack Query context
   const queryContext = { signal: new AbortController().signal } as any

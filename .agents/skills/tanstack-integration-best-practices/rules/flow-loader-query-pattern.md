@@ -23,7 +23,7 @@ function PostsPage() {
 // Only using loader - no cache management
 export const Route = createFileRoute('/posts')({
   loader: async () => {
-    const posts = await fetchPosts()  // Not cached
+    const posts = await fetchPosts() // Not cached
     return { posts }
   },
 })
@@ -36,16 +36,18 @@ export const Route = createFileRoute('/posts')({
 import { queryOptions } from '@tanstack/react-query'
 
 export const postQueries = {
-  all: () => queryOptions({
-    queryKey: ['posts'],
-    queryFn: fetchPosts,
-    staleTime: 5 * 60 * 1000,
-  }),
-  detail: (id: string) => queryOptions({
-    queryKey: ['posts', id],
-    queryFn: () => fetchPost(id),
-    staleTime: 5 * 60 * 1000,
-  }),
+  all: () =>
+    queryOptions({
+      queryKey: ['posts'],
+      queryFn: fetchPosts,
+      staleTime: 5 * 60 * 1000,
+    }),
+  detail: (id: string) =>
+    queryOptions({
+      queryKey: ['posts', id],
+      queryFn: () => fetchPost(id),
+      staleTime: 5 * 60 * 1000,
+    }),
 }
 
 // routes/posts.tsx
@@ -105,13 +107,7 @@ function DashboardPage() {
   const { data: activity } = useSuspenseQuery(activityQueries.recent())
   const { data: user } = useSuspenseQuery(userQueries.current())
 
-  return (
-    <Dashboard
-      stats={stats}
-      activity={activity}
-      user={user}
-    />
-  )
+  return <Dashboard stats={stats} activity={activity} user={user} />
 }
 ```
 
@@ -138,7 +134,7 @@ function PostPage() {
 
   // Non-critical - may still be loading
   const { data: comments, isLoading: commentsLoading } = useQuery(
-    postQueries.comments(postId)
+    postQueries.comments(postId),
   )
 
   return (

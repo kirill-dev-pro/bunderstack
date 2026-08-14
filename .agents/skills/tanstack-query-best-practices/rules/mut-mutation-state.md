@@ -31,20 +31,17 @@ const MutationContext = createContext<UseMutationResult | null>(null)
 
 ```tsx
 // Define mutation with a key
-const useCreatePost = () => useMutation({
-  mutationKey: ['create-post'],
-  mutationFn: createPost,
-})
+const useCreatePost = () =>
+  useMutation({
+    mutationKey: ['create-post'],
+    mutationFn: createPost,
+  })
 
 // In the component that triggers mutation
 function CreatePostButton() {
   const mutation = useCreatePost()
 
-  return (
-    <button onClick={() => mutation.mutate(newPost)}>
-      Create Post
-    </button>
-  )
+  return <button onClick={() => mutation.mutate(newPost)}>Create Post</button>
 }
 
 // In any other component - track mutation state
@@ -115,22 +112,24 @@ function TodoList() {
 ```tsx
 function PostActions({ postId }: { postId: string }) {
   // Track if THIS post is being deleted
-  const isDeletingThisPost = useMutationState({
-    filters: {
-      mutationKey: ['delete-post', postId],
-      status: 'pending',
-    },
-    select: () => true,
-  }).length > 0
+  const isDeletingThisPost =
+    useMutationState({
+      filters: {
+        mutationKey: ['delete-post', postId],
+        status: 'pending',
+      },
+      select: () => true,
+    }).length > 0
 
   // Track if THIS post is being updated
-  const isUpdatingThisPost = useMutationState({
-    filters: {
-      mutationKey: ['update-post', postId],
-      status: 'pending',
-    },
-    select: () => true,
-  }).length > 0
+  const isUpdatingThisPost =
+    useMutationState({
+      filters: {
+        mutationKey: ['update-post', postId],
+        status: 'pending',
+      },
+      select: () => true,
+    }).length > 0
 
   return (
     <div>
@@ -147,9 +146,9 @@ function PostActions({ postId }: { postId: string }) {
 ```tsx
 useMutationState({
   filters: {
-    mutationKey: ['key'],           // Match mutation key
-    status: 'pending',              // 'idle' | 'pending' | 'success' | 'error'
-    predicate: (mutation) => bool,  // Custom filter function
+    mutationKey: ['key'], // Match mutation key
+    status: 'pending', // 'idle' | 'pending' | 'success' | 'error'
+    predicate: (mutation) => bool, // Custom filter function
   },
   select: (mutation) => {
     // Transform each matching mutation

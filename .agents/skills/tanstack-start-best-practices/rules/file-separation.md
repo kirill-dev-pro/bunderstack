@@ -10,8 +10,8 @@ Organize code by execution context to prevent server code from accidentally bund
 
 ```tsx
 // lib/posts.ts - Mixed server and client code
-import { db } from './db'  // Database - server only
-import { formatDate } from './utils'  // Utility - shared
+import { db } from './db' // Database - server only
+import { formatDate } from './utils' // Utility - shared
 
 export async function getPosts() {
   // This uses db, so it's server-only
@@ -74,10 +74,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { getPostsFromDb, createPostInDb } from './posts.server'
 import { createPostSchema } from './schemas/post'
 
-export const getPosts = createServerFn()
-  .handler(async () => {
-    return await getPostsFromDb()
-  })
+export const getPosts = createServerFn().handler(async () => {
+  return await getPostsFromDb()
+})
 
 export const createPost = createServerFn({ method: 'POST' })
   .validator(createPostSchema)
@@ -90,14 +89,14 @@ export const createPost = createServerFn({ method: 'POST' })
 
 ```tsx
 // components/PostList.tsx
-import { getPosts } from '@/lib/posts.functions'  // Safe - RPC stub on client
-import { formatPostDate } from '@/lib/posts'       // Safe - shared utility
-import type { Post } from '@/lib/posts'            // Safe - type only
+import { getPosts } from '@/lib/posts.functions' // Safe - RPC stub on client
+import { formatPostDate } from '@/lib/posts' // Safe - shared utility
+import type { Post } from '@/lib/posts' // Safe - type only
 
 function PostList() {
   const postsQuery = useQuery({
     queryKey: ['posts'],
-    queryFn: () => getPosts(),  // Calls server function
+    queryFn: () => getPosts(), // Calls server function
   })
 
   return (
@@ -115,12 +114,12 @@ function PostList() {
 
 ## File Convention Summary
 
-| Suffix | Purpose | Safe to Import on Client |
-|--------|---------|-------------------------|
-| `.ts` | Shared utilities, types | Yes |
-| `.server.ts` | Server-only logic (db, secrets) | No |
-| `.functions.ts` | Server function wrappers | Yes |
-| `.client.ts` | Client-only code | Yes (client only) |
+| Suffix          | Purpose                         | Safe to Import on Client |
+| --------------- | ------------------------------- | ------------------------ |
+| `.ts`           | Shared utilities, types         | Yes                      |
+| `.server.ts`    | Server-only logic (db, secrets) | No                       |
+| `.functions.ts` | Server function wrappers        | Yes                      |
+| `.client.ts`    | Client-only code                | Yes (client only)        |
 
 ## Good Example: Environment Variables
 

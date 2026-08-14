@@ -64,7 +64,10 @@ export const SCOPED_FETCH_LIMIT = 200
 
 export function infiniteListInput(params: Record<string, any>) {
   return {
-    input: (cursor: string | undefined) => ({ ...params, ...(cursor ? { cursor } : {}) }),
+    input: (cursor: string | undefined) => ({
+      ...params,
+      ...(cursor ? { cursor } : {}),
+    }),
     initialPageParam: undefined,
     getNextPageParam: (page: { nextCursor?: string }) => page.nextCursor,
   }
@@ -84,4 +87,6 @@ export function byColumnIn(column: string, ids: readonly string[]) {
 }
 
 /** File uploads/URLs only — safe outside React hooks (no QueryClient needed). */
-export const filesApi = createClient<App>({ fetch: (request) => isomorphicFetch(request) })
+export const filesApi = createClient<App>({
+  fetch: (request) => isomorphicFetch(request),
+})

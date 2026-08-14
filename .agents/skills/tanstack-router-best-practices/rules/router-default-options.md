@@ -45,18 +45,18 @@ export function getRouter() {
     context: { queryClient, user: null },
 
     // Preloading
-    defaultPreload: 'intent',         // Preload on hover/focus
-    defaultPreloadStaleTime: 0,       // Let Query manage freshness
+    defaultPreload: 'intent', // Preload on hover/focus
+    defaultPreloadStaleTime: 0, // Let Query manage freshness
 
     // Error handling
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: DefaultNotFound,
 
     // UX
-    scrollRestoration: true,          // Restore scroll on back/forward
+    scrollRestoration: true, // Restore scroll on back/forward
 
     // Performance
-    defaultStructuralSharing: true,   // Optimize re-renders
+    defaultStructuralSharing: true, // Optimize re-renders
   })
 
   setupRouterSsrQueryIntegration({
@@ -81,9 +81,7 @@ export function DefaultCatchBoundary({ error }: { error: Error }) {
     <div className="error-container">
       <h1>Something went wrong</h1>
       <ErrorComponent error={error} />
-      <button onClick={() => router.invalidate()}>
-        Try again
-      </button>
+      <button onClick={() => router.invalidate()}>Try again</button>
     </div>
   )
 }
@@ -108,14 +106,14 @@ export function DefaultNotFound() {
 
 ## Router Options Reference
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `defaultPreload` | `false \| 'intent' \| 'render' \| 'viewport'` | `false` | When to preload routes |
-| `defaultPreloadStaleTime` | `number` | `30000` | How long preloaded data stays fresh (ms) |
-| `defaultErrorComponent` | `Component` | Built-in | Global error boundary |
-| `defaultNotFoundComponent` | `Component` | Built-in | Global 404 page |
-| `scrollRestoration` | `boolean` | `false` | Restore scroll on navigation |
-| `defaultStructuralSharing` | `boolean` | `true` | Optimize loader data re-renders |
+| Option                     | Type                                          | Default  | Description                              |
+| -------------------------- | --------------------------------------------- | -------- | ---------------------------------------- |
+| `defaultPreload`           | `false \| 'intent' \| 'render' \| 'viewport'` | `false`  | When to preload routes                   |
+| `defaultPreloadStaleTime`  | `number`                                      | `30000`  | How long preloaded data stays fresh (ms) |
+| `defaultErrorComponent`    | `Component`                                   | Built-in | Global error boundary                    |
+| `defaultNotFoundComponent` | `Component`                                   | Built-in | Global 404 page                          |
+| `scrollRestoration`        | `boolean`                                     | `false`  | Restore scroll on navigation             |
+| `defaultStructuralSharing` | `boolean`                                     | `true`   | Optimize loader data re-renders          |
 
 ## Good Example: Route-Level Overrides
 
@@ -145,11 +143,9 @@ const router = createRouter({
   scrollRestoration: true,
 
   // Show during route transitions
-  defaultPendingComponent: () => (
-    <div className="loading-bar" />
-  ),
-  defaultPendingMinMs: 200,  // Min time to show pending UI
-  defaultPendingMs: 1000,    // Delay before showing pending UI
+  defaultPendingComponent: () => <div className="loading-bar" />,
+  defaultPendingMinMs: 200, // Min time to show pending UI
+  defaultPendingMs: 1000, // Delay before showing pending UI
 })
 ```
 

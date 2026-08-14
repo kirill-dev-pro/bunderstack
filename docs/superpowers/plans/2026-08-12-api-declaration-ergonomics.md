@@ -26,32 +26,32 @@
 
 **Framework — create:**
 
-| File | Responsibility |
-| --- | --- |
-| `packages/bunderstack/src/api/define-api.test.ts` | Tests for `defineApi`. |
-| `packages/bunderstack/src/api/global-middleware.test.ts` | Tests that a configured middleware reaches every procedure family. |
-| `packages/bunderstack/src/api/list-input-schema.ts` | Builds the list input schema for a table. Shared by the CRUD router and `listSpec`. |
-| `packages/bunderstack/src/api/list-spec.ts` | The `listSpec` helper. |
-| `packages/bunderstack/src/api/list-spec.test.ts` | Tests for `listSpec`. |
-| `packages/bunderstack/src/db-types.test.ts` | Type test for `BunderstackDb` and `BunderstackTx`. |
+| File                                                     | Responsibility                                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `packages/bunderstack/src/api/define-api.test.ts`        | Tests for `defineApi`.                                                              |
+| `packages/bunderstack/src/api/global-middleware.test.ts` | Tests that a configured middleware reaches every procedure family.                  |
+| `packages/bunderstack/src/api/list-input-schema.ts`      | Builds the list input schema for a table. Shared by the CRUD router and `listSpec`. |
+| `packages/bunderstack/src/api/list-spec.ts`              | The `listSpec` helper.                                                              |
+| `packages/bunderstack/src/api/list-spec.test.ts`         | Tests for `listSpec`.                                                               |
+| `packages/bunderstack/src/db-types.test.ts`              | Type test for `BunderstackDb` and `BunderstackTx`.                                  |
 
 **Framework — modify:**
 
-| File | Change |
-| --- | --- |
-| `packages/bunderstack/src/api/builder.ts` | Add `defineApi`. |
-| `packages/bunderstack/src/api/context.ts` | Add `peekSession()`. |
-| `packages/bunderstack/src/api/context.test.ts` | Add `peekSession()` tests. |
-| `packages/bunderstack/src/api/router.ts` | `buildApiRouter` applies the middleware list. |
-| `packages/bunderstack/src/api/crud-router.ts` | Use the extracted list input schema builder. |
-| `packages/bunderstack/src/config.ts` | `api` accepts an object. Add `middleware`. |
-| `packages/bunderstack/src/db.ts` | Add `BunderstackDb` and `BunderstackTx`. |
-| `packages/bunderstack/src/index.ts` | Resolve the `api` option. Pass the middleware. Add exports. |
+| File                                           | Change                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| `packages/bunderstack/src/api/builder.ts`      | Add `defineApi`.                                            |
+| `packages/bunderstack/src/api/context.ts`      | Add `peekSession()`.                                        |
+| `packages/bunderstack/src/api/context.test.ts` | Add `peekSession()` tests.                                  |
+| `packages/bunderstack/src/api/router.ts`       | `buildApiRouter` applies the middleware list.               |
+| `packages/bunderstack/src/api/crud-router.ts`  | Use the extracted list input schema builder.                |
+| `packages/bunderstack/src/config.ts`           | `api` accepts an object. Add `middleware`.                  |
+| `packages/bunderstack/src/db.ts`               | Add `BunderstackDb` and `BunderstackTx`.                    |
+| `packages/bunderstack/src/index.ts`            | Resolve the `api` option. Pass the middleware. Add exports. |
 
 **Application — create:**
 
-| File | Responsibility |
-| --- | --- |
+| File                          | Responsibility                                                              |
+| ----------------------------- | --------------------------------------------------------------------------- |
 | `src/bunderstack/api/base.ts` | The builder, the three base procedures, and the instrumentation middleware. |
 
 **Application — modify:** `src/bunderstack/api/index.ts`, `public.ts`, `telegram.ts`, `adaptation.ts`, `credit.ts`, `admin.ts`, `src/bunderstack/index.ts`, and the admin client code that reads list responses.
@@ -61,11 +61,13 @@
 ## Task 1: `defineApi`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/builder.ts`
 - Modify: `packages/bunderstack/src/index.ts` (export block near line 822)
 - Test: `packages/bunderstack/src/api/define-api.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createApiBuilder<TSchema, TEnv>()` from `./builder`, `ValidatedEnv` and `EnvConfigInput` from `../env`.
 - Produces: `defineApi<TSchema, TEnv>(options: { schema: TSchema; env?: TEnv }): BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>`.
 
@@ -121,7 +123,10 @@ test('defineApi infers env and schema types from the values it receives', async 
   })
 
   const client = createProcedureClient(procedure, {
-    context: createApiContext(createTestDeps(), new Request('http://localhost/api/t')),
+    context: createApiContext(
+      createTestDeps(),
+      new Request('http://localhost/api/t'),
+    ),
   })
 
   expect(await client(undefined)).toEqual({ key: 'sk_test', hasDb: true })
@@ -137,7 +142,10 @@ test('defineApi works without an env schema', async () => {
   })
 
   const client = createProcedureClient(procedure, {
-    context: createApiContext(createTestDeps(), new Request('http://localhost/api/t')),
+    context: createApiContext(
+      createTestDeps(),
+      new Request('http://localhost/api/t'),
+    ),
   })
 
   expect(await client(undefined)).toEqual({ url: 'file:./x.db' })
@@ -198,11 +206,13 @@ git commit -m "feat(api): add defineApi for module-scope builders"
 ## Task 2: the `api` option accepts a router object
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts:171`
 - Modify: `packages/bunderstack/src/index.ts:511`
 - Test: `packages/bunderstack/src/api/router.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BunderstackApiBuilder` from `./api/builder`.
 - Produces: the `api` option type
   `TCustomApiRouter | ((builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>) => TCustomApiRouter)`.
@@ -225,7 +235,10 @@ test('createBunderstack accepts a router object for the api option', async () =>
   })
 
   const response = await app.handler(
-    new Request('http://localhost/api/rpc/ping', { method: 'POST', body: '{}' }),
+    new Request('http://localhost/api/rpc/ping', {
+      method: 'POST',
+      body: '{}',
+    }),
   )
 
   expect(response.status).toBe(200)
@@ -281,12 +294,14 @@ In `packages/bunderstack/src/config.ts`, replace the `api` field:
 In `packages/bunderstack/src/index.ts`, replace the `customApiRouter` block:
 
 ```ts
-    const customApiRouter =
-      typeof options.api === 'function'
-        ? (options.api as (
-            builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
-          ) => TCustomApiRouter)(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
-        : options.api
+const customApiRouter =
+  typeof options.api === 'function'
+    ? (
+        options.api as (
+          builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+        ) => TCustomApiRouter
+      )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
+    : options.api
 ```
 
 Add `import type { BunderstackApiBuilder } from './api/builder'` if the file
@@ -312,10 +327,12 @@ git commit -m "feat(api): accept a router object for the api option"
 ## Task 3: `context.peekSession()`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/context.ts`
 - Test: `packages/bunderstack/src/api/context.test.ts`
 
 **Interfaces:**
+
 - Produces: `ApiContext.peekSession(): { user: AccessUser | null; activeOrganizationId: string | null } | undefined`.
 
 - [ ] **Step 1: Write the failing test**
@@ -352,7 +369,12 @@ test('peekSession returns the resolved session after getSession settles', async 
   await context.getSession()
 
   expect(context.peekSession()).toEqual({
-    user: { id: 'usr_1', email: 'user@example.com', name: undefined, role: undefined },
+    user: {
+      id: 'usr_1',
+      email: 'user@example.com',
+      name: undefined,
+      role: undefined,
+    },
     activeOrganizationId: 'org_1',
   })
   expect(getSession).toHaveBeenCalledTimes(1)
@@ -409,23 +431,23 @@ In `packages/bunderstack/src/api/context.ts`, add the field to the interface:
 In `createApiContext`, record the settled value and return it:
 
 ```ts
-  let settledSession:
-    | { user: AccessUser | null; activeOrganizationId: string | null }
-    | undefined
+let settledSession:
+  | { user: AccessUser | null; activeOrganizationId: string | null }
+  | undefined
 
-  const getSession = () => {
-    if (!sessionPromise) {
-      sessionPromise = resolveSession(deps.authResolver, request.headers).then(
-        (session) => {
-          settledSession = session
-          return session
-        },
-      )
-    }
-    return sessionPromise
+const getSession = () => {
+  if (!sessionPromise) {
+    sessionPromise = resolveSession(deps.authResolver, request.headers).then(
+      (session) => {
+        settledSession = session
+        return session
+      },
+    )
   }
+  return sessionPromise
+}
 
-  const peekSession = () => settledSession
+const peekSession = () => settledSession
 ```
 
 Add `peekSession` to the returned object, next to `getSession`.
@@ -447,12 +469,14 @@ git commit -m "feat(api): add context.peekSession for observability"
 ## Task 4: the `middleware` option
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/router.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 - Modify: `packages/bunderstack/src/index.ts:514`
 - Test: `packages/bunderstack/src/api/global-middleware.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AnyMiddleware` from `@orpc/server`; `createApiBuilder` from `./builder`.
 - Produces: `BuildApiRouterOptions.middleware?: AnyMiddleware[]`; the config field
   `middleware?: AnyMiddleware[]`.
@@ -499,7 +523,10 @@ test('a configured middleware runs for a custom procedure', async () => {
   const app = await createApp(paths)
 
   await app.handler(
-    new Request('http://localhost/api/rpc/ping', { method: 'POST', body: '{}' }),
+    new Request('http://localhost/api/rpc/ping', {
+      method: 'POST',
+      body: '{}',
+    }),
   )
 
   expect(paths).toContainEqual(['ping'])
@@ -545,7 +572,10 @@ test('a configured middleware does not resolve the session', async () => {
   })
 
   await app.handler(
-    new Request('http://localhost/webhooks/demo', { method: 'POST', body: '{}' }),
+    new Request('http://localhost/webhooks/demo', {
+      method: 'POST',
+      body: '{}',
+    }),
   )
 
   expect(seen).toEqual(['unresolved'])
@@ -630,13 +660,13 @@ In `packages/bunderstack/src/index.ts`, add the field to the `buildApiRouter`
 call:
 
 ```ts
-    const nativeRouter = buildApiRouter({
-      crud: crudApiRouter as Record<string, unknown>,
-      storage: storageApiRouter as Record<string, unknown>,
-      realtime: realtimeApiRouter as Record<string, unknown> | undefined,
-      custom: customApiRouter as Record<string, unknown> | undefined,
-      middleware: options.middleware,
-    }) as any
+const nativeRouter = buildApiRouter({
+  crud: crudApiRouter as Record<string, unknown>,
+  storage: storageApiRouter as Record<string, unknown>,
+  realtime: realtimeApiRouter as Record<string, unknown> | undefined,
+  custom: customApiRouter as Record<string, unknown> | undefined,
+  middleware: options.middleware,
+}) as any
 ```
 
 - [ ] **Step 6: Run the tests**
@@ -659,11 +689,13 @@ git commit -m "feat(api): apply configured middleware to the whole procedure gra
 ## Task 5: export the database types
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/db.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/db-types.test.ts`
 
 **Interfaces:**
+
 - Produces: `BunderstackDb<TSchema>` and `BunderstackTx<TSchema>`, both exported from the package root.
 
 - [ ] **Step 1: Write the failing test**
@@ -766,10 +798,12 @@ git commit -m "feat(db): export BunderstackDb and BunderstackTx"
 This task changes no behavior. It moves code so that Task 7 can reuse it.
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/list-input-schema.ts`
 - Modify: `packages/bunderstack/src/api/crud-router.ts:150-195`
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
@@ -868,16 +902,16 @@ constant, the `filterEntries` loop, and the `listQuerySchema` literal. Replace
 them with:
 
 ```ts
-  // Built from runtime column lists, so the schema's own inferred type cannot
-  // name the columns; the cast restates it with the literals the caller's
-  // `access` config carries. Runtime shape and this type are the same object.
-  const listQuerySchema = buildListInputSchema(table, {
-    filterableColumns: access.filterableColumns,
-    sortableColumns: access.sortableColumns,
-  }) as unknown as v.GenericSchema<
-    ListInputFor<TTable, TFilterable, TSortable>,
-    ListInputFor<TTable, TFilterable, TSortable>
-  >
+// Built from runtime column lists, so the schema's own inferred type cannot
+// name the columns; the cast restates it with the literals the caller's
+// `access` config carries. Runtime shape and this type are the same object.
+const listQuerySchema = buildListInputSchema(table, {
+  filterableColumns: access.filterableColumns,
+  sortableColumns: access.sortableColumns,
+}) as unknown as v.GenericSchema<
+  ListInputFor<TTable, TFilterable, TSortable>,
+  ListInputFor<TTable, TFilterable, TSortable>
+>
 ```
 
 Add `import { buildListInputSchema } from './list-input-schema'`.
@@ -909,13 +943,14 @@ git commit -m "refactor(api): extract the list input schema builder"
 > output and the reasoning. The steps below keep the original wording; the
 > shipped code is in `packages/bunderstack/src/api/list-spec.ts`.
 
-
 **Files:**
+
 - Create: `packages/bunderstack/src/api/list-procedure.ts`
 - Create: `packages/bunderstack/src/api/list-procedure.test.ts`
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `buildListInputSchema` from Task 6; `resolveListParams` and `executeList` from `../list-query`.
 - Produces:
 
@@ -927,7 +962,10 @@ export type ListProcedureOptions = {
   searchable?: readonly string[]
 }
 
-export function listProcedure<TTable extends Table, TBuilder extends ListCapableBuilder>(
+export function listProcedure<
+  TTable extends Table,
+  TBuilder extends ListCapableBuilder,
+>(
   procedure: TBuilder,
   table: TTable,
   options?: ListProcedureOptions,
@@ -1166,21 +1204,22 @@ export function listProcedure<
     )
   }
 
-  return procedure
-    .input(inputSchema as never)
-    .handler((async ({ context, input }) => {
-      const params = resolveListParams(
-        (input ?? {}) as Parameters<typeof resolveListParams>[0],
-        access,
-      )
-      return executeList(
-        context.db as never,
-        table as never,
-        access,
-        params,
-        idColumn,
-      )
-    }) as never)
+  return procedure.input(inputSchema as never).handler((async ({
+    context,
+    input,
+  }) => {
+    const params = resolveListParams(
+      (input ?? {}) as Parameters<typeof resolveListParams>[0],
+      access,
+    )
+    return executeList(
+      context.db as never,
+      table as never,
+      access,
+      params,
+      idColumn,
+    )
+  }) as never)
 }
 ```
 
@@ -1236,11 +1275,13 @@ git commit -m "feat(api): add listProcedure for custom list endpoints"
 ## Task 8: move the examples to the module-scope pattern
 
 **Files:**
+
 - Modify: `examples/twitter-tanstack/src/bunderstack.ts`
 - Create: `examples/twitter-tanstack/src/api.ts`
 - Modify: `examples/todo/src/bunderstack.ts` (only if it declares an `api` callback)
 
 **Interfaces:**
+
 - Consumes: `defineApi` from Task 1; the object form of `api` from Task 2.
 
 - [ ] **Step 1: Move the twitter feed procedure to its own module**
@@ -1327,6 +1368,7 @@ git commit -m "refactor(examples): declare the api in its own module"
 ## Task 9: documentation and release
 
 **Files:**
+
 - Modify: `docs/MIGRATION-0.17.md`
 - Modify: `packages/bunderstack/README.md`
 - Modify: the website page that documents custom procedures
@@ -1445,6 +1487,7 @@ git commit -m "docs: document module-scope api declaration and global middleware
 ## Task 10: point the application at the local build
 
 **Files:**
+
 - Modify: `/Users/kirill/Projects/bunderstack-project/hrbreakers.com-bunderstack/package.json`
 
 This task makes Tasks 11–14 possible. Revert it in Task 14.
@@ -1500,6 +1543,7 @@ git commit -m "chore: link the local bunderstack build for the api migration"
 **Repository:** `hrbreakers.com-bunderstack`
 
 **Files:**
+
 - Create: `src/bunderstack/api/base.ts`
 - Modify: `src/bunderstack/api/index.ts`
 - Modify: `src/bunderstack/index.ts`
@@ -1507,6 +1551,7 @@ git commit -m "chore: link the local bunderstack build for the api migration"
 - Test: `src/bunderstack/api/router.test.ts`
 
 **Interfaces:**
+
 - Produces: `publicProcedure`, `protectedProcedure`, `adminProcedure`, and `instrumentation`, all exported from `src/bunderstack/api/base.ts`.
 - Produces: `api`, exported from `src/bunderstack/api/index.ts`.
 
@@ -1585,12 +1630,14 @@ export const instrumentation = o.middleware(async ({ context, path, next }) => {
 export const publicProcedure = o.public
 export const protectedProcedure = o.protected
 
-export const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
-  if (context.user.role !== 'admin' && context.user.role !== 'superadmin') {
-    throw errors.FORBIDDEN({ message: 'Admin access required' })
-  }
-  return next()
-})
+export const adminProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin' && context.user.role !== 'superadmin') {
+      throw errors.FORBIDDEN({ message: 'Admin access required' })
+    }
+    return next()
+  },
+)
 ```
 
 This body matches the original middleware in `api/index.ts:29-60`. It logs
@@ -1680,6 +1727,7 @@ git commit -m "refactor(api): declare procedures in plain modules"
 **Repository:** `hrbreakers.com-bunderstack`
 
 **Files:**
+
 - Test: `src/bunderstack/api/role.test.ts`
 - Modify: `src/bunderstack/api/base.ts`
 
@@ -1702,10 +1750,7 @@ test('the Better Auth session carries the stored role', async () => {
     body: { email, password: 'test-password-123', name: 'Role Test' },
   })
 
-  await app.db
-    .update(user)
-    .set({ role: 'admin' })
-    .where(eq(user.email, email))
+  await app.db.update(user).set({ role: 'admin' }).where(eq(user.email, email))
 
   const signIn = await app.auth.api.signInEmail({
     body: { email, password: 'test-password-123' },
@@ -1759,6 +1804,7 @@ git commit -m "test(api): prove the session carries the user role"
 **Repository:** `hrbreakers.com-bunderstack`
 
 **Files:**
+
 - Modify: `src/bunderstack/api/adaptation.ts`, `credit.ts`, `admin.ts`, `telegram.ts`
 - Modify: the admin client code that reads `{ items, totalCount }`
 
@@ -1980,16 +2026,16 @@ git commit -m "chore: depend on bunderstack 0.17.0-beta.6"
 The spec lists eleven criteria. This table maps each one to the task that
 satisfies it.
 
-| Spec criterion | Task |
-| --- | --- |
-| 1. No router factory takes a procedure bag | 11, verified in 14 Step 5 |
-| 2. No import cycle between routers and index | 11 |
-| 3. No hand-written `BunderstackApiBuilder<…>` | 11, verified in 14 Step 5 |
-| 4. No `os.$context<…>()` in the application | 11, verified in 14 Step 5 |
-| 5. Middleware runs for CRUD, storage, and custom procedures | 4 |
-| 6. `peekSession()` returns `undefined` and starts no resolution | 3 |
-| 7. A webhook with a global middleware resolves no session | 4 |
-| 8. `context.user.role` carries the Better Auth role | 12 |
-| 9. One input-schema builder for `listSpec` and CRUD | 6, 7 |
-| 10. No `any` in the application API layer | 13, verified in 14 Step 5 |
-| 11. Examples and documentation show the module-scope pattern | 8, 9 |
+| Spec criterion                                                  | Task                      |
+| --------------------------------------------------------------- | ------------------------- |
+| 1. No router factory takes a procedure bag                      | 11, verified in 14 Step 5 |
+| 2. No import cycle between routers and index                    | 11                        |
+| 3. No hand-written `BunderstackApiBuilder<…>`                   | 11, verified in 14 Step 5 |
+| 4. No `os.$context<…>()` in the application                     | 11, verified in 14 Step 5 |
+| 5. Middleware runs for CRUD, storage, and custom procedures     | 4                         |
+| 6. `peekSession()` returns `undefined` and starts no resolution | 3                         |
+| 7. A webhook with a global middleware resolves no session       | 4                         |
+| 8. `context.user.role` carries the Better Auth role             | 12                        |
+| 9. One input-schema builder for `listSpec` and CRUD             | 6, 7                      |
+| 10. No `any` in the application API layer                       | 13, verified in 14 Step 5 |
+| 11. Examples and documentation show the module-scope pattern    | 8, 9                      |

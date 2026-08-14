@@ -13,12 +13,12 @@ reliably, with a lease": the queue (`_bunderstack_jobs`) and cron
 and crash recovery — and they have **diverged in capability**, with cron as the
 poorer twin:
 
-| | `QueueJobDefinition` | `CronDefinition` |
-|---|---|---|
-| `retries` | yes | **no** |
-| `timeout` | yes | **no** |
-| `concurrency` | yes | **no** |
-| `onFailed` | yes | **no** |
+|               | `QueueJobDefinition` | `CronDefinition` |
+| ------------- | -------------------- | ---------------- |
+| `retries`     | yes                  | **no**           |
+| `timeout`     | yes                  | **no**           |
+| `concurrency` | yes                  | **no**           |
+| `onFailed`    | yes                  | **no**           |
 
 The practical consequence: **a cron handler that throws is never retried.** The
 slot is recorded `failed` and nothing re-dispatches it, because each slot fires
@@ -94,11 +94,11 @@ of the queue worker for free.
 
 `BUNDERSTACK_ROLE`, validated in `env.ts`, defaulting to `all`:
 
-| value | serves HTTP | runs the tick loop |
-|---|---|---|
-| `all` *(default)* | yes | yes |
-| `web` | yes | no |
-| `worker` | no | yes |
+| value             | serves HTTP | runs the tick loop |
+| ----------------- | ----------- | ------------------ |
+| `all` _(default)_ | yes         | yes                |
+| `web`             | yes         | no                 |
+| `worker`          | no          | yes                |
 
 **Self-hosting:** set nothing. One container, a few environment variables for
 database and storage, and both HTTP and background work happen. There is no
@@ -123,13 +123,13 @@ and `src/worker.ts` entry file. Booting the app is the whole deployment.
 
 `_bunderstack_cron_runs` is dropped. `_bunderstack_jobs` is unchanged:
 
-| column | queue jobs | cron occurrences |
-|---|---|---|
-| `type` | job name | `cron:<name>` |
-| `payloadJson` | validated input | `null` |
-| `runAt` | when to run | the slot timestamp |
-| `dedupeKey` | caller-supplied dedupe | `String(slot)` |
-| `status` / `attempts` / `lockedUntil` / `lastError` | identical | identical |
+| column                                              | queue jobs             | cron occurrences   |
+| --------------------------------------------------- | ---------------------- | ------------------ |
+| `type`                                              | job name               | `cron:<name>`      |
+| `payloadJson`                                       | validated input        | `null`             |
+| `runAt`                                             | when to run            | the slot timestamp |
+| `dedupeKey`                                         | caller-supplied dedupe | `String(slot)`     |
+| `status` / `attempts` / `lockedUntil` / `lastError` | identical              | identical          |
 
 `validateJobsDefs` rejects any queue job whose name begins with `cron:`, so the
 namespaces cannot collide. This is a startup error, not a runtime check.
@@ -185,7 +185,7 @@ a first deploy never backfills from epoch.
 
 **Catch-up:**
 
-- `catchUp: 'latest'` *(default)* — materialize only the most recent due slot.
+- `catchUp: 'latest'` _(default)_ — materialize only the most recent due slot.
   Handlers are usually written to bring state up to date rather than to process
   one interval's work, and a long outage otherwise produces a stampede of
   near-identical runs.

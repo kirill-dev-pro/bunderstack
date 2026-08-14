@@ -3,9 +3,6 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "bunderstack": {
-    "entry": "src/bunderstack/index.ts"
-  },
   "scripts": {
     "dev": "bun --bun vite dev",
     "build": "vite build",
@@ -48,5 +45,8 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.14"
+  },
+  "bunderstack": {
+    "entry": "src/bunderstack/index.ts"
   }
 }

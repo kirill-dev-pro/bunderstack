@@ -40,13 +40,19 @@ export const Route = createFileRoute('/')({
         api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
       ),
       queryClient.ensureQueryData(
-        api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
+        api.retweets.list.queryOptions({
+          input: byColumnIn('postId', postIds),
+        }),
       ),
-      queryClient.ensureQueryData(api.user.list.queryOptions({ input: { limit: 20 } })),
+      queryClient.ensureQueryData(
+        api.user.list.queryOptions({ input: { limit: 20 } }),
+      ),
       ...(user
         ? [
             queryClient.ensureQueryData(
-              api.follows.list.queryOptions({ input: byColumnIn('followerId', [user.id]) }),
+              api.follows.list.queryOptions({
+                input: byColumnIn('followerId', [user.id]),
+              }),
             ),
           ]
         : []),
@@ -67,7 +73,9 @@ function FeedPage() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery(api.posts.list.infiniteOptions(infiniteListInput(feedParams)))
+  } = useInfiniteQuery(
+    api.posts.list.infiniteOptions(infiniteListInput(feedParams)),
+  )
 
   const allPosts = React.useMemo(
     () => postsData?.pages.flatMap((page) => page.items) ?? [],
@@ -95,7 +103,9 @@ function FeedPage() {
   // The current user's own follow edges — bounded by how many people they
   // follow, unlike fetching every row in the follows table.
   const { data: myFollowsData } = useQuery({
-    ...api.follows.list.queryOptions({ input: byColumnIn('followerId', user ? [user.id] : []) }),
+    ...api.follows.list.queryOptions({
+      input: byColumnIn('followerId', user ? [user.id] : []),
+    }),
     enabled: !!user,
   })
   // A small, intentionally non-exhaustive sample to source "Who to follow"

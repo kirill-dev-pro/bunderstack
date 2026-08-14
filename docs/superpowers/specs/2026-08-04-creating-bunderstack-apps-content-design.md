@@ -31,16 +31,16 @@ a library sitting beside one, and that an application uses the framework's
 capability instead of its own implementation. A deviation requires a recorded
 reason.
 
-| Capability | Replaces | Entry point |
-| --- | --- | --- |
-| Generated CRUD | Hand-written REST routes | `defineAccess(schema, rules)` |
-| tRPC | A separate procedure server | `trpc: createAppRouter` |
-| Authentication | A private Better Auth instance | `auth: authConfig` |
-| Realtime | A custom WebSocket server | `realtime: true` or `{ redis }` |
-| Storage | AWS or Tigris SDK wrappers | `storage: { buckets }` |
-| Job queue | BullMQ or a bespoke queue | `jobs.job({ ... })` |
-| Cron | `/api/cron/*` behind a shared secret | `jobs.cron({ schedule })` |
-| Email | A Resend SDK wrapper | `email: { from }` |
+| Capability     | Replaces                             | Entry point                     |
+| -------------- | ------------------------------------ | ------------------------------- |
+| Generated CRUD | Hand-written REST routes             | `defineAccess(schema, rules)`   |
+| tRPC           | A separate procedure server          | `trpc: createAppRouter`         |
+| Authentication | A private Better Auth instance       | `auth: authConfig`              |
+| Realtime       | A custom WebSocket server            | `realtime: true` or `{ redis }` |
+| Storage        | AWS or Tigris SDK wrappers           | `storage: { buckets }`          |
+| Job queue      | BullMQ or a bespoke queue            | `jobs.job({ ... })`             |
+| Cron           | `/api/cron/*` behind a shared secret | `jobs.cron({ schedule })`       |
+| Email          | A Resend SDK wrapper                 | `email: { from }`               |
 
 This inventory is the skill's answer to "what do I get", and it is the same set
 the migration skill removes legacy infrastructure in favour of. The two skills

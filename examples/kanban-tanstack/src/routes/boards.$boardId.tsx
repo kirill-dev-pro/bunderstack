@@ -58,16 +58,27 @@ export const Route = createFileRoute('/boards/$boardId')({
       )
       await Promise.all([
         queryClient.ensureQueryData(
-          api.lists.list.queryOptions({ input: { filters: { boardId }, ...listParams } }),
+          api.lists.list.queryOptions({
+            input: { filters: { boardId }, ...listParams },
+          }),
         ),
         queryClient.ensureQueryData(
-          api.cards.list.queryOptions({ input: { filters: { boardId }, limit: 500 } }),
+          api.cards.list.queryOptions({
+            input: { filters: { boardId }, limit: 500 },
+          }),
         ),
-        queryClient.ensureQueryData(api.user.list.queryOptions({ input: listParams })),
+        queryClient.ensureQueryData(
+          api.user.list.queryOptions({ input: listParams }),
+        ),
       ])
       return board
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'NOT_FOUND'
+      )
         throw notFound()
       throw err
     }
@@ -94,10 +105,14 @@ function BoardPage() {
   }, [])
 
   const { data: listsData, isLoading: listsLoading } = useQuery(
-    api.lists.list.queryOptions({ input: { filters: { boardId }, ...listParams } }),
+    api.lists.list.queryOptions({
+      input: { filters: { boardId }, ...listParams },
+    }),
   )
   const { data: cardsData } = useQuery(
-    api.cards.list.queryOptions({ input: { filters: { boardId }, limit: 500 } }),
+    api.cards.list.queryOptions({
+      input: { filters: { boardId }, limit: 500 },
+    }),
   )
   const { data: commentsData } = useQuery(
     api.comments.list.queryOptions({ input: { limit: 500 } }),
@@ -108,7 +123,9 @@ function BoardPage() {
   const { data: reactionsData } = useQuery(
     api.reactions.list.queryOptions({ input: { limit: 500 } }),
   )
-  const { data: usersData } = useQuery(api.user.list.queryOptions({ input: listParams }))
+  const { data: usersData } = useQuery(
+    api.user.list.queryOptions({ input: listParams }),
+  )
 
   const { data: members } = useQuery({
     queryKey: ['org-members', boardId],
@@ -231,7 +248,12 @@ function BoardPage() {
     const newPos = (siblings.at(-1)?.position ?? 0) + 1000
 
     moveCard.mutate(
-      { params: { id: cardId }, query: {}, headers: {}, body: { listId: targetListId, position: newPos } },
+      {
+        params: { id: cardId },
+        query: {},
+        headers: {},
+        body: { listId: targetListId, position: newPos },
+      },
       {
         onSuccess: () => {
           logMove.mutate({

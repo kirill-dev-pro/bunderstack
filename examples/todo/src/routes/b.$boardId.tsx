@@ -17,7 +17,9 @@ function BoardPage() {
 
   // Auto-CRUD get: `public` in access.ts, so the board name renders even
   // before the visitor signs in.
-  const board = useQuery(api.boards.get.queryOptions({ input: { id: boardId } }))
+  const board = useQuery(
+    api.boards.get.queryOptions({ input: { id: boardId } }),
+  )
 
   if (board.isLoading) return <p className="page">Loading…</p>
   if (!board.data) {
@@ -63,7 +65,11 @@ function BoardTodos({
   const invalidateAll = () => void queryClient.invalidateQueries()
 
   // Auto-CRUD, filtered by board: `boardId` is in filterableColumns.
-  const todos = useQuery(api.todos.list.queryOptions({ input: { filters: { boardId }, limit: 100 } }))
+  const todos = useQuery(
+    api.todos.list.queryOptions({
+      input: { filters: { boardId }, limit: 100 },
+    }),
+  )
   const createTodo = useMutation(
     api.todos.create.mutationOptions({ onSuccess: invalidateAll }),
   )
@@ -174,7 +180,12 @@ function BoardTodos({
               type="checkbox"
               checked={todo.done}
               onChange={() =>
-                toggleTodo.mutate({ params: { id: todo.id }, query: {}, headers: {}, body: { done: !todo.done } })
+                toggleTodo.mutate({
+                  params: { id: todo.id },
+                  query: {},
+                  headers: {},
+                  body: { done: !todo.done },
+                })
               }
             />
             {/* Storage transforms: sharp resizes on the fly via ?w=&format= */}

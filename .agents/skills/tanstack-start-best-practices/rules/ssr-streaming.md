@@ -14,10 +14,10 @@ export const Route = createFileRoute('/dashboard')({
   loader: async ({ context: { queryClient } }) => {
     // All of these must complete before ANY HTML is sent
     await Promise.all([
-      queryClient.ensureQueryData(userQueries.profile()),      // 200ms
-      queryClient.ensureQueryData(dashboardQueries.stats()),   // 500ms
-      queryClient.ensureQueryData(activityQueries.recent()),   // 300ms
-      queryClient.ensureQueryData(notificationQueries.all()),  // 400ms
+      queryClient.ensureQueryData(userQueries.profile()), // 200ms
+      queryClient.ensureQueryData(dashboardQueries.stats()), // 500ms
+      queryClient.ensureQueryData(activityQueries.recent()), // 300ms
+      queryClient.ensureQueryData(notificationQueries.all()), // 400ms
     ])
     // TTFB: 500ms (slowest query)
   },

@@ -34,7 +34,9 @@ This package publishes TypeScript source. Node-based SSR bundlers should bundle
 it instead of externalizing it; for Vite:
 
 ```ts
-ssr: { noExternal: [/^bunderstack/] }
+ssr: {
+  noExternal: [/^bunderstack/]
+}
 ```
 
 ## License

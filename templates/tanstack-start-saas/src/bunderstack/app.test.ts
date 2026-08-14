@@ -26,7 +26,11 @@ async function seedUser(
     .returning()
 }
 
-function signIn(app: BunderSaaSApp, id: string, role: 'user' | 'admin' = 'user') {
+function signIn(
+  app: BunderSaaSApp,
+  id: string,
+  role: 'user' | 'admin' = 'user',
+) {
   mockAuthSession(app, async () => ({
     user: { id, email: `${id}@bunderstack.test`, name: id, role },
   }))
@@ -44,7 +48,11 @@ test('declares the full SaaS runtime', async () => {
   expect(app.manifest.background.jobs).toEqual([{ name: 'sendProjectDigest' }])
   expect(app.manifest.background.cron).toEqual([
     { name: 'archiveCompletedTasks', schedule: '0 3 * * *', timezone: 'UTC' },
-    { name: 'bunderstack:storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+    {
+      name: 'bunderstack:storage-sweep',
+      schedule: '0 4 * * *',
+      timezone: 'UTC',
+    },
   ])
 })
 

@@ -13,7 +13,9 @@ import * as schema from './schema'
  * Factory form so tests can own an isolated in-memory database. Production
  * uses the module-level `app` below.
  */
-export async function createBunderSaaSApp(options: { databaseUrl?: string } = {}) {
+export async function createBunderSaaSApp(
+  options: { databaseUrl?: string } = {},
+) {
   return createBunderstack({
     schema,
     access,

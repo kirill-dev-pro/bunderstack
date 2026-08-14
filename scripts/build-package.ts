@@ -80,7 +80,9 @@ async function rewrite(file: string): Promise<string[]> {
     await Bun.write(file, next)
   }
 
-  return unresolved.map((specifier) => `${relative(repoRoot, file)}: ${specifier}`)
+  return unresolved.map(
+    (specifier) => `${relative(repoRoot, file)}: ${specifier}`,
+  )
 }
 
 const name = process.argv[2]

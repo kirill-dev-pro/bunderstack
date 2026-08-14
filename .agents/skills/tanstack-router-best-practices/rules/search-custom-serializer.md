@@ -108,12 +108,12 @@ const router = createRouter({
     serialize: (search) => {
       if (Object.keys(search).length === 0) return ''
       const json = JSON.stringify(search)
-      return btoa(json)  // Base64 encode
+      return btoa(json) // Base64 encode
     },
     parse: (searchString) => {
       if (!searchString) return {}
       try {
-        return JSON.parse(atob(searchString))  // Base64 decode
+        return JSON.parse(atob(searchString)) // Base64 decode
       } catch {
         return {}
       }
@@ -180,13 +180,13 @@ const router = createRouter({
 
 ## Serializer Comparison
 
-| Library | URL Style | Best For |
-|---------|-----------|----------|
-| Default (JSON) | `?data=%7B...%7D` | TypeScript safety |
-| jsurl2 | `?~(key~'value)` | Compact, readable |
-| query-string | `?key=value&arr[]=1` | Traditional APIs |
-| qs | `?obj[nested]=value` | Deep nesting |
-| Base64 | `?eyJrZXkiOiJ2YWx1ZSJ9` | Opaque, compact |
+| Library        | URL Style               | Best For          |
+| -------------- | ----------------------- | ----------------- |
+| Default (JSON) | `?data=%7B...%7D`       | TypeScript safety |
+| jsurl2         | `?~(key~'value)`        | Compact, readable |
+| query-string   | `?key=value&arr[]=1`    | Traditional APIs  |
+| qs             | `?obj[nested]=value`    | Deep nesting      |
+| Base64         | `?eyJrZXkiOiJ2YWx1ZSJ9` | Opaque, compact   |
 
 ## Context
 

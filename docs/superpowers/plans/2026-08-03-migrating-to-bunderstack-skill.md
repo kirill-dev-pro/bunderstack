@@ -22,10 +22,12 @@
 ### Task 1: Baseline migration failures
 
 **Files:**
+
 - Modify: `scripts/skills-contract.test.ts`
 - Create: `docs/superpowers/plans/evidence/migrating-to-bunderstack-baseline.md`
 
 **Interfaces:**
+
 - Consumes: existing Gemini skill and current HR Breakers application shape.
 - Produces: exact outdated claims and a failing repository contract.
 
@@ -49,8 +51,13 @@ blueprint, and cleanup verification.
 
 ```ts
 test('migration skill uses current runtime contracts', () => {
-  const markdown = readFileSync(resolve(root, '.agents/skills/migrating-to-bunderstack/SKILL.md'), 'utf8')
-  expect(markdown).toContain("ctx.realtime.publish(schema.tasks, 'update', row)")
+  const markdown = readFileSync(
+    resolve(root, '.agents/skills/migrating-to-bunderstack/SKILL.md'),
+    'utf8',
+  )
+  expect(markdown).toContain(
+    "ctx.realtime.publish(schema.tasks, 'update', row)",
+  )
   expect(markdown).toContain('createApiHandlers(app)')
   expect(markdown).toContain('app.runWorker()')
   expect(markdown).not.toContain("ctx.realtime.publish('channel', payload)")
@@ -71,12 +78,14 @@ git commit -m "test: define Bunderstack migration skill contract"
 ### Task 2: Initialize, migrate, and correct the skill
 
 **Files:**
+
 - Create: `.agents/skills/migrating-to-bunderstack/SKILL.md`
 - Create: `.agents/skills/migrating-to-bunderstack/agents/openai.yaml`
 - Create: `.agents/skills/migrating-to-bunderstack/references/audit-checklist.md`
 - Create: `.agents/skills/migrating-to-bunderstack/references/runtime-replacements.md`
 
 **Interfaces:**
+
 - Produces: `$migrating-to-bunderstack`, a phased migration audit, and current replacement contracts.
 
 - [ ] **Step 1: Initialize the destination through the official generator**
@@ -145,10 +154,12 @@ git commit -m "feat: add current Bunderstack migration skill"
 ### Task 3: Independent forward test and refactor
 
 **Files:**
+
 - Modify as needed: `.agents/skills/migrating-to-bunderstack/**`
 - Create: `docs/superpowers/plans/evidence/migrating-to-bunderstack-forward.md`
 
 **Interfaces:**
+
 - Consumes: the Task 1 prompts with explicit `$migrating-to-bunderstack` invocation.
 - Produces: migration evidence with no leaked expected answer.
 

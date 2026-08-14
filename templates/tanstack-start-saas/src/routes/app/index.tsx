@@ -1,10 +1,18 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
+
 import type { Project } from '~/api'
+
 import { DeliveryRail } from '~/components/delivery-rail'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
 
 export const Route = createFileRoute('/app/')({
   component: DashboardOverview,
@@ -43,7 +51,9 @@ function DashboardOverview() {
         {/* Left Column - Active Projects */}
         <div className="md:col-span-7 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-semibold">Active Projects</h2>
+            <h2 className="font-display text-xl font-semibold">
+              Active Projects
+            </h2>
             <Button size="sm" asChild>
               <Link to="/app/projects">Create your first project</Link>
             </Button>
@@ -62,11 +72,18 @@ function DashboardOverview() {
           ) : (
             <div className="space-y-4">
               {projects.map((project) => (
-                <Card key={project.id} className="hover:border-[#315CF5]/40 transition-colors">
+                <Card
+                  key={project.id}
+                  className="hover:border-[#315CF5]/40 transition-colors"
+                >
                   <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">
-                        <Link to="/app/projects/$projectId" params={{ projectId: project.id }} className="hover:underline">
+                        <Link
+                          to="/app/projects/$projectId"
+                          params={{ projectId: project.id }}
+                          className="hover:underline"
+                        >
                           {project.name}
                         </Link>
                       </CardTitle>
@@ -74,14 +91,26 @@ function DashboardOverview() {
                         Client: {project.clientName || 'Direct'}
                       </CardDescription>
                     </div>
-                    <Badge variant={project.status === 'ready' ? 'secondary' : 'default'}>
+                    <Badge
+                      variant={
+                        project.status === 'ready' ? 'secondary' : 'default'
+                      }
+                    >
                       {project.status || 'in_progress'}
                     </Badge>
                   </CardHeader>
                   <CardContent className="p-5 pt-2 flex items-center justify-between text-xs text-[#17211B]/60">
-                    <span>Due: {project.dueAt ? new Date(project.dueAt).toLocaleDateString() : 'Flexible'}</span>
+                    <span>
+                      Due:{' '}
+                      {project.dueAt
+                        ? new Date(project.dueAt).toLocaleDateString()
+                        : 'Flexible'}
+                    </span>
                     <Button variant="ghost" size="sm" asChild>
-                      <Link to="/app/projects/$projectId" params={{ projectId: project.id }}>
+                      <Link
+                        to="/app/projects/$projectId"
+                        params={{ projectId: project.id }}
+                      >
                         Open workspace →
                       </Link>
                     </Button>
@@ -94,7 +123,9 @@ function DashboardOverview() {
 
         {/* Right Column - Delivery Rail & Live Pulse */}
         <div className="md:col-span-5 space-y-6">
-          <h2 className="font-display text-xl font-semibold font-display">Delivery Rail Status</h2>
+          <h2 className="font-display text-xl font-semibold font-display">
+            Delivery Rail Status
+          </h2>
           <DeliveryRail />
         </div>
       </div>

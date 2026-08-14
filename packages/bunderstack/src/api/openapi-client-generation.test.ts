@@ -1,11 +1,12 @@
 import { test, expect } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { pgTable, text } from 'drizzle-orm/pg-core'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import * as v from 'valibot'
-import { createBunderstack } from '../index'
+
 import { pglite } from '../database/pglite'
+import { createBunderstack } from '../index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -54,7 +55,9 @@ async function setupApp() {
 
 test('reproducible openapi-typescript client generation and type verification', async () => {
   const app = await setupApp()
-  const res = await app.handler(new Request('http://localhost/api/openapi.json'))
+  const res = await app.handler(
+    new Request('http://localhost/api/openapi.json'),
+  )
   expect(res.status).toBe(200)
 
   const spec = (await res.json()) as any
@@ -72,16 +75,23 @@ test('reproducible openapi-typescript client generation and type verification', 
   expect(spec.paths['/api/files/images'].post).toBeDefined()
 
   // Auth paths under /api/auth/* exactly once
-  const authPaths = Object.keys(spec.paths).filter((p) => p.startsWith('/api/auth/'))
+  const authPaths = Object.keys(spec.paths).filter((p) =>
+    p.startsWith('/api/auth/'),
+  )
   expect(authPaths.length).toBeGreaterThan(0)
-  expect(Object.keys(spec.paths).filter((p) => p === '/sign-in/email')).toHaveLength(0)
+  expect(
+    Object.keys(spec.paths).filter((p) => p === '/sign-in/email'),
+  ).toHaveLength(0)
 
   // CRUD create requires title
-  const createReqBody = spec.paths['/api/posts'].post.requestBody.content['application/json'].schema
+  const createReqBody =
+    spec.paths['/api/posts'].post.requestBody.content['application/json'].schema
   expect(createReqBody.required).toContain('title')
 
   // CRUD select response exposes id and title
-  const listRespSchema = spec.paths['/api/posts'].get.responses['200'].content['application/json'].schema
+  const listRespSchema =
+    spec.paths['/api/posts'].get.responses['200'].content['application/json']
+      .schema
   expect(listRespSchema.properties.items.items.properties.title).toBeDefined()
 
   // 2. Client code generation via openapi-typescript
@@ -94,9 +104,12 @@ test('reproducible openapi-typescript client generation and type verification', 
     await Bun.write(specPath, JSON.stringify(spec, null, 2))
 
     // Run pinned local openapi-typescript binary
-    const genProc = Bun.spawnSync(['bunx', 'openapi-typescript', specPath, '-o', clientPath], {
-      cwd: process.cwd(),
-    })
+    const genProc = Bun.spawnSync(
+      ['bunx', 'openapi-typescript', specPath, '-o', clientPath],
+      {
+        cwd: process.cwd(),
+      },
+    )
     expect(genProc.exitCode, genProc.stderr.toString()).toBe(0)
 
     // Write a consumer TypeScript file referencing CRUD body, custom response, and auth path
@@ -126,10 +139,26 @@ test('reproducible openapi-typescript client generation and type verification', 
     await Bun.write(testConsumerPath, consumerCode)
 
     // Type-check generated client consumer using tsc
-    const tscProc = Bun.spawnSync(['bunx', 'tsc', '--noEmit', '--skipLibCheck', '--target', 'esnext', '--module', 'esnext', '--moduleResolution', 'bundler', testConsumerPath], {
-      cwd: process.cwd(),
-    })
-    const tscOutput = (tscProc.stdout?.toString() || '') + (tscProc.stderr?.toString() || '')
+    const tscProc = Bun.spawnSync(
+      [
+        'bunx',
+        'tsc',
+        '--noEmit',
+        '--skipLibCheck',
+        '--target',
+        'esnext',
+        '--module',
+        'esnext',
+        '--moduleResolution',
+        'bundler',
+        testConsumerPath,
+      ],
+      {
+        cwd: process.cwd(),
+      },
+    )
+    const tscOutput =
+      (tscProc.stdout?.toString() || '') + (tscProc.stderr?.toString() || '')
     expect(tscProc.exitCode, tscOutput).toBe(0)
   } finally {
     await rm(tmpDir, { recursive: true, force: true })

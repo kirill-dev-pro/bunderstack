@@ -60,7 +60,7 @@
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/tanstack-query": "2.0.0-beta.26",
     "@standardserver/core": "0.7.1",
-    "@tanstack/react-query": "^5.101.0",
+    "@tanstack/query-core": "^5.101.0",
     "bunderstack": "workspace:*",
     "typescript": ">=5"
   },

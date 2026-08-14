@@ -45,9 +45,7 @@ function QueryErrorBoundary({ children }: { children: React.ReactNode }) {
         <div className="error-container">
           <h2>Something went wrong</h2>
           <pre>{error.message}</pre>
-          <button onClick={resetErrorBoundary}>
-            Try again
-          </button>
+          <button onClick={resetErrorBoundary}>Try again</button>
         </div>
       )}
     >

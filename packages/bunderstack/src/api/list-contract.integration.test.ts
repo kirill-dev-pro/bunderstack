@@ -148,7 +148,9 @@ test('REST coerces a numeric filter to the column type', async () => {
 })
 
 test('REST coerces a date filter to the column type', async () => {
-  const { status, body } = await rest('/api/posts?filters[createdAt]=2026-06-01')
+  const { status, body } = await rest(
+    '/api/posts?filters[createdAt]=2026-06-01',
+  )
   expect(status).toBe(200)
   expect(titles(body)).toEqual(['b'])
 })

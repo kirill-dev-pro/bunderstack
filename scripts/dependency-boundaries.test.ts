@@ -37,14 +37,18 @@ describe('published dependency boundaries', () => {
     ]
 
     for (const name of packages) {
-      for (const path of await sourceFiles(join(repoRoot, 'packages', name, 'src'))) {
+      for (const path of await sourceFiles(
+        join(repoRoot, 'packages', name, 'src'),
+      )) {
         const source = await Bun.file(path).text()
-        for (const pattern of forbidden) expect(source, path).not.toMatch(pattern)
+        for (const pattern of forbidden)
+          expect(source, path).not.toMatch(pattern)
       }
 
       const manifestPath = join(repoRoot, 'packages', name, 'package.json')
       const manifest = await Bun.file(manifestPath).text()
-      for (const pattern of forbidden) expect(manifest, manifestPath).not.toMatch(pattern)
+      for (const pattern of forbidden)
+        expect(manifest, manifestPath).not.toMatch(pattern)
     }
   })
 
@@ -111,9 +115,7 @@ describe('published dependency boundaries', () => {
     const query = await Bun.file(
       join(repoRoot, 'packages/bunderstack-query/src/index.ts'),
     ).text()
-    expect(query).not.toMatch(
-      /from ['"](?:bunderstack(?:\/|['"])|better-auth)/,
-    )
+    expect(query).not.toMatch(/from ['"](?:bunderstack(?:\/|['"])|better-auth)/)
 
     const start = await Bun.file(
       join(repoRoot, 'packages/bunderstack-start/src/index.ts'),
@@ -122,17 +124,20 @@ describe('published dependency boundaries', () => {
     expect(start).not.toContain('export { createStartAuthClient }')
   })
 
-  test('query client keeps QueryClient type-only', async () => {
+  test('query client keeps QueryClient type-only and framework-neutral', async () => {
     const source = await Bun.file(
       join(repoRoot, 'packages/bunderstack-query/src/client.ts'),
     ).text()
 
     expect(source).toContain(
-      "import type { QueryClient } from '@tanstack/react-query'",
+      "import type { QueryClient } from '@tanstack/query-core'",
     )
     expect(source).not.toMatch(
-      /import\s+\{\s*QueryClient\s*\}\s+from\s+['"]@tanstack\/react-query['"]/,
+      /import\s+\{\s*QueryClient\s*\}\s+from\s+['"]@tanstack\/query-core['"]/,
     )
+    // The client is consumed from Solid and React alike — see
+    // examples/todo-solid-2, which installs no React packages at all.
+    expect(source).not.toMatch(/@tanstack\/react-query/)
   })
 
   test('manifests declare correct peers and dependencies', async () => {
@@ -172,7 +177,8 @@ describe('published dependency boundaries', () => {
     const query = await Bun.file(
       join(repoRoot, 'packages/bunderstack-query/package.json'),
     ).json()
-    expect(query.peerDependencies['@tanstack/react-query']).toBeDefined()
+    expect(query.peerDependencies['@tanstack/query-core']).toBeDefined()
+    expect(query.peerDependencies['@tanstack/react-query']).toBeUndefined()
     expect(query.peerDependencies['@orpc/client']).toBe('2.0.0-beta.26')
     expect(query.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
     expect(query.peerDependencies['@orpc/tanstack-query']).toBe('2.0.0-beta.26')

@@ -10,18 +10,18 @@ While server functions are ideal for internal RPC, server routes provide traditi
 
 ```tsx
 // Using server functions for webhook endpoints
-export const stripeWebhook = createServerFn({ method: 'POST' })
-  .handler(async ({ request }) => {
+export const stripeWebhook = createServerFn({ method: 'POST' }).handler(
+  async ({ request }) => {
     // Server functions aren't designed for raw request handling
     // No easy access to raw body for signature verification
     // Response format is JSON by default
-  })
+  },
+)
 
 // Or exposing internal functions to external consumers
-export const getUsers = createServerFn()
-  .handler(async () => {
-    return db.users.findMany()
-  })
+export const getUsers = createServerFn().handler(async () => {
+  return db.users.findMany()
+})
 // No versioning, no standard REST semantics
 ```
 
@@ -90,7 +90,7 @@ export const Route = createFileRoute('/api/webhooks/stripe')({
           event = stripe.webhooks.constructEvent(
             rawBody,
             signature,
-            process.env.STRIPE_WEBHOOK_SECRET!
+            process.env.STRIPE_WEBHOOK_SECRET!,
           )
         } catch (err) {
           console.error('Webhook signature verification failed:', err)
@@ -195,7 +195,7 @@ import { json } from '@tanstack/react-start'
 
 export const Route = createFileRoute('/api/admin/users')({
   server: {
-    middleware: [authMiddleware],  // All handlers require auth
+    middleware: [authMiddleware], // All handlers require auth
     handlers: (createHandlers) => ({
       GET: createHandlers.GET(async ({ context }) => {
         const users = await db.users.findMany()
@@ -218,14 +218,14 @@ export const Route = createFileRoute('/api/admin/users')({
 
 ## Server Functions vs Server Routes
 
-| Feature | Server Functions | Server Routes |
-|---------|-----------------|--------------|
-| Primary use | Internal RPC | External consumers |
-| Type safety | Full end-to-end | Manual |
-| Response format | JSON (automatic) | Any (manual) |
-| Raw request access | Limited | Full |
-| URL structure | Auto-generated | Explicit paths |
-| Webhooks | Not ideal | Designed for |
+| Feature            | Server Functions | Server Routes      |
+| ------------------ | ---------------- | ------------------ |
+| Primary use        | Internal RPC     | External consumers |
+| Type safety        | Full end-to-end  | Manual             |
+| Response format    | JSON (automatic) | Any (manual)       |
+| Raw request access | Limited          | Full               |
+| URL structure      | Auto-generated   | Explicit paths     |
+| Webhooks           | Not ideal        | Designed for       |
 
 ## Context
 

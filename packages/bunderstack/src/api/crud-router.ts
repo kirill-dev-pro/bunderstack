@@ -44,10 +44,7 @@ type CrudUpdate<TTable extends Table> = Partial<
 /** A filter accepts one value (`=`), a list (`IN`), or null (`IS NULL`). */
 export type ListFilterValue<T> = T | readonly T[] | null | 'null'
 
-export type ListFilters<
-  TTable extends Table,
-  TFilterable extends string,
-> = {
+export type ListFilters<TTable extends Table, TFilterable extends string> = {
   [K in Extract<keyof TTable['$inferSelect'], TFilterable>]?: ListFilterValue<
     TTable['$inferSelect'][K]
   >
@@ -117,17 +114,19 @@ export function buildTableCrudProcedures<
       .filter(([, column]) => !column.notNull || column.hasDefault)
       .map(([column]) => column),
   ].filter((column) => generatedColumns.includes(column))
-  const insertEntries: Record<string, v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>> = {
+  const insertEntries: Record<
+    string,
+    v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>
+  > = {
     ...generatedInsertSchema.entries,
   }
   for (const column of serverManagedColumns) {
     const schema = insertEntries[column]
     if (schema) insertEntries[column] = v.optional(schema)
   }
-  const insertSchema = v.strictObject(insertEntries) as unknown as v.GenericSchema<
-    CrudInsert<TTable>,
-    CrudInsert<TTable>
-  >
+  const insertSchema = v.strictObject(
+    insertEntries,
+  ) as unknown as v.GenericSchema<CrudInsert<TTable>, CrudInsert<TTable>>
   const generatedUpdateSchema = createUpdateSchema(table)
   const updateBodySchema = v.omit(generatedUpdateSchema, [
     'id' as keyof typeof generatedUpdateSchema.entries,

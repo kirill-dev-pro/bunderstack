@@ -62,11 +62,11 @@ test('oRPC context exposes the jobs facade', async () => {
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
     api: (o) => ({
-        kick: o.public.handler(async ({ context }) => {
-          const { id } = await context.jobs.enqueue('noop')
-          return { id }
-        }),
+      kick: o.public.handler(async ({ context }) => {
+        const { id } = await context.jobs.enqueue('noop')
+        return { id }
       }),
+    }),
   })
   await provision(app, { force: true })
 

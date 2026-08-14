@@ -10,7 +10,10 @@ import * as v from 'valibot'
 export const envSchema = {
   server: {
     NOTIFY_COMPLETED: v.optional(
-      v.pipe(v.picklist(['true', 'false']), v.transform((value) => value === 'true')),
+      v.pipe(
+        v.picklist(['true', 'false']),
+        v.transform((value) => value === 'true'),
+      ),
       'true',
     ),
   },

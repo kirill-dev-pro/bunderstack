@@ -12,9 +12,9 @@ TanStack Router loads nested route data in parallel, not sequentially. Structure
 // Creating waterfall with dependent beforeLoad
 export const Route = createFileRoute('/dashboard')({
   beforeLoad: async () => {
-    const user = await fetchUser()        // 200ms
-    const permissions = await fetchPermissions(user.id)  // 200ms
-    const preferences = await fetchPreferences(user.id)  // 200ms
+    const user = await fetchUser() // 200ms
+    const permissions = await fetchPermissions(user.id) // 200ms
+    const preferences = await fetchPreferences(user.id) // 200ms
     // Total: 600ms (sequential)
 
     return { user, permissions, preferences }
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/dashboard')({
 // routes/posts.tsx
 export const Route = createFileRoute('/posts')({
   loader: async () => {
-    const posts = await fetchPosts()  // 300ms
+    const posts = await fetchPosts() // 300ms
     return { posts }
   },
 })
@@ -34,7 +34,7 @@ export const Route = createFileRoute('/posts')({
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params }) => {
     // Waits for parent to complete first - waterfall!
-    const post = await fetchPost(params.postId)  // +200ms
+    const post = await fetchPost(params.postId) // +200ms
     return { post }
   },
 })
@@ -47,8 +47,8 @@ export const Route = createFileRoute('/dashboard')({
   beforeLoad: async () => {
     // All requests start simultaneously
     const [user, config] = await Promise.all([
-      fetchUser(),          // 200ms
-      fetchAppConfig(),     // 150ms
+      fetchUser(), // 200ms
+      fetchAppConfig(), // 150ms
     ])
     // Total: 200ms (parallel)
 
@@ -129,7 +129,7 @@ export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params, context: { queryClient } }) => {
     // Critical data - await
     const post = await queryClient.ensureQueryData(
-      postQueries.detail(params.postId)
+      postQueries.detail(params.postId),
     )
 
     // Non-critical - start but don't await (stream in later)
@@ -147,9 +147,7 @@ function PostPage() {
 
   // Critical data ready immediately
   // Non-critical loads in component with loading state
-  const { data: comments, isLoading } = useQuery(
-    commentQueries.forPost(postId)
-  )
+  const { data: comments, isLoading } = useQuery(commentQueries.forPost(postId))
 
   return (
     <article>

@@ -15,11 +15,11 @@ function DashboardPage() {
 
   useEffect(() => {
     if (!user) {
-      navigate({ to: '/login' })  // Redirect after render
+      navigate({ to: '/login' }) // Redirect after render
     }
   }, [user])
 
-  if (!user) return null  // Flash of content possible
+  if (!user) return null // Flash of content possible
 
   return <Dashboard user={user} />
 }
@@ -67,7 +67,7 @@ function AuthenticatedLayout() {
     <div>
       <AuthenticatedNav />
       <main>
-        <Outlet />  {/* Child routes render here */}
+        <Outlet /> {/* Child routes render here */}
       </main>
     </div>
   )
@@ -172,11 +172,7 @@ function HomePage() {
   return (
     <div>
       <Hero />
-      {user ? (
-        <PersonalizedContent user={user} />
-      ) : (
-        <SignUpCTA />
-      )}
+      {user ? <PersonalizedContent user={user} /> : <SignUpCTA />}
     </div>
   )
 }

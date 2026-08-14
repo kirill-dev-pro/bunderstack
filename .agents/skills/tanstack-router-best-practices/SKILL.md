@@ -19,18 +19,18 @@ Comprehensive guidelines for implementing TanStack Router patterns in React appl
 
 ## Rule Categories by Priority
 
-| Priority | Category | Rules | Impact |
-|----------|----------|-------|--------|
-| CRITICAL | Type Safety | 4 rules | Prevents runtime errors and enables refactoring |
-| CRITICAL | Route Organization | 5 rules | Ensures maintainable route structure |
-| HIGH | Router Config | 1 rule | Global router defaults |
-| HIGH | Data Loading | 6 rules | Optimizes data fetching and caching |
-| HIGH | Search Params | 5 rules | Enables type-safe URL state |
-| HIGH | Error Handling | 1 rule | Handles 404 and errors gracefully |
-| MEDIUM | Navigation | 5 rules | Improves UX and accessibility |
-| MEDIUM | Code Splitting | 3 rules | Reduces bundle size |
-| MEDIUM | Preloading | 3 rules | Improves perceived performance |
-| LOW | Route Context | 3 rules | Enables dependency injection |
+| Priority | Category           | Rules   | Impact                                          |
+| -------- | ------------------ | ------- | ----------------------------------------------- |
+| CRITICAL | Type Safety        | 4 rules | Prevents runtime errors and enables refactoring |
+| CRITICAL | Route Organization | 5 rules | Ensures maintainable route structure            |
+| HIGH     | Router Config      | 1 rule  | Global router defaults                          |
+| HIGH     | Data Loading       | 6 rules | Optimizes data fetching and caching             |
+| HIGH     | Search Params      | 5 rules | Enables type-safe URL state                     |
+| HIGH     | Error Handling     | 1 rule  | Handles 404 and errors gracefully               |
+| MEDIUM   | Navigation         | 5 rules | Improves UX and accessibility                   |
+| MEDIUM   | Code Splitting     | 3 rules | Reduces bundle size                             |
+| MEDIUM   | Preloading         | 3 rules | Improves perceived performance                  |
+| LOW      | Route Context      | 3 rules | Enables dependency injection                    |
 
 ## Quick Reference
 
@@ -103,6 +103,7 @@ Comprehensive guidelines for implementing TanStack Router patterns in React appl
 ## How to Use
 
 Each rule file in the `rules/` directory contains:
+
 1. **Explanation** — Why this pattern matters
 2. **Bad Example** — Anti-pattern to avoid
 3. **Good Example** — Recommended implementation

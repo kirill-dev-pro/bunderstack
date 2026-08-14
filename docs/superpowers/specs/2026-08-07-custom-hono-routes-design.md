@@ -7,7 +7,7 @@
 
 Applications built on bunderstack regularly need a hand-written HTTP endpoint —
 a webhook, an OAuth callback, a public REST route. Today there is no declaration
-site for one. `app.router` exposes the raw Hono instance, so it is *possible*,
+site for one. `app.router` exposes the raw Hono instance, so it is _possible_,
 but the resulting pattern is bad in ways that matter.
 
 The reference case is the Djin project's Telegram webhook
@@ -27,7 +27,7 @@ That wrapper costs four concrete things:
    `export const { db, auth, env } = app as any` and passes `db: db as never`,
    purely to get context out of the app and into a handler.
 3. **It forces manual dependency injection.** `createTelegramRouter({ db,
-   botToken, botUsername, webhookSecret, enqueue })` hand-threads four things
+botToken, botUsername, webhookSecret, enqueue })` hand-threads four things
    the framework already holds, including an `enqueue` closure that exists only
    to forward `app.jobs.enqueue`.
 4. **It creates a second entry point.** `app.handler` and `apiApp.handler` both
@@ -88,7 +88,9 @@ import type { BunderstackRouteContext } from 'bunderstack'
 
 export function createTelegramRoutes(
   ctx: BunderstackRouteContext<typeof schema, Env>,
-): Hono { /* … */ }
+): Hono {
+  /* … */
+}
 ```
 
 This mirrors `BunderstackJobsBuilder`, which exists for the same reason.
@@ -149,13 +151,13 @@ declared paths is knowable at construction time.
 
 Reject at startup when a declared path collides with:
 
-| Reserved | Owner |
-|---|---|
-| `/health`, `/api/health` | health check |
-| `/api/auth/*` | BetterAuth |
-| `/api/trpc/*` | tRPC |
-| `/api/files/*`, `/files/*` | storage router |
-| `/api/realtime` | realtime SSE |
+| Reserved                                 | Owner                                    |
+| ---------------------------------------- | ---------------------------------------- |
+| `/health`, `/api/health`                 | health check                             |
+| `/api/auth/*`                            | BetterAuth                               |
+| `/api/trpc/*`                            | tRPC                                     |
+| `/api/files/*`, `/files/*`               | storage router                           |
+| `/api/realtime`                          | realtime SSE                             |
 | `/api/<tableName>`, `/api/<tableName>/*` | generated CRUD, per access-enabled table |
 
 Additionally, reject any path whose first segment under `/api/` is a parameter

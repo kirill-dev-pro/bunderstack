@@ -90,22 +90,24 @@ function BoardList({
       )}
 
       <ul className="boards">
-        {boards.data?.map((board: typeof import('../schema').boards.$inferSelect) => (
-          <li key={board.id}>
-            <Link to="/b/$boardId" params={{ boardId: board.id }}>
-              {board.name}
-            </Link>
-            <span className="muted">
-              {board.createdAt.toLocaleDateString()}
-            </span>
-            <button
-              className="remove"
-              onClick={() => deleteBoard.mutate({ id: board.id })}
-            >
-              ×
-            </button>
-          </li>
-        ))}
+        {boards.data?.map(
+          (board: typeof import('../schema').boards.$inferSelect) => (
+            <li key={board.id}>
+              <Link to="/b/$boardId" params={{ boardId: board.id }}>
+                {board.name}
+              </Link>
+              <span className="muted">
+                {board.createdAt.toLocaleDateString()}
+              </span>
+              <button
+                className="remove"
+                onClick={() => deleteBoard.mutate({ id: board.id })}
+              >
+                ×
+              </button>
+            </li>
+          ),
+        )}
       </ul>
     </div>
   )

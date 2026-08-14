@@ -15,16 +15,14 @@ test.skipIf(!redisUrl)(
     const subscriberA = commandA.duplicate()
     const subscriberB = commandB.duplicate()
     const prefix = `bunderstack:test:${crypto.randomUUID()}:`
-    const publisherA = createRedisRealtimePublisher(
-      commandA,
-      subscriberA,
-      { prefix, resumeSeconds: 60 },
-    )
-    const publisherB = createRedisRealtimePublisher(
-      commandB,
-      subscriberB,
-      { prefix, resumeSeconds: 60 },
-    )
+    const publisherA = createRedisRealtimePublisher(commandA, subscriberA, {
+      prefix,
+      resumeSeconds: 60,
+    })
+    const publisherB = createRedisRealtimePublisher(commandB, subscriberB, {
+      prefix,
+      resumeSeconds: 60,
+    })
 
     const change = (status: string): RealtimeChange => ({
       table: 'avatars',
@@ -37,10 +35,7 @@ test.skipIf(!redisUrl)(
       const first = new Promise<RealtimeChange>((resolve) => {
         resolveFirst = resolve
       })
-      const unsubscribe = await publisherB.subscribe(
-        'change',
-        resolveFirst,
-      )
+      const unsubscribe = await publisherB.subscribe('change', resolveFirst)
       await publisherA.publish('change', change('first'))
       const firstEvent = await first
       const firstId = getEventMeta(firstEvent)?.id

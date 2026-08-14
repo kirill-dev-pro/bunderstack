@@ -10,11 +10,15 @@ function fakeCollection() {
   return {
     upserts,
     deletes,
-    get refetchCount() { return refetchCount },
+    get refetchCount() {
+      return refetchCount
+    },
     utils: {
       writeUpsert: (item: unknown) => upserts.push(item),
       writeDelete: (key: unknown) => deletes.push(key),
-      refetch: async () => { refetchCount++ },
+      refetch: async () => {
+        refetchCount++
+      },
     },
   }
 }
@@ -55,7 +59,8 @@ test('routes create and delete events from the typed iterator', async () => {
 test('resolver mode routes events to materialized targets', async () => {
   const seen: unknown[] = []
   const target = {
-    applyRealtimeEvent: (action: string, record: Record<string, unknown>) => seen.push([action, record]),
+    applyRealtimeEvent: (action: string, record: Record<string, unknown>) =>
+      seen.push([action, record]),
     refetchAll: async () => {},
   }
   const realtime = createSyncRealtimeClient({

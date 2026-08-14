@@ -1,7 +1,8 @@
-import * as v from 'valibot'
-import { pgTable, text } from 'drizzle-orm/pg-core'
 import { createBunderstack } from 'bunderstack'
 import { pglite } from 'bunderstack/database/pglite'
+import { pgTable, text } from 'drizzle-orm/pg-core'
+import * as v from 'valibot'
+
 import { createClient, type ClientOptions } from '../src/index'
 
 type Equal<A, B> =
@@ -13,7 +14,9 @@ type IsAny<T> = 0 extends 1 & T ? true : false
 
 type FetchInput = Parameters<NonNullable<ClientOptions['fetch']>>[0]
 export type _FetchInputIsTyped = Expect<Equal<IsAny<FetchInput>, false>>
-export type _FetchReceivesStandardInput = Expect<Equal<FetchInput, RequestInfo | URL>>
+export type _FetchReceivesStandardInput = Expect<
+  Equal<FetchInput, RequestInfo | URL>
+>
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -64,9 +67,11 @@ export async function testTypes() {
   client.stats.get.queryOptions({ input: {} })
 
   // @ts-expect-error totalPosts is a number
-  const wrongOutput: string = await client.stats.get.queryOptions({
-    input: { id: 'ok' },
-  }).queryFn(queryContext)
+  const wrongOutput: string = await client.stats.get
+    .queryOptions({
+      input: { id: 'ok' },
+    })
+    .queryFn(queryContext)
 
   // @ts-expect-error route does not exist
   client.missing.get.queryOptions({ input: {} })

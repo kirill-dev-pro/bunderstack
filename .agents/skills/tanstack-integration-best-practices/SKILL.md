@@ -17,13 +17,13 @@ Guidelines for integrating TanStack Query, Router, and Start together effectivel
 
 ## Rule Categories by Priority
 
-| Priority | Category | Rules | Impact |
-|----------|----------|-------|--------|
-| CRITICAL | Setup | 3 rules | Foundational configuration |
-| CRITICAL | SSR Integration | 1 rule | Router + Query SSR setup |
-| HIGH | Data Flow | 4 rules | Correct data fetching patterns |
-| MEDIUM | Caching | 3 rules | Performance optimization |
-| MEDIUM | SSR | 2 rules | Additional SSR patterns |
+| Priority | Category        | Rules   | Impact                         |
+| -------- | --------------- | ------- | ------------------------------ |
+| CRITICAL | Setup           | 3 rules | Foundational configuration     |
+| CRITICAL | SSR Integration | 1 rule  | Router + Query SSR setup       |
+| HIGH     | Data Flow       | 4 rules | Correct data fetching patterns |
+| MEDIUM   | Caching         | 3 rules | Performance optimization       |
+| MEDIUM   | SSR             | 2 rules | Additional SSR patterns        |
 
 ## Quick Reference
 
@@ -58,6 +58,7 @@ Guidelines for integrating TanStack Query, Router, and Start together effectivel
 ## How to Use
 
 Each rule file in the `rules/` directory contains:
+
 1. **Explanation** — Why this pattern matters
 2. **Bad Example** — Anti-pattern to avoid
 3. **Good Example** — Recommended implementation

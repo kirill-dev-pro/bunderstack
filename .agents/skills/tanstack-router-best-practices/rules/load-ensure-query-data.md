@@ -25,7 +25,7 @@ export const Route = createFileRoute('/posts/$postId')({
 // Fetching directly - bypasses TanStack Query cache
 export const Route = createFileRoute('/posts')({
   loader: async () => {
-    const posts = await fetchPosts()  // Not cached
+    const posts = await fetchPosts() // Not cached
     return { posts }
   },
 })
@@ -39,7 +39,7 @@ const postQueryOptions = (postId: string) =>
   queryOptions({
     queryKey: ['posts', postId],
     queryFn: () => fetchPost(postId),
-    staleTime: 5 * 60 * 1000,  // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 
 export const Route = createFileRoute('/posts/$postId')({
@@ -86,13 +86,11 @@ export const Route = createFileRoute('/users/$userId/posts')({
   loader: async ({ params, context: { queryClient } }) => {
     // First query needed for second
     const user = await queryClient.ensureQueryData(
-      userQueries.detail(params.userId)
+      userQueries.detail(params.userId),
     )
 
     // Dependent query uses result
-    await queryClient.ensureQueryData(
-      postQueries.byAuthor(user.id)
-    )
+    await queryClient.ensureQueryData(postQueries.byAuthor(user.id))
   },
 })
 ```
@@ -104,7 +102,7 @@ export const Route = createFileRoute('/users/$userId/posts')({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,  // 1 minute default
+      staleTime: 60 * 1000, // 1 minute default
     },
   },
 })
@@ -128,20 +126,18 @@ export const router = createRouter({
 
   // Wrap with QueryClientProvider
   Wrap: ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   ),
 })
 ```
 
 ## ensureQueryData vs prefetchQuery vs fetchQuery
 
-| Method | Returns | Throws | Awaits | Use Case |
-|--------|---------|--------|--------|----------|
-| `ensureQueryData` | Data | Yes | Yes | Route loaders (recommended) |
-| `prefetchQuery` | void | No | Yes | Background prefetching |
-| `fetchQuery` | Data | Yes | Yes | When you need data immediately |
+| Method            | Returns | Throws | Awaits | Use Case                       |
+| ----------------- | ------- | ------ | ------ | ------------------------------ |
+| `ensureQueryData` | Data    | Yes    | Yes    | Route loaders (recommended)    |
+| `prefetchQuery`   | void    | No     | Yes    | Background prefetching         |
+| `fetchQuery`      | Data    | Yes    | Yes    | When you need data immediately |
 
 ## Context
 

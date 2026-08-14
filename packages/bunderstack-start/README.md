@@ -24,7 +24,7 @@ ssr: {
 ```
 
 Because `exports` point straight at source, your TypeScript and bundler
-resolve modules *inside this package's own directory* rather than a compiled
+resolve modules _inside this package's own directory_ rather than a compiled
 `dist`. That makes a stray `node_modules/bunderstack-start/node_modules/`
 uniquely dangerous: if one is ever present (e.g. left over from an earlier
 `link:`/`file:` dependency on a local checkout, then never cleaned up after

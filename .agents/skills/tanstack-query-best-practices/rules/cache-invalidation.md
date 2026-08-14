@@ -13,7 +13,7 @@ Query invalidation marks cached data as stale, triggering background refetches. 
 const mutation = useMutation({
   mutationFn: updateTodo,
   onSuccess: () => {
-    queryClient.invalidateQueries()  // Invalidates ENTIRE cache
+    queryClient.invalidateQueries() // Invalidates ENTIRE cache
   },
 })
 
@@ -56,7 +56,7 @@ const mutation = useMutation({
   onSuccess: () => {
     queryClient.invalidateQueries({
       queryKey: ['user', 'profile'],
-      exact: true,  // Only this exact key, not ['user', 'profile', 'settings']
+      exact: true, // Only this exact key, not ['user', 'profile', 'settings']
     })
   },
 })
@@ -67,7 +67,9 @@ const mutation = useMutation({
   onSuccess: (data, { postId }) => {
     // Invalidate all comment-related queries for this post
     queryClient.invalidateQueries({ queryKey: ['posts', postId, 'comments'] })
-    queryClient.invalidateQueries({ queryKey: ['posts', postId, 'comment-count'] })
+    queryClient.invalidateQueries({
+      queryKey: ['posts', postId, 'comment-count'],
+    })
     // Optionally invalidate the post itself if it shows comment count
     queryClient.invalidateQueries({ queryKey: ['posts', postId] })
   },
@@ -76,8 +78,7 @@ const mutation = useMutation({
 // Predicate-based invalidation for complex scenarios
 queryClient.invalidateQueries({
   predicate: (query) =>
-    query.queryKey[0] === 'todos' &&
-    query.state.data?.userId === currentUserId,
+    query.queryKey[0] === 'todos' && query.state.data?.userId === currentUserId,
 })
 ```
 
@@ -100,7 +101,7 @@ queryClient.invalidateQueries({
 // Refetch type control
 queryClient.invalidateQueries({
   queryKey: ['todos'],
-  refetchType: 'active',  // Only refetch active queries (default)
+  refetchType: 'active', // Only refetch active queries (default)
   // refetchType: 'inactive' - Only inactive
   // refetchType: 'all' - Both
   // refetchType: 'none' - Mark stale but don't refetch

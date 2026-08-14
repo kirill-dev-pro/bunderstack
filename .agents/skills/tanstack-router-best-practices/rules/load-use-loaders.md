@@ -112,12 +112,12 @@ function PostDetailPage() {
 ```tsx
 export const Route = createFileRoute('/posts')({
   loader: async ({
-    params,       // Route path parameters
-    context,      // Route context (queryClient, auth, etc.)
+    params, // Route path parameters
+    context, // Route context (queryClient, auth, etc.)
     abortController, // For cancelling stale requests
-    cause,        // 'enter' | 'preload' | 'stay'
-    deps,         // Dependencies from loaderDeps
-    preload,      // Boolean: true if preloading
+    cause, // 'enter' | 'preload' | 'stay'
+    deps, // Dependencies from loaderDeps
+    preload, // Boolean: true if preloading
   }) => {
     // Use abortController for fetch cancellation
     const response = await fetch('/api/posts', {

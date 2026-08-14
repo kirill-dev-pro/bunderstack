@@ -1,6 +1,8 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
+
 import { signOut } from '~/lib/auth-client'
+
 import { Button } from './ui/button'
 
 export interface AppShellProps {
@@ -26,7 +28,10 @@ export function AppShell({ children, user }: AppShellProps) {
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[#17211B]/10 bg-[#FFFDF7] p-6 flex flex-col justify-between">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <Link to="/" className="font-display text-2xl font-bold tracking-tight text-[#17211B]">
+            <Link
+              to="/"
+              className="font-display text-2xl font-bold tracking-tight text-[#17211B]"
+            >
               BunderSaaS
             </Link>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#DCEBDD] text-[#17211B]">
@@ -66,7 +71,9 @@ export function AppShell({ children, user }: AppShellProps) {
         <div className="pt-6 border-t border-[#17211B]/10 space-y-3">
           {user ? (
             <div className="space-y-1">
-              <p className="text-sm font-medium text-[#17211B] truncate">{user.name || 'User'}</p>
+              <p className="text-sm font-medium text-[#17211B] truncate">
+                {user.name || 'User'}
+              </p>
               <p className="text-xs text-[#17211B]/60 truncate">{user.email}</p>
             </div>
           ) : null}
@@ -83,9 +90,7 @@ export function AppShell({ children, user }: AppShellProps) {
 
       {/* Main Content */}
       <main className="flex-1 p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-6xl mx-auto space-y-6">
-          {children}
-        </div>
+        <div className="max-w-6xl mx-auto space-y-6">{children}</div>
       </main>
     </div>
   )

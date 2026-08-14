@@ -77,7 +77,9 @@ test('skills installs the pair, writes the pointer, and is idempotent', async ()
   expect(await installSkills({ cwd }, io)).toBe(0)
 
   for (const skill of SHIPPED_SKILLS) {
-    expect(existsSync(join(cwd, '.agents/skills', skill, 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(cwd, '.agents/skills', skill, 'SKILL.md'))).toBe(
+      true,
+    )
   }
 
   const agents = await readFile(join(cwd, 'AGENTS.md'), 'utf8')

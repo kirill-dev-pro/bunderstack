@@ -64,8 +64,7 @@ export const api = {
     .handler(async ({ context, input }) => ({
       received: true,
       signatureMatches:
-        input.headers['x-example-signature'] ===
-        (await context.getRawBody()),
+        input.headers['x-example-signature'] === (await context.getRawBody()),
     })),
 
   myBoards: o.protected
@@ -82,7 +81,12 @@ export const api = {
     ),
 
   createBoard: o.protected
-    .route({ method: 'POST', path: '/api/create-board', tags: ['boards'], successStatus: 201 })
+    .route({
+      method: 'POST',
+      path: '/api/create-board',
+      tags: ['boards'],
+      successStatus: 201,
+    })
     .input(v.object({ name: v.pipe(v.string(), v.minLength(1)) }))
     .output(boardSchema)
     .handler(async ({ context, input }) => {

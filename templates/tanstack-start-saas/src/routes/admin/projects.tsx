@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
+
 import type { Project } from '~/api'
+
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 
 export const Route = createFileRoute('/admin/projects')({
@@ -49,18 +51,31 @@ function AdminProjectsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-[#FFFDF7]/60">Loading platform projects...</p>
+            <p className="text-sm text-[#FFFDF7]/60">
+              Loading platform projects...
+            </p>
           ) : projects.length === 0 ? (
-            <p className="text-sm text-[#FFFDF7]/60">No projects created yet across the platform.</p>
+            <p className="text-sm text-[#FFFDF7]/60">
+              No projects created yet across the platform.
+            </p>
           ) : (
             <div className="space-y-3 font-mono text-sm">
               {projects.map((p) => (
-                <div key={p.id} className="p-3 rounded-[8px] bg-[#17211B] border border-[#FFFDF7]/10 flex items-center justify-between">
+                <div
+                  key={p.id}
+                  className="p-3 rounded-[8px] bg-[#17211B] border border-[#FFFDF7]/10 flex items-center justify-between"
+                >
                   <div>
-                    <p className="font-sans font-semibold text-[#FFFDF7]">{p.name}</p>
-                    <p className="text-xs text-[#FFFDF7]/60">Owner ID: {p.ownerId || 'N/A'}</p>
+                    <p className="font-sans font-semibold text-[#FFFDF7]">
+                      {p.name}
+                    </p>
+                    <p className="text-xs text-[#FFFDF7]/60">
+                      Owner ID: {p.ownerId || 'N/A'}
+                    </p>
                   </div>
-                  <span className="text-xs text-[#DCEBDD] uppercase">{p.status || 'ACTIVE'}</span>
+                  <span className="text-xs text-[#DCEBDD] uppercase">
+                    {p.status || 'ACTIVE'}
+                  </span>
                 </div>
               ))}
             </div>

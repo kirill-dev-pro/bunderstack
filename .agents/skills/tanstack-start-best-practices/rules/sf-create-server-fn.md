@@ -84,7 +84,7 @@ function CreatePostForm() {
 
 ```tsx
 // lib/posts.functions.ts
-export const getPosts = createServerFn()  // GET is default
+export const getPosts = createServerFn() // GET is default
   .handler(async () => {
     const posts = await db.posts.findMany({
       orderBy: { createdAt: 'desc' },

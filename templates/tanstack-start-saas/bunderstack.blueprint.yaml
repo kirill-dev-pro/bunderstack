@@ -74,9 +74,9 @@ background:
     - name: sendProjectDigest
   cron:
     - name: archiveCompletedTasks
-      schedule: "0 3 * * *"
+      schedule: '0 3 * * *'
       timezone: UTC
   maintenance:
     - name: storage-sweep
-      schedule: "0 4 * * *"
+      schedule: '0 4 * * *'
       timezone: UTC

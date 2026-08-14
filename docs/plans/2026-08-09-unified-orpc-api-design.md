@@ -97,4 +97,3 @@ This branch is a viability experiment, not a compatibility release. It will:
 
 It will not migrate storage or realtime execution, remove Hono internally, or
 provide a production migration layer from tRPC.
-

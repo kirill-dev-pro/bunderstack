@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from 'bunderstack-query'
 
 import type { app } from '../bunderstack'
+
 import { isomorphicFetch } from '../api-client'
 
 const api = createClient<typeof app>({ fetch: isomorphicFetch })

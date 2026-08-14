@@ -49,14 +49,14 @@ not inferred from documentation:
 
 ## Decisions
 
-| Decision | Choice | Reason |
-| --- | --- | --- |
-| Rendering | Client SPA, `start: true` | Simplest shape. No SSR, no server functions, no hydration. |
-| Project shape | `bare` | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`. |
-| Dev API mount | Start-mode middleware | One process for app and API. |
-| Prod API mount | Own `src/server.ts` | A client-mode build has no request handler, so the example ships an ~18-line `Bun.serve` for static assets plus `app.handler`. |
-| Client data | Solid 2 async primitives | The point of the example. No TanStack Query. |
-| Features | Auto-CRUD only | No auth, storage, email, jobs, or realtime. `examples/todo` is the full-feature tour. |
+| Decision       | Choice                    | Reason                                                                                                                         |
+| -------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Rendering      | Client SPA, `start: true` | Simplest shape. No SSR, no server functions, no hydration.                                                                     |
+| Project shape  | `bare`                    | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`.                             |
+| Dev API mount  | Start-mode middleware     | One process for app and API.                                                                                                   |
+| Prod API mount | Own `src/server.ts`       | A client-mode build has no request handler, so the example ships an ~18-line `Bun.serve` for static assets plus `app.handler`. |
+| Client data    | Solid 2 async primitives  | The point of the example. No TanStack Query.                                                                                   |
+| Features       | Auto-CRUD only            | No auth, storage, email, jobs, or realtime. `examples/todo` is the full-feature tour.                                          |
 
 The tradeoff of client mode is two mount points: `src/middleware.ts` in dev and
 `src/server.ts` in production. Both are a few lines wrapping the same
@@ -195,7 +195,7 @@ change:
 3. `scripts/dependency-boundaries.test.ts` updates the two assertions that pin
    the current import (the `query client keeps QueryClient type-only` test) and
    the `@tanstack/react-query` peer (in `manifests declare correct peers and
-   dependencies`).
+dependencies`).
 
 Without this, a Solid example would have to install `@tanstack/react-query` so
 TypeScript can resolve a type it never uses.

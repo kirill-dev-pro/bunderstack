@@ -118,9 +118,7 @@ export function mergeApiRoutersStrict(
         !('~orpc' in targetVal)
 
       const isSourceNamespace =
-        typeof val === 'object' &&
-        val !== null &&
-        !('~orpc' in val)
+        typeof val === 'object' && val !== null && !('~orpc' in val)
 
       if (isTargetNamespace && isSourceNamespace) {
         result[key] = mergeApiRoutersStrict(
@@ -171,7 +169,10 @@ function walkNativeRouter(
     const currentSegments = [...pathSegments, key]
 
     if ('~orpc' in value) {
-      const meta = (getOpenAPIMeta(value as any) || {}) as Record<string, unknown>
+      const meta = (getOpenAPIMeta(value as any) || {}) as Record<
+        string,
+        unknown
+      >
       const handle = currentSegments.join('.')
       const method = ((meta.method as string) || 'GET').toUpperCase()
       const routePath = (meta.path as string) || '/' + currentSegments.join('/')
@@ -187,10 +188,7 @@ function walkNativeRouter(
       })
     } else {
       entries.push(
-        ...walkNativeRouter(
-          value as Record<string, unknown>,
-          currentSegments,
-        ),
+        ...walkNativeRouter(value as Record<string, unknown>, currentSegments),
       )
     }
   }
@@ -221,7 +219,8 @@ function extractForeignEntries(
       specObj = normalizeForeignOpenAPISpec(rawSpec, { source })
     }
 
-    if (!specObj || typeof specObj.paths !== 'object' || !specObj.paths) continue
+    if (!specObj || typeof specObj.paths !== 'object' || !specObj.paths)
+      continue
     const paths = specObj.paths as Record<string, Record<string, unknown>>
 
     for (const [routePath, pathItem] of Object.entries(paths)) {
@@ -235,9 +234,7 @@ function extractForeignEntries(
         const op = operation as Record<string, unknown>
         const handle = `foreign:${source}:${uppercaseMethod}:${routePath}`
         const operationId =
-          typeof op.operationId === 'string'
-            ? op.operationId
-            : handle
+          typeof op.operationId === 'string' ? op.operationId : handle
 
         entries.push({
           handle,

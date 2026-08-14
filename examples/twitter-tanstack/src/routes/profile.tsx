@@ -16,7 +16,9 @@ export const Route = createFileRoute('/profile')({
     if (!context.user) throw redirect({ to: '/login' })
   },
   loader: async ({ context: { queryClient, api, user } }) => {
-    await queryClient.ensureQueryData(api.user.get.queryOptions({ input: { id: user!.id } }))
+    await queryClient.ensureQueryData(
+      api.user.get.queryOptions({ input: { id: user!.id } }),
+    )
   },
   component: ProfilePage,
 })
@@ -24,7 +26,9 @@ export const Route = createFileRoute('/profile')({
 function ProfilePage() {
   const { api, user } = Route.useRouteContext()
   const router = useRouter()
-  const { data: profile } = useQuery(api.user.get.queryOptions({ input: { id: user!.id } }))
+  const { data: profile } = useQuery(
+    api.user.get.queryOptions({ input: { id: user!.id } }),
+  )
   const [about, setAbout] = React.useState('')
 
   React.useEffect(() => {
@@ -94,7 +98,10 @@ function ProfilePage() {
               bucket={AVATARS_BUCKET}
               onUploaded={async (file) => {
                 await avatarMutation.mutateAsync({
-                  params: { id: user.id }, query: {}, headers: {}, body: { image: file.url },
+                  params: { id: user.id },
+                  query: {},
+                  headers: {},
+                  body: { image: file.url },
                 })
               }}
               disabled={avatarMutation.isPending}
@@ -106,7 +113,12 @@ function ProfilePage() {
                 className="outline"
                 disabled={avatarMutation.isPending}
                 onClick={() =>
-                  avatarMutation.mutate({ params: { id: user.id }, query: {}, headers: {}, body: { image: null } })
+                  avatarMutation.mutate({
+                    params: { id: user.id },
+                    query: {},
+                    headers: {},
+                    body: { image: null },
+                  })
                 }
               >
                 Remove avatar
@@ -119,7 +131,12 @@ function ProfilePage() {
           className="vstack"
           onSubmit={(e) => {
             e.preventDefault()
-            aboutMutation.mutate({ params: { id: user.id }, query: {}, headers: {}, body: { about: about.trim() } })
+            aboutMutation.mutate({
+              params: { id: user.id },
+              query: {},
+              headers: {},
+              body: { about: about.trim() },
+            })
           }}
         >
           <label>

@@ -135,7 +135,8 @@ export function PostCard({
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                if (confirm('Delete this post?')) deleteMutation.mutate({ id: post.id })
+                if (confirm('Delete this post?'))
+                  deleteMutation.mutate({ id: post.id })
               }}
             >
               Delete
@@ -209,7 +210,10 @@ export function PostCard({
             e.preventDefault()
             if (!editBody.trim()) return
             updateMutation.mutate({
-              params: { id: post.id }, query: {}, headers: {}, body: {
+              params: { id: post.id },
+              query: {},
+              headers: {},
+              body: {
                 body: editBody.trim(),
                 title: editBody.trim().slice(0, 80) || 'Post',
               },

@@ -168,12 +168,14 @@ export const o = defineApi({ schema, env: envSchema })
 
 export const publicProcedure = o.public
 export const protectedProcedure = o.protected
-export const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
-  if (context.user.role !== 'admin' && context.user.role !== 'superadmin') {
-    throw errors.FORBIDDEN({ message: 'Admin access required' })
-  }
-  return next()
-})
+export const adminProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin' && context.user.role !== 'superadmin') {
+      throw errors.FORBIDDEN({ message: 'Admin access required' })
+    }
+    return next()
+  },
+)
 ```
 
 `defineApi` calls `createApiBuilder` at runtime. It takes values, not type
@@ -212,7 +214,9 @@ Each router file becomes a plain module:
 import { protectedProcedure } from './base'
 
 export const telegramRouter = {
-  getStats: protectedProcedure.handler(({ context }) => getTelegramStats(context.db)),
+  getStats: protectedProcedure.handler(({ context }) =>
+    getTelegramStats(context.db),
+  ),
 }
 ```
 
@@ -344,7 +348,8 @@ This solves problem 5.
 The framework exports two types:
 
 ```ts
-export type BunderstackDb<TSchema extends Record<string, unknown>> = DbFor<TSchema>
+export type BunderstackDb<TSchema extends Record<string, unknown>> =
+  DbFor<TSchema>
 
 export type BunderstackTx<TSchema extends Record<string, unknown>> = Parameters<
   Parameters<DbFor<TSchema>['transaction']>[0]
@@ -374,14 +379,14 @@ Three items need documentation and no framework change:
 
 ## Framework changes
 
-| Change | Scope |
-| --- | --- |
-| `defineApi({ schema, env })` | New export. Wraps `createApiBuilder`. |
-| `api` accepts a router object | `config.ts`, `index.ts`. Callback stays. |
-| `middleware: [...]` option | `config.ts`, `api/router.ts`. |
-| `context.peekSession()` | `api/context.ts`. |
+| Change                           | Scope                                                      |
+| -------------------------------- | ---------------------------------------------------------- |
+| `defineApi({ schema, env })`     | New export. Wraps `createApiBuilder`.                      |
+| `api` accepts a router object    | `config.ts`, `index.ts`. Callback stays.                   |
+| `middleware: [...]` option       | `config.ts`, `api/router.ts`.                              |
+| `context.peekSession()`          | `api/context.ts`.                                          |
 | `BunderstackDb`, `BunderstackTx` | New type exports from `db.ts`. `BunderstackTx` is derived. |
-| `listSpec` | New export. Needs the refactor below. |
+| `listSpec`                       | New export. Needs the refactor below.                      |
 
 ### Required refactor
 
@@ -393,17 +398,17 @@ The refactor is mechanical. The existing CRUD tests cover the behavior.
 
 ## Application changes
 
-| Change | File |
-| --- | --- |
-| Remove five router factories | `api/*.ts` |
-| Remove `HRBreakersProcedures` and the procedure bag | `api/index.ts` |
-| Remove the circular import between routers and index | `api/*.ts` |
-| Replace `os.$context<…>()` with `o.middleware()` | `api/base.ts` |
-| Remove the role middleware after a green test | `api/index.ts` |
-| Replace `new ORPCError(…)` with `errors.*` | `api/*.ts` |
-| Replace `import { env }` with `context.env` | `api/credit.ts` |
-| Replace `any` with `Db` and `Tx` | `api/adaptation.ts` |
-| Replace three list blocks with `listSpec` | `api/admin.ts` |
+| Change                                               | File                |
+| ---------------------------------------------------- | ------------------- |
+| Remove five router factories                         | `api/*.ts`          |
+| Remove `HRBreakersProcedures` and the procedure bag  | `api/index.ts`      |
+| Remove the circular import between routers and index | `api/*.ts`          |
+| Replace `os.$context<…>()` with `o.middleware()`     | `api/base.ts`       |
+| Remove the role middleware after a green test        | `api/index.ts`      |
+| Replace `new ORPCError(…)` with `errors.*`           | `api/*.ts`          |
+| Replace `import { env }` with `context.env`          | `api/credit.ts`     |
+| Replace `any` with `Db` and `Tx`                     | `api/adaptation.ts` |
+| Replace three list blocks with `listSpec`            | `api/admin.ts`      |
 
 ## Behavior changes to verify
 

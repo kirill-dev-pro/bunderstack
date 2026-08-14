@@ -63,7 +63,9 @@ function bunderstackApiDevMiddleware(): Plugin {
   }
 }
 
-async function readBody(req: IncomingMessage): Promise<Uint8Array<ArrayBuffer>> {
+async function readBody(
+  req: IncomingMessage,
+): Promise<Uint8Array<ArrayBuffer>> {
   const chunks: Uint8Array[] = []
   for await (const chunk of req) {
     chunks.push(

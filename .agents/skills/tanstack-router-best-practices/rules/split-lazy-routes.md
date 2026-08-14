@@ -19,7 +19,7 @@ export const Route = createFileRoute('/dashboard')({
   loader: async ({ context }) => {
     return context.queryClient.ensureQueryData(dashboardQueries.stats())
   },
-  component: DashboardPage,  // Entire component in main bundle
+  component: DashboardPage, // Entire component in main bundle
 })
 
 function DashboardPage() {
@@ -128,7 +128,7 @@ import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 export default defineConfig({
   plugins: [
     TanStackRouterVite({
-      autoCodeSplitting: true,  // Automatically splits all route components
+      autoCodeSplitting: true, // Automatically splits all route components
     }),
     react(),
   ],

@@ -146,4 +146,3 @@ Consequences when working in this repo:
   function: declaration emit inlines those generics by name, and unbound names
   silently degrade the published type. State the type instead — see
   `createAuth` and the CRUD schema casts in `api/crud-router.ts`.
-

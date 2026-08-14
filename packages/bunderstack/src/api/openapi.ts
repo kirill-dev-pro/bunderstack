@@ -23,7 +23,7 @@ export function mergeOpenAPISpecs(
     info: {
       title: 'Bunderstack API',
       version: '1.0.0',
-      ...(nativeSpec.info || {}),
+      ...nativeSpec.info,
     },
     paths: JSON.parse(JSON.stringify(nativeSpec.paths || {})),
     components: {},

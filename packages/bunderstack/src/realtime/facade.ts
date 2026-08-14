@@ -5,10 +5,7 @@ import {
   type Table,
 } from 'drizzle-orm'
 
-import type {
-  RealtimeAction,
-  RealtimePublisher,
-} from './publisher'
+import type { RealtimeAction, RealtimePublisher } from './publisher'
 
 export type RealtimeTransport = 'disabled' | 'memory' | 'redis'
 

@@ -1,10 +1,18 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import * as React from 'react'
+
 import type { Project, Task } from '~/api'
+
 import { DeliveryRail } from '~/components/delivery-rail'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 
 export const Route = createFileRoute('/app/projects/$projectId')({
@@ -94,7 +102,9 @@ function ProjectDetailPage() {
           Projects
         </Link>
         <span>/</span>
-        <span className="text-[#17211B] font-medium">{project?.name || projectId}</span>
+        <span className="text-[#17211B] font-medium">
+          {project?.name || projectId}
+        </span>
       </div>
 
       {/* Header */}
@@ -139,7 +149,10 @@ function ProjectDetailPage() {
                   required
                   className="flex-1"
                 />
-                <Button type="submit" disabled={isTaskPending || !taskTitle.trim()}>
+                <Button
+                  type="submit"
+                  disabled={isTaskPending || !taskTitle.trim()}
+                >
                   {isTaskPending ? 'Adding...' : 'Add Task'}
                 </Button>
               </form>
@@ -154,15 +167,25 @@ function ProjectDetailPage() {
             <CardContent className="p-0">
               {tasks.length === 0 ? (
                 <div className="text-center py-6 space-y-3">
-                  <p className="text-sm text-[#17211B]/70">No deliverables added yet.</p>
-                  <Button size="sm" onClick={() => document.querySelector<HTMLInputElement>('input')?.focus()}>
+                  <p className="text-sm text-[#17211B]/70">
+                    No deliverables added yet.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      document.querySelector<HTMLInputElement>('input')?.focus()
+                    }
+                  >
                     Add the next deliverable
                   </Button>
                 </div>
               ) : (
                 <div className="divide-y divide-[#17211B]/10">
                   {tasks.map((task) => (
-                    <div key={task.id} className="py-3 flex items-center justify-between">
+                    <div
+                      key={task.id}
+                      className="py-3 flex items-center justify-between"
+                    >
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
@@ -170,14 +193,24 @@ function ProjectDetailPage() {
                           onChange={() => handleCompleteTask(task.id)}
                           className="h-4 w-4 rounded border-[#17211B]/30 text-[#315CF5] focus:ring-[#315CF5]"
                         />
-                        <span className={task.status === 'done' ? 'line-through text-[#17211B]/50' : 'font-medium'}>
+                        <span
+                          className={
+                            task.status === 'done'
+                              ? 'line-through text-[#17211B]/50'
+                              : 'font-medium'
+                          }
+                        >
                           {task.title}
                         </span>
                       </div>
                       {task.status === 'done' ? (
                         <Badge variant="secondary">Completed</Badge>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => handleCompleteTask(task.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCompleteTask(task.id)}
+                        >
                           Mark done
                         </Button>
                       )}
@@ -198,16 +231,25 @@ function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="p-0 space-y-3">
               {uploadMessage && (
-                <div className="text-xs font-medium text-[#315CF5]">{uploadMessage}</div>
+                <div className="text-xs font-medium text-[#315CF5]">
+                  {uploadMessage}
+                </div>
               )}
-              <form onSubmit={handleUploadFile} className="flex items-center space-x-3">
+              <form
+                onSubmit={handleUploadFile}
+                className="flex items-center space-x-3"
+              >
                 <input
                   type="file"
                   onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                   className="text-xs text-[#17211B] flex-1 file:mr-4 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:text-xs file:font-semibold file:bg-[#DCEBDD] file:text-[#17211B]"
                   disabled={isUploading}
                 />
-                <Button type="submit" size="sm" disabled={isUploading || !uploadFile}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isUploading || !uploadFile}
+                >
                   {isUploading ? 'Uploading...' : 'Upload Attachment'}
                 </Button>
               </form>

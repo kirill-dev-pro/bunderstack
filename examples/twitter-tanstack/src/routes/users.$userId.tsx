@@ -34,7 +34,9 @@ export const Route = createFileRoute('/users/$userId')({
     } as const
 
     try {
-      await queryClient.ensureQueryData(api.user.get.queryOptions({ input: { id: userId } }))
+      await queryClient.ensureQueryData(
+        api.user.get.queryOptions({ input: { id: userId } }),
+      )
       const posts = await queryClient.ensureQueryData(
         api.posts.list.queryOptions({ input: userPostsParams }),
       )
@@ -45,22 +47,30 @@ export const Route = createFileRoute('/users/$userId')({
           api.likes.list.queryOptions({ input: byColumnIn('postId', postIds) }),
         ),
         queryClient.ensureQueryData(
-          api.retweets.list.queryOptions({ input: byColumnIn('postId', postIds) }),
+          api.retweets.list.queryOptions({
+            input: byColumnIn('postId', postIds),
+          }),
         ),
         // Aggregate counts only — never fetches the actual follow rows.
         queryClient.ensureQueryData(
-          api.follows.list.queryOptions({ input: { filters: { followingId: userId }, count: true, limit: 1 } }),
+          api.follows.list.queryOptions({
+            input: { filters: { followingId: userId }, count: true, limit: 1 },
+          }),
         ),
         queryClient.ensureQueryData(
-          api.follows.list.queryOptions({ input: { filters: { followerId: userId }, count: true, limit: 1 } }),
+          api.follows.list.queryOptions({
+            input: { filters: { followerId: userId }, count: true, limit: 1 },
+          }),
         ),
         ...(viewer
           ? [
               queryClient.ensureQueryData(
-                api.follows.list.queryOptions({ input: {
-                  filters: { followerId: viewer.id, followingId: userId },
-                  limit: 1,
-                } }),
+                api.follows.list.queryOptions({
+                  input: {
+                    filters: { followerId: viewer.id, followingId: userId },
+                    limit: 1,
+                  },
+                }),
               ),
             ]
           : []),
@@ -68,7 +78,12 @@ export const Route = createFileRoute('/users/$userId')({
 
       return { userPostsParams }
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'NOT_FOUND'
+      )
         throw notFound()
       throw err
     }
@@ -83,8 +98,12 @@ function UserProfilePage() {
   const { userPostsParams } = Route.useLoaderData()
   const router = useRouter()
 
-  const { data: profile } = useQuery(api.user.get.queryOptions({ input: { id: userId } }))
-  const { data: posts } = useQuery(api.posts.list.queryOptions({ input: userPostsParams }))
+  const { data: profile } = useQuery(
+    api.user.get.queryOptions({ input: { id: userId } }),
+  )
+  const { data: posts } = useQuery(
+    api.posts.list.queryOptions({ input: userPostsParams }),
+  )
 
   const allPosts = React.useMemo(() => posts?.items ?? [], [posts?.items])
   const postIds = React.useMemo(() => allPosts.map((p) => p.id), [allPosts])
@@ -101,17 +120,23 @@ function UserProfilePage() {
   })
   // Aggregate counts only — never fetches the actual follow rows.
   const { data: followerCountData } = useQuery(
-    api.follows.list.queryOptions({ input: { filters: { followingId: userId }, count: true, limit: 1 } }),
+    api.follows.list.queryOptions({
+      input: { filters: { followingId: userId }, count: true, limit: 1 },
+    }),
   )
   const { data: followingCountData } = useQuery(
-    api.follows.list.queryOptions({ input: { filters: { followerId: userId }, count: true, limit: 1 } }),
+    api.follows.list.queryOptions({
+      input: { filters: { followerId: userId }, count: true, limit: 1 },
+    }),
   )
   // Just the one relationship the FollowButton below needs to know about.
   const { data: myRelation } = useQuery({
-    ...api.follows.list.queryOptions({ input: {
-      filters: { followerId: currentUser?.id ?? '', followingId: userId },
-      limit: 1,
-    } }),
+    ...api.follows.list.queryOptions({
+      input: {
+        filters: { followerId: currentUser?.id ?? '', followingId: userId },
+        limit: 1,
+      },
+    }),
     enabled: !!currentUser,
   })
 

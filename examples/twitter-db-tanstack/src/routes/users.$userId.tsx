@@ -37,7 +37,12 @@ export const Route = createFileRoute('/users/$userId')({
         queryFn: () => api.user.table.get(userId),
       })
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'NOT_FOUND')
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'NOT_FOUND'
+      )
         throw notFound()
       throw err
     }
@@ -138,14 +143,16 @@ function UserProfile({
   const { data: followerCountData } = useQuery(
     {
       queryKey: ['follows', 'count', 'followingId', userId],
-      queryFn: () => api.follows.table.list({ followingId: userId, count: true, limit: 1 }),
+      queryFn: () =>
+        api.follows.table.list({ followingId: userId, count: true, limit: 1 }),
     },
     queryClient,
   )
   const { data: followingCountData } = useQuery(
     {
       queryKey: ['follows', 'count', 'followerId', userId],
-      queryFn: () => api.follows.table.list({ followerId: userId, count: true, limit: 1 }),
+      queryFn: () =>
+        api.follows.table.list({ followerId: userId, count: true, limit: 1 }),
     },
     queryClient,
   )

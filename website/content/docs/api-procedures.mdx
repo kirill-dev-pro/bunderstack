@@ -78,11 +78,11 @@ the object form keeps router modules free of factory wrappers.
 
 ## Procedure bases
 
-| Base            | Session behavior                                             | Use it for                           |
-| --------------- | ------------------------------------------------------------ | ------------------------------------ |
-| `o.public`      | Session is resolved only if you call `context.getSession()`  | Public application behavior          |
-| `o.protected`   | Resolves the session and narrows `context.user`              | User-owned or private behavior       |
-| `o.webhook`     | Public and preserves access to the exact raw body            | Provider callbacks and signed events |
+| Base          | Session behavior                                            | Use it for                           |
+| ------------- | ----------------------------------------------------------- | ------------------------------------ |
+| `o.public`    | Session is resolved only if you call `context.getSession()` | Public application behavior          |
+| `o.protected` | Resolves the session and narrows `context.user`             | User-owned or private behavior       |
+| `o.webhook`   | Public and preserves access to the exact raw body           | Provider callbacks and signed events |
 
 Every handler context contains typed `db` and `env`, plus `storage`, `email`,
 `jobs`, `realtime`, `auth`, `request`, `resHeaders`, `getSession()`,
@@ -109,13 +109,15 @@ A middleware can also add to the context. Whatever you pass to `next` is
 merged, and later handlers see it typed:
 
 ```ts
-export const orgProcedure = o.protected.use(async ({ context, next, errors }) => {
-  const organizationId = context.session.activeOrganizationId
-  if (!organizationId) {
-    throw errors.FORBIDDEN({ message: 'No active organization' })
-  }
-  return next({ context: { organizationId } })
-})
+export const orgProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    const organizationId = context.session.activeOrganizationId
+    if (!organizationId) {
+      throw errors.FORBIDDEN({ message: 'No active organization' })
+    }
+    return next({ context: { organizationId } })
+  },
+)
 
 // context.organizationId is a string here, with no extra annotation.
 export const membersRouter = {

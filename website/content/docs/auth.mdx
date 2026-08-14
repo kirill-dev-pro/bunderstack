@@ -64,7 +64,9 @@ await createBunderstack({
       user: {
         create: {
           after: async (user) => {
-            await db.insert(schema.credits).values({ userId: user.id, amount: 0 })
+            await db
+              .insert(schema.credits)
+              .values({ userId: user.id, amount: 0 })
           },
         },
       },

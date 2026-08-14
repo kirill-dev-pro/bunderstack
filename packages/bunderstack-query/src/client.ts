@@ -1,11 +1,7 @@
-import type { QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/query-core'
 
 import type { ApiQueryUtils } from './api'
-import type {
-  AnyBunderstackApp,
-  InferApiRouter,
-  InferBuckets,
-} from './infer'
+import type { AnyBunderstackApp, InferApiRouter, InferBuckets } from './infer'
 
 import { createApiClient } from './api'
 import { createFetch, type TransportFetch } from './fetch'
@@ -38,8 +34,10 @@ type FileHelpers<TBuckets extends string> = {
   files: { [K in TBuckets]: FileBucketHelpers }
 }
 
-export type BunderstackClient<TApp extends AnyBunderstackApp> =
-  ApiQueryUtils<InferApiRouter<TApp>> & FileHelpers<InferBuckets<TApp>>
+export type BunderstackClient<TApp extends AnyBunderstackApp> = ApiQueryUtils<
+  InferApiRouter<TApp>
+> &
+  FileHelpers<InferBuckets<TApp>>
 
 function trimSlash(value: string): string {
   return value.replace(/\/$/, '')
@@ -75,7 +73,8 @@ function attachFileHelpers<T extends object>(
   const buckets = new Map<string, unknown>()
   const filesProxy = new Proxy(files, {
     get(target, property, receiver) {
-      if (typeof property !== 'string') return Reflect.get(target, property, receiver)
+      if (typeof property !== 'string')
+        return Reflect.get(target, property, receiver)
       const cached = buckets.get(property)
       if (cached) return cached
 
@@ -123,7 +122,9 @@ function attachFileHelpers<T extends object>(
         if (!uploaded.ok) {
           throw new Error(`File upload failed (${uploaded.status})`)
         }
-        const result = await procedures.confirmUpload!.call({ id: prepared.fileId })
+        const result = await procedures.confirmUpload!.call({
+          id: prepared.fileId,
+        })
         return { ...result, url: url(result.fileId), name: file.name }
       }
 

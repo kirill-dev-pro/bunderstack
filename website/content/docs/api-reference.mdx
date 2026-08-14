@@ -115,13 +115,13 @@ authentication. Use it for observability only, never for authorization — see
 
 ## Helper exports
 
-| Export                     | Purpose                                                    |
-| -------------------------- | ---------------------------------------------------------- |
+| Export                       | Purpose                                                   |
+| ---------------------------- | --------------------------------------------------------- |
 | `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
-| `listSpec(table, options)` | Input schema and handler for a list endpoint outside CRUD  |
-| `BunderstackError`         | Typed error for code outside a handler                     |
-| `BunderstackDb<TSchema>`   | The database type for a helper parameter                   |
-| `BunderstackTx<TSchema>`   | The transaction handle inside `db.transaction`             |
+| `listSpec(table, options)`   | Input schema and handler for a list endpoint outside CRUD |
+| `BunderstackError`           | Typed error for code outside a handler                    |
+| `BunderstackDb<TSchema>`     | The database type for a helper parameter                  |
+| `BunderstackTx<TSchema>`     | The transaction handle inside `db.transaction`            |
 
 ## Database and provisioning
 

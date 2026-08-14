@@ -4,7 +4,7 @@
 
 **Goal:** Add a `routes` config option that mounts a user-supplied Hono app inside bunderstack with a typed context, and clean up the config module's dead zod schema and duplicate env-injection option.
 
-**Architecture:** A builder callback `routes: (ctx) => Hono` receives a context built once at construction, dodging the circular import that forces today's external-wrapper pattern. The returned app mounts at root *before* the built-ins so custom routes take precedence, with a startup check over Hono's `app.routes` that rejects collisions with reserved prefixes or generated CRUD table routes. Mounting inside the app means the existing rate limiter covers custom routes automatically.
+**Architecture:** A builder callback `routes: (ctx) => Hono` receives a context built once at construction, dodging the circular import that forces today's external-wrapper pattern. The returned app mounts at root _before_ the built-ins so custom routes take precedence, with a startup check over Hono's `app.routes` that rejects collisions with reserved prefixes or generated CRUD table routes. Mounting inside the app means the existing rate limiter covers custom routes automatically.
 
 **Tech Stack:** Bun, TypeScript, Hono, Drizzle ORM, Zod, `bun test`.
 
@@ -36,25 +36,27 @@ Tasks 1–2 are an agreed config cleanup with no separate spec, discussed and ap
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/bunderstack/src/routes.ts` *(new)* | Route context type + factory, reserved-path table, collision validation |
-| `packages/bunderstack/src/routes.test.ts` *(new)* | Unit tests for collision validation |
-| `packages/bunderstack/src/config.ts` | Hand-written `BunderstackConfig`; narrow `RuntimeOptionsSchema`; `processEnv` replaces `envSource` |
-| `packages/bunderstack/src/handler.ts` | Mount the custom router first |
-| `packages/bunderstack/src/index.ts` | Build the context, invoke the callback, validate, pass to `buildHandler`; thread `processEnv` |
-| `packages/bunderstack/src/app-env.test.ts` | `envSource` → `processEnv` |
-| `packages/bunderstack/src/routes-integration.test.ts` *(new)* | Precedence, rate limiting, raw body, no-routes-configured |
+| File                                                          | Responsibility                                                                                     |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `packages/bunderstack/src/routes.ts` _(new)_                  | Route context type + factory, reserved-path table, collision validation                            |
+| `packages/bunderstack/src/routes.test.ts` _(new)_             | Unit tests for collision validation                                                                |
+| `packages/bunderstack/src/config.ts`                          | Hand-written `BunderstackConfig`; narrow `RuntimeOptionsSchema`; `processEnv` replaces `envSource` |
+| `packages/bunderstack/src/handler.ts`                         | Mount the custom router first                                                                      |
+| `packages/bunderstack/src/index.ts`                           | Build the context, invoke the callback, validate, pass to `buildHandler`; thread `processEnv`      |
+| `packages/bunderstack/src/app-env.test.ts`                    | `envSource` → `processEnv`                                                                         |
+| `packages/bunderstack/src/routes-integration.test.ts` _(new)_ | Precedence, rate limiting, raw body, no-routes-configured                                          |
 
 ---
 
 ### Task 1: Replace the dead options schema
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts`
 - Test: `packages/bunderstack/src/config.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `BunderstackOptionsSchema` no longer exported. New internal `RuntimeOptionsSchema` validating only `rateLimit`, `idempotency`, `realtime`. `BunderstackConfig<TSchema, TAccess, TStorage, TEnv>` keeps an identical public shape.
 
@@ -198,7 +200,7 @@ export type BunderstackConfig<
 In `resolveConfig`, change the parse and the four `parsed.` reads:
 
 ```ts
-  const parsed = RuntimeOptionsSchema.parse(options)
+const parsed = RuntimeOptionsSchema.parse(options)
 ```
 
 then `parsed.database?.url` → `options.database?.url`, `parsed.database?.authToken` → `options.database?.authToken`, `parsed.database?.migrations` → `options.database?.migrations`. Leave `realtime: parsed.realtime` as-is — `realtime` is still on `RuntimeOptionsSchema`.
@@ -220,10 +222,12 @@ git commit -m "refactor(config): replace dead options schema with narrow runtime
 ### Task 2: `processEnv` replaces `envSource`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts`, `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/app-env.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BunderstackConfig` from Task 1
 - Produces: `BunderstackConfig.processEnv?: Record<string, string | undefined>`, threaded to both `validateEnv({ source })` and `resolveConfig(_, _, platformSource)`. `envSource` removed.
 
@@ -280,7 +284,7 @@ In `packages/bunderstack/src/config.ts`, delete `envSource?: Record<string, stri
 In `packages/bunderstack/src/index.ts`, change the `validateEnv` call at line ~336 from `source: options.envSource` to `source: options.processEnv`, and change `resolveConfig(options, env)` to:
 
 ```ts
-  const config = resolveConfig(options, env, options.processEnv)
+const config = resolveConfig(options, env, options.processEnv)
 ```
 
 `resolveConfig`'s third parameter already defaults to `process.env`, and a default parameter is used when the argument is `undefined` — so passing `options.processEnv` through preserves current behavior when it is unset.
@@ -302,10 +306,12 @@ git commit -m "refactor(config): replace envSource with a single processEnv inje
 ### Task 3: Reserved-path collision validation
 
 **Files:**
+
 - Create: `packages/bunderstack/src/routes.ts`
 - Test: `packages/bunderstack/src/routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces: `type DeclaredRoute = { method: string; path: string }`; `validateCustomRoutes(routes: readonly DeclaredRoute[], tableNames: readonly string[]): void` — throws on collision, returns void otherwise
 
@@ -472,10 +478,12 @@ git commit -m "feat(routes): add reserved-path collision validation"
 ### Task 4: The route context
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/routes.ts`
 - Test: `packages/bunderstack/src/routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveSession`, `resolveAccessUser` from `./access`; facade types from their modules
 - Produces: `RouteContext<TSchema, TEnvResult>` and its alias `BunderstackRouteContext`; `createRouteContext(deps): RouteContext<…>`; `RoutesBuilder<TSchema, TEnvResult> = (ctx: RouteContext<TSchema, TEnvResult>) => Hono`
 
@@ -643,10 +651,12 @@ git commit -m "feat(routes): add the typed route context"
 ### Task 5: Wire `routes` into the app
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/config.ts`, `packages/bunderstack/src/handler.ts`, `packages/bunderstack/src/index.ts`
 - Test: `packages/bunderstack/src/routes-integration.test.ts` (create)
 
 **Interfaces:**
+
 - Consumes: `validateCustomRoutes`, `createRouteContext`, `RoutesBuilder` from `./routes`
 - Produces: `BunderstackConfig.routes?: RoutesBuilder<TSchema, ValidatedEnv<TEnv>>`; `HandlerParts.customRouter?: Hono` mounted first
 
@@ -741,43 +751,47 @@ The precise generic form is declared on `createBunderstack`'s own overloads, mat
 In `packages/bunderstack/src/handler.ts`, add `customRouter?: Hono` to `HandlerParts` and mount it **first**, immediately after `const app = new Hono()` and before the health routes:
 
 ```ts
-  // Registered ahead of everything so custom routes can sit in front of the
-  // core app. Collisions are rejected at construction, not silently shadowed.
-  if (parts.customRouter) app.route('/', parts.customRouter)
+// Registered ahead of everything so custom routes can sit in front of the
+// core app. Collisions are rejected at construction, not silently shadowed.
+if (parts.customRouter) app.route('/', parts.customRouter)
 ```
 
 In `packages/bunderstack/src/index.ts`, before the `buildHandler` call:
 
 ```ts
-    const customRouter = options.routes
-      ? (() => {
-          const routeCtx = createRouteContext({
-            db: userDb,
-            env,
-            storage,
-            email,
-            jobs,
-            realtime,
-            auth,
-            authResolver,
-          })
-          const built = (
-            options.routes as (ctx: unknown) => import('hono').Hono
-          )(routeCtx)
-          const enabledTables = Object.values(options.schema)
-            .filter((table) => isTable(table))
-            .map((table) => getTableName(table))
-            .filter((name) => tableEntryForName(access, name)?.enabled)
-          validateCustomRoutes(built.routes, enabledTables)
-          return built
-        })()
-      : undefined
+const customRouter = options.routes
+  ? (() => {
+      const routeCtx = createRouteContext({
+        db: userDb,
+        env,
+        storage,
+        email,
+        jobs,
+        realtime,
+        auth,
+        authResolver,
+      })
+      const built = (options.routes as (ctx: unknown) => import('hono').Hono)(
+        routeCtx,
+      )
+      const enabledTables = Object.values(options.schema)
+        .filter((table) => isTable(table))
+        .map((table) => getTableName(table))
+        .filter((name) => tableEntryForName(access, name)?.enabled)
+      validateCustomRoutes(built.routes, enabledTables)
+      return built
+    })()
+  : undefined
 ```
 
 and pass `customRouter` to `buildHandler`. Import `validateCustomRoutes` and `createRouteContext` from `./routes`, and re-export the public types from the package root:
 
 ```ts
-export type { BunderstackRouteContext, RouteContext, RoutesBuilder } from './routes'
+export type {
+  BunderstackRouteContext,
+  RouteContext,
+  RoutesBuilder,
+} from './routes'
 ```
 
 Use the same `isTable` / `getTableName` / `tableEntryForName` helpers the CRUD router already uses so the enabled-table list matches exactly.
@@ -799,9 +813,11 @@ git commit -m "feat(routes): mount custom Hono routes inside the app"
 ### Task 6: Rate limiting and precedence coverage
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/routes-integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: everything above
 - Produces: no new API — closes the two behaviours the spec calls out as the point of mounting inside
 
@@ -854,9 +870,7 @@ test('a custom route wins on a path bunderstack does not own', async () => {
     r.get('/api/webhooks/status', (c) => c.json({ mine: true }))
     return r
   })
-  const res = await app.handler(
-    new Request('http://local/api/webhooks/status'),
-  )
+  const res = await app.handler(new Request('http://local/api/webhooks/status'))
   expect(await res.json()).toEqual({ mine: true })
   await app.close()
 })
@@ -891,27 +905,27 @@ git commit -m "test(routes): cover rate limiting and precedence for custom route
 
 **Spec coverage**
 
-| Spec requirement | Task |
-|---|---|
-| `routes` builder callback returning a Hono app | 5 |
-| Callback shape solves the circular import | 5 (config comment) |
-| Context: db, env, storage, email, jobs, realtime, auth | 4 |
-| Lazy `getSession` / `getUser` | 4 |
-| Routes public by default, no implicit auth | 4 (no auth applied anywhere) |
-| `BunderstackRouteContext` exported alias | 4, 5 (re-export) |
-| Mounted at root before built-ins | 5 |
-| `app.handler` remains the single entry point | 5 (no new entry point added) |
-| Reserved exact paths + prefixes | 3 |
-| Table-name collisions, enabled tables only | 3, 5 |
-| Param/wildcard first segment under `/api/` rejected | 3 |
-| Error names path and cause | 3 |
-| Rate limiting applies automatically | 6 |
-| Raw body intact | 5 |
-| No error handler installed over user routes | 5 (none added) |
-| One Hono app, no keyed groups | 5 |
-| No `routes` configured changes nothing | 5 |
-| **Config cleanup:** dead schema removed | 1 |
-| **Config cleanup:** `envSource` → `processEnv` | 2 |
+| Spec requirement                                       | Task                         |
+| ------------------------------------------------------ | ---------------------------- |
+| `routes` builder callback returning a Hono app         | 5                            |
+| Callback shape solves the circular import              | 5 (config comment)           |
+| Context: db, env, storage, email, jobs, realtime, auth | 4                            |
+| Lazy `getSession` / `getUser`                          | 4                            |
+| Routes public by default, no implicit auth             | 4 (no auth applied anywhere) |
+| `BunderstackRouteContext` exported alias               | 4, 5 (re-export)             |
+| Mounted at root before built-ins                       | 5                            |
+| `app.handler` remains the single entry point           | 5 (no new entry point added) |
+| Reserved exact paths + prefixes                        | 3                            |
+| Table-name collisions, enabled tables only             | 3, 5                         |
+| Param/wildcard first segment under `/api/` rejected    | 3                            |
+| Error names path and cause                             | 3                            |
+| Rate limiting applies automatically                    | 6                            |
+| Raw body intact                                        | 5                            |
+| No error handler installed over user routes            | 5 (none added)               |
+| One Hono app, no keyed groups                          | 5                            |
+| No `routes` configured changes nothing                 | 5                            |
+| **Config cleanup:** dead schema removed                | 1                            |
+| **Config cleanup:** `envSource` → `processEnv`         | 2                            |
 
 **Gap found and closed:** the spec's testing list includes "`getSession` returns the resolved user and active organization for an authenticated request." Task 4 covers only the no-resolver case, because constructing a real BetterAuth session in a unit test is disproportionate. The behaviour is delegated wholesale to `resolveSession`, which has its own coverage in `access.test.ts` — noted here rather than duplicated.
 

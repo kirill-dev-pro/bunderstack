@@ -26,7 +26,7 @@ function UserProfile({ userId }: { userId: string }) {
     queryKey: ['user', userId],
     queryFn: async () => {
       const response = await fetch(`/api/users/${userId}`)
-      return response.json()  // Completes even if user navigated away
+      return response.json() // Completes even if user navigated away
     },
   })
 }
@@ -39,7 +39,7 @@ const { data } = useQuery({
   queryKey: ['search', searchTerm],
   queryFn: async ({ signal }) => {
     const response = await fetch(`/api/search?q=${searchTerm}`, {
-      signal,  // Pass abort signal to fetch
+      signal, // Pass abort signal to fetch
     })
     return response.json()
   },
@@ -60,7 +60,7 @@ const { data } = useQuery({
   queryKey: ['users', userId],
   queryFn: async ({ signal }) => {
     const response = await axios.get(`/api/users/${userId}`, {
-      signal,  // Axios supports AbortSignal
+      signal, // Axios supports AbortSignal
     })
     return response.data
   },
@@ -153,13 +153,13 @@ const { data } = useQuery({
 
 ## When Queries Are Cancelled
 
-| Scenario | Cancelled? |
-|----------|------------|
-| Query key changes | Yes |
-| Component unmounts | Yes |
-| `queryClient.cancelQueries()` called | Yes |
-| Refetch triggered | Previous request cancelled |
-| `enabled` becomes false | Yes |
+| Scenario                             | Cancelled?                 |
+| ------------------------------------ | -------------------------- |
+| Query key changes                    | Yes                        |
+| Component unmounts                   | Yes                        |
+| `queryClient.cancelQueries()` called | Yes                        |
+| Refetch triggered                    | Previous request cancelled |
+| `enabled` becomes false              | Yes                        |
 
 ## Context
 

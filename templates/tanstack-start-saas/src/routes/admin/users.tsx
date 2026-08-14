@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
+
 import { Badge } from '~/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 
@@ -40,10 +41,17 @@ function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-[#FFFDF7]/10">
                 <tr>
-                  <td className="py-3 font-sans font-medium">{adminAuth.user.name || 'Admin User'}</td>
-                  <td className="py-3 text-[#FFFDF7]/70">{adminAuth.user.email}</td>
+                  <td className="py-3 font-sans font-medium">
+                    {adminAuth.user.name || 'Admin User'}
+                  </td>
+                  <td className="py-3 text-[#FFFDF7]/70">
+                    {adminAuth.user.email}
+                  </td>
                   <td className="py-3">
-                    <Badge variant="accent" className="font-mono text-xs uppercase">
+                    <Badge
+                      variant="accent"
+                      className="font-mono text-xs uppercase"
+                    >
                       {adminAuth.user.role || 'admin'}
                     </Badge>
                   </td>

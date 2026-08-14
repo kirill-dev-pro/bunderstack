@@ -80,12 +80,14 @@ A base is an oRPC builder, so `.use()` produces another one. Declare a rule
 once instead of repeating it in every handler that depends on it:
 
 ```ts
-export const adminProcedure = o.protected.use(async ({ context, next, errors }) => {
-  if (context.user.role !== 'admin') {
-    throw errors.FORBIDDEN({ message: 'Admin access required' })
-  }
-  return next()
-})
+export const adminProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin') {
+      throw errors.FORBIDDEN({ message: 'Admin access required' })
+    }
+    return next()
+  },
+)
 ```
 
 `next({ context })` merges into the context and types it for everything
@@ -108,7 +110,11 @@ const instrumentation = o.middleware(async ({ context, next, path }) => {
   try {
     return await next()
   } finally {
-    record(path.join('.'), performance.now() - startedAt, context.peekSession()?.user?.id)
+    record(
+      path.join('.'),
+      performance.now() - startedAt,
+      context.peekSession()?.user?.id,
+    )
   }
 })
 
@@ -145,7 +151,10 @@ cursor, and count contract the generated CRUD list uses. Apply both parts to
 your own base, which is what preserves the row type to the client:
 
 ```ts
-const logsList = listSpec(appLogs, { filterable: ['level'], sortable: ['createdAt'] })
+const logsList = listSpec(appLogs, {
+  filterable: ['level'],
+  sortable: ['createdAt'],
+})
 logs: adminProcedure.input(logsList.input).handler(logsList.handler)
 ```
 

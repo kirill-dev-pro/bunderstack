@@ -298,7 +298,8 @@ export function createStorageOperations(options: StorageOperationsOptions) {
       const { bucket, adapter } = bucketEntry(bucketName)
       const fileId = `${bucketName}/${id}`
       const row = await getFileMeta(db, fileId)
-      if (!row || row.status !== 'ready' || row.bucket !== bucketName) notFound()
+      if (!row || row.status !== 'ready' || row.bucket !== bucketName)
+        notFound()
 
       const ctx = accessContext(context, { row })
       await gate(bucket.access.get, ctx)

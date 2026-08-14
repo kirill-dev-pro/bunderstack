@@ -90,7 +90,8 @@ export const api = {
           dueAt: input.dueAt ?? null,
         })
         .returning()
-      if (!project) throw errors.CONFLICT({ message: 'Project was not created' })
+      if (!project)
+        throw errors.CONFLICT({ message: 'Project was not created' })
       await context.realtime.publish(schema.projects, 'create', project)
       return project
     }),
@@ -119,7 +120,11 @@ export const api = {
 
       const [task] = await context.db
         .insert(schema.tasks)
-        .values({ projectId: project.id, ownerId: context.user.id, title: input.title })
+        .values({
+          projectId: project.id,
+          ownerId: context.user.id,
+          title: input.title,
+        })
         .returning()
       if (!task) throw errors.CONFLICT({ message: 'Task was not created' })
       await context.realtime.publish(schema.tasks, 'create', task)
@@ -158,8 +163,12 @@ export const api = {
       }),
     )
     .handler(async ({ context }) => {
-      const [users] = await context.db.select({ value: count() }).from(schema.user)
-      const [projects] = await context.db.select({ value: count() }).from(schema.projects)
+      const [users] = await context.db
+        .select({ value: count() })
+        .from(schema.user)
+      const [projects] = await context.db
+        .select({ value: count() })
+        .from(schema.projects)
       const [openTasks] = await context.db
         .select({ value: count() })
         .from(schema.tasks)

@@ -21,17 +21,17 @@
 
 ## File and Interface Map
 
-| Producer | Interface produced | Consumers |
-|---|---|---|
-| `packages/bunderstack/src/standard-schema.ts` | synchronous `validateStandardSchema`, `InferStandardOutput` | env, jobs, manifest/config validation |
-| `packages/bunderstack/src/errors.ts` | `BunderstackError`, declared oRPC error map, mapping middleware | CRUD, storage, realtime, custom bases |
-| `packages/bunderstack/src/api/builder.ts` | `public`, `protected`, `webhook` procedure bases | generated and application procedures |
-| `packages/bunderstack/src/crud-operations.ts` | transport-neutral CRUD behavior | `api/crud-router.ts` only |
-| `packages/bunderstack/src/storage/operations.ts` | `StorageOperations` | `api/storage-router.ts`, server storage facade |
-| `packages/bunderstack/src/realtime/publisher.ts` | typed `RealtimePublisher` factory | CRUD writes, application facade, realtime procedure |
-| `packages/bunderstack/src/api/router.ts` | merged `AppRouter` | dispatcher, server app type, query client |
-| `packages/bunderstack/src/handler.ts` | `(Request) => Promise<Response>` dispatcher | framework adapters and examples |
-| `packages/bunderstack-query/src/client.ts` | unified oRPC/TanStack client | examples and `bunderstack-sync` |
+| Producer                                         | Interface produced                                              | Consumers                                           |
+| ------------------------------------------------ | --------------------------------------------------------------- | --------------------------------------------------- |
+| `packages/bunderstack/src/standard-schema.ts`    | synchronous `validateStandardSchema`, `InferStandardOutput`     | env, jobs, manifest/config validation               |
+| `packages/bunderstack/src/errors.ts`             | `BunderstackError`, declared oRPC error map, mapping middleware | CRUD, storage, realtime, custom bases               |
+| `packages/bunderstack/src/api/builder.ts`        | `public`, `protected`, `webhook` procedure bases                | generated and application procedures                |
+| `packages/bunderstack/src/crud-operations.ts`    | transport-neutral CRUD behavior                                 | `api/crud-router.ts` only                           |
+| `packages/bunderstack/src/storage/operations.ts` | `StorageOperations`                                             | `api/storage-router.ts`, server storage facade      |
+| `packages/bunderstack/src/realtime/publisher.ts` | typed `RealtimePublisher` factory                               | CRUD writes, application facade, realtime procedure |
+| `packages/bunderstack/src/api/router.ts`         | merged `AppRouter`                                              | dispatcher, server app type, query client           |
+| `packages/bunderstack/src/handler.ts`            | `(Request) => Promise<Response>` dispatcher                     | framework adapters and examples                     |
+| `packages/bunderstack-query/src/client.ts`       | unified oRPC/TanStack client                                    | examples and `bunderstack-sync`                     |
 
 ---
 

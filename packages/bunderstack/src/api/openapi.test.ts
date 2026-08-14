@@ -1,9 +1,9 @@
 import { test, expect } from 'bun:test'
-import * as v from 'valibot'
 import { pgTable, text } from 'drizzle-orm/pg-core'
+import * as v from 'valibot'
 
-import { createBunderstack } from '../index'
 import { pglite } from '../database/pglite'
+import { createBunderstack } from '../index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -12,7 +12,12 @@ const posts = pgTable('posts', {
 
 const schema = { posts }
 
-async function setupApp(api?: any, accessOverrides?: any, auth?: any, openapi = true) {
+async function setupApp(
+  api?: any,
+  accessOverrides?: any,
+  auth?: any,
+  openapi = true,
+) {
   return await createBunderstack({
     schema,
     database: { adapter: pglite() },
@@ -53,7 +58,9 @@ test('mounts custom api endpoint, RPC transport, and OpenAPI JSON', async () => 
   expect(await rpcRes.json()).toEqual({ json: { totalPosts: 42 } })
 
   // 3. Merged OpenAPI document (GET /api/openapi.json)
-  const openapiRes = await app.handler(new Request('http://localhost/api/openapi.json'))
+  const openapiRes = await app.handler(
+    new Request('http://localhost/api/openapi.json'),
+  )
   expect(openapiRes.status).toBe(200)
   const doc = (await openapiRes.json()) as any
   expect(doc.openapi).toBeDefined()
@@ -123,7 +130,9 @@ test('unsupported Standard Schema only requires a converter when OpenAPI is enab
   expect(await response.json()).toEqual({ json: { input: { works: true } } })
   await app.close()
 
-  await expect(setupApp(customApi)).rejects.toThrow(/customInput|custom-test-schema|converter/i)
+  await expect(setupApp(customApi)).rejects.toThrow(
+    /customInput|custom-test-schema|converter/i,
+  )
 })
 
 test('auth OpenAPI paths and security metadata are included in combined OpenAPI document', async () => {
@@ -132,7 +141,9 @@ test('auth OpenAPI paths and security metadata are included in combined OpenAPI 
     baseURL: 'http://localhost:3000',
   })
 
-  const openapiRes = await app.handler(new Request('http://localhost/api/openapi.json'))
+  const openapiRes = await app.handler(
+    new Request('http://localhost/api/openapi.json'),
+  )
   expect(openapiRes.status).toBe(200)
   const doc = (await openapiRes.json()) as any
 

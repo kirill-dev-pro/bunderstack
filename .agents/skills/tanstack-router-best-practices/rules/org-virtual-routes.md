@@ -73,14 +73,14 @@ export const Route = createLazyFileRoute('/dashboard')({
 
 ## Decision Guide
 
-| Route Has... | Need Main File? | Use Virtual? |
-|--------------|-----------------|--------------|
-| Only component | No | Yes |
-| loader | Yes | No |
-| beforeLoad | Yes | No |
-| validateSearch | Yes | No |
-| loaderDeps | Yes | No |
-| Just pendingComponent/errorComponent | No | Yes |
+| Route Has...                         | Need Main File? | Use Virtual? |
+| ------------------------------------ | --------------- | ------------ |
+| Only component                       | No              | Yes          |
+| loader                               | Yes             | No           |
+| beforeLoad                           | Yes             | No           |
+| validateSearch                       | Yes             | No           |
+| loaderDeps                           | Yes             | No           |
+| Just pendingComponent/errorComponent | No              | Yes          |
 
 ## Good Example: File Structure with Virtual Routes
 

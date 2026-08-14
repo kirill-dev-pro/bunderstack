@@ -15,7 +15,7 @@ function PostList() {
 
   return (
     <div>
-      {posts.map(post => (
+      {posts.map((post) => (
         <div key={post.id} onClick={() => setSelectedPost(post.id)}>
           {post.title}
         </div>
@@ -50,7 +50,7 @@ function PostList() {
 
   return (
     <div>
-      {posts.map(post => (
+      {posts.map((post) => (
         <Link
           key={post.id}
           to="/posts/$postId"
@@ -63,7 +63,7 @@ function PostList() {
           {post.title}
         </Link>
       ))}
-      <Outlet />  {/* Modal renders here */}
+      <Outlet /> {/* Modal renders here */}
     </div>
   )
 }
@@ -97,14 +97,14 @@ function PostModal() {
 function PostList() {
   return (
     <div>
-      {posts.map(post => (
+      {posts.map((post) => (
         <Link
           key={post.id}
           to="/posts/$postId"
           params={{ postId: post.id }}
           mask={{
             to: '/posts',
-            search: { modal: post.id },  // /posts?modal=123
+            search: { modal: post.id }, // /posts?modal=123
           }}
         >
           {post.title}
@@ -162,16 +162,14 @@ function PostModal() {
       to: '/posts/$postId',
       params: { postId },
       // No mask = real URL
-      replace: true,  // Replace history entry
+      replace: true, // Replace history entry
     })
   }
 
   return (
     <Modal>
       <PostDetail postId={postId} />
-      <button onClick={expandToFullPage}>
-        Expand to full page
-      </button>
+      <button onClick={expandToFullPage}>Expand to full page</button>
     </Modal>
   )
 }
@@ -179,13 +177,13 @@ function PostModal() {
 
 ## Route Mask Behavior
 
-| Scenario | URL Shown | Actual Route |
-|----------|-----------|--------------|
-| Click masked link | Masked URL | Real route |
-| Share/copy URL | Real URL | Real route |
-| Direct navigation | Real URL | Real route |
-| Browser refresh | Depends on URL in bar | Matches URL |
-| Back button | Previous URL | Previous route |
+| Scenario          | URL Shown             | Actual Route   |
+| ----------------- | --------------------- | -------------- |
+| Click masked link | Masked URL            | Real route     |
+| Share/copy URL    | Real URL              | Real route     |
+| Direct navigation | Real URL              | Real route     |
+| Browser refresh   | Depends on URL in bar | Matches URL    |
+| Back button       | Previous URL          | Previous route |
 
 ## Context
 

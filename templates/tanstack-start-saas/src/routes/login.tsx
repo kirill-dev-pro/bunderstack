@@ -45,7 +45,9 @@ function LoginPage() {
         await navigate({ href: target })
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setError(
+        err instanceof Error ? err.message : 'An unexpected error occurred',
+      )
       setIsPending(false)
     }
   }
@@ -57,7 +59,13 @@ function LoginPage() {
           <div className="mb-6 flex flex-col items-center">
             <div className="my-2 flex justify-center">
               <div className="bg-[#DCEBDD] relative size-14 rounded-full border border-[#17211B]/10 flex items-center justify-center text-[#17211B]">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
                   <path
                     d="M26 24.75C26.4142 24.75 26.75 24.4142 26.75 24C26.75 23.5858 26.4142 23.25 26 23.25V24.75ZM26 23.25H11V24.75H26V23.25ZM8.75 21V15H7.25V21H8.75ZM11 23.25C9.75736 23.25 8.75 22.2426 8.75 21H7.25C7.25 23.0711 8.92893 24.75 11 24.75V23.25Z"
                     fill="currentColor"
@@ -78,8 +86,14 @@ function LoginPage() {
                     d="M13.5 21.75C13.0858 21.75 12.75 21.4142 12.75 21C12.75 20.5858 13.0858 20.25 13.5 20.25V21.75ZM26.7111 19.009L27.4174 19.2613L27.4174 19.2613L26.7111 19.009ZM13.5 20.25H23.8858V21.75H13.5V20.25ZM26.0048 18.7568L27.7937 13.7477L29.2063 14.2523L27.4174 19.2613L26.0048 18.7568ZM23.8858 20.25C24.8367 20.25 25.6849 19.6522 26.0048 18.7568L27.4174 19.2613C26.8843 20.7537 25.4706 21.75 23.8858 21.75V20.25Z"
                     fill="currentColor"
                   />
-                  <path d="M21.1694 10.5806L14.5651 17.1849" stroke="currentColor" />
-                  <path d="M22.1694 14.5806L18.5632 18.1868" stroke="currentColor" />
+                  <path
+                    d="M21.1694 10.5806L14.5651 17.1849"
+                    stroke="currentColor"
+                  />
+                  <path
+                    d="M22.1694 14.5806L18.5632 18.1868"
+                    stroke="currentColor"
+                  />
                   <circle cx="13.1" cy="26.1" r="1.7" stroke="currentColor" />
                   <circle cx="22.1" cy="26.1" r="1.7" stroke="currentColor" />
                 </svg>
@@ -94,14 +108,20 @@ function LoginPage() {
           </div>
 
           {error && (
-            <div role="alert" className="mb-4 rounded-[10px] bg-red-50 p-3 text-xs text-red-700 border border-red-200">
+            <div
+              role="alert"
+              className="mb-4 rounded-[10px] bg-red-50 p-3 text-xs text-red-700 border border-red-200"
+            >
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-1">
-              <label htmlFor="email" className="text-xs font-medium text-[#17211B]">
+              <label
+                htmlFor="email"
+                className="text-xs font-medium text-[#17211B]"
+              >
                 Email
               </label>
               <div className="relative">
@@ -122,7 +142,10 @@ function LoginPage() {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="password" className="text-xs font-medium text-[#17211B]">
+              <label
+                htmlFor="password"
+                className="text-xs font-medium text-[#17211B]"
+              >
                 Password
               </label>
               <div className="relative">
@@ -144,7 +167,11 @@ function LoginPage() {
                   className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-[#17211B]/50 hover:text-[#17211B] cursor-pointer"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
-                  {showPassword ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}
+                  {showPassword ? (
+                    <EyeIcon className="size-4" />
+                  ) : (
+                    <EyeOffIcon className="size-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -152,7 +179,10 @@ function LoginPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox id="remember" />
-                <label htmlFor="remember" className="text-xs text-[#17211B]/70 cursor-pointer">
+                <label
+                  htmlFor="remember"
+                  className="text-xs text-[#17211B]/70 cursor-pointer"
+                >
                   Remember me
                 </label>
               </div>
@@ -161,14 +191,21 @@ function LoginPage() {
               </a>
             </div>
 
-            <Button type="submit" disabled={isPending} className="h-10 w-full font-medium">
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="h-10 w-full font-medium"
+            >
               {isPending ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
           <p className="mt-6 flex justify-center gap-1 text-center text-sm text-[#17211B]/70">
             <span>Don't have an account?</span>
-            <Link to="/register" className="font-semibold text-[#315CF5] hover:underline">
+            <Link
+              to="/register"
+              className="font-semibold text-[#315CF5] hover:underline"
+            >
               Create an account
             </Link>
           </p>

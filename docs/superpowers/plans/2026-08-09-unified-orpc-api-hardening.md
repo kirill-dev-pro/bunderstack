@@ -31,6 +31,7 @@ Use a shared CRUD execution core with two temporary adapters: the existing Hono 
 ### Task 1: Thread the custom oRPC router type through the server application
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/builder.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 - Modify: `packages/bunderstack/src/index.ts`
@@ -38,6 +39,7 @@ Use a shared CRUD execution core with two temporary adapters: the existing Hono 
 - Create: `packages/bunderstack/src/api/api-types.types.ts`
 
 **Interfaces:**
+
 - Produces: `BunderstackApiBuilder<TSchema, TEnv> = ReturnType<typeof createApiBuilder<TSchema, TEnv>>`.
 - Produces: a `TCustomApiRouter extends AnyRouter | undefined` generic on `BunderstackConfig` and `BunderstackApp`.
 - Produces: `$inferClient.api` containing the final unified router type, not merely the custom router.
@@ -68,7 +70,9 @@ const app = await createBunderstack({
 })
 
 type ApiCarrier = NonNullable<typeof app.$inferClient>['api']
-type _ApiWasCaptured = Expect<Equal<'stats' extends keyof ApiCarrier ? true : false, true>>
+type _ApiWasCaptured = Expect<
+  Equal<'stats' extends keyof ApiCarrier ? true : false, true>
+>
 ```
 
 Also assert that `context.user.id`, the validated env, and `context.db` are inferred without explicit handler annotations.
@@ -147,6 +151,7 @@ git commit -m "fix(api): preserve custom orpc router inference"
 ### Task 2: Give generated CRUD procedures real schema/access types
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/crud-router.ts`
 - Create: `packages/bunderstack/src/api/types.ts`
 - Modify: `packages/bunderstack/src/index.ts`
@@ -156,6 +161,7 @@ git commit -m "fix(api): preserve custom orpc router inference"
 - Modify: `packages/bunderstack/src/api/api-types.types.ts`
 
 **Interfaces:**
+
 - Produces: `CrudApiRouterFor<TSchema, TAccess>` containing only exposed table keys.
 - Produces: typed `list`, `get`, `create`, `update`, and `delete` procedures for each table.
 - Produces: `UnifiedApiRouter<TSchema, TAccess, TCustomApiRouter>` used by `BunderstackApp.$inferClient.api`.
@@ -181,7 +187,9 @@ const typedApp = await createBunderstack({
 
 type Api = NonNullable<typeof typedApp.$inferClient>['api']
 type _HasPosts = Expect<Equal<'posts' extends keyof Api ? true : false, true>>
-type _HidesPrivateNotes = Expect<Equal<'privateNotes' extends keyof Api ? true : false, false>>
+type _HidesPrivateNotes = Expect<
+  Equal<'privateNotes' extends keyof Api ? true : false, false>
+>
 ```
 
 Add compile-time assertions that `posts.create` accepts the Drizzle insert type, `posts.get` requires `{ id: string }`, `posts.update` rejects `id` inside its mutable body, and `posts.list` returns rows with the actual post columns.
@@ -228,46 +236,48 @@ type CrudApiTableKey<TSchema> = {
 }[keyof TSchema & string]
 
 type DisabledKeys<TAccess> = {
-  [K in keyof TAccess & string]:
-    TAccess[K] extends { crud: false } ? K : never
+  [K in keyof TAccess & string]: TAccess[K] extends { crud: false } ? K : never
 }[keyof TAccess & string]
 
 type ExplicitKeys<TSchema, TAccess> = {
-  [K in keyof TAccess & keyof TSchema & string]:
-    TAccess[K] extends { crud: false }
-      ? never
-      : K extends AuthTableName
-        ? TAccess[K] extends { exposeAuthTable: true }
-          ? K extends 'user' ? K : never
+  [K in keyof TAccess & keyof TSchema & string]: TAccess[K] extends {
+    crud: false
+  }
+    ? never
+    : K extends AuthTableName
+      ? TAccess[K] extends { exposeAuthTable: true }
+        ? K extends 'user'
+          ? K
           : never
-        : K
+        : never
+      : K
 }[keyof TAccess & keyof TSchema & string]
 
 type ConventionKeys<TSchema> = {
-  [K in keyof TSchema & string]:
-    K extends AuthTableName
-      ? never
-      : InferSelect<TSchema[K]> extends { userId: unknown } ? K : never
+  [K in keyof TSchema & string]: K extends AuthTableName
+    ? never
+    : InferSelect<TSchema[K]> extends { userId: unknown }
+      ? K
+      : never
 }[keyof TSchema & string]
 
-export type ExposedApiTables<TSchema, TAccess> =
-  [TAccess] extends [undefined]
-    ? CrudApiTableKey<TSchema>
-    : ExplicitKeys<TSchema, TAccess> |
-      Exclude<
-        ConventionKeys<TSchema>,
-        DisabledKeys<TAccess> | (keyof TAccess & string)
-      >
+export type ExposedApiTables<TSchema, TAccess> = [TAccess] extends [undefined]
+  ? CrudApiTableKey<TSchema>
+  :
+      | ExplicitKeys<TSchema, TAccess>
+      | Exclude<
+          ConventionKeys<TSchema>,
+          DisabledKeys<TAccess> | (keyof TAccess & string)
+        >
 ```
 
 Use it in:
 
 ```ts
 export type CrudApiRouterFor<TSchema, TAccess> = {
-  [K in ExposedApiTables<TSchema, TAccess> as
-    TSchema[K] extends Table ? K : never]: TableCrudProcedures<
-      Extract<TSchema[K], Table>
-    >
+  [K in ExposedApiTables<TSchema, TAccess> as TSchema[K] extends Table
+    ? K
+    : never]: TableCrudProcedures<Extract<TSchema[K], Table>>
 }
 ```
 
@@ -294,8 +304,10 @@ Keep the list output schema identical to the established Hono response: `items`,
 Export a recursive type that rejects overlapping leaf handles and combines distinct namespaces:
 
 ```ts
-export type UnifiedApiRouter<TCrud extends AnyRouter, TCustom extends AnyRouter | undefined> =
-  TCustom extends AnyRouter ? MergeApiRouterTypes<TCrud, TCustom> : TCrud
+export type UnifiedApiRouter<
+  TCrud extends AnyRouter,
+  TCustom extends AnyRouter | undefined,
+> = TCustom extends AnyRouter ? MergeApiRouterTypes<TCrud, TCustom> : TCrud
 ```
 
 Use the type as `BunderstackApp`'s API carrier while retaining the runtime merge until Task 4 hardens collision handling.
@@ -325,6 +337,7 @@ git commit -m "fix(api): infer generated crud procedure types"
 ### Task 3: Make `createClient<typeof app>().api` end-to-end type-safe
 
 **Files:**
+
 - Modify: `packages/bunderstack-query/src/infer.ts`
 - Modify: `packages/bunderstack-query/src/api.ts`
 - Modify: `packages/bunderstack-query/src/client.ts`
@@ -334,6 +347,7 @@ git commit -m "fix(api): infer generated crud procedure types"
 - Create: `packages/bunderstack-query/tests/api-client-types.types.ts`
 
 **Interfaces:**
+
 - Produces: `InferApiRouter<TApp>` from `$inferClient.api`.
 - Produces: `ApiQueryUtils<TRouter> = RouterUtils<RouterClient<TRouter>>`.
 - Produces: `createApiClient<TRouter>(options): ApiQueryUtils<TRouter>`.
@@ -366,9 +380,11 @@ client.api.stats.get.queryOptions({ input: { id: 'ok' } })
 client.api.stats.get.queryOptions({ input: {} })
 
 // @ts-expect-error totalPosts is a number
-const wrongOutput: string = await client.api.stats.get.queryOptions({
-  input: { id: 'ok' },
-}).queryFn(queryContext)
+const wrongOutput: string = await client.api.stats.get
+  .queryOptions({
+    input: { id: 'ok' },
+  })
+  .queryFn(queryContext)
 
 // @ts-expect-error route does not exist
 client.api.missing.get.queryOptions({ input: {} })
@@ -395,8 +411,9 @@ Use oRPC's exported types instead of reconstructing its procedure shape:
 import type { AnyRouter, RouterClient } from '@orpc/server'
 import type { RouterUtils } from '@orpc/tanstack-query'
 
-export type ApiQueryUtils<TRouter extends AnyRouter> =
-  RouterUtils<RouterClient<TRouter>>
+export type ApiQueryUtils<TRouter extends AnyRouter> = RouterUtils<
+  RouterClient<TRouter>
+>
 
 export function createApiClient<TRouter extends AnyRouter>(
   options: ApiClientOptions = {},
@@ -465,6 +482,7 @@ git commit -m "fix(query): infer unified orpc query utilities"
 ### Task 4: Make route and OpenAPI collision validation strict and canonical
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/registry.ts`
 - Modify: `packages/bunderstack/src/api/openapi.ts`
 - Modify: `packages/bunderstack/src/index.ts`
@@ -472,6 +490,7 @@ git commit -m "fix(query): infer unified orpc query utilities"
 - Test: `packages/bunderstack/src/api/openapi.test.ts`
 
 **Interfaces:**
+
 - Produces: `normalizeApiPath(path, prefix?)` shared by registry and OpenAPI merge.
 - Produces: `normalizeForeignOpenAPISpec(spec, { prefix: '/api/auth' })` before registry construction.
 - Produces: `mergeApiRoutersStrict(crud, custom)` that throws on duplicate handles.
@@ -487,10 +506,12 @@ Declare custom `posts.list` at `/api/archive-posts` while generated CRUD already
 Use a native operation at `/api/auth/sign-in/email` and a foreign spec containing `/sign-in/email`. Assert registry construction rejects after applying the auth prefix:
 
 ```ts
-await expect(buildApiRegistry({
-  nativeRouter,
-  foreignSpecs: [{ spec: authSpec, prefix: '/api/auth' }],
-})).rejects.toThrow(/POST \/api\/auth\/sign-in\/email/)
+await expect(
+  buildApiRegistry({
+    nativeRouter,
+    foreignSpecs: [{ spec: authSpec, prefix: '/api/auth' }],
+  }),
+).rejects.toThrow(/POST \/api\/auth\/sign-in\/email/)
 ```
 
 - [ ] **Step 3: Add duplicate operationId and merge-overwrite tests**
@@ -566,6 +587,7 @@ git commit -m "fix(api): reject canonical route and spec collisions"
 ### Task 5: Extract one transport-neutral CRUD execution core
 
 **Files:**
+
 - Create: `packages/bunderstack/src/crud-operations.ts`
 - Create: `packages/bunderstack/src/crud-operations.test.ts`
 - Modify: `packages/bunderstack/src/crud.ts`
@@ -576,6 +598,7 @@ git commit -m "fix(api): reject canonical route and spec collisions"
 - Test: `packages/bunderstack/src/crud-broadcast.test.ts`
 
 **Interfaces:**
+
 - Produces: `createCrudOperations(deps)` with `list`, `get`, `create`, `update`, and `delete` methods.
 - Produces: `CrudOperationError` carrying canonical `status`, Bunderstack `code`, `message`, and optional `details`.
 - Consumes: parsed input plus `CrudExecutionContext { request, user, session }`.
@@ -671,6 +694,7 @@ git commit -m "refactor(crud): share execution across hono and orpc"
 ### Task 6: Make OpenAPI generation reproducible and update the examples
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/openapi-client-generation.test.ts`
 - Modify: `examples/todo/src/bunderstack.ts`
 - Modify: `examples/twitter-tanstack/src/bunderstack.ts`
@@ -679,6 +703,7 @@ git commit -m "refactor(crud): share execution across hono and orpc"
 - Modify: `bun.lock`
 
 **Interfaces:**
+
 - Proves: the combined OpenAPI 3.1 document contains typed CRUD, custom, and Better Auth operations.
 - Proves: `openapi-typescript 7.13.0` can generate and TypeScript can compile a temporary client.
 - Proves: representative examples need no explicit `any` annotations in API declarations or `client.api` calls.
@@ -778,9 +803,11 @@ git commit -m "test(api): verify typed openapi and example ergonomics"
 ### Task 7: Final regression gate and honest adoption decision
 
 **Files:**
+
 - Modify only if evidence requires correction: `docs/plans/2026-08-09-unified-orpc-api-findings.md`
 
 **Interfaces:**
+
 - Produces: a reproducible final `GO`, `CONDITIONAL GO`, or `NO-GO` decision.
 - Produces: a clean worktree with no generated clients, databases, or unrelated changes.
 
