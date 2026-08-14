@@ -72,7 +72,7 @@ function FeedPage() {
 
       <ClientOnly
         fallback={
-          <div className="text-muted-foreground p-4 text-sm">Loading…</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading…</div>
         }
       >
         <FeedList tab={tab} user={user} />
@@ -256,7 +256,7 @@ function SuggestionsAside({ user }: { user: RouterContext['user'] }) {
                 <UserAvatar name={person.name} image={person.image} size={40} />
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{person.name}</div>
-                  <div className="text-muted-foreground truncate text-sm">
+                  <div className="truncate text-sm text-muted-foreground">
                     {person.email}
                   </div>
                 </div>

@@ -59,7 +59,7 @@ export function ImageUpload({
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-semibold uppercase text-gray-400">
+      <div className="text-xs font-semibold text-gray-400 uppercase">
         {label}
       </div>
       {hint ? <p className="text-sm text-gray-500">{hint}</p> : null}

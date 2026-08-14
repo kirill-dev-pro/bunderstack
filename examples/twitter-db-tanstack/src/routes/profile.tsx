@@ -29,7 +29,7 @@ function ProfilePage() {
     <AppShell user={user}>
       <ClientOnly
         fallback={
-          <div className="text-muted-foreground p-4 text-sm">Loading…</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading…</div>
         }
       >
         <ProfileSettings userId={user!.id} />
@@ -101,7 +101,7 @@ function ProfileSettings({ userId }: { userId: TypeId<'user'> }) {
     <div className="space-y-6 p-4">
       <header>
         <h1 className="text-xl font-bold">Profile settings</h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           Update your avatar and bio — searchable via{' '}
           <code>GET /api/user?q=</code>.
         </p>
@@ -156,7 +156,7 @@ function ProfileSettings({ userId }: { userId: TypeId<'user'> }) {
               </label>
               <textarea
                 id="about"
-                className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                 rows={3}
                 value={about}
                 onChange={(e) => setAbout(e.target.value)}

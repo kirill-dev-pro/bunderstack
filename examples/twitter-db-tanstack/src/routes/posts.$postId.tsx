@@ -73,7 +73,7 @@ function PostThreadPage() {
 
       <ClientOnly
         fallback={
-          <div className="text-muted-foreground p-4 text-sm">Loading…</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading…</div>
         }
       >
         <PostThread postId={postId} user={user} />
@@ -200,7 +200,7 @@ function PostThread({
 
       <section aria-label="Replies">
         {replies.length === 0 ? (
-          <p className="text-muted-foreground p-4 text-sm">
+          <p className="p-4 text-sm text-muted-foreground">
             No replies yet. Be the first to reply.
           </p>
         ) : (

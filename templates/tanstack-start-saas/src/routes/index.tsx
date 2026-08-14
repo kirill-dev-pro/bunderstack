@@ -10,14 +10,14 @@ export const Route = createFileRoute('/')({
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#F6F3E9] text-[#17211B] flex flex-col justify-between p-6 md:p-12">
+    <div className="flex min-h-screen flex-col justify-between bg-[#F6F3E9] p-6 text-[#17211B] md:p-12">
       {/* Header / Nav */}
-      <header className="max-w-6xl w-full mx-auto flex items-center justify-between py-4 border-b border-[#17211B]/10">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-[#17211B]/10 py-4">
         <div className="flex items-center space-x-8">
           <span className="font-display text-2xl font-bold tracking-tight">
             BunderSaaS
           </span>
-          <nav className="hidden sm:flex space-x-6 text-sm font-medium text-[#17211B]/80">
+          <nav className="hidden space-x-6 text-sm font-medium text-[#17211B]/80 sm:flex">
             <span>Product</span>
             <span>Client Workspace</span>
             <span>Admin Portal</span>
@@ -34,15 +34,15 @@ function LandingPage() {
       </header>
 
       {/* Main Hero Section */}
-      <main className="max-w-6xl w-full mx-auto my-12 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
-        <div className="md:col-span-7 space-y-6">
-          <span className="inline-flex items-center font-mono text-xs uppercase tracking-wider px-3 py-1 rounded-full bg-[#DCEBDD] text-[#17211B]">
+      <main className="mx-auto my-12 grid w-full max-w-6xl grid-cols-1 items-center gap-12 md:grid-cols-12">
+        <div className="space-y-6 md:col-span-7">
+          <span className="inline-flex items-center rounded-full bg-[#DCEBDD] px-3 py-1 font-mono text-xs tracking-wider text-[#17211B] uppercase">
             BunderSaaS Template for TanStack Start
           </span>
-          <h1 className="font-display text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]">
+          <h1 className="font-display text-5xl leading-[1.1] font-bold tracking-tight md:text-6xl">
             Deliver the work, not the status meeting.
           </h1>
-          <p className="text-lg text-[#17211B]/80 leading-relaxed max-w-xl">
+          <p className="max-w-xl text-lg leading-relaxed text-[#17211B]/80">
             BunderSaaS pairs client workspaces and admin portals with live
             delivery rails, owner-scoped CRUD, and background queue workers on
             Bunderstack.
@@ -58,18 +58,18 @@ function LandingPage() {
         </div>
 
         {/* Live Delivery Rail Demonstration */}
-        <div className="md:col-span-5 bg-[#FFFDF7] p-6 rounded-[10px] border border-[#17211B]/10 shadow-sm">
+        <div className="rounded-[10px] border border-[#17211B]/10 bg-[#FFFDF7] p-6 shadow-sm md:col-span-5">
           <DeliveryRail />
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="max-w-6xl w-full mx-auto py-6 border-t border-[#17211B]/10 flex flex-col sm:flex-row items-center justify-between text-xs text-[#17211B]/60">
+      <footer className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between border-t border-[#17211B]/10 py-6 text-xs text-[#17211B]/60 sm:flex-row">
         <p>
           © {new Date().getFullYear()} BunderSaaS. Built on Bunderstack +
           TanStack Start.
         </p>
-        <div className="flex space-x-4 mt-2 sm:mt-0">
+        <div className="mt-2 flex space-x-4 sm:mt-0">
           <span>Documentation</span>
           <span>Privacy</span>
           <span>Terms</span>

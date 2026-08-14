@@ -69,12 +69,12 @@ function ProjectsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">
             Projects
           </h1>
-          <p className="text-sm text-[#17211B]/70 mt-1">
+          <p className="mt-1 text-sm text-[#17211B]/70">
             Manage your creative studio client delivery workspaces.
           </p>
         </div>
@@ -91,15 +91,15 @@ function ProjectsPage() {
         </CardHeader>
         <CardContent className="p-0">
           {error && (
-            <div role="alert" className="text-sm text-red-600 mb-4">
+            <div role="alert" className="mb-4 text-sm text-red-600">
               {error}
             </div>
           )}
           <form
             onSubmit={handleCreateProject}
-            className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end"
+            className="grid grid-cols-1 items-end gap-4 sm:grid-cols-12"
           >
-            <div className="sm:col-span-5 space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-5">
               <label
                 htmlFor="projectName"
                 className="text-xs font-medium text-[#17211B]"
@@ -116,7 +116,7 @@ function ProjectsPage() {
                 disabled={isPending}
               />
             </div>
-            <div className="sm:col-span-5 space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-5">
               <label
                 htmlFor="clientName"
                 className="text-xs font-medium text-[#17211B]"
@@ -151,18 +151,18 @@ function ProjectsPage() {
           Your Active Workspaces
         </h2>
         {projects.length === 0 ? (
-          <Card className="p-8 text-center space-y-3">
+          <Card className="space-y-3 p-8 text-center">
             <CardTitle className="text-lg">No active projects</CardTitle>
             <CardDescription>
               Create your first project above to start tracking deliverables.
             </CardDescription>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {projects.map((project) => (
               <Card
                 key={project.id}
-                className="hover:border-[#315CF5]/40 transition-colors"
+                className="transition-colors hover:border-[#315CF5]/40"
               >
                 <CardHeader className="p-5 pb-3">
                   <div className="flex items-center justify-between">
@@ -181,7 +181,7 @@ function ProjectsPage() {
                     Client: {project.clientName || 'Unassigned'}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="p-5 pt-0 flex justify-end">
+                <CardContent className="flex justify-end p-5 pt-0">
                   <Button variant="outline" size="sm" asChild>
                     <Link
                       to="/app/projects/$projectId"

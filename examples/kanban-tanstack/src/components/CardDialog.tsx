@@ -209,7 +209,7 @@ export function CardDialog({
               </div>
               <button
                 type="button"
-                className="outline card-dialog-close"
+                className="card-dialog-close outline"
                 onClick={() => closeCard()}
                 aria-label="Close"
               >

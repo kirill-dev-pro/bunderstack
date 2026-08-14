@@ -49,8 +49,8 @@ function LoginPage() {
   })
 
   return (
-    <div className="p-2 flex justify-center items-center h-full">
-      <div className="p-2 card flex flex-col gap-2 border rounded">
+    <div className="flex h-full items-center justify-center p-2">
+      <div className="card flex flex-col gap-2 rounded border p-2">
         <h3>Auth form</h3>
         <div className="flex flex-col gap-2">
           <label>

@@ -52,12 +52,12 @@ export function DeliveryRail({
   return (
     <div
       className={cn(
-        'flex flex-col space-y-4 p-4 rounded-[10px] bg-[#DCEBDD]/40 border border-[#17211B]/10',
+        'flex flex-col space-y-4 rounded-[10px] border border-[#17211B]/10 bg-[#DCEBDD]/40 p-4',
         className,
       )}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#17211B]/70">
+        <span className="font-mono text-xs font-semibold tracking-wider text-[#17211B]/70 uppercase">
           LIVE DELIVERY RAIL
         </span>
         <span className="inline-flex items-center rounded-full bg-[#315CF5]/10 px-2 py-0.5 text-xs font-medium text-[#315CF5]">
@@ -65,7 +65,7 @@ export function DeliveryRail({
         </span>
       </div>
 
-      <div className="relative pl-6 space-y-6 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-[#17211B]/20">
+      <div className="relative space-y-6 pl-6 before:absolute before:top-2 before:bottom-2 before:left-[9px] before:w-[2px] before:bg-[#17211B]/20">
         {steps.map((step) => {
           const isSelected = activeStepId === step.id
           const isCompleted = step.status === 'completed'
@@ -77,13 +77,13 @@ export function DeliveryRail({
               type="button"
               onClick={() => onStepSelect?.(step.id)}
               className={cn(
-                'group relative flex flex-col text-left transition-all w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#315CF5] rounded-md p-1 -ml-1',
+                'group relative -ml-1 flex w-full flex-col rounded-md p-1 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#315CF5]',
                 isSelected && 'bg-[#DCEBDD] shadow-xs',
               )}
             >
               <span
                 className={cn(
-                  'absolute -left-[20px] top-1 h-3.5 w-3.5 rounded-full border-2 transition-colors',
+                  'absolute top-1 -left-[20px] h-3.5 w-3.5 rounded-full border-2 transition-colors',
                   isCompleted && 'border-[#17211B] bg-[#17211B]',
                   isCurrent &&
                     'border-[#315CF5] bg-[#315CF5] ring-4 ring-[#315CF5]/20',
@@ -93,15 +93,15 @@ export function DeliveryRail({
               />
               <span
                 className={cn(
-                  'font-medium text-sm transition-colors',
-                  isCurrent ? 'text-[#315CF5] font-semibold' : 'text-[#17211B]',
-                  isSelected && 'text-[#17211B] font-bold',
+                  'text-sm font-medium transition-colors',
+                  isCurrent ? 'font-semibold text-[#315CF5]' : 'text-[#17211B]',
+                  isSelected && 'font-bold text-[#17211B]',
                 )}
               >
                 {step.label}
               </span>
               {step.description && (
-                <span className="text-xs text-[#17211B]/60 mt-0.5">
+                <span className="mt-0.5 text-xs text-[#17211B]/60">
                   {step.description}
                 </span>
               )}

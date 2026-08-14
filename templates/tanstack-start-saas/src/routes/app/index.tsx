@@ -42,14 +42,14 @@ function DashboardOverview() {
         <h1 className="font-display text-3xl font-bold tracking-tight">
           Welcome back, {user?.name || 'Client'}
         </h1>
-        <p className="text-sm text-[#17211B]/70 mt-1">
+        <p className="mt-1 text-sm text-[#17211B]/70">
           Here is your client workspace delivery rhythm and active projects.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
         {/* Left Column - Active Projects */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="space-y-6 md:col-span-7">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl font-semibold">
               Active Projects
@@ -60,7 +60,7 @@ function DashboardOverview() {
           </div>
 
           {projects.length === 0 ? (
-            <Card className="p-8 text-center space-y-4">
+            <Card className="space-y-4 p-8 text-center">
               <CardTitle className="text-lg">No projects yet</CardTitle>
               <CardDescription>
                 Get started by creating your first client delivery workspace.
@@ -74,9 +74,9 @@ function DashboardOverview() {
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="hover:border-[#315CF5]/40 transition-colors"
+                  className="transition-colors hover:border-[#315CF5]/40"
                 >
-                  <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between">
+                  <CardHeader className="flex flex-row items-center justify-between p-5 pb-2">
                     <div>
                       <CardTitle className="text-lg">
                         <Link
@@ -99,7 +99,7 @@ function DashboardOverview() {
                       {project.status || 'in_progress'}
                     </Badge>
                   </CardHeader>
-                  <CardContent className="p-5 pt-2 flex items-center justify-between text-xs text-[#17211B]/60">
+                  <CardContent className="flex items-center justify-between p-5 pt-2 text-xs text-[#17211B]/60">
                     <span>
                       Due:{' '}
                       {project.dueAt
@@ -122,8 +122,8 @@ function DashboardOverview() {
         </div>
 
         {/* Right Column - Delivery Rail & Live Pulse */}
-        <div className="md:col-span-5 space-y-6">
-          <h2 className="font-display text-xl font-semibold font-display">
+        <div className="space-y-6 md:col-span-5">
+          <h2 className="font-display font-display text-xl font-semibold">
             Delivery Rail Status
           </h2>
           <DeliveryRail />

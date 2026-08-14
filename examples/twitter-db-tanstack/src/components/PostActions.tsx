@@ -85,14 +85,14 @@ export function PostActions({
 
   return (
     <div
-      className="text-muted-foreground flex items-center gap-6"
+      className="flex items-center gap-6 text-muted-foreground"
       role="group"
       aria-label="Post actions"
     >
       <Link
         to="/posts/$postId"
         params={{ postId: String(postId) }}
-        className="hover:text-foreground flex items-center gap-1"
+        className="flex items-center gap-1 hover:text-foreground"
         aria-label="Reply"
       >
         <MessageCircle className="size-4" aria-hidden />
@@ -101,7 +101,7 @@ export function PostActions({
 
       <button
         type="button"
-        className="hover:text-foreground flex items-center gap-1 disabled:opacity-50"
+        className="flex items-center gap-1 hover:text-foreground disabled:opacity-50"
         disabled={!currentUserId || pending}
         aria-pressed={!!myRt}
         onClick={(e) => {
@@ -119,7 +119,7 @@ export function PostActions({
 
       <button
         type="button"
-        className="hover:text-foreground flex items-center gap-1 disabled:opacity-50"
+        className="flex items-center gap-1 hover:text-foreground disabled:opacity-50"
         disabled={!currentUserId || pending}
         aria-pressed={!!myLike}
         onClick={(e) => {

@@ -117,7 +117,7 @@ export function PostCard({
           <div className="post-x-owner-actions">
             <button
               type="button"
-              className="outline small"
+              className="small outline"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -129,7 +129,7 @@ export function PostCard({
             </button>
             <button
               type="button"
-              className="outline small"
+              className="small outline"
               data-variant="danger"
               disabled={deleteMutation.isPending}
               onClick={(e) => {

@@ -17,12 +17,12 @@ function AdminUsersPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight text-[#FFFDF7]">
           User Management & Roles
         </h1>
-        <p className="text-sm text-[#FFFDF7]/70 mt-1">
+        <p className="mt-1 text-sm text-[#FFFDF7]/70">
           Manage system users and RBAC access permissions
         </p>
       </div>
 
-      <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7]">
+      <Card className="border-[#FFFDF7]/15 bg-[#0F1713] text-[#FFFDF7]">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-[#FFFDF7]">
             Active User Directory
@@ -30,7 +30,7 @@ function AdminUsersPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm font-mono">
+            <table className="w-full text-left font-mono text-sm">
               <thead>
                 <tr className="border-b border-[#FFFDF7]/15 text-xs text-[#FFFDF7]/60 uppercase">
                   <th className="pb-3">User</th>

@@ -24,9 +24,9 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#17211B] text-[#FFFDF7]">
+    <div className="flex min-h-screen flex-col bg-[#17211B] text-[#FFFDF7] md:flex-row">
       {/* Admin Sidebar */}
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[#FFFDF7]/15 bg-[#0F1713] p-6 flex flex-col justify-between">
+      <aside className="flex w-full flex-col justify-between border-b border-[#FFFDF7]/15 bg-[#0F1713] p-6 md:w-64 md:border-r md:border-b-0">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <Link
@@ -46,7 +46,7 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
               activeProps={{
                 className: 'bg-[#315CF5] text-white font-semibold',
               }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#FFFDF7]/80 hover:bg-[#FFFDF7]/10 transition-colors"
+              className="flex items-center rounded-[10px] px-3 py-2 text-sm text-[#FFFDF7]/80 transition-colors hover:bg-[#FFFDF7]/10"
             >
               System Pulse
             </Link>
@@ -55,7 +55,7 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
               activeProps={{
                 className: 'bg-[#315CF5] text-white font-semibold',
               }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#FFFDF7]/80 hover:bg-[#FFFDF7]/10 transition-colors"
+              className="flex items-center rounded-[10px] px-3 py-2 text-sm text-[#FFFDF7]/80 transition-colors hover:bg-[#FFFDF7]/10"
             >
               User Management
             </Link>
@@ -64,14 +64,14 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
               activeProps={{
                 className: 'bg-[#315CF5] text-white font-semibold',
               }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#FFFDF7]/80 hover:bg-[#FFFDF7]/10 transition-colors"
+              className="flex items-center rounded-[10px] px-3 py-2 text-sm text-[#FFFDF7]/80 transition-colors hover:bg-[#FFFDF7]/10"
             >
               All Projects
             </Link>
-            <div className="pt-4 border-t border-[#FFFDF7]/10 mt-2">
+            <div className="mt-2 border-t border-[#FFFDF7]/10 pt-4">
               <Link
                 to="/app"
-                className="flex items-center px-3 py-2 rounded-[10px] text-xs text-[#DCEBDD] hover:bg-[#FFFDF7]/10 transition-colors"
+                className="flex items-center rounded-[10px] px-3 py-2 text-xs text-[#DCEBDD] transition-colors hover:bg-[#FFFDF7]/10"
               >
                 ← Client Workspace
               </Link>
@@ -79,20 +79,20 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
           </nav>
         </div>
 
-        <div className="pt-6 border-t border-[#FFFDF7]/15 space-y-3">
+        <div className="space-y-3 border-t border-[#FFFDF7]/15 pt-6">
           {user ? (
             <div className="space-y-1">
-              <p className="text-sm font-medium text-[#FFFDF7] truncate">
+              <p className="truncate text-sm font-medium text-[#FFFDF7]">
                 {user.name || 'Admin User'}
               </p>
-              <p className="text-xs text-[#FFFDF7]/60 truncate">{user.email}</p>
+              <p className="truncate text-xs text-[#FFFDF7]/60">{user.email}</p>
             </div>
           ) : null}
           <Button
             variant="outline"
             size="sm"
             onClick={handleSignOut}
-            className="w-full justify-start text-xs border-[#FFFDF7]/20 text-[#FFFDF7] hover:bg-[#FFFDF7]/10"
+            className="w-full justify-start border-[#FFFDF7]/20 text-xs text-[#FFFDF7] hover:bg-[#FFFDF7]/10"
           >
             Sign Out
           </Button>
@@ -100,8 +100,8 @@ export function AdminAppShell({ children, user }: AdminShellProps) {
       </aside>
 
       {/* Admin Content Area */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-6xl mx-auto space-y-6">{children}</div>
+      <main className="flex-1 overflow-y-auto p-6 md:p-10">
+        <div className="mx-auto max-w-6xl space-y-6">{children}</div>
       </main>
     </div>
   )

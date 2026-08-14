@@ -49,10 +49,10 @@ function RegisterPage() {
   return (
     <section className="relative isolate flex min-h-screen w-full flex-col items-center justify-center bg-[#F6F3E9] p-4">
       <div className="relative z-10 container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        <Card className="relative w-full max-w-lg p-8 shadow-xl bg-[#FFFDF7] border-[#17211B]/10 rounded-[10px]">
+        <Card className="relative w-full max-w-lg rounded-[10px] border-[#17211B]/10 bg-[#FFFDF7] p-8 shadow-xl">
           <div className="mb-6 flex flex-col items-center">
             <div className="my-2 flex justify-center">
-              <div className="bg-[#DCEBDD] relative size-14 rounded-full border border-[#17211B]/10 flex items-center justify-center text-[#17211B]">
+              <div className="relative flex size-14 items-center justify-center rounded-full border border-[#17211B]/10 bg-[#DCEBDD] text-[#17211B]">
                 <svg
                   width="32"
                   height="32"
@@ -97,7 +97,7 @@ function RegisterPage() {
             <h1 className="font-display mb-1 text-center text-2xl font-bold tracking-tight text-[#17211B]">
               Create Your Account
             </h1>
-            <p className="text-[#17211B]/70 text-center text-sm">
+            <p className="text-center text-sm text-[#17211B]/70">
               Get started with your studio workspace below
             </p>
           </div>
@@ -105,7 +105,7 @@ function RegisterPage() {
           {error && (
             <div
               role="alert"
-              className="mb-4 rounded-[10px] bg-red-50 p-3 text-xs text-red-700 border border-red-200"
+              className="mb-4 rounded-[10px] border border-red-200 bg-red-50 p-3 text-xs text-red-700"
             >
               {error}
             </div>
@@ -125,14 +125,14 @@ function RegisterPage() {
                   type="text"
                   name="name"
                   placeholder="Full Name"
-                  className="ps-10 h-10 text-sm"
+                  className="h-10 ps-10 text-sm"
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
                   disabled={isPending}
                 />
-                <User className="text-[#17211B]/40 absolute start-3 top-1/2 size-4 -translate-y-1/2" />
+                <User className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
               </div>
             </div>
 
@@ -149,14 +149,14 @@ function RegisterPage() {
                   type="email"
                   name="email"
                   placeholder="me@example.com"
-                  className="ps-10 h-10 text-sm"
+                  className="h-10 ps-10 text-sm"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isPending}
                 />
-                <Mail className="text-[#17211B]/40 absolute start-3 top-1/2 size-4 -translate-y-1/2" />
+                <Mail className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
               </div>
             </div>
 
@@ -173,14 +173,14 @@ function RegisterPage() {
                   name="password"
                   type="password"
                   placeholder="Password"
-                  className="ps-10 h-10 text-sm"
+                  className="h-10 ps-10 text-sm"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isPending}
                 />
-                <Lock className="text-[#17211B]/40 absolute start-3 top-1/2 size-4 -translate-y-1/2" />
+                <Lock className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
               </div>
             </div>
 
@@ -204,7 +204,7 @@ function RegisterPage() {
           </p>
         </Card>
 
-        <p className="text-[#17211B]/60 relative z-10 mt-6 max-w-lg px-8 text-center text-xs text-center">
+        <p className="relative z-10 mt-6 max-w-lg px-8 text-center text-xs text-[#17211B]/60">
           By creating an account, you agree to Relay's&nbsp;
           <a href="#" className="underline hover:text-[#17211B]">
             Terms of Service

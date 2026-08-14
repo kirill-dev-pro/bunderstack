@@ -55,10 +55,10 @@ function LoginPage() {
   return (
     <section className="relative isolate flex min-h-screen w-full items-center justify-center bg-[#F6F3E9] p-4">
       <div className="relative z-10 container mx-auto flex min-h-screen items-center justify-center px-4 py-12">
-        <Card className="relative w-full max-w-md p-8 shadow-xl bg-[#FFFDF7] border-[#17211B]/10 rounded-[10px]">
+        <Card className="relative w-full max-w-md rounded-[10px] border-[#17211B]/10 bg-[#FFFDF7] p-8 shadow-xl">
           <div className="mb-6 flex flex-col items-center">
             <div className="my-2 flex justify-center">
-              <div className="bg-[#DCEBDD] relative size-14 rounded-full border border-[#17211B]/10 flex items-center justify-center text-[#17211B]">
+              <div className="relative flex size-14 items-center justify-center rounded-full border border-[#17211B]/10 bg-[#DCEBDD] text-[#17211B]">
                 <svg
                   width="32"
                   height="32"
@@ -102,7 +102,7 @@ function LoginPage() {
             <h1 className="font-display mb-1 text-center text-2xl font-bold tracking-tight text-[#17211B]">
               Welcome Back!
             </h1>
-            <p className="text-[#17211B]/70 text-center text-sm">
+            <p className="text-center text-sm text-[#17211B]/70">
               Sign in to continue your studio workflow
             </p>
           </div>
@@ -110,7 +110,7 @@ function LoginPage() {
           {error && (
             <div
               role="alert"
-              className="mb-4 rounded-[10px] bg-red-50 p-3 text-xs text-red-700 border border-red-200"
+              className="mb-4 rounded-[10px] border border-red-200 bg-red-50 p-3 text-xs text-red-700"
             >
               {error}
             </div>
@@ -130,14 +130,14 @@ function LoginPage() {
                   type="email"
                   name="email"
                   placeholder="me@example.com"
-                  className="ps-10 h-10 text-sm"
+                  className="h-10 ps-10 text-sm"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isPending}
                 />
-                <Mail className="text-[#17211B]/40 absolute start-3 top-1/2 size-4 -translate-y-1/2" />
+                <Mail className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
               </div>
             </div>
 
@@ -154,17 +154,17 @@ function LoginPage() {
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password"
-                  className="ps-10 pe-10 h-10 text-sm"
+                  className="h-10 ps-10 pe-10 text-sm"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isPending}
                 />
-                <Lock className="text-[#17211B]/40 absolute start-3 top-1/2 size-4 -translate-y-1/2" />
+                <Lock className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
                 <button
                   type="button"
-                  className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-[#17211B]/50 hover:text-[#17211B] cursor-pointer"
+                  className="absolute end-2 top-1/2 -translate-y-1/2 cursor-pointer p-1 text-[#17211B]/50 hover:text-[#17211B]"
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? (
@@ -181,7 +181,7 @@ function LoginPage() {
                 <Checkbox id="remember" />
                 <label
                   htmlFor="remember"
-                  className="text-xs text-[#17211B]/70 cursor-pointer"
+                  className="cursor-pointer text-xs text-[#17211B]/70"
                 >
                   Remember me
                 </label>

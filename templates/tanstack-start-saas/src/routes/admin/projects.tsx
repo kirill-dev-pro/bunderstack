@@ -38,12 +38,12 @@ function AdminProjectsPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight text-[#FFFDF7]">
           Platform Projects Oversight
         </h1>
-        <p className="text-sm text-[#FFFDF7]/70 mt-1">
+        <p className="mt-1 text-sm text-[#FFFDF7]/70">
           Global view of all client workspace projects
         </p>
       </div>
 
-      <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7]">
+      <Card className="border-[#FFFDF7]/15 bg-[#0F1713] text-[#FFFDF7]">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-[#FFFDF7]">
             All Registered Projects ({projects.length})
@@ -63,7 +63,7 @@ function AdminProjectsPage() {
               {projects.map((p) => (
                 <div
                   key={p.id}
-                  className="p-3 rounded-[8px] bg-[#17211B] border border-[#FFFDF7]/10 flex items-center justify-between"
+                  className="flex items-center justify-between rounded-[8px] border border-[#FFFDF7]/10 bg-[#17211B] p-3"
                 >
                   <div>
                     <p className="font-sans font-semibold text-[#FFFDF7]">

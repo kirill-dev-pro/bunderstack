@@ -30,6 +30,13 @@ export default defineConfig({
         enabled: true,
         prerender: { enabled: true, crawlLinks: false },
       },
+      // `spa.prerender` only configures the SPA shell. Page prerendering reads
+      // this top-level block, where `crawlLinks` otherwise defaults to true —
+      // which made the crawler follow the /llms.txt link in the docs and fail
+      // the build, since postbuild.mjs copies that file after `vite build`.
+      // Every page worth prerendering is listed below, so crawling adds
+      // nothing but the chance to fetch something that isn't a route.
+      prerender: { enabled: true, crawlLinks: false },
       pages: [{ path: '/' }, ...docPages, { path: '/api/search' }],
     }),
     react(),

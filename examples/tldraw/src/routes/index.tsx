@@ -69,10 +69,10 @@ function Home() {
           className="relative min-h-120 overflow-hidden rounded-4xl border border-white/15 bg-white shadow-2xl"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(148_163_184/0.55)_1px,transparent_0)] bg-size-[28px_28px]" />
-          <div className="absolute left-10 top-10 h-24 w-40 -rotate-6 rounded-3xl border-4 border-blue-500 bg-blue-100 shadow-xl" />
-          <div className="absolute right-12 top-28 h-28 w-44 rotate-3 rounded-3xl border-4 border-purple-500 bg-purple-100 shadow-xl" />
+          <div className="absolute top-10 left-10 h-24 w-40 -rotate-6 rounded-3xl border-4 border-blue-500 bg-blue-100 shadow-xl" />
+          <div className="absolute top-28 right-12 h-28 w-44 rotate-3 rounded-3xl border-4 border-purple-500 bg-purple-100 shadow-xl" />
           <div className="absolute bottom-16 left-24 h-24 w-56 rotate-2 rounded-3xl border-4 border-amber-500 bg-amber-100 shadow-xl" />
-          <div className="absolute bottom-8 right-8 rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl">
+          <div className="absolute right-8 bottom-8 rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl">
             pan / zoom / sync
           </div>
         </section>

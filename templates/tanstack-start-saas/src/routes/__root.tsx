@@ -65,16 +65,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
 function NotFoundComponent() {
   return (
-    <div className="min-h-screen bg-[#F6F3E9] text-[#17211B] flex flex-col items-center justify-center p-6 text-center">
-      <h1 className="font-display text-4xl font-bold mb-2">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F6F3E9] p-6 text-center text-[#17211B]">
+      <h1 className="font-display mb-2 text-4xl font-bold">
         404 — Page Not Found
       </h1>
-      <p className="text-[#17211B]/70 max-w-md mb-6">
+      <p className="mb-6 max-w-md text-[#17211B]/70">
         The requested page was not found on BunderSaaS.
       </p>
       <Link
         to="/"
-        className="px-4 py-2 bg-[#17211B] text-[#FFFDF7] rounded-[10px] text-sm font-medium hover:bg-[#17211B]/90 transition-colors"
+        className="rounded-[10px] bg-[#17211B] px-4 py-2 text-sm font-medium text-[#FFFDF7] transition-colors hover:bg-[#17211B]/90"
       >
         Return to Home
       </Link>
@@ -84,16 +84,16 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error }: { error: Error }) {
   return (
-    <div className="min-h-screen bg-[#F6F3E9] text-[#17211B] flex flex-col items-center justify-center p-6 text-center">
-      <h1 className="font-display text-3xl font-bold mb-2 text-red-700">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F6F3E9] p-6 text-center text-[#17211B]">
+      <h1 className="font-display mb-2 text-3xl font-bold text-red-700">
         An Error Occurred
       </h1>
-      <p className="text-[#17211B]/80 font-mono text-xs max-w-md p-4 bg-white/60 rounded-[10px] border border-red-200 mb-6 overflow-x-auto">
+      <p className="mb-6 max-w-md overflow-x-auto rounded-[10px] border border-red-200 bg-white/60 p-4 font-mono text-xs text-[#17211B]/80">
         {error.message || 'Unexpected application error.'}
       </p>
       <Link
         to="/"
-        className="px-4 py-2 bg-[#17211B] text-[#FFFDF7] rounded-[10px] text-sm font-medium hover:bg-[#17211B]/90 transition-colors"
+        className="rounded-[10px] bg-[#17211B] px-4 py-2 text-sm font-medium text-[#FFFDF7] transition-colors hover:bg-[#17211B]/90"
       >
         Back to Safety
       </Link>

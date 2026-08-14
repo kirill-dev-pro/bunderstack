@@ -45,7 +45,7 @@ export function SearchBox({ className }: SearchBoxProps) {
         <input
           type="search"
           placeholder="Search posts & people"
-          className="border-input focus-visible:ring-ring w-full rounded-full border bg-transparent px-4 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+          className="w-full rounded-full border border-input bg-transparent px-4 py-2 text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -58,21 +58,21 @@ export function SearchBox({ className }: SearchBoxProps) {
 
       {open && term.length >= 2 ? (
         <div
-          className="bg-popover text-popover-foreground absolute top-full right-0 left-0 z-20 mt-1 max-h-96 overflow-y-auto rounded-md border p-2 shadow-md"
+          className="absolute top-full right-0 left-0 z-20 mt-1 max-h-96 overflow-y-auto rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
           role="listbox"
         >
           {loading ? (
-            <p className="text-muted-foreground p-2 text-sm">Searching…</p>
+            <p className="p-2 text-sm text-muted-foreground">Searching…</p>
           ) : null}
           {!loading && !hasResults ? (
-            <p className="text-muted-foreground p-2 text-sm">
+            <p className="p-2 text-sm text-muted-foreground">
               No results for “{term}”
             </p>
           ) : null}
 
           {users.length > 0 ? (
             <section>
-              <h4 className="text-muted-foreground px-2 py-1 text-xs font-semibold uppercase">
+              <h4 className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">
                 People
               </h4>
               <ul>
@@ -81,7 +81,7 @@ export function SearchBox({ className }: SearchBoxProps) {
                     <Link
                       to="/users/$userId"
                       params={{ userId: person.id }}
-                      className="hover:bg-accent flex items-center gap-2 rounded-md p-2"
+                      className="flex items-center gap-2 rounded-md p-2 hover:bg-accent"
                       onClick={() => setOpen(false)}
                     >
                       <UserAvatar
@@ -94,7 +94,7 @@ export function SearchBox({ className }: SearchBoxProps) {
                           {person.name}
                         </div>
                         {person.about ? (
-                          <div className="text-muted-foreground truncate text-sm">
+                          <div className="truncate text-sm text-muted-foreground">
                             {person.about}
                           </div>
                         ) : null}
@@ -108,14 +108,14 @@ export function SearchBox({ className }: SearchBoxProps) {
 
           {posts.length > 0 ? (
             <section>
-              <h4 className="text-muted-foreground px-2 py-1 text-xs font-semibold uppercase">
+              <h4 className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">
                 Posts
               </h4>
               <ul>
                 {posts.map((post) => (
                   <li key={post.id} className="rounded-md p-2">
                     <div className="font-semibold">{post.title}</div>
-                    <div className="text-muted-foreground truncate text-sm">
+                    <div className="truncate text-sm text-muted-foreground">
                       {post.body.slice(0, 120)}
                       {post.body.length > 120 ? '…' : ''}
                     </div>

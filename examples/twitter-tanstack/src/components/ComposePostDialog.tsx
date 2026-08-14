@@ -106,7 +106,7 @@ export function ComposePostDialog({
               />
               <button
                 type="button"
-                className="outline small"
+                className="small outline"
                 onClick={() => setImageUrl(null)}
               >
                 Remove image

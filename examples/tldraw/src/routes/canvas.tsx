@@ -100,7 +100,7 @@ function CanvasesClient() {
       <section className="overflow-hidden rounded-3xl border bg-white shadow-sm dark:bg-gray-900">
         <div className="grid gap-8 p-6 md:grid-cols-[1fr_22rem] md:p-8">
           <div className="flex flex-col justify-center gap-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-600">
+            <p className="text-sm font-semibold tracking-[0.24em] text-blue-600 uppercase">
               Synced boards
             </p>
             <div className="space-y-3">
@@ -124,7 +124,7 @@ function CanvasesClient() {
             <label className="text-sm font-medium">
               New canvas name
               <input
-                className="mt-2 w-full rounded-xl border border-white/10 bg-white px-3 py-2 text-slate-950 outline-none ring-blue-400 transition focus:ring-2"
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white px-3 py-2 text-slate-950 ring-blue-400 transition outline-none focus:ring-2"
                 placeholder="Product map"
                 value={name}
                 onChange={(event) => setName(event.target.value)}

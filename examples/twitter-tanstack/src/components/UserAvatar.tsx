@@ -39,7 +39,7 @@ export function UserAvatar({
         alt={name}
         width={size}
         height={size}
-        className={`rounded-full object-cover border border-gray-200 dark:border-gray-700 shrink-0 ${className}`}
+        className={`border-gray-200 dark:border-gray-700 shrink-0 rounded-full border object-cover ${className}`}
         style={{ width: size, height: size }}
       />
     )
@@ -47,7 +47,7 @@ export function UserAvatar({
 
   return (
     <div
-      className={`rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 flex items-center justify-center font-semibold shrink-0 ${className}`}
+      className={`bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 font-semibold flex shrink-0 items-center justify-center rounded-full ${className}`}
       style={{ width: size, height: size, fontSize: size * 0.35 }}
       aria-hidden
     >

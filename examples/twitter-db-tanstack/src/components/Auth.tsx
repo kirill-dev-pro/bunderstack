@@ -56,7 +56,7 @@ export function Auth({
               />
             </div>
             {message ? (
-              <p className="text-destructive text-sm" role="alert">
+              <p className="text-sm text-destructive" role="alert">
                 {message}
               </p>
             ) : null}

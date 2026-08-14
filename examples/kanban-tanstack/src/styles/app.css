@@ -6,7 +6,12 @@ html {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 }
 
 /* Bridge legacy fallbacks to Oat tokens */
@@ -125,8 +130,16 @@ body {
   place-items: center;
   padding: 2rem 1rem;
   background:
-    radial-gradient(ellipse at top left, color-mix(in srgb, #0ea5e9 18%, transparent), transparent 55%),
-    radial-gradient(ellipse at bottom right, color-mix(in srgb, #6366f1 16%, transparent), transparent 50%),
+    radial-gradient(
+      ellipse at top left,
+      color-mix(in srgb, #0ea5e9 18%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at bottom right,
+      color-mix(in srgb, #6366f1 16%, transparent),
+      transparent 50%
+    ),
     var(--oat-bg, canvas);
 }
 
@@ -197,7 +210,10 @@ body {
   background: var(--oat-bg, canvas);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
   min-height: 6.5rem;
 }
 
@@ -362,7 +378,8 @@ body {
   max-height: calc(100vh - 8rem);
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--oat-border, #e2e8f0) 22%, transparent);
-  border: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 80%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--oat-border, #e2e8f0) 80%, transparent);
 }
 
 .board-view[class*='board-bg-'] .list-column {
@@ -457,7 +474,9 @@ body {
   cursor: grab;
   text-align: left;
   width: 100%;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
   font: inherit;
 }
 
@@ -579,7 +598,8 @@ body {
 
 .comment-item {
   padding: 0.5rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--oat-border, #e2e8f0) 60%, transparent);
   font-size: 0.875rem;
 }
 
@@ -594,7 +614,8 @@ body {
   gap: 0.5rem;
   padding: 0.5rem 0;
   font-size: 0.8rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 50%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--oat-border, #e2e8f0) 50%, transparent);
 }
 
 .activity-item time {
@@ -642,8 +663,12 @@ body {
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .skeleton-board-tile {
@@ -725,14 +750,46 @@ body {
   background: linear-gradient(160deg, #455a64 0%, #37474f 100%);
 }
 
-.board-tile-bg-blue { background: linear-gradient(135deg, #0079bf, #026aa7); color: #fff; border-color: transparent; }
-.board-tile-bg-green { background: linear-gradient(135deg, #519839, #3f6f21); color: #fff; border-color: transparent; }
-.board-tile-bg-purple { background: linear-gradient(135deg, #89609e, #6b4c7a); color: #fff; border-color: transparent; }
-.board-tile-bg-orange { background: linear-gradient(135deg, #d29034, #b87a1f); color: #fff; border-color: transparent; }
-.board-tile-bg-red { background: linear-gradient(135deg, #b04632, #8c3628); color: #fff; border-color: transparent; }
-.board-tile-bg-pink { background: linear-gradient(135deg, #cd5a91, #a84774); color: #fff; border-color: transparent; }
-.board-tile-bg-teal { background: linear-gradient(135deg, #4bbf6b, #2d8f4e); color: #fff; border-color: transparent; }
-.board-tile-bg-slate { background: linear-gradient(135deg, #455a64, #37474f); color: #fff; border-color: transparent; }
+.board-tile-bg-blue {
+  background: linear-gradient(135deg, #0079bf, #026aa7);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-green {
+  background: linear-gradient(135deg, #519839, #3f6f21);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-purple {
+  background: linear-gradient(135deg, #89609e, #6b4c7a);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-orange {
+  background: linear-gradient(135deg, #d29034, #b87a1f);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-red {
+  background: linear-gradient(135deg, #b04632, #8c3628);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-pink {
+  background: linear-gradient(135deg, #cd5a91, #a84774);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-teal {
+  background: linear-gradient(135deg, #4bbf6b, #2d8f4e);
+  color: #fff;
+  border-color: transparent;
+}
+.board-tile-bg-slate {
+  background: linear-gradient(135deg, #455a64, #37474f);
+  color: #fff;
+  border-color: transparent;
+}
 
 .board-tile.board-tile-bg-blue .board-tile-meta,
 .board-tile.board-tile-bg-green .board-tile-meta,
@@ -1196,7 +1253,8 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--oat-border, #e2e8f0) 60%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--oat-border, #e2e8f0) 60%, transparent);
 }
 
 .org-member-info {

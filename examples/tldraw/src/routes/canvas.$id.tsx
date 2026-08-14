@@ -445,7 +445,7 @@ function WhiteboardClient() {
         }}
       >
         <div
-          className="absolute left-0 top-0 origin-top-left"
+          className="absolute top-0 left-0 origin-top-left"
           style={{
             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
           }}
@@ -459,7 +459,7 @@ function WhiteboardClient() {
                 key={shape.id}
                 type="button"
                 aria-label={shapeAccessibleName(shape, shapeType)}
-                className={`absolute cursor-move overflow-hidden border-2 bg-white/90 p-0 shadow-lg outline-none transition focus:ring-4 focus:ring-blue-200 ${shapeClassName(shapeType)}`}
+                className={`absolute cursor-move overflow-hidden border-2 bg-white/90 p-0 shadow-lg transition outline-none focus:ring-4 focus:ring-blue-200 ${shapeClassName(shapeType)}`}
                 style={{
                   left: position.x,
                   top: position.y,
@@ -761,7 +761,7 @@ function ShapeContents({
 
   if (type === 'text') {
     return (
-      <span className="grid h-full place-items-center px-4 text-center text-lg font-black leading-tight text-slate-900">
+      <span className="grid h-full place-items-center px-4 text-center text-lg leading-tight font-black text-slate-900">
         {shape.text ?? 'Text'}
       </span>
     )

@@ -102,13 +102,13 @@ function ProjectDetailPage() {
           Projects
         </Link>
         <span>/</span>
-        <span className="text-[#17211B] font-medium">
+        <span className="font-medium text-[#17211B]">
           {project?.name || projectId}
         </span>
       </div>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#17211B]/10 pb-6">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#17211B]/10 pb-6 md:flex-row md:items-center">
         <div>
           <div className="flex items-center space-x-3">
             <h1 className="font-display text-3xl font-bold tracking-tight">
@@ -116,15 +116,15 @@ function ProjectDetailPage() {
             </h1>
             <Badge variant="primary">{project?.status || 'Active'}</Badge>
           </div>
-          <p className="text-sm text-[#17211B]/70 mt-1">
+          <p className="mt-1 text-sm text-[#17211B]/70">
             Client: {project?.clientName || 'Direct'}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
         {/* Left Column: Deliverables & Tasks */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="space-y-6 md:col-span-7">
           {/* Add Task Form */}
           <Card className="p-6">
             <CardHeader className="p-0 pb-4">
@@ -135,7 +135,7 @@ function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="p-0">
               {taskError && (
-                <div role="alert" className="text-sm text-red-600 mb-3">
+                <div role="alert" className="mb-3 text-sm text-red-600">
                   {taskError}
                 </div>
               )}
@@ -166,7 +166,7 @@ function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="p-0">
               {tasks.length === 0 ? (
-                <div className="text-center py-6 space-y-3">
+                <div className="space-y-3 py-6 text-center">
                   <p className="text-sm text-[#17211B]/70">
                     No deliverables added yet.
                   </p>
@@ -184,7 +184,7 @@ function ProjectDetailPage() {
                   {tasks.map((task) => (
                     <div
                       key={task.id}
-                      className="py-3 flex items-center justify-between"
+                      className="flex items-center justify-between py-3"
                     >
                       <div className="flex items-center space-x-3">
                         <input
@@ -196,7 +196,7 @@ function ProjectDetailPage() {
                         <span
                           className={
                             task.status === 'done'
-                              ? 'line-through text-[#17211B]/50'
+                              ? 'text-[#17211B]/50 line-through'
                               : 'font-medium'
                           }
                         >
@@ -229,7 +229,7 @@ function ProjectDetailPage() {
                 Upload proof files and project specs to Bunderstack storage.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0 space-y-3">
+            <CardContent className="space-y-3 p-0">
               {uploadMessage && (
                 <div className="text-xs font-medium text-[#315CF5]">
                   {uploadMessage}
@@ -242,7 +242,7 @@ function ProjectDetailPage() {
                 <input
                   type="file"
                   onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="text-xs text-[#17211B] flex-1 file:mr-4 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:text-xs file:font-semibold file:bg-[#DCEBDD] file:text-[#17211B]"
+                  className="flex-1 text-xs text-[#17211B] file:mr-4 file:rounded-[10px] file:border-0 file:bg-[#DCEBDD] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[#17211B]"
                   disabled={isUploading}
                 />
                 <Button
@@ -258,7 +258,7 @@ function ProjectDetailPage() {
         </div>
 
         {/* Right Column: Delivery Rail */}
-        <div className="md:col-span-5 space-y-6">
+        <div className="space-y-6 md:col-span-5">
           <Card className="p-6">
             <CardHeader className="p-0 pb-4">
               <CardTitle className="text-xl">Delivery Rail Status</CardTitle>

@@ -295,12 +295,12 @@ function BoardPage() {
                   />
                 ))}
             </div>
-            <Link to="/org/settings" className="outline board-share-btn">
+            <Link to="/org/settings" className="board-share-btn outline">
               Share
             </Link>
             <button
               type="button"
-              className="outline board-settings-btn"
+              className="board-settings-btn outline"
               onClick={() => setSettingsOpen(true)}
               aria-label="Board settings"
             >

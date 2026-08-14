@@ -78,7 +78,7 @@ export function AppShell({ user, children, aside, onCompose }: AppShellProps) {
           <aside className="hidden w-72 shrink-0 md:block">
             <article className="rounded-lg border p-4">
               <h3 className="mb-2 font-semibold">Demo</h3>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 <code>bun run seed</code> — alice@example.com / password123
               </p>
             </article>

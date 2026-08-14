@@ -41,7 +41,7 @@ export function AttachmentLightbox({
         <div className="attachment-lightbox-inner">
           <button
             type="button"
-            className="outline attachment-lightbox-close"
+            className="attachment-lightbox-close outline"
             onClick={() => dialogRef.current?.close()}
           >
             Close

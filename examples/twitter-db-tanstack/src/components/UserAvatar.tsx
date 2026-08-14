@@ -35,7 +35,7 @@ export function UserAvatar({
 
   return (
     <Avatar
-      className={`border-border border ${className}`}
+      className={`border border-border ${className}`}
       style={{ width: size, height: size }}
     >
       {src ? <AvatarImage src={src} alt={name} /> : null}

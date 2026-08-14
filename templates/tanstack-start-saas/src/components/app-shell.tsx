@@ -23,9 +23,9 @@ export function AppShell({ children, user }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F6F3E9] text-[#17211B]">
+    <div className="flex min-h-screen flex-col bg-[#F6F3E9] text-[#17211B] md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[#17211B]/10 bg-[#FFFDF7] p-6 flex flex-col justify-between">
+      <aside className="flex w-full flex-col justify-between border-b border-[#17211B]/10 bg-[#FFFDF7] p-6 md:w-64 md:border-r md:border-b-0">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <Link
@@ -34,7 +34,7 @@ export function AppShell({ children, user }: AppShellProps) {
             >
               BunderSaaS
             </Link>
-            <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#DCEBDD] text-[#17211B]">
+            <span className="rounded bg-[#DCEBDD] px-2 py-0.5 font-mono text-xs text-[#17211B]">
               CLIENT
             </span>
           </div>
@@ -43,23 +43,23 @@ export function AppShell({ children, user }: AppShellProps) {
             <Link
               to="/app"
               activeProps={{ className: 'bg-[#DCEBDD] font-semibold' }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#17211B] hover:bg-[#DCEBDD]/60 transition-colors"
+              className="flex items-center rounded-[10px] px-3 py-2 text-sm text-[#17211B] transition-colors hover:bg-[#DCEBDD]/60"
             >
               Overview
             </Link>
             <Link
               to="/app/projects"
               activeProps={{ className: 'bg-[#DCEBDD] font-semibold' }}
-              className="flex items-center px-3 py-2 rounded-[10px] text-sm text-[#17211B] hover:bg-[#DCEBDD]/60 transition-colors"
+              className="flex items-center rounded-[10px] px-3 py-2 text-sm text-[#17211B] transition-colors hover:bg-[#DCEBDD]/60"
             >
               Projects
             </Link>
 
             {user?.role === 'admin' && (
-              <div className="pt-4 border-t border-[#17211B]/10 mt-2">
+              <div className="mt-2 border-t border-[#17211B]/10 pt-4">
                 <Link
                   to="/admin"
-                  className="flex items-center px-3 py-2 rounded-[10px] text-xs font-semibold text-[#315CF5] hover:bg-[#315CF5]/10 transition-colors"
+                  className="flex items-center rounded-[10px] px-3 py-2 text-xs font-semibold text-[#315CF5] transition-colors hover:bg-[#315CF5]/10"
                 >
                   Admin Portal →
                 </Link>
@@ -68,13 +68,13 @@ export function AppShell({ children, user }: AppShellProps) {
           </nav>
         </div>
 
-        <div className="pt-6 border-t border-[#17211B]/10 space-y-3">
+        <div className="space-y-3 border-t border-[#17211B]/10 pt-6">
           {user ? (
             <div className="space-y-1">
-              <p className="text-sm font-medium text-[#17211B] truncate">
+              <p className="truncate text-sm font-medium text-[#17211B]">
                 {user.name || 'User'}
               </p>
-              <p className="text-xs text-[#17211B]/60 truncate">{user.email}</p>
+              <p className="truncate text-xs text-[#17211B]/60">{user.email}</p>
             </div>
           ) : null}
           <Button
@@ -89,8 +89,8 @@ export function AppShell({ children, user }: AppShellProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-6xl mx-auto space-y-6">{children}</div>
+      <main className="flex-1 overflow-y-auto p-6 md:p-10">
+        <div className="mx-auto max-w-6xl space-y-6">{children}</div>
       </main>
     </div>
   )

@@ -14,12 +14,12 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
   console.error(error)
 
   return (
-    <div className="min-w-0 flex-1 p-4 flex flex-col items-center justify-center gap-6">
+    <div className="min-w-0 p-4 gap-6 flex flex-1 flex-col items-center justify-center">
       <ErrorComponent error={error} />
-      <div className="flex gap-2 items-center flex-wrap">
+      <div className="gap-2 flex flex-wrap items-center">
         <button
           onClick={() => router.invalidate()}
-          className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold"
+          className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white font-extrabold uppercase"
         >
           Try Again
         </button>
@@ -27,7 +27,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
           <Link
             to="/"
             search={{ tab: 'for-you' }}
-            className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold"
+            className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white font-extrabold uppercase"
           >
             Home
           </Link>
@@ -35,7 +35,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
           <Link
             to="/"
             search={{ tab: 'for-you' }}
-            className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white uppercase font-extrabold"
+            className="px-2 py-1 bg-gray-600 dark:bg-gray-700 rounded-sm text-white font-extrabold uppercase"
             onClick={(e) => {
               e.preventDefault()
               window.history.back()

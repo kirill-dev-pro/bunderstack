@@ -50,7 +50,7 @@ function AdminOverviewPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight text-[#FFFDF7]">
           System Pulse & Admin Portal
         </h1>
-        <p className="text-sm text-[#FFFDF7]/70 mt-1">
+        <p className="mt-1 text-sm text-[#FFFDF7]/70">
           Authenticated as{' '}
           <span className="font-semibold text-[#DCEBDD]">
             {adminAuth.user.name || adminAuth.user.email}
@@ -59,13 +59,13 @@ function AdminOverviewPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card className="border-[#FFFDF7]/15 bg-[#0F1713] text-[#FFFDF7]">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[#FFFDF7]/60 text-xs font-mono uppercase">
+            <CardDescription className="font-mono text-xs text-[#FFFDF7]/60 uppercase">
               System Health
             </CardDescription>
-            <CardTitle className="text-2xl font-bold font-mono text-[#DCEBDD]">
+            <CardTitle className="font-mono text-2xl font-bold text-[#DCEBDD]">
               HEALTHY
             </CardTitle>
           </CardHeader>
@@ -76,12 +76,12 @@ function AdminOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7]">
+        <Card className="border-[#FFFDF7]/15 bg-[#0F1713] text-[#FFFDF7]">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[#FFFDF7]/60 text-xs font-mono uppercase">
+            <CardDescription className="font-mono text-xs text-[#FFFDF7]/60 uppercase">
               Total Platform Projects
             </CardDescription>
-            <CardTitle className="text-3xl font-bold font-mono text-[#315CF5]">
+            <CardTitle className="font-mono text-3xl font-bold text-[#315CF5]">
               {loading ? '...' : (data?.projects ?? 0)}
             </CardTitle>
           </CardHeader>
@@ -92,9 +92,9 @@ function AdminOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7]">
+        <Card className="border-[#FFFDF7]/15 bg-[#0F1713] text-[#FFFDF7]">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[#FFFDF7]/60 text-xs font-mono uppercase">
+            <CardDescription className="font-mono text-xs text-[#FFFDF7]/60 uppercase">
               Auth Context Status
             </CardDescription>
             <div className="pt-1">
@@ -112,25 +112,25 @@ function AdminOverviewPage() {
       </div>
 
       {/* Admin Audit & Worker Activity */}
-      <Card className="bg-[#0F1713] border-[#FFFDF7]/15 text-[#FFFDF7] p-6 space-y-4">
+      <Card className="space-y-4 border-[#FFFDF7]/15 bg-[#0F1713] p-6 text-[#FFFDF7]">
         <h2 className="font-display text-xl font-bold text-[#FFFDF7]">
           Platform Event Stream
         </h2>
         <div className="space-y-3 font-mono text-xs text-[#FFFDF7]/80">
-          <div className="flex items-center justify-between py-2 border-b border-[#FFFDF7]/10">
+          <div className="flex items-center justify-between border-b border-[#FFFDF7]/10 py-2">
             <span>[SYS_WORKER] Background queue listener active</span>
             <Badge
               variant="outline"
-              className="text-[#DCEBDD] border-[#DCEBDD]/30"
+              className="border-[#DCEBDD]/30 text-[#DCEBDD]"
             >
               ONLINE
             </Badge>
           </div>
-          <div className="flex items-center justify-between py-2 border-b border-[#FFFDF7]/10">
+          <div className="flex items-center justify-between border-b border-[#FFFDF7]/10 py-2">
             <span>[AUTH_CONTEXT] /admin route guard enforced</span>
             <Badge
               variant="outline"
-              className="text-[#315CF5] border-[#315CF5]/30"
+              className="border-[#315CF5]/30 text-[#315CF5]"
             >
               SECURE
             </Badge>
@@ -141,7 +141,7 @@ function AdminOverviewPage() {
             </span>
             <Badge
               variant="outline"
-              className="text-[#E9A23B] border-[#E9A23B]/30"
+              className="border-[#E9A23B]/30 text-[#E9A23B]"
             >
               LISTENING
             </Badge>

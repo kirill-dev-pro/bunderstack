@@ -72,7 +72,7 @@ function UserProfilePage() {
 
       <ClientOnly
         fallback={
-          <div className="text-muted-foreground p-4 text-sm">Loading…</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading…</div>
         }
       >
         <UserProfile userId={userId} currentUser={currentUser} />
@@ -213,7 +213,7 @@ function UserProfile({
       <section>
         <h2 className="p-4 pb-2 text-lg font-semibold">Posts</h2>
         {allPosts.length === 0 ? (
-          <p className="text-muted-foreground p-4 text-sm">No posts yet.</p>
+          <p className="p-4 text-sm text-muted-foreground">No posts yet.</p>
         ) : (
           <div>
             {allPosts.map((post) => (

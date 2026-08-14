@@ -27,7 +27,7 @@ export function ReplyComposer({
 
   if (!user) {
     return (
-      <p className="text-muted-foreground border-b p-4 text-sm">
+      <p className="border-b p-4 text-sm text-muted-foreground">
         <Link to="/login" className="text-primary hover:underline">
           Log in
         </Link>{' '}
@@ -70,7 +70,7 @@ export function ReplyComposer({
       <UserAvatar name={user.name} image={user.image} size={40} />
       <div className="flex-1 space-y-2">
         <textarea
-          className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+          className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
           rows={2}
           value={body}
           onChange={(e) => setBody(e.target.value)}

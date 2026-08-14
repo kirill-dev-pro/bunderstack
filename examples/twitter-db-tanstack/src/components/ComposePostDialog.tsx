@@ -99,7 +99,7 @@ export function ComposePostDialog({
           </div>
 
           <textarea
-            className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             rows={4}
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -206,7 +206,7 @@ export function ComposePostTrigger({
     <article className="border-b p-4">
       <button
         type="button"
-        className="text-muted-foreground flex w-full items-center gap-3 text-left"
+        className="flex w-full items-center gap-3 text-left text-muted-foreground"
         onClick={onOpen}
       >
         <UserAvatar name={user.name} image={user.image} size={40} />

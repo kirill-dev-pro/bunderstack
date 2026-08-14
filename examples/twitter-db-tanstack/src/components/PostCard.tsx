@@ -165,7 +165,7 @@ export function PostCard({
                   <DialogTitle>Edit post</DialogTitle>
                 </DialogHeader>
                 <textarea
-                  className="border-input focus-visible:ring-ring w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
                   rows={4}
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
@@ -227,7 +227,7 @@ export function PostCard({
       </header>
 
       {post.replyToId && parentAuthor ? (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           Replying to{' '}
           <Link
             to="/users/$userId"

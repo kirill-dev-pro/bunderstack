@@ -43,6 +43,14 @@
           "$ref": "api-procedures.mdx"
         },
         {
+          "$id": "middleware.mdx",
+          "type": "page",
+          "name": "Middleware",
+          "description": "Run code around one base, or around every procedure in the graph",
+          "url": "/docs/middleware",
+          "$ref": "middleware.mdx"
+        },
+        {
           "$id": "query-client.mdx",
           "type": "page",
           "name": "Query Client",
@@ -162,6 +170,7 @@
     "getting-started": "getting-started.mdx",
     "http-webhooks": "http-webhooks.mdx",
     "": "index.mdx",
+    "middleware": "middleware.mdx",
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
     "sync-collections": "sync-collections.mdx",
