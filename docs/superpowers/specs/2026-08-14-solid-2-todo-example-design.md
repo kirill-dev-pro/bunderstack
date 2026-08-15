@@ -1,7 +1,27 @@
 # Solid 2 todo example
 
-A bare-bones SPA mounting Bunderstack in a Solid 2.0 RC application, using
-Solid's own async primitives as the entire client data layer.
+A bare-bones Solid 2.0 RC application that mounts Bunderstack into Solid's own
+request handler, using `@tanstack/solid-query` over Bunderstack's generated
+query options as the entire client data layer.
+
+> **Revised after implementation.** Three decisions below were superseded
+> by what the build and the runtime actually did:
+>
+> 1. **Serving.** The design specified a client-mode SPA with a hand-written
+>    `src/server.ts`. That shipped and worked, but meant two processes split by
+>    URL prefix. The example now runs `ssr: true` with the Nitro plugin, so one
+>    handler serves pages and `/api` in dev, preview, and production. See
+>    [One handler](#one-handler-revised).
+> 2. **Client data.** The design used Solid 2's async primitives
+>    (`createOptimisticStore` / `action` / `refresh`) with no query library,
+>    which required an in-process SSR fetch. The example now uses
+>    `@tanstack/solid-query@6` with `bunderstack-query`'s generated query
+>    options, and loads the list through `clientOnly` so it never fetches on
+>    the server. See [Client data](#client-data-revised).
+> 3. **Features.** The design scoped the example to auto-CRUD. It now also
+>    declares jobs and realtime, because the streaming-progress showcase needs
+>    both. See
+>    [2026-08-15-solid-2-streaming-job-progress-design.md](./2026-08-15-solid-2-streaming-job-progress-design.md).
 
 ## Why
 
@@ -29,6 +49,11 @@ CRUD. Bunderstack's generated `api.todos.*` procedures each expose `.call()`, a
 plain typed RPC method, so an app can consume the whole API with no query
 library at all. No existing example shows this.
 
+That was the original motivation, and it did not survive `ssr: true` — see
+[Client data](#client-data-revised). The example still calls `.call()` directly
+for its custom procedures; what it no longer does is use the async primitives
+as the whole data layer.
+
 ## Verified behaviour
 
 Confirmed against a scaffolded `create-solid@0.10.0` project using
@@ -49,33 +74,39 @@ not inferred from documentation:
 
 ## Decisions
 
-| Decision       | Choice                    | Reason                                                                                                                         |
-| -------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Rendering      | Client SPA, `start: true` | Simplest shape. No SSR, no server functions, no hydration.                                                                     |
-| Project shape  | `bare`                    | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`.                             |
-| Dev API mount  | Start-mode middleware     | One process for app and API.                                                                                                   |
-| Prod API mount | Own `src/server.ts`       | A client-mode build has no request handler, so the example ships an ~18-line `Bun.serve` for static assets plus `app.handler`. |
-| Client data    | Solid 2 async primitives  | The point of the example. No TanStack Query.                                                                                   |
-| Features       | Auto-CRUD only            | No auth, storage, email, jobs, or realtime. `examples/todo` is the full-feature tour.                                          |
+| Decision       | Choice                    | Reason                                                                                                                     |
+| -------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Rendering      | `ssr: true` + Nitro       | The only shape that keeps one request handler after a build. (Was: client SPA — see the revision note.)                    |
+| Project shape  | `bare`                    | A single page needs no router. Drops `@solidjs/router`, `@solidjs/meta`, and `filesystem-routing`.                         |
+| Dev API mount  | Start-mode middleware     | One process for app and API.                                                                                               |
+| Prod API mount | The same middleware       | Nitro turns Solid's handler into `.output/server/index.mjs`, which serves assets and dispatches `/api` through that chain. |
+| Client data    | `@tanstack/solid-query@6` | Bunderstack's generated query options, via the first Query release supporting Solid 2. (Was: Solid 2 async primitives.)    |
+| Features       | Auto-CRUD, jobs, realtime | No auth, storage, or email; `examples/todo` is the full-feature tour. (Was: auto-CRUD only — see the revision note.)       |
 
-The tradeoff of client mode is two mount points: `src/middleware.ts` in dev and
-`src/server.ts` in production. Both are a few lines wrapping the same
-`app.handler`, and the production server is a file the example wants anyway.
+There is one mount point, `src/middleware.ts`, in every environment. The cost
+is that the app server-renders, which is why the client needs an in-process
+`fetch` during SSR.
 
 ## Architecture
 
 ```
-dev                                   production
-───                                   ──────────
-vite dev                              bun src/server.ts
-  └─ handleRequest                      ├─ /api/*  → app.handler
-       ├─ /api/* → app.handler          ├─ /assets → dist/client
-       └─ SPA shell + HMR               └─ *       → dist/client/index.html
-                    │                                    │
-                    └──── browser: api.todos.*.call() ────┘
+dev: vite dev            production: bun .output/server/index.mjs
+                     (Nitro, from Solid's handler)
+        │                              │
+        └────────── handleRequest ─────┘
+                         │
+             ┌───────────┴────────────┐
+             │                        │
+      src/middleware.ts          page render (SSR)
+      /api/* → app.handler            │
+             ▲                        │
+             │   in-process, no HTTP  │
+             └────────────────────────┘
+                         │
+        browser ── /api ── api.todos.*.call()
 ```
 
-### The dev mount
+### The mount
 
 ```ts
 // src/middleware.ts — server-only module, never bundled for the browser
@@ -96,31 +127,13 @@ solid({ start: { middleware: './src/middleware.ts' } })
 
 ### The production server
 
-```ts
-// src/server.ts
-import { app } from './bunderstack'
-
-const index = Bun.file('./dist/client/index.html')
-
-Bun.serve({
-  port: Number(process.env.PORT ?? 3006),
-  async fetch(request) {
-    const { pathname } = new URL(request.url)
-    if (pathname.startsWith('/api')) return app.handler(request)
-
-    const asset = Bun.file(`./dist/client${pathname}`)
-    if (await asset.exists()) return new Response(asset)
-
-    return new Response(index, { headers: { 'content-type': 'text/html' } })
-  },
-})
-```
+Superseded — see [One handler (revised)](#one-handler-revised). Production runs
+`.output/server/index.mjs`, built by Nitro from Solid's handler.
 
 ### The client
 
-`createClient<App>({})` is called with no QueryClient. Every procedure carries
-`.call(input)`, which is the oRPC client method underneath the TanStack
-utilities — the same method `bunderstack-query`'s own realtime module uses.
+Superseded — see [Client data (revised)](#client-data-revised). The original
+design read as follows.
 
 ```tsx
 const [todos, setTodos] = createOptimisticStore<Todo[]>(
@@ -145,8 +158,8 @@ The optimistic write is visible immediately, reverts if the call rejects, and
 `refresh` reconciles against the server. `<Loading>` renders the first-load
 fallback; `<Errored>` renders a retry. No loading flags, no rollback handlers.
 
-Nothing renders on the server, so `TodoList` is an ordinary import — no
-`clientOnly` boundary and no isomorphic fetch.
+`TodoList` is loaded through `clientOnly`, so it never runs during SSR and its
+queries always have a browser origin.
 
 ## Files
 
@@ -154,23 +167,21 @@ Nothing renders on the server, so `TodoList` is an ordinary import — no
 examples/todo-solid-2/
   package.json          dev on port 3006
   tsconfig.json         jsxImportSource: "@solidjs/web"
-  vite.config.ts        solid({ start: { middleware: './src/middleware.ts' } })
+  vite.config.ts        solid({ start: { middleware }, ssr: true }) + nitro()
   README.md
-  src/schema.ts         one todos table, plus export * from 'bunderstack/schema'
-  src/access.ts         todos: { crud: true, list/get/create/update/delete: 'public' }
-  src/bunderstack.ts    createBunderstack + provision + export type App
-  src/middleware.ts     dev mount, the six lines above
-  src/server.ts         production server
-  src/api.ts            createClient<App>({})
+  src/bunderstack.ts    tables + access rules + jobs + custom api + export type App
+  src/provision.ts      provision(app) + first-run seed, run by dev and start
+  src/fake-llm.ts       the stand-in token generator
+  src/middleware.ts     the mount, the six lines above
+  src/api.ts            QueryClient + createClient<App>({ queryClient })
   src/Document.tsx      document shell — optional, sets the title
   src/App.tsx           layout + <TodoList />
-  src/TodoList.tsx      createOptimisticStore + action + Loading/Errored
+  src/TodoList.tsx      useQuery/useMutation + syncRealtime
   src/app.css
 ```
 
-`Document.tsx` exists only to set the page title and favicon; deleting it falls
-back to the plugin's built-in shell. It needs no `<HydrationScript />` because
-client mode strips that output.
+`Document.tsx` sets the page title and must render `<HydrationScript />`;
+deleting the file falls back to the plugin's built-in shell.
 
 Dependencies: `solid-js@2.0.0-rc.0`, `@solidjs/web@2.0.0-rc.0`,
 `@solidjs/vite-plugin@3.0.0-next.28` (dev), `vite@^8`, `bunderstack`,
@@ -208,15 +219,117 @@ keep their React peers — they are React packages.
 ## Verification
 
 - `bun run dev:todo-solid-2`, then add, toggle, and delete a todo.
-- `bun run --cwd examples/todo-solid-2 build`, confirm `dist/` holds only
-  `client/`, then `bun src/server.ts` and exercise the same three operations
-  against the built app.
+- `bun run --cwd examples/todo-solid-2 build`, then `bun run ... start` and
+  exercise the same three operations against the built app, confirming the
+  page, its assets, and `/api` all come from the one process.
 - `bun test scripts/` for the boundary tests.
 - `bunx tsc --noEmit -p examples/todo-solid-2/tsconfig.json`, added to the root
   `typecheck:examples` script.
 - `bun run typecheck` — the `bunderstack-query` type import change.
 - Register the example in the root `package.json` scripts and in the run table
   in `examples/README.md`.
+
+## One handler (revised)
+
+The shipped architecture, and the evidence behind it. Each row was tested, not
+inferred.
+
+| Setup                                                                  | Single handler?                                                                                                                   | Assets served?                             | Hand-written server? |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
+| client mode                                                            | dev only — build deletes `dist/server`                                                                                            | n/a                                        | yes                  |
+| client mode + `serverFunctions`, run `dist/server/server.js` under Bun | yes                                                                                                                               | **no** — asset paths return the HTML shell | no                   |
+| client mode + `serverFunctions`, `vite preview`                        | no — the SPA fallback answers API `GET`s before the handler                                                                       | yes                                        | no                   |
+| client mode + Nitro                                                    | **build fails** — the plugin imports `dist/server/server.js` to prerender the shell, which Nitro has redirected to its own output | n/a                                        | n/a                  |
+| **`ssr: true` + Nitro**                                                | **yes**                                                                                                                           | **yes**                                    | **no**               |
+
+The built server entry is a Fetchable module (`export default { fetch }`,
+plus a named `handleRequest`), which Bun can run directly — but it does not
+serve `dist/client`, so a bare `bun dist/server/server.js` leaves the page
+without its JavaScript. Nitro adopts Solid's `ssr` environment, adds static
+asset serving, and produces `.output/server/index.mjs`.
+
+`ssr: true` then makes the client run on the server, where a relative
+`/api/rpc` has no origin. Rather than reintroduce HTTP, `src/api.ts` passes a
+server-side `fetch` that hands the Request to `app.handler` in process, behind
+the build-time `isServer` constant. The first render arrives with data, and
+there is no `APP_URL` to configure.
+
+Two further requirements surfaced only at runtime:
+
+- `Document.tsx` must render `<HydrationScript />`. Without it the server
+  render succeeds and hydration dies with `_$HY is not defined`.
+- Vite must run under Bun (`bun --bun vite`). Under Node the reads work and
+  the writes fail with an opaque 500.
+
+## Client data (revised)
+
+The original design consumed `.call()` inside `createOptimisticStore` and
+treated "no query library" as the point of the example. Under `ssr: true` that
+required a server-side `fetch` that handed the Request to `app.handler` in
+process — elegant, but it put transport plumbing in `src/api.ts`.
+
+`@tanstack/solid-query@6.0.0-rc.0` is the first Query release whose peer range
+admits Solid 2 (`solid-js >=2.0.0-rc.0 <3.0.0`), so `bunderstack-query`'s
+primary interface — typed `queryOptions` / `mutationOptions` / `key` builders —
+is available to Solid exactly as it is to React. `src/api.ts` becomes:
+
+```ts
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient })
+```
+
+Choosing this means the list is browser-only: a query running during SSR has no
+origin to fetch from. `App.tsx` loads `TodoList` through Solid's `clientOnly`,
+so the server renders the shell and the browser mounts the component. The
+server-rendered data from the previous revision is given up deliberately in
+exchange for a client with no transport code in it.
+
+This also makes realtime a small addition rather than a rewrite: `syncRealtime`
+drives a TanStack Query cache, which the example now has.
+
+Note that this does not replace the Solid start-mode integration with TanStack
+Start for Solid. That release (`@tanstack/solid-start@2.0.0-beta.12`) is a
+metaframework that would displace start mode and Nitro, and it pins
+`solid-js@^2.0.0-beta.5` — older than the `2.0.0-rc.0` this example targets.
+
+## Realtime (added)
+
+Realtime was originally deferred on the grounds that `syncRealtime` is
+QueryClient-coupled. With the client now on TanStack Solid Query that objection
+is gone, but the example wires it by hand anyway, because the hand-wired
+version is the showcase: `api.realtime.changes.call()` resolves to an async
+iterable, and a Solid 2 computation can return an async iterable directly, so
+the SSE stream is a reactive source rather than a subscription with a lifecycle.
+
+Two things this surfaced:
+
+- The patching logic moved into `bunderstack-query` as
+  `syncRealtime({ apply: 'patch' })`, since it is uniform across CRUD tables
+  and needs only a QueryClient. It patches update and delete unconditionally,
+  inserts creates at the position the cached `sort`/`order` implies, and falls
+  back to invalidating any list where membership or position is undecidable —
+  a `q` search, or a page that is not the complete result. The example now
+  calls that instead of hand-rolling it.
+- The cache is patched from the event rather than invalidated. The change
+  carries the action and a fully deserialized record, so `setQueryData` applies
+  it directly and a write costs one request instead of two. Mutations have no
+  `onSuccess` either — the write returns over the stream, and invalidating as
+  well would fire a refetch the stream's update then cancels.
+- Patching by hand encodes the list's shape (sorted by `createdAt` descending,
+  a single page) and misses events while the stream is down. `syncRealtime`
+  trades that precision for invalidation, which is the right default for lists
+  with filters or pagination.
+- `bun --bun vite` does not run Vite under Bun; it execs
+  `node node_modules/.bin/vite`. Only `bun --bun ./node_modules/vite/bin/vite.js`
+  keeps Bun. Under Node, Bunderstack returns srvx's `NodeResponse`, which is not
+  a `Response` instance, and Solid's middleware rejects it — RPC writes 500
+  while REST reads succeed.
+- `createEffect` takes a compute function _and_ an effect function in Solid 2.
+  A single function throws `[MISSING_EFFECT_FN]`. This is what replaced `on()`.
+- Vite's dev server can evaluate `src/bunderstack.ts` more than once, giving
+  each evaluation its own in-memory publisher, so a write publishes where no
+  subscriber listens. Realtime then works in production and silently fails in
+  dev. The app is cached on `globalThis` to keep one instance per process.
 
 ## Out of scope
 
