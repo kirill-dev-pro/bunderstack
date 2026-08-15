@@ -4,7 +4,9 @@ import { randomWord, summaryLength, tokenDelay, VOCABULARY } from './fake-llm'
 
 test('randomWord only ever returns a vocabulary entry', () => {
   for (let i = 0; i < 200; i++) {
-    expect(VOCABULARY).toContain(randomWord())
+    // `as const` narrows VOCABULARY to a literal union, which `toContain`
+    // would then demand of its argument; randomWord returns a plain string.
+    expect(VOCABULARY as readonly string[]).toContain(randomWord())
   }
 })
 
