@@ -9,9 +9,9 @@ iterable read straight from the reactive graph**.
 bun run dev:todo-solid-2   # http://localhost:3006
 ```
 
-Eight source files, one table, no auth. The whole backend — schema, access
-rules, and app — is `src/bunderstack.ts`. `dev` provisions the database and
-then starts Vite, so one command is the whole loop.
+Nine source files, one table, no auth. The whole backend — schema, access
+rules, jobs, and app — is `src/bunderstack.ts`. `dev` provisions the database
+and then starts Vite, so one command is the whole loop.
 
 ## One handler
 
