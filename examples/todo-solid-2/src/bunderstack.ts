@@ -32,26 +32,7 @@ export const todos = sqliteTable('todos', {
     .default('idle'),
 })
 
-/**
- * A background job's progress, as an ordinary row.
- *
- * Realtime broadcasts table changes, so a job reports progress by writing to a
- * table and publishing the change. No separate progress channel, and the UI
- * reads it with the same query it uses for everything else.
- */
-const jobRuns = sqliteTable('jobRuns', {
-  id: typeid('run')
-    .primaryKey()
-    .$defaultFn(() => generateTypeId('run')),
-  label: text('label').notNull(),
-  total: integer('total').notNull(),
-  completed: integer('completed').notNull().default(0),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
-
-const schema = { ...internal, todos, jobRuns }
+const schema = { ...internal, todos }
 
 const o = defineApi({ schema })
 
@@ -70,18 +51,6 @@ function createApp() {
         // An explicit allowlist: everything else on the table is server-owned.
         writableColumns: ['title', 'done'],
         sortableColumns: ['createdAt', 'done'],
-        defaultSort: { column: 'createdAt', order: 'desc' },
-      },
-      // Runs are readable by anyone and written only by the job below, so the
-      // write routes are not generated at all.
-      jobRuns: {
-        crud: true,
-        list: 'public',
-        get: 'public',
-        create: 'deny',
-        update: 'deny',
-        delete: 'deny',
-        sortableColumns: ['createdAt'],
         defaultSort: { column: 'createdAt', order: 'desc' },
       },
     },
@@ -156,33 +125,9 @@ function createApp() {
             }
           },
         }),
-
-        seedTodos: j.job({
-          input: v.object({ runId: v.string(), count: v.number() }),
-          handler: async (input, ctx) => {
-            for (let step = 1; step <= input.count; step++) {
-              await sleep(700)
-
-              // Writing through `ctx.db` bypasses the generated CRUD routes,
-              // so the broadcast is explicit. Same event shape either way.
-              const [todo] = await ctx.db
-                .insert(todos)
-                .values({ title: `Sample todo ${step}` })
-                .returning()
-              if (todo) await ctx.realtime.publish(todos, 'create', todo)
-
-              const [run] = await ctx.db
-                .update(jobRuns)
-                .set({ completed: step })
-                .where(eq(jobRuns.id, input.runId as never))
-                .returning()
-              if (run) await ctx.realtime.publish(jobRuns, 'update', run)
-            }
-          },
-        }),
       }),
 
-    // One custom procedure: create the run row, then queue the work.
+    // One custom procedure: claim the idle rows, then queue the work.
     api: {
       enrich: o.public
         .route({ method: 'POST', path: '/api/enrich', tags: ['jobs'] })
@@ -209,25 +154,6 @@ function createApp() {
             })
           }
           return { queued: rows.length }
-        }),
-
-      seed: o.public
-        .route({ method: 'POST', path: '/api/seed', tags: ['jobs'] })
-        .input(v.object({ count: v.optional(v.number(), 3) }))
-        .output(v.object({ runId: v.string() }))
-        .handler(async ({ context, input }) => {
-          const [run] = await context.db
-            .insert(jobRuns)
-            .values({ label: 'Adding sample todos', total: input.count })
-            .returning()
-          if (!run) throw new Error('could not start run')
-
-          await context.realtime.publish(jobRuns, 'create', run)
-          await context.jobs.enqueue('seedTodos', {
-            runId: run.id,
-            count: input.count,
-          })
-          return { runId: run.id }
         }),
     },
   })
