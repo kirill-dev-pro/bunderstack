@@ -5,7 +5,7 @@ import { libsql } from 'bunderstack/database/libsql'
 // They belong in the schema map, not just in the database: the runtime reads
 // them from here.
 import * as internal from 'bunderstack/schema'
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { and, eq, inArray, ne, notInArray } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
@@ -32,13 +32,9 @@ export const todos = sqliteTable('todos', {
     .default('idle'),
 })
 
-const schema = { ...internal, todos }
-
-const o = defineApi({ schema })
-
 function createApp() {
   return createBunderstack({
-    schema,
+    schema: { ...internal, todos },
 
     access: {
       todos: {
@@ -128,7 +124,7 @@ function createApp() {
       }),
 
     // One custom procedure: claim the idle rows, then queue the work.
-    api: {
+    api: (o) => ({
       enrich: o.public
         .route({ method: 'POST', path: '/api/enrich', tags: ['jobs'] })
         // An explicit empty input, so the generated client's call signature is
@@ -137,12 +133,18 @@ function createApp() {
         .output(v.object({ queued: v.number() }))
         .handler(async ({ context }) => {
           // Claiming here rather than in the handler makes the button reflect
-          // reality immediately, and makes a second click a no-op instead of a
-          // duplicate enqueue.
+          // reality immediately, and keeps a second click from double-enqueuing
+          // rows a worker is about to pick up.
+          //
+          // Every row is claimable except the ones already in flight, so the
+          // button re-summarises rather than going dead once everything has a
+          // summary. Clearing `summary` at claim time is what makes the rerun
+          // legible: the row streams from empty instead of mutating under a
+          // stale sentence.
           const rows = await context.db
             .update(todos)
-            .set({ summaryStatus: 'queued' })
-            .where(eq(todos.summaryStatus, 'idle'))
+            .set({ summaryStatus: 'queued', summary: null })
+            .where(notInArray(todos.summaryStatus, ['queued', 'streaming']))
             .returning()
 
           for (const row of rows) {
@@ -155,7 +157,7 @@ function createApp() {
           }
           return { queued: rows.length }
         }),
-    },
+    }),
   })
 }
 

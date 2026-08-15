@@ -168,8 +168,16 @@ enrich: o.public
 ```
 
 Claiming rows in the procedure rather than the handler means the button
-reflects reality immediately, and a second click finds nothing `idle` to claim
+reflects reality immediately, and a second click finds nothing claimable
 instead of double-enqueueing the same todos.
+
+> **Revised after use.** The claim was originally `where summaryStatus =
+'idle'`, which made the button go dead once every row had a summary —
+> `queued: 0`, no feedback, nothing to click. It now claims every row that is
+> not `queued` or `streaming` and clears `summary` at claim time, so the button
+> always re-summarises and the rerun streams from empty rather than mutating
+> under a stale sentence. Rows already in flight are still excluded, which is
+> what preserves the double-click guard.
 
 ## Client
 

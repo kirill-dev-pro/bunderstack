@@ -183,10 +183,16 @@ broker without Redis. Bunderstack says so directly if you try —
 the generated CRUD layer, so a job writing directly with `ctx.db` publishes its
 own event. Same event shape, so the client cannot tell the difference.
 
-Starting a run is one custom oRPC procedure (`api.enrich`) that flips every
-`idle` row to `queued` and calls `ctx.jobs.enqueue`. Claiming the rows there
-rather than in the handler is what makes a second click a no-op instead of a
-duplicate run.
+Starting a run is one custom oRPC procedure (`api.enrich`) that flips every row
+that is not already in flight to `queued`, clears its old `summary`, and calls
+`ctx.jobs.enqueue`. Claiming the rows there rather than in the handler is what
+makes a click land in the UI immediately, and what keeps a second click from
+double-enqueuing rows a worker is about to pick up.
+
+Claiming `done` rows too — not just `idle` ones — is deliberate. Restricting it
+to `idle` made the button go dead once everything had a summary: it returned
+`queued: 0` and gave no feedback at all. Re-summarising is both the more
+useful demo and the more honest button.
 
 The generator in `src/fake-llm.ts` is deliberately fake — no API key, no
 network. What this example demonstrates is what happens to a token _after_ it
@@ -231,6 +237,20 @@ even though this example configures no auth.
 
 ## Things this example learned the hard way
 
+- **Kill the old dev server before starting a new one.** Declaring `jobs`
+  starts an in-process worker, and the queue lives in SQLite — shared by every
+  process pointed at the same file. A dev server that survived a restart is
+  still polling that queue, so it can win the claim race, run the job, and
+  publish to _its own_ in-memory broker, which your browser is not subscribed
+  to. The symptom is maddening: the progress bar appears and then freezes, the
+  summaries are correct after a refresh, and it only happens sometimes. Check
+  with `pgrep -fl "vite.js --port"` — more than one line is the bug.
+- **Editing `src/bunderstack.ts` needs a full restart, not HMR.** The app is
+  cached on `globalThis` (see the comment there), so Vite re-evaluates the
+  module and then hands back the _old_ app. Your change to a job, a route, or
+  the access rules silently does not take effect. The cache is load-bearing —
+  without it dev gets two brokers — but the price is that server edits are not
+  hot.
 - **Run Vite under Bun — and check that you actually are.** `bun --bun vite`
   and `bun --bun x vite` both hand off to `node node_modules/.bin/vite`; only
   running the entry file, `bun --bun ./node_modules/vite/bin/vite.js`, keeps

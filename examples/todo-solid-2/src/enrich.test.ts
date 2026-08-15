@@ -85,17 +85,53 @@ async function enrich() {
   return (await res.json()) as { queued: number }
 }
 
-test('the trigger claims idle rows once', async () => {
+test('the trigger will not disturb a run already in flight', async () => {
   await createTodo('claim me')
 
   const first = await enrich()
   expect(first.queued).toBeGreaterThan(0)
 
-  // Everything is `queued` now, so a second click finds nothing to claim and
-  // cannot double-enqueue the same todos.
+  // Everything is `queued` now, so a second click finds nothing claimable and
+  // cannot double-enqueue rows the worker is about to pick up.
   const second = await enrich()
   expect(second.queued).toBe(0)
 })
+
+test('re-summarising a finished row clears its old summary and runs again', async () => {
+  const created = await createTodo('summarise me twice')
+  await enrich()
+  await app.jobs.tick()
+
+  const [first] = await app.db
+    .select()
+    .from(todos)
+    .where(eq(todos.id, created.id as never))
+  expect(first!.summaryStatus).toBe('done')
+  const firstSummary = first!.summary
+  expect(firstSummary).toBeTruthy()
+
+  // The button must never be a no-op just because everything is summarised:
+  // a finished row is claimable again, and its stale text is cleared at
+  // claim time so the UI streams from empty rather than mutating in place.
+  const again = await enrich()
+  expect(again.queued).toBeGreaterThan(0)
+
+  const [claimed] = await app.db
+    .select()
+    .from(todos)
+    .where(eq(todos.id, created.id as never))
+  expect(claimed!.summaryStatus).toBe('queued')
+  expect(claimed!.summary).toBeNull()
+
+  await app.jobs.tick()
+
+  const [second] = await app.db
+    .select()
+    .from(todos)
+    .where(eq(todos.id, created.id as never))
+  expect(second!.summaryStatus).toBe('done')
+  expect(second!.summary).toBeTruthy()
+}, 30_000)
 
 test('the job streams a growing summary and ends done', async () => {
   const created = await createTodo('stream me')
