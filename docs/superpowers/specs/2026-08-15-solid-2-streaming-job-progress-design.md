@@ -27,14 +27,14 @@ unbounded in count, but with a natural row to attach to.
 
 ## Decisions
 
-| Decision        | Choice                                     | Reason                                                                                                                    |
-| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| The job         | Enrich existing todos with a fake summary   | Streams tokens, and the rows it changes are already on screen and already subscribed.                                     |
-| Generation      | Random words at random intervals, no LLM    | The example runs with no API key and no network. The realtime story is identical either way.                              |
-| Progress model  | Status column on `todos`                    | The job transforms rows that already exist, so status belongs on them. No join, no extra subscription.                    |
-| `jobRuns`       | Deleted, along with `seedTodos`             | Two progress models in one ~170-line component teaches neither. The row-status model is the one that shows streaming.     |
-| Accumulation    | Full text in the row, republished per word  | The row is the state, so a client that reconnects mid-stream needs no replay logic.                                       |
-| Empty first run | Seed three todos from `provision.ts`        | `seedTodos` was what filled a fresh database; a startup insert is cheaper than keeping a job for it.                      |
+| Decision        | Choice                                     | Reason                                                                                                                |
+| --------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| The job         | Enrich existing todos with a fake summary  | Streams tokens, and the rows it changes are already on screen and already subscribed.                                 |
+| Generation      | Random words at random intervals, no LLM   | The example runs with no API key and no network. The realtime story is identical either way.                          |
+| Progress model  | Status column on `todos`                   | The job transforms rows that already exist, so status belongs on them. No join, no extra subscription.                |
+| `jobRuns`       | Deleted, along with `seedTodos`            | Two progress models in one ~170-line component teaches neither. The row-status model is the one that shows streaming. |
+| Accumulation    | Full text in the row, republished per word | The row is the state, so a client that reconnects mid-stream needs no replay logic.                                   |
+| Empty first run | Seed three todos from `provision.ts`       | `seedTodos` was what filled a fresh database; a startup insert is cheaper than keeping a job for it.                  |
 
 ### Why not a token per row
 
@@ -70,13 +70,13 @@ const todos = sqliteTable('todos', {
 `summary` is null until the first word lands, then holds every word generated
 so far. `summaryStatus` projects the job's state onto each row it touches:
 
-| Status      | Set by                     | Meaning                                    |
-| ----------- | -------------------------- | ------------------------------------------ |
-| `idle`      | column default             | Never enriched.                            |
-| `queued`    | `POST /api/enrich`         | Claimed by a job that has not reached it.  |
-| `streaming` | the handler, per todo      | Words are landing now.                     |
-| `done`      | the handler, per todo      | Finished.                                  |
-| `failed`    | `onFailed`                 | The job died before reaching or finishing. |
+| Status      | Set by                | Meaning                                    |
+| ----------- | --------------------- | ------------------------------------------ |
+| `idle`      | column default        | Never enriched.                            |
+| `queued`    | `POST /api/enrich`    | Claimed by a job that has not reached it.  |
+| `streaming` | the handler, per todo | Words are landing now.                     |
+| `done`      | the handler, per todo | Finished.                                  |
+| `failed`    | `onFailed`            | The job died before reaching or finishing. |
 
 Every state `jobRuns` carried survives, counted off the rows instead of stored
 separately.
@@ -131,7 +131,12 @@ enrichTodos: j.job({
     const rows = await ctx.db
       .update(todos)
       .set({ summaryStatus: 'failed' })
-      .where(and(inArray(todos.id, input.ids as never[]), ne(todos.summaryStatus, 'done')))
+      .where(
+        and(
+          inArray(todos.id, input.ids as never[]),
+          ne(todos.summaryStatus, 'done'),
+        ),
+      )
       .returning()
     for (const row of rows) await ctx.realtime.publish(todos, 'update', row)
   },
@@ -156,7 +161,8 @@ enrich: o.public
       .where(eq(todos.summaryStatus, 'idle'))
       .returning()
     for (const row of rows) await context.realtime.publish(todos, 'update', row)
-    if (rows.length) await context.jobs.enqueue('enrichTodos', { ids: rows.map((r) => r.id) })
+    if (rows.length)
+      await context.jobs.enqueue('enrichTodos', { ids: rows.map((r) => r.id) })
     return { queued: rows.length }
   })
 ```
@@ -178,7 +184,9 @@ const items = () => todos.data?.items ?? []
 // `idle` and must not count as either finished or outstanding.
 const claimed = () => items().filter((t) => t.summaryStatus !== 'idle')
 const settled = () =>
-  claimed().filter((t) => t.summaryStatus === 'done' || t.summaryStatus === 'failed')
+  claimed().filter(
+    (t) => t.summaryStatus === 'done' || t.summaryStatus === 'failed',
+  )
 const running = () => claimed().length > settled().length
 ```
 
@@ -187,16 +195,39 @@ The `<progress>` bar stays, shown while `running()`, with
 `summary` beneath the title, with a cursor while `streaming` and an inline
 retry affordance while `failed`.
 
-### What Solid contributes
+### What updates, and what does not — measured
 
-`@tanstack/solid-query` backs `useQuery` with a store, so each patched list
-array reconciles rather than replacing the rendered output. A word arriving for
-todo #3 should update one text node, leaving the other rows' DOM untouched —
-even though the query data is a fresh array every time.
+The original design claimed a word arriving for todo #3 would update one text
+node and leave every other row's DOM untouched. A render counter on the list
+rows, run against a live stream, showed that is only half true.
 
-That is the example's actual claim about the framework, so it gets verified
-rather than asserted: a render counter on the list rows, checked while a stream
-is running, must not climb with the word count.
+**What actually happens:** rows the job is not touching are never recreated —
+across a full run only the enriched rows churned, and the untouched ones logged
+nothing. But each streaming row's entire `<li>` is torn down and rebuilt on
+every token, roughly twelve times per todo.
+
+The cause is in `bunderstack-query`, not in Solid. The patch path replaces the
+matched row wholesale:
+
+```ts
+// packages/bunderstack-query/src/realtime.ts
+items: items.map((item) => (sameValue(item['id'], id) ? change.record : item))
+```
+
+`change.record` is a fresh object off the SSE payload, and `<For>` keys by
+reference, so a new object means a new row. Untouched rows keep their identity
+through the `: item` branch, which is exactly why they survive.
+
+So the honest claim is narrower than the original: **a write costs one row's
+DOM, not the list's.** That is still the property worth showing — it is what
+separates this from a framework that diffs the whole list on every token — but
+it is not per-text-node updating, and the example should not say it is.
+
+Making the stronger claim true means preserving row identity in the patch path
+so `<For>` keeps the DOM and only the changed field updates. That is a
+framework change with its own tests, deliberately not made here: see
+[What this measures](#what-this-measures), where it now sits as the
+best-evidenced of the three candidates.
 
 ## Error handling
 
@@ -232,17 +263,24 @@ seconds. Each is fanned out to every open SSE connection and filtered in
 userland, per connection, against the whole `change` topic — including
 connections that never subscribed to `todos`.
 
-Two open framework questions ride on how that behaves:
+Three framework questions ride on how that behaves. The example was built first
+precisely so these get decided against observations rather than speculation,
+and one of them now has an answer:
 
-- **Per-table realtime opt-in.** Realtime read access already tracks CRUD read
-  access per table and per row, so this is not a leak. What cannot be expressed
-  is "readable over CRUD, not subscribable", and the cost of the gap is filter
-  work proportional to connections × total event rate. If this example's event
-  rate makes that visible, a `realtime` flag on the table access entry has
-  evidence behind it.
-- **A non-table event channel.** If the write amplification — one SQL UPDATE per
-  word — is what hurts rather than the fan-out, the answer is an event channel
+- **Row identity in the patch path.** _Evidenced._ Replacing the matched row
+  with the incoming record rebuilds that row's DOM on every event — measured at
+  roughly twelve rebuilds per todo during a stream (see
+  [What updates, and what does not](#what-updates-and-what-does-not--measured)).
+  Merging into the existing object instead would make every high-frequency
+  consumer cheaper, not just this example. This is the strongest of the three.
+- **Per-table realtime opt-in.** _Not yet evidenced._ Realtime read access
+  already tracks CRUD read access per table and per row, so this is not a leak.
+  What cannot be expressed is "readable over CRUD, not subscribable", and the
+  cost of the gap is filter work proportional to connections × total event
+  rate. Nothing observed at this example's scale makes that visible.
+- **A non-table event channel.** _Not yet evidenced._ One SQL UPDATE per word
+  is real write amplification, but it did not show up as a problem at demo
+  scale. If it hurts before the fan-out does, the answer is an event channel
   rather than an access flag.
 
-Neither is designed here. The example is built first so the choice is made
-against numbers.
+None is designed here.
