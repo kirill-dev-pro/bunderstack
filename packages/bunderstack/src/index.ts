@@ -641,7 +641,29 @@ export async function createBunderstack<
         },
       ],
     })
-    const rpcHandler = new RPCHandler(nativeRouter)
+    const rpcHandler = new RPCHandler(nativeRouter, {
+      customErrorResponseBodyEncoder: (error: any) => {
+        if (
+          error?.code === 'INTERNAL_SERVER_ERROR' ||
+          !error?.status ||
+          error.status >= 500
+        ) {
+          console.error(
+            '[bunderstack-api] 500 Internal Server Error (RPC):',
+            error?.cause ?? error,
+          )
+        }
+        return {
+          error: error.message,
+          code: error.data?.code ?? error.code,
+          ...(error.data?.details !== undefined
+            ? { details: error.data.details }
+            : error.data?.issues !== undefined
+              ? { details: error.data.issues }
+              : {}),
+        }
+      },
+    })
 
     const apiHandler = async (req: Request): Promise<Response | null> => {
       const urlString = typeof req === 'string' ? (req as string) : req.url
