@@ -606,17 +606,29 @@ export async function createBunderstack<
       plugins: [
         new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
       ],
-      customErrorResponseBodyEncoder: (error: any) => ({
-        error: error.message,
-        code: error.data?.code ?? error.code,
-        // oRPC reports schema failures as `data.issues`; forwarding them tells
-        // the client which field was rejected instead of just "invalid".
-        ...(error.data?.details !== undefined
-          ? { details: error.data.details }
-          : error.data?.issues !== undefined
-            ? { details: error.data.issues }
-            : {}),
-      }),
+      customErrorResponseBodyEncoder: (error: any) => {
+        if (
+          error?.code === 'INTERNAL_SERVER_ERROR' ||
+          !error?.status ||
+          error.status >= 500
+        ) {
+          console.error(
+            '[bunderstack-api] 500 Internal Server Error:',
+            error?.cause ?? error,
+          )
+        }
+        return {
+          error: error.message,
+          code: error.data?.code ?? error.code,
+          // oRPC reports schema failures as `data.issues`; forwarding them tells
+          // the client which field was rejected instead of just "invalid".
+          ...(error.data?.details !== undefined
+            ? { details: error.data.details }
+            : error.data?.issues !== undefined
+              ? { details: error.data.issues }
+              : {}),
+        }
+      },
       fetchInterceptors: [
         async (options) => {
           const res = await options.next()

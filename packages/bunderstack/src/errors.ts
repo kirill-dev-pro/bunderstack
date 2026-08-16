@@ -72,7 +72,7 @@ export class BunderstackError extends Error {
 
 export const mapBunderstackErrors = os
   .errors(BUNDERSTACK_ERRORS)
-  .middleware(async ({ next }) => {
+  .middleware(async ({ next, path }) => {
     try {
       return await next()
     } catch (error) {
@@ -82,7 +82,14 @@ export const mapBunderstackErrors = os
               cause: error,
             })
           : error
-      if (!(mapped instanceof BunderstackError)) throw error
+      if (!(mapped instanceof BunderstackError)) {
+        const procName = path?.length ? path.join('.') : 'unknown'
+        console.error(
+          `[bunderstack-api] Unhandled error in procedure "${procName}":`,
+          error,
+        )
+        throw error
+      }
 
       throw new ORPCError(mapped.code, {
         message: mapped.message,
