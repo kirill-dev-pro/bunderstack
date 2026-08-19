@@ -1,13 +1,12 @@
 # Realtime delivery hardening
 
-Three changes to how realtime events reach a client: detect a stream that has
-died without closing, coalesce cache writes into one flush per frame, and stop
-allocating a promise per change per connection in the access filter.
+Two changes to how realtime events reach a client: detect a stream that has died
+without closing, and coalesce cache writes into one flush per frame.
 
 Scope is `packages/bunderstack-query` (the stream loop, shared by
-`bunderstack-sync`) and `packages/bunderstack/src/realtime/` (the heartbeat
-payload and the change filter). No change to the event model: an event is still
-"a row changed".
+`bunderstack-sync`) and one field in the heartbeat payload in
+`packages/bunderstack/src/realtime/`. No change to the event model: an event is
+still "a row changed".
 
 ## Why
 
@@ -50,11 +49,9 @@ frame and the client cancels the read after 2.5x that.
 That is a correctness hole, and it is the reason this work is scoped ahead of
 any protocol change.
 
-The other two items are cost, not correctness. `apply()` writes the cache once
-per event, so a burst of fifty changes is fifty `invalidateQueries` calls in the
-default mode. And `filterRealtimeChanges` awaits the async `checkAccess` for
-every change on every connection, when the rule is usually one of four values
-that resolve to a boolean without touching the row.
+The second item is cost, not correctness. `apply()` writes the cache once per
+event, so a burst of fifty changes is fifty `invalidateQueries` calls in the
+default mode.
 
 ## Decisions
 
@@ -64,7 +61,6 @@ that resolve to a boolean without touching the row.
 | Protocol compatibility  | One optional field, additive both directions                | New client + old server falls back to 5s; old client + new server ignores it. No coordinated deploy.                        |
 | Default scheduler       | `'frame'`, with `'sync'` as escape hatch                    | The synchronous cache write was never a documented contract, and apps relying on it are already racing the network.         |
 | Row-level dedupe        | Not done                                                    | Muddies the `onChange` contract for a marginal win once the flush and the invalidation collapse are in place.               |
-| Access filter           | Use the existing `checkAccessSync`, behind a benchmark      | The policies are already O(1); the cost is promise churn. Whether that matters is a measurement, not a guess.               |
 | Structure               | Extract the stream lifecycle before changing it             | A dead-stream timer is testable with a fake clock only if it is not tangled with the TanStack cache writes.                 |
 | Versioned live queries  | Out of scope                                                | Reshapes the framework contract. Nothing here forecloses it.                                                                |
 
@@ -218,28 +214,6 @@ otherwise, which covers SSR and tests. A number is a millisecond debounce.
 `close()` flushes pending work synchronously so nothing in the buffer is lost.
 A reconnect discards the buffer, since `invalidateAll()` supersedes it.
 
-## Access filter fast path
-
-`filterRealtimeChanges` awaits `checkAccess` for every change on every
-connection. `checkAccess` is `async`, so each call allocates a promise and a
-microtask. Its four non-function rules — `'public'`, `'authenticated'`,
-`'owner'`, `'deny'` — resolve synchronously, and `checkAccessSync`
-([access.ts:407](../../../packages/bunderstack/src/access.ts)) already
-implements exactly that. `rowMatchesScope` is already synchronous.
-
-The change is to call `checkAccessSync` unless `entry.get` is a function, and to
-hoist the constant case: `'public'` with no `readScope` and no `ownerColumn` is
-a fixed answer for the life of the connection and can be resolved once at
-subscribe time. `getSession()` stays memoized per connection, and is still
-awaited only when `needsSession`.
-
-This lands behind a benchmark, not before it. The plan first adds a bench
-driving N connections by M changes through `filterRealtimeChanges` and records a
-baseline. If the filter proves to be a few percent of delivery cost, the sync
-path still ships — it is strictly simpler code — and the work stops there. No
-fan-out machinery is built on speculation, and there are no measurements of a
-production Bunderstack workload to design against.
-
 ## Error handling
 
 **Liveness aborts are not errors.** The abort carries a named reason, and
@@ -281,15 +255,17 @@ stays there until the caller closes the handle.
 - `onChange` observes all fifty, in arrival order
 - `close()` flushes buffered work
 
-`filter.test.ts` additions:
-
-- function rules are still awaited
-- a **parity test**: over a matrix of rules, users, and rows, the sync path
-  produces an identical accept and reject set to the async path
-
-Plus the benchmark described above, recorded before and after.
 
 ## Out of scope
+
+**The access filter.** `filterRealtimeChanges` awaits the async `checkAccess`
+for every change on every connection, and `checkAccessSync`
+([access.ts:407](../../../packages/bunderstack/src/access.ts)) already resolves
+the four non-function rules without a promise. Switching to it was considered
+and dropped: the policies are all O(1), so the only saving is promise and
+microtask churn, and no measurement of a real workload says that is worth a
+change to the authorization path. If delivery cost is ever profiled and the
+filter shows up, this is the first thing to try.
 
 Server-side frame batching, a protocol-aware connection budget, and versioned
 live queries with JSON Patch. Those belong to a separate design that would
