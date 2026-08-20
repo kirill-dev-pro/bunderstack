@@ -4,8 +4,44 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-20
+
+### Fixed
+
+- **A realtime stream that dies without closing is now detected.** A connection
+  killed by a proxy idle-timeout, a sleeping laptop, a NAT rebind, or a phone
+  moving between networks left the client's `for await` suspended forever: it
+  neither resolved nor threw, so the retry loop below it never ran and the
+  client stayed silently stale until a reload. The server already sent a
+  heartbeat every five seconds and the client discarded it. The heartbeat now
+  advertises its interval, and the client tears the connection down after 2.5
+  intervals of silence and reconnects.
+- `RPCHandler` no longer receives `customErrorResponseBodyEncoder`, which is not
+  part of `RPCHandlerOptions`. The option was ignored at runtime and failed the
+  build. Unhandled procedure errors are still logged by `mapBunderstackErrors`
+  for every transport, now covered by a test.
+
+### Added
+
+- **`notifyScheduler` on `syncRealtime`** — `'frame'` (default), `'sync'`, or a
+  millisecond debounce. Changes are buffered and reach the cache in one flush,
+  with invalidations deduplicated by query-key hash: a burst of fifty changes to
+  one table used to issue fifty `invalidateQueries` calls and now issues one.
+- **`apply: 'patch'` on `syncRealtime`** — writes changes into cached list
+  results instead of invalidating them, so a write costs one request instead of
+  two. A list is patched only when its membership and ordering can be settled
+  locally, and invalidated otherwise.
+- `RealtimeHeartbeat` carries `intervalMs`, so a client sizes its own
+  dead-stream timeout from the server's real setting.
+
 ### Changed
 
+- **Realtime cache writes are batched by default.** `notifyScheduler` defaults
+  to `'frame'`, so an event no longer reaches the cache in the same tick it
+  arrives. Applications that depended on the synchronous write can pass
+  `'sync'`.
+- Connection lifecycle and flush pacing moved into their own modules inside
+  `bunderstack-query`. The public API is unchanged.
 - Documented the provider-neutral production container contract and
   Bunderhost's custom Dockerfile convention.
 

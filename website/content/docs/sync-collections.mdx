@@ -3,8 +3,6 @@ title: Sync & Realtime
 description: Typed TanStack DB collections over the oRPC Publisher transport
 ---
 
-# Sync & Realtime
-
 `bunderstack-sync` layers TanStack DB collections over the same generated oRPC
 procedures. It provides local live queries, optimistic mutations, scoped
 windows, and reliable realtime updates inferred from your server app.
@@ -106,11 +104,19 @@ The library owns the transport lifecycle:
 
 - an internal heartbeat keeps quiet streams observable without producing
   application events or cache work;
+- a stream that stops delivering is detected and replaced. The server sends a
+  heartbeat on a fixed interval and advertises that interval on the event
+  itself. The client tears the connection down after 2.5 intervals of silence
+  and reconnects. Without this a connection killed by a proxy idle-timeout, a
+  sleeping laptop, or a network change would hang open and deliver nothing;
 - failed connections retry with exponential backoff and jitter rather than a
   fixed request loop;
 - Publisher event IDs allow resume while retained events are available;
 - after reconnect, subscribed tables are refetched once so an expired replay
   window cannot leave the cache stale;
+- changes are applied in one batch per animation frame, so a burst of writes
+  costs one cache write and one invalidation per query key rather than one of
+  each per event;
 - a heartbeat is filtered inside the transport and never appears in a live
   query.
 

@@ -1,9 +1,29 @@
 # bunderstack
 
-Bunderstack is a batteries-included Bun backend built around one type-safe
-oRPC graph. A Drizzle schema and one config produce CRUD procedures, custom
-procedures, webhooks, auth, files, realtime, jobs, email, and validated env.
-The application exposes one Web Standard `Request → Response` handler.
+**Your whole backend as a single file declaration.** Database, auth, CRUD,
+storage, jobs, email, and realtime are keys on one object. `bun run dev` starts
+all of it with nothing to configure. Small enough to fit in your agent's
+context, and in your head.
+
+- **One place to look.** Every facility is a key, not a service to stand up.
+  Turning on file uploads is a `storage` key; turning on realtime is
+  `realtime: true`. There is no wiring between them to write, and no dashboard
+  holding the other half of the answer.
+- **No local setup.** No docker-compose, no local Postgres, no S3 emulator, no
+  queue broker, no auth service to point at. One command, one process.
+- **The dev/prod gap is a config value.** Storage moves from disk to S3, the
+  database from SQLite to Postgres, email from your console to a real sender.
+  The code that uses them does not change.
+- **Small enough for an agent to read all of it.** The backend of the
+  [todo example](examples/todo) is 439 lines across five files — accounts,
+  generated CRUD with access rules, uploads with resizing, a cron job,
+  transactional email, and a live stream. An agent can read the whole system
+  before it changes any of it.
+
+Everything is inferred from that one declaration, so the HTTP API, the typed
+client, and the realtime stream cannot drift apart — there is no second copy of
+the contract to keep honest. The application exposes one Web Standard
+`Request → Response` handler.
 
 ```sh
 bun add bunderstack better-auth drizzle-orm valibot @libsql/client
@@ -46,6 +66,8 @@ export type App = typeof app
 ```
 
 ## One API graph
+
+The graph is a consequence of the declaration, not a thing you assemble.
 
 Every generated table has `list`, `get`, `create`, `update`, and `delete`
 procedures. Application procedures declared under `api` join those procedures,

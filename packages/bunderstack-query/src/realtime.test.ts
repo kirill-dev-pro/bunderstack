@@ -209,3 +209,125 @@ test('receiving a stream event resets reconnect backoff', async () => {
     { attempt: 2, delayMs: 10 },
   ])
 })
+
+/** One connection that emits `changes`, then a connection that never resolves. */
+function burstApi(changes: RealtimeEvent[]) {
+  let connection = 0
+  return {
+    cards: {
+      key: () => [['cards'], { type: 'query' }],
+      get: {
+        queryKey: ({ input }: any) => [
+          ['cards', 'get'],
+          { type: 'query', input },
+        ],
+      },
+    },
+    realtime: {
+      changes: {
+        async call() {
+          connection++
+          if (connection === 1) return stream(changes)
+          return new Promise<AsyncIterable<RealtimeEvent>>(() => {})
+        },
+      },
+    },
+  }
+}
+
+function cardChanges(count: number): RealtimeEvent[] {
+  return Array.from({ length: count }, (_, index) => ({
+    table: 'cards',
+    action: 'update' as const,
+    record: { id: `c${index}`, title: `Card ${index}` },
+  }))
+}
+
+test('a burst of changes to one table invalidates it once', async () => {
+  const queryClient = new QueryClient()
+  const invalidated: unknown[] = []
+  queryClient.invalidateQueries = (async ({ queryKey }: any) => {
+    invalidated.push(queryKey)
+  }) as any
+
+  const realtime = syncRealtime({
+    api: burstApi(cardChanges(50)),
+    queryClient,
+    tables: ['cards'],
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  realtime.close()
+  await realtime.done
+
+  expect(invalidated.length).toBe(1)
+})
+
+test('onChange observes every change in arrival order', async () => {
+  const queryClient = new QueryClient()
+  queryClient.invalidateQueries = (async () => {}) as any
+  const seen: RealtimeChange[] = []
+
+  const realtime = syncRealtime({
+    api: burstApi(cardChanges(50)),
+    queryClient,
+    tables: ['cards'],
+    onChange: (change) => seen.push(change),
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  realtime.close()
+  await realtime.done
+
+  expect(seen.length).toBe(50)
+  expect(seen.map((change) => change.record['id'])).toEqual(
+    cardChanges(50).map((change) => (change as RealtimeChange).record['id']),
+  )
+})
+
+test("notifyScheduler 'sync' writes the cache as each change arrives", async () => {
+  const queryClient = new QueryClient()
+  const invalidated: unknown[] = []
+  queryClient.invalidateQueries = (async ({ queryKey }: any) => {
+    invalidated.push(queryKey)
+  }) as any
+
+  const realtime = syncRealtime({
+    api: burstApi(cardChanges(3)),
+    queryClient,
+    tables: ['cards'],
+    notifyScheduler: 'sync',
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  realtime.close()
+  await realtime.done
+
+  expect(invalidated.length).toBe(3)
+})
+
+test('close flushes buffered changes that the scheduler has not run yet', async () => {
+  const queryClient = new QueryClient()
+  queryClient.invalidateQueries = (async () => {}) as any
+
+  const realtime = syncRealtime({
+    api: burstApi(cardChanges(1)),
+    queryClient,
+    tables: ['cards'],
+    // Long enough that the flush cannot have run on its own.
+    notifyScheduler: 60_000,
+  })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  const before = queryClient.getQueryData([
+    ['cards', 'get'],
+    { type: 'query', input: { id: 'c0' } },
+  ])
+
+  realtime.close()
+  await realtime.done
+
+  expect(before).toBeUndefined()
+  expect(
+    queryClient.getQueryData([
+      ['cards', 'get'],
+      { type: 'query', input: { id: 'c0' } },
+    ]) as unknown,
+  ).toEqual({ id: 'c0', title: 'Card 0' })
+})

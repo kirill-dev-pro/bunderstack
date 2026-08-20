@@ -14,6 +14,19 @@
   --blueprint-live: #08a88a;
   --blueprint-live-soft: #ddf7f1;
   --blueprint-amber: #d97724;
+  --blueprint-cobalt-strong: #1f55bf;
+  --blueprint-selection: #bcd0ff;
+  /* Translucent panels stacked over the blueprint grid. */
+  --blueprint-surface-card: rgba(251, 253, 255, 0.93);
+  --blueprint-surface-panel: rgba(251, 253, 255, 0.88);
+  --blueprint-surface: rgba(251, 253, 255, 0.78);
+  --blueprint-surface-veil: rgba(251, 253, 255, 0.7);
+  --blueprint-surface-soft: rgba(251, 253, 255, 0.55);
+  --blueprint-shadow: rgba(203, 215, 227, 0.35);
+  --blueprint-shadow-soft: rgba(203, 215, 227, 0.22);
+  --blueprint-grid-line: rgba(79, 103, 128, 0.07);
+  --blueprint-grid-line-faint: rgba(79, 103, 128, 0.045);
+  --blueprint-grid-line-cobalt: rgba(40, 100, 220, 0.04);
   --font-display: 'Avenir Next', 'Segoe UI', sans-serif;
   --font-body: 'Avenir Next', 'Segoe UI', sans-serif;
   --font-utility: 'SFMono-Regular', 'Cascadia Code', 'Roboto Mono', monospace;
@@ -24,6 +37,51 @@
   --color-fd-muted: #e9eef4;
   --color-fd-muted-foreground: var(--blueprint-muted);
   color-scheme: light;
+}
+
+/*
+ * Fumadocs defines its tokens under `.dark`, but the `:root` block above has
+ * equal specificity and comes later in the cascade, so it used to win in both
+ * themes and left the content on a light background. Redefining the same
+ * tokens here restores the switch, and the blueprint palette moves with it.
+ */
+.dark {
+  --blueprint-paper: #0d1520;
+  --blueprint-white: #131d2b;
+  --blueprint-ink: #e6edf5;
+  --blueprint-muted: #92a6bd;
+  --blueprint-line: #2b3c50;
+  --blueprint-line-soft: #1d2937;
+  --blueprint-cobalt: #5b8ef5;
+  --blueprint-cobalt-soft: #16233d;
+  --blueprint-cobalt-strong: #7ba6f8;
+  --blueprint-live: #2ad4b0;
+  --blueprint-live-soft: #0e2b26;
+  --blueprint-amber: #e5943f;
+  --blueprint-selection: #274a86;
+  --blueprint-surface-card: rgba(19, 29, 43, 0.93);
+  --blueprint-surface-panel: rgba(19, 29, 43, 0.88);
+  --blueprint-surface: rgba(19, 29, 43, 0.78);
+  --blueprint-surface-veil: rgba(19, 29, 43, 0.7);
+  --blueprint-surface-soft: rgba(19, 29, 43, 0.55);
+  /* Dark panels read as raised by a darker drop shadow, not a lighter one. */
+  --blueprint-shadow: rgba(0, 0, 0, 0.45);
+  --blueprint-shadow-soft: rgba(0, 0, 0, 0.3);
+  --blueprint-grid-line: rgba(139, 165, 196, 0.08);
+  --blueprint-grid-line-faint: rgba(139, 165, 196, 0.05);
+  --blueprint-grid-line-cobalt: rgba(91, 142, 245, 0.07);
+  --color-fd-background: var(--blueprint-paper);
+  --color-fd-foreground: var(--blueprint-ink);
+  --color-fd-primary: var(--blueprint-cobalt);
+  --color-fd-border: var(--blueprint-line);
+  --color-fd-muted: #16212f;
+  --color-fd-muted-foreground: var(--blueprint-muted);
+  --color-fd-card: var(--blueprint-white);
+  --color-fd-popover: var(--blueprint-white);
+  --color-fd-secondary: #16212f;
+  --color-fd-accent: #1b283a;
+  --color-fd-accent-foreground: var(--blueprint-ink);
+  color-scheme: dark;
 }
 
 html {
@@ -37,7 +95,7 @@ body {
 }
 
 ::selection {
-  background: #bcd0ff;
+  background: var(--blueprint-selection);
   color: var(--blueprint-ink);
 }
 
@@ -51,8 +109,8 @@ body {
   overflow: hidden;
   background-color: var(--blueprint-paper);
   background-image:
-    linear-gradient(rgba(79, 103, 128, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 103, 128, 0.07) 1px, transparent 1px);
+    linear-gradient(var(--blueprint-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-grid-line) 1px, transparent 1px);
   background-position: center top;
   background-size: 32px 32px;
 }
@@ -179,7 +237,7 @@ body {
   border: 1px solid var(--blueprint-line);
   border-radius: 2px;
   padding: 0 18px;
-  background: rgba(251, 253, 255, 0.78);
+  background: var(--blueprint-surface);
   color: var(--blueprint-ink);
   font-family: var(--font-utility);
   font-size: 11px;
@@ -203,7 +261,7 @@ body {
 }
 
 .blueprint-button--primary:hover {
-  background: #1f55bf;
+  background: var(--blueprint-cobalt-strong);
 }
 
 .install-command {
@@ -212,7 +270,7 @@ body {
   align-items: center;
   border: 1px solid var(--blueprint-line);
   border-radius: 2px;
-  background: rgba(251, 253, 255, 0.78);
+  background: var(--blueprint-surface);
 }
 
 .install-command code {
@@ -249,11 +307,11 @@ body {
   border: 1px solid var(--blueprint-line);
   border-radius: 2px;
   background:
-    linear-gradient(rgba(40, 100, 220, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(40, 100, 220, 0.04) 1px, transparent 1px),
-    rgba(251, 253, 255, 0.88);
+    linear-gradient(var(--blueprint-grid-line-cobalt) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-grid-line-cobalt) 1px, transparent 1px),
+    var(--blueprint-surface-panel);
   background-size: 18px 18px;
-  box-shadow: 18px 18px 0 rgba(203, 215, 227, 0.35);
+  box-shadow: 18px 18px 0 var(--blueprint-shadow);
 }
 
 .blueprint-hero__diagram::before,
@@ -436,8 +494,8 @@ body {
   min-width: 0;
   border: 1px solid var(--blueprint-line);
   border-radius: 2px;
-  background: rgba(251, 253, 255, 0.93);
-  box-shadow: 10px 10px 0 rgba(203, 215, 227, 0.22);
+  background: var(--blueprint-surface-card);
+  box-shadow: 10px 10px 0 var(--blueprint-shadow-soft);
 }
 
 .blueprint-code__header {
@@ -625,7 +683,7 @@ body {
   grid-template-columns: repeat(3, 1fr);
   border-top: 1px solid var(--blueprint-line);
   border-left: 1px solid var(--blueprint-line);
-  background: rgba(251, 253, 255, 0.55);
+  background: var(--blueprint-surface-soft);
 }
 
 .capability-column {
@@ -682,7 +740,7 @@ body {
   border-right: 1px solid var(--blueprint-line);
   border-bottom: 1px solid var(--blueprint-line);
   padding: 28px;
-  background: rgba(251, 253, 255, 0.68);
+  background: var(--blueprint-surface-veil);
   color: var(--blueprint-ink);
   text-decoration: none;
   transition:
@@ -740,7 +798,7 @@ body {
 .comparison-table {
   border-top: 1px solid var(--blueprint-line);
   border-left: 1px solid var(--blueprint-line);
-  background: rgba(251, 253, 255, 0.72);
+  background: var(--blueprint-surface-veil);
   font-family: var(--font-utility);
   font-size: 11px;
 }
@@ -915,7 +973,7 @@ body {
 
   .blueprint-hero__diagram {
     min-height: 370px;
-    box-shadow: 8px 8px 0 rgba(203, 215, 227, 0.35);
+    box-shadow: 8px 8px 0 var(--blueprint-shadow);
   }
 
   .system-trace {
@@ -1014,8 +1072,8 @@ body {
    navigation and search behavior. */
 .fd-layout {
   background-image:
-    linear-gradient(rgba(79, 103, 128, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 103, 128, 0.045) 1px, transparent 1px);
+    linear-gradient(var(--blueprint-grid-line-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-grid-line-faint) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 

@@ -1,6 +1,11 @@
 export const REALTIME_HEARTBEAT_INTERVAL_MS = 5_000
 
-export type RealtimeHeartbeat = { type: 'heartbeat' }
+/**
+ * A transport-only event. `intervalMs` is the cadence it is sent at, so a
+ * client can size its own dead-stream timeout from the server's real setting
+ * instead of hardcoding a constant that drifts from it.
+ */
+export type RealtimeHeartbeat = { type: 'heartbeat'; intervalMs: number }
 
 type SourceState<T> =
   | { status: 'pending' }
@@ -62,7 +67,7 @@ export async function* withRealtimeHeartbeat<T>(
         if (options.signal?.aborted) break
         current = getState()
         if (current.status === 'pending') {
-          yield { type: 'heartbeat' }
+          yield { type: 'heartbeat', intervalMs }
           continue
         }
       }
