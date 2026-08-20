@@ -4,7 +4,7 @@
 
 **Goal:** A background job in `examples/todo-solid-2` generates a summary for each todo one word at a time, streaming every word to the browser as a row update.
 
-**Architecture:** Progress is projected onto the rows being changed rather than stored in a separate progress table. The job UPDATEs one row per todo, appending each generated word to a `summary` column and publishing `'update'` with the full accumulated text, so the row *is* the state and a reconnecting client needs no replay logic. The existing `jobRuns` table, `seedTodos` job, and `/api/seed` procedure are removed; the client derives progress by counting row statuses.
+**Architecture:** Progress is projected onto the rows being changed rather than stored in a separate progress table. The job UPDATEs one row per todo, appending each generated word to a `summary` column and publishing `'update'` with the full accumulated text, so the row _is_ the state and a reconnecting client needs no replay logic. The existing `jobRuns` table, `seedTodos` job, and `/api/seed` procedure are removed; the client derives progress by counting row statuses.
 
 **Tech Stack:** Bun, Bunderstack, Drizzle (libSQL), valibot, Solid 2.0 RC, `@tanstack/solid-query@6`, `bunderstack-query`.
 
@@ -23,18 +23,18 @@
 
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| `examples/todo-solid-2/src/fake-llm.ts` | **Create.** Vocabulary + the three random-range helpers + `sleep`. No Bunderstack imports, so it is trivially testable. |
-| `examples/todo-solid-2/src/fake-llm.test.ts` | **Create.** Range and membership tests for the generator. |
-| `examples/todo-solid-2/src/bunderstack.ts` | **Modify.** Add `summary`/`summaryStatus` + `writableColumns`; add `enrichTodos` job and `/api/enrich`; remove `jobRuns`, `seedTodos`, `/api/seed`; export `todos` for tests. |
-| `examples/todo-solid-2/src/enrich.test.ts` | **Create.** Access enforcement, trigger idempotency, and the streaming publish sequence. |
-| `examples/todo-solid-2/src/provision.ts` | **Modify.** Seed three todos when the table is empty. |
-| `examples/todo-solid-2/src/TodoList.tsx` | **Modify.** Drop the `jobRuns` query, derive progress from row statuses, render streamed summaries. |
-| `examples/todo-solid-2/src/app.css` | **Modify.** Summary line, streaming cursor, failed state. |
-| `examples/todo-solid-2/package.json` | **Modify.** Add a `test` script. |
-| `examples/todo-solid-2/README.md` | **Modify.** Document the new job. |
-| `docs/superpowers/specs/2026-08-14-solid-2-todo-example-design.md` | **Modify.** Files listing loses `jobRuns`. |
+| File                                                               | Responsibility                                                                                                                                                                |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `examples/todo-solid-2/src/fake-llm.ts`                            | **Create.** Vocabulary + the three random-range helpers + `sleep`. No Bunderstack imports, so it is trivially testable.                                                       |
+| `examples/todo-solid-2/src/fake-llm.test.ts`                       | **Create.** Range and membership tests for the generator.                                                                                                                     |
+| `examples/todo-solid-2/src/bunderstack.ts`                         | **Modify.** Add `summary`/`summaryStatus` + `writableColumns`; add `enrichTodos` job and `/api/enrich`; remove `jobRuns`, `seedTodos`, `/api/seed`; export `todos` for tests. |
+| `examples/todo-solid-2/src/enrich.test.ts`                         | **Create.** Access enforcement, trigger idempotency, and the streaming publish sequence.                                                                                      |
+| `examples/todo-solid-2/src/provision.ts`                           | **Modify.** Seed three todos when the table is empty.                                                                                                                         |
+| `examples/todo-solid-2/src/TodoList.tsx`                           | **Modify.** Drop the `jobRuns` query, derive progress from row statuses, render streamed summaries.                                                                           |
+| `examples/todo-solid-2/src/app.css`                                | **Modify.** Summary line, streaming cursor, failed state.                                                                                                                     |
+| `examples/todo-solid-2/package.json`                               | **Modify.** Add a `test` script.                                                                                                                                              |
+| `examples/todo-solid-2/README.md`                                  | **Modify.** Document the new job.                                                                                                                                             |
+| `docs/superpowers/specs/2026-08-14-solid-2-todo-example-design.md` | **Modify.** Files listing loses `jobRuns`.                                                                                                                                    |
 
 **Task ordering keeps the example working at every commit.** Columns are added before the job that writes them; the client stops referencing `jobRuns` before the server deletes it.
 
@@ -45,11 +45,13 @@
 Adds the two columns and locks them against client writes. `jobRuns` and `seedTodos` are untouched, so the example still runs.
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/src/bunderstack.ts`
 - Test: `examples/todo-solid-2/src/enrich.test.ts` (create)
 - Modify: `examples/todo-solid-2/package.json`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `export const todos` from `src/bunderstack.ts`, with columns `summary: string | null` and `summaryStatus: 'idle' | 'queued' | 'streaming' | 'done' | 'failed'`. Tasks 2–4 all depend on these names.
 
@@ -194,10 +196,12 @@ git commit -m "feat(example): add server-owned summary columns to todos"
 A standalone module so the job has nothing to mock and the ranges are testable on their own.
 
 **Files:**
+
 - Create: `examples/todo-solid-2/src/fake-llm.ts`
 - Test: `examples/todo-solid-2/src/fake-llm.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `VOCABULARY: readonly string[]`, `randomWord(): string`, `summaryLength(): number` (4–10), `tokenDelay(): number` (40–200), `sleep(ms: number): Promise<void>`. Task 3 imports all but `VOCABULARY`.
 
@@ -320,10 +324,12 @@ git commit -m "feat(example): add a keyless fake token generator"
 ### Task 3: The enrich job and its trigger
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/src/bunderstack.ts`
 - Test: `examples/todo-solid-2/src/enrich.test.ts`
 
 **Interfaces:**
+
 - Consumes: `todos` (Task 1); `randomWord`, `summaryLength`, `tokenDelay`, `sleep` (Task 2).
 - Produces: job `enrichTodos` with input `{ ids: string[] }`; procedure `enrich` at `POST /api/enrich` returning `{ queued: number }`. Task 5's client calls `api.enrich.call({})`.
 
@@ -335,7 +341,11 @@ Append to `examples/todo-solid-2/src/enrich.test.ts`. The publish spy is the rep
 import { spyOn } from 'bun:test'
 import { getTableName } from 'drizzle-orm'
 
-type Published = { table: string; action: string; record: Record<string, unknown> }
+type Published = {
+  table: string
+  action: string
+  record: Record<string, unknown>
+}
 
 function capturePublishes(): Published[] {
   const events: Published[] = []
@@ -431,12 +441,7 @@ In `examples/todo-solid-2/src/bunderstack.ts`, extend the drizzle import and add
 ```ts
 import { and, eq, inArray, ne } from 'drizzle-orm'
 
-import {
-  randomWord,
-  sleep,
-  summaryLength,
-  tokenDelay,
-} from './fake-llm'
+import { randomWord, sleep, summaryLength, tokenDelay } from './fake-llm'
 ```
 
 - [ ] **Step 4: Add the job**
@@ -553,13 +558,15 @@ git commit -m "feat(example): stream generated summaries from a job"
 
 ### Task 4: Client renders the stream
 
-The client stops referencing `jobRuns` here, *before* Task 6 deletes it, so no commit leaves the example broken.
+The client stops referencing `jobRuns` here, _before_ Task 6 deletes it, so no commit leaves the example broken.
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/src/TodoList.tsx`
 - Modify: `examples/todo-solid-2/src/app.css`
 
 **Interfaces:**
+
 - Consumes: `api.enrich.call({})` and the `summary`/`summaryStatus` columns.
 - Produces: nothing later tasks depend on.
 
@@ -568,20 +575,20 @@ The client stops referencing `jobRuns` here, *before* Task 6 deletes it, so no c
 In `examples/todo-solid-2/src/TodoList.tsx`, delete the `runs` query and the `active` helper, and replace the `seed` mutation:
 
 ```tsx
-  const items = () => todos.data?.items ?? []
+const items = () => todos.data?.items ?? []
 
-  // Progress is derived, not fetched. The run is the *claimed* set, so a todo
-  // added mid-run stays `idle` and counts as neither finished nor outstanding.
-  const claimed = () => items().filter((t) => t.summaryStatus !== 'idle')
-  const settled = () =>
-    claimed().filter(
-      (t) => t.summaryStatus === 'done' || t.summaryStatus === 'failed',
-    )
-  const running = () => claimed().length > settled().length
+// Progress is derived, not fetched. The run is the *claimed* set, so a todo
+// added mid-run stays `idle` and counts as neither finished nor outstanding.
+const claimed = () => items().filter((t) => t.summaryStatus !== 'idle')
+const settled = () =>
+  claimed().filter(
+    (t) => t.summaryStatus === 'done' || t.summaryStatus === 'failed',
+  )
+const running = () => claimed().length > settled().length
 
-  const enrich = useMutation(() => ({
-    mutationFn: () => api.enrich.call({}),
-  }))
+const enrich = useMutation(() => ({
+  mutationFn: () => api.enrich.call({}),
+}))
 ```
 
 - [ ] **Step 2: Drop jobRuns from the realtime subscription**
@@ -589,35 +596,35 @@ In `examples/todo-solid-2/src/TodoList.tsx`, delete the `runs` query and the `ac
 Same file — the summaries ride the `todos` subscription that already exists:
 
 ```tsx
-  const realtime = syncRealtime<App>({
-    api,
-    queryClient: qc,
-    tables: ['todos'],
-    apply: 'patch',
-  })
+const realtime = syncRealtime<App>({
+  api,
+  queryClient: qc,
+  tables: ['todos'],
+  apply: 'patch',
+})
 ```
 
 - [ ] **Step 3: Replace the jobs panel markup**
 
 ```tsx
-      <div class="jobs">
-        <button
-          class="ghost"
-          disabled={enrich.isPending || running() || items().length === 0}
-          onClick={() => enrich.mutate()}
-        >
-          Summarise every todo
-        </button>
+<div class="jobs">
+  <button
+    class="ghost"
+    disabled={enrich.isPending || running() || items().length === 0}
+    onClick={() => enrich.mutate()}
+  >
+    Summarise every todo
+  </button>
 
-        <Show when={running()}>
-          <p class="run">
-            <progress value={settled().length} max={claimed().length} />
-            <span>
-              summarising — {settled().length}/{claimed().length}
-            </span>
-          </p>
-        </Show>
-      </div>
+  <Show when={running()}>
+    <p class="run">
+      <progress value={settled().length} max={claimed().length} />
+      <span>
+        summarising — {settled().length}/{claimed().length}
+      </span>
+    </p>
+  </Show>
+</div>
 ```
 
 - [ ] **Step 4: Render the summary on each row**
@@ -625,43 +632,45 @@ Same file — the summaries ride the `todos` subscription that already exists:
 Replace the `<For each={todos.data!.items}>` body. The summary is a sibling of the label inside the `li`, and the CSS in Step 5 wraps it onto its own line:
 
 ```tsx
-                {(todo) => (
-                  <li class={{ done: todo.done }}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={todo.done}
-                        onInput={(event) =>
-                          toggle.mutate({
-                            id: todo.id,
-                            done: event.currentTarget.checked,
-                          })
-                        }
-                      />
-                      <span>{todo.title}</span>
-                    </label>
-                    <button
-                      class="remove"
-                      aria-label={`Delete ${todo.title}`}
-                      onClick={() => remove.mutate(todo.id)}
-                    >
-                      ×
-                    </button>
-                    <Show when={todo.summaryStatus !== 'idle'}>
-                      <p
-                        class="summary"
-                        classList={{
-                          streaming: todo.summaryStatus === 'streaming',
-                          failed: todo.summaryStatus === 'failed',
-                        }}
-                      >
-                        {todo.summaryStatus === 'failed'
-                          ? 'could not summarise'
-                          : (todo.summary ?? '…')}
-                      </p>
-                    </Show>
-                  </li>
-                )}
+{
+  ;(todo) => (
+    <li class={{ done: todo.done }}>
+      <label>
+        <input
+          type="checkbox"
+          checked={todo.done}
+          onInput={(event) =>
+            toggle.mutate({
+              id: todo.id,
+              done: event.currentTarget.checked,
+            })
+          }
+        />
+        <span>{todo.title}</span>
+      </label>
+      <button
+        class="remove"
+        aria-label={`Delete ${todo.title}`}
+        onClick={() => remove.mutate(todo.id)}
+      >
+        ×
+      </button>
+      <Show when={todo.summaryStatus !== 'idle'}>
+        <p
+          class="summary"
+          classList={{
+            streaming: todo.summaryStatus === 'streaming',
+            failed: todo.summaryStatus === 'failed',
+          }}
+        >
+          {todo.summaryStatus === 'failed'
+            ? 'could not summarise'
+            : (todo.summary ?? '…')}
+        </p>
+      </Show>
+    </li>
+  )
+}
 ```
 
 Also update the list source to use the new helper — replace `todos.data!.items.length` with `items().length` and `each={todos.data!.items}` with `each={items()}`.
@@ -728,15 +737,17 @@ git commit -m "feat(example): render streamed summaries and derived progress"
 The spec claims a word arriving for one todo updates one text node and leaves the other rows alone. That is the example's actual assertion about Solid, so it gets checked rather than asserted.
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/src/TodoList.tsx` (temporarily)
 
 **Interfaces:**
+
 - Consumes: Task 4's rendering.
 - Produces: nothing — this task's output is a verified claim and a README sentence in Task 7.
 
 - [ ] **Step 1: Add a temporary render counter**
 
-In `TodoList.tsx`, wrap the `<For>` callback body in a block so a log statement can run once per row *creation*. Task 4 Step 4 left the callback as `{(todo) => ( <li …>…</li> )}`; change only the two lines around the existing `<li>` — the markup inside it is untouched:
+In `TodoList.tsx`, wrap the `<For>` callback body in a block so a log statement can run once per row _creation_. Task 4 Step 4 left the callback as `{(todo) => ( <li …>…</li> )}`; change only the two lines around the existing `<li>` — the markup inside it is untouched:
 
 ```tsx
                 {(todo) => {
@@ -763,7 +774,7 @@ Add three todos, open the browser console, clear it, then click **Summarise ever
 
 Expected: `row created` does **not** log during streaming. `<For>` keys by reference and the store reconciles the patched array, so rows are not recreated even though `queryClient.setQueryData` hands over a fresh array on every word.
 
-If rows *are* recreated, the cause is almost certainly `apply: 'patch'` replacing row objects wholesale. Record the finding and stop — do not paper over it; it invalidates the spec's "What Solid contributes" section and needs a decision.
+If rows _are_ recreated, the cause is almost certainly `apply: 'patch'` replacing row objects wholesale. Record the finding and stop — do not paper over it; it invalidates the spec's "What Solid contributes" section and needs a decision.
 
 - [ ] **Step 3: Remove the counter**
 
@@ -784,10 +795,12 @@ Expected: empty output. This task produces no commit; its result is recorded in 
 Nothing references them after Task 4, so this is a clean deletion.
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/src/bunderstack.ts`
 - Modify: `examples/todo-solid-2/src/provision.ts`
 
 **Interfaces:**
+
 - Consumes: Task 4's client (no longer queries `jobRuns`).
 - Produces: `provision.ts` seeds three todos on an empty table, replacing what `seedTodos` did.
 
@@ -882,10 +895,12 @@ git commit -m "refactor(example): replace jobRuns and seedTodos with row-level p
 ### Task 7: Documentation and full verification
 
 **Files:**
+
 - Modify: `examples/todo-solid-2/README.md`
 - Modify: `docs/superpowers/specs/2026-08-14-solid-2-todo-example-design.md`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: nothing.
 
@@ -913,12 +928,15 @@ event is "a row changed", so the job simply writes:
 
 ```ts
 summary += (summary ? ' ' : '') + randomWord()
-const [row] = await ctx.db.update(todos).set({ summary })
-  .where(eq(todos.id, id as never)).returning()
+const [row] = await ctx.db
+  .update(todos)
+  .set({ summary })
+  .where(eq(todos.id, id as never))
+  .returning()
 await ctx.realtime.publish(todos, 'update', row)
 ```
 
-Each publish carries the whole accumulated text, so the row *is* the state of
+Each publish carries the whole accumulated text, so the row _is_ the state of
 the stream — open a second tab mid-run, or refresh, and it picks up exactly
 where the first left off with no replay logic.
 
