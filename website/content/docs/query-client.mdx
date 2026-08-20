@@ -3,8 +3,6 @@ title: Query Client
 description: An oRPC and TanStack Query client inferred from your app
 ---
 
-# Query Client
-
 `bunderstack-query` derives generated CRUD and application procedures from
 `typeof app`. There is no code generation, route list, or duplicated response
 interface.
@@ -121,7 +119,21 @@ const connection = syncRealtime({
 ```
 
 The client applies typed events to matching caches and invalidates subscribed
-tables after reconnect. Transport retry and heartbeat behavior are internal.
+tables after reconnect. Connection retry, resume, and dead-stream detection are
+internal.
+
+Changes reach the cache in one batch per animation frame, so a burst of writes
+costs one cache write and one invalidation per query key instead of one of each
+per event. Pass `notifyScheduler` to change that: `'sync'` writes as each event
+arrives, and a number debounces by that many milliseconds.
+
+```ts
+syncRealtime({ api, queryClient, tables: ['posts'], notifyScheduler: 'sync' })
+```
+
+Set `apply: 'patch'` to write changes into cached lists instead of invalidating
+them, so a write costs one request rather than two. A list is patched only when
+membership and ordering can be settled locally, and invalidated otherwise.
 
 ## Type utilities
 
