@@ -3,27 +3,36 @@ import { join } from 'node:path'
 
 const repoRoot = join(import.meta.dir, '..')
 
+type ProbeResult = {
+  success: boolean
+  logs: string
+  outputCount: number
+  text: string
+  size: number
+  inputs: string[]
+}
+
+// Bun.build() must not run in this process: it breaks bare-specifier
+// resolution for every later-loaded file in the built file's own package,
+// which is what made `bun test` at the repo root fail to import
+// '@tanstack/query-core' & co. from bunderstack-query. See scripts/bundle-probe.ts.
 async function bundle(entrypoint: string, external: string[] = []) {
-  const result = await Bun.build({
-    entrypoints: [join(repoRoot, entrypoint)],
-    target: 'browser',
-    format: 'esm',
-    splitting: false,
-    minify: true,
-    sourcemap: 'none',
-    metafile: true,
-    external,
-    write: false,
+  const proc = Bun.spawn(['bun', join(repoRoot, 'scripts/bundle-probe.ts')], {
+    stdin: new TextEncoder().encode(JSON.stringify({ entrypoint, external })),
+    stdout: 'pipe',
+    stderr: 'pipe',
   })
-  expect(result.success, result.logs.map(String).join('\n')).toBe(true)
-  expect(result.outputs).toHaveLength(1)
-  const output = result.outputs[0]!
-  return {
-    text: await output.text(),
-    size: output.size,
-    metafile: result.metafile!,
-    inputs: Object.keys(result.metafile!.inputs),
-  }
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+  expect(exitCode, stderr).toBe(0)
+
+  const result = JSON.parse(stdout) as ProbeResult
+  expect(result.success, result.logs).toBe(true)
+  expect(result.outputCount).toBe(1)
+  return result
 }
 
 function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
