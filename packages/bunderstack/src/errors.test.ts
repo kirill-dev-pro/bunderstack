@@ -76,3 +76,26 @@ test('does not expose unknown exceptions as declared errors', async () => {
   expect(error).not.toBeInstanceOf(BunderstackError)
   expect(error).not.toBeInstanceOf(ORPCError)
 })
+
+test('an unhandled procedure error is logged with its path before rethrowing', async () => {
+  const procedure = createApiBuilder().public.handler(() => {
+    throw new Error('boom')
+  })
+  const client = createProcedureClient(procedure, { context: {} as never })
+
+  const logged: unknown[][] = []
+  const original = console.error
+  console.error = (...args: unknown[]) => logged.push(args)
+  let thrown: unknown
+  try {
+    thrown = await client().catch((value) => value)
+  } finally {
+    console.error = original
+  }
+
+  expect(thrown).toBeInstanceOf(Error)
+  expect(logged).toHaveLength(1)
+  expect(String(logged[0]![0])).toContain(
+    '[bunderstack-api] Unhandled error in procedure',
+  )
+})
