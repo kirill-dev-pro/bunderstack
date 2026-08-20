@@ -42,6 +42,7 @@ describe('browser bundle boundaries', () => {
       '@orpc/client/fetch',
       '@orpc/tanstack-query',
       '@standardserver/core',
+      '@tanstack/query-core',
     ])
     expect(output.size).toBeLessThan(32 * 1024)
     expectNoBundleInputs(output.inputs, [

@@ -21,6 +21,8 @@ export type {
 } from './infer'
 export { syncRealtime } from './realtime'
 export type {
+  NotifyScheduler,
+  RealtimeApplyStrategy,
   RealtimeChange,
   RealtimeEvent,
   RealtimeHeartbeat,
@@ -28,4 +30,5 @@ export type {
   RealtimeQueryApi,
   RealtimeSyncHandle,
   RealtimeSyncOptions,
+  RealtimeClock,
 } from './realtime'

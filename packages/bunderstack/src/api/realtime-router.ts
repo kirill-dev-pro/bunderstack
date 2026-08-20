@@ -22,6 +22,9 @@ const changeSchema = v.strictObject({
 
 const heartbeatSchema = v.strictObject({
   type: v.literal('heartbeat'),
+  // The cadence this stream sends heartbeats at, so a client can size its
+  // dead-stream timeout from the server's real setting.
+  intervalMs: v.number(),
 })
 
 type RealtimeRouterOptions = {
