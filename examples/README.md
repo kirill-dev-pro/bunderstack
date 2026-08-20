@@ -174,7 +174,7 @@ files (see `examples/todo/README.md` for the tour):
 - **Env validation**: `app.env.PUBLIC_APP_NAME` and `NOTIFY_COMPLETED` validated at boot
 - **Email**: completing a task via `api.complete` sends a notification email (console in dev, SMTP in prod)
 - **oRPC**: `api.stats` for counts and `api.complete` for an atomic update + email
-- **Storage**: image attachments with on-the-fly sharp thumbnails
+- **Storage**: image attachments with on-the-fly Bun.Image thumbnails
 - **Realtime**: SSE broadcast-on-write — open two tabs and watch them sync
 
 ```bash

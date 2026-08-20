@@ -13,7 +13,7 @@ subscriptions, and a health check live in the same oRPC graph, reachable both
 as typed RPC and as ordinary HTTP.
 
 Stack: Bun, Drizzle (+ drizzle-kit), Better Auth, oRPC v2, libSQL or Postgres,
-sharp. Validation accepts any Standard Schema library; generated schemas use
+Bun.Image. Validation accepts any Standard Schema library; generated schemas use
 Valibot. There is no Hono, no tRPC, and no Zod requirement.
 
 Packages: bunderstack (server), bunderstack-query (client + TanStack Query),
@@ -303,7 +303,7 @@ STORAGE
   }
 
 Canonical URL: /api/files/{bucket}/{+path}. transforms: true enables on-the-fly
-image derivatives through sharp. app.storage exposes delete, bucket, sweep,
+image derivatives through Bun.Image. app.storage exposes delete, bucket, sweep,
 getUrl, and upload for server-generated files.
 
 REALTIME

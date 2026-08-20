@@ -16,6 +16,13 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
   const app = await createBunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
+    // BUNDERSTACK_ROLE defaults to 'all', which auto-starts a worker whenever
+    // jobs are defined. Without turning that off, the "nothing ran yet"
+    // assertion below is only a race against that worker's 1s poll — it passes
+    // when the sleep really is 20ms and fails once the machine is loaded enough
+    // to overshoot a poll. Disabling autoStart is what makes "no worker means
+    // no execution" an actual claim rather than a timing accident.
+    background: { autoStart: false },
     jobs: (j) =>
       j.define({
         writeNote: j.job({

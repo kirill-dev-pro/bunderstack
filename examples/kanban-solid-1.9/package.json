@@ -19,7 +19,6 @@
     "bunderstack": "workspace:*",
     "bunderstack-query": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "marked": "^14.0.0",
     "solid-js": "1.9.13"
   },
   "devDependencies": {

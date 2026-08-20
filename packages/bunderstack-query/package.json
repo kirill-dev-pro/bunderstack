@@ -40,7 +40,8 @@
   "scripts": {
     "build": "bun ../../scripts/build-package.ts bunderstack-query",
     "prepack": "bun run build",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",

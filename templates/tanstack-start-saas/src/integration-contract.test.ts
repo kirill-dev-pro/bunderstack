@@ -11,9 +11,10 @@ describe('Task 3 integration contract', () => {
     expect(content).toContain('createApiHandlers(app)')
   })
 
-  it('api client uses bunderstackStart<App>()', () => {
+  it('api client builds on the unified oRPC client', () => {
     const content = readFileSync(join(import.meta.dir, 'api.ts'), 'utf-8')
-    expect(content).toContain('bunderstackStart<App>()')
+    expect(content).toContain('createClient<App>(')
+    expect(content).toContain('createIsomorphicFetch()')
   })
 
   it('auth client imports from bunderstack-start/auth', () => {

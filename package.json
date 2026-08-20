@@ -8,11 +8,11 @@
   ],
   "type": "module",
   "scripts": {
-    "test": "bun test --cwd packages/bunderstack && bun test --cwd packages/bunderstack-query && bun test --cwd packages/bunderstack-sync && bun test --cwd packages/bunderstack-start && bun test scripts/",
+    "test": "bun run --parallel --filter './packages/*' test && bun test scripts/",
     "test:orpc-contract": "bun test packages/bunderstack/src/api/openapi-client-generation.test.ts && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json",
     "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "test:bundles": "bun test scripts/bundle-boundaries.test.ts",
-    "typecheck": "bunx tsc --noEmit -p packages/bunderstack/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-query/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-sync/tsconfig.json && bunx tsc --noEmit -p packages/bunderstack-start/tsconfig.json",
+    "typecheck": "bun run --parallel --filter './packages/*' typecheck",
     "typecheck:examples": "bun run build && bunx tsc --noEmit -p templates/tanstack-start-saas/tsconfig.json && bunx tsc --noEmit -p examples/todo/tsconfig.json && bunx tsc --noEmit -p examples/todo-solid-2/tsconfig.json && bunx tsc --noEmit -p examples/tldraw/tsconfig.json && bunx tsc --noEmit -p examples/kanban-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-tanstack/tsconfig.json && bunx tsc --noEmit -p examples/twitter-db-tanstack/tsconfig.json",
     "typecheck:all": "bun run typecheck && bun run typecheck:examples",
     "dev": "bun run --cwd examples/standalone dev",
@@ -47,6 +47,5 @@
     "@tanstack/query-db-collection": "1.1.0",
     "@tanstack/react-db": "0.1.94",
     "@tanstack/react-query": "^5.101.1"
-  },
-  "packageManager": "pnpm@10.22.0+sha512.bf049efe995b28f527fd2b41ae0474ce29186f7edcb3bf545087bd61fbbebb2bf75362d1307fda09c2d288e1e499787ac12d4fcb617a974718a6051f2eee741c"
+  }
 }

@@ -57,12 +57,12 @@ for (const name of PACKAGES) {
   if (sanitized !== original) await Bun.write(manifest, sanitized)
   try {
     const packed = await run(
-      ['npm', 'pack', '--pack-destination', workDir, '--silent'],
+      ['bun', 'pm', 'pack', '--destination', workDir, '--quiet'],
       dir,
     )
     if (packed.code !== 0)
-      throw new Error(`npm pack failed for ${name}:\n${packed.out}`)
-    // npm names the tarball deterministically; parsing its stdout would also
+      throw new Error(`bun pm pack failed for ${name}:\n${packed.out}`)
+    // bun names the tarball deterministically; parsing its stdout would also
     // pick up whatever `prepack` printed.
     const tarball = join(workDir, `${name}-${version}.tgz`)
     if (!(await Bun.file(tarball).exists())) {

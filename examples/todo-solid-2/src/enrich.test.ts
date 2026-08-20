@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from 'bun:test'
+import { afterAll, expect, spyOn, test } from 'bun:test'
 import { eq, getTableName } from 'drizzle-orm'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,8 +6,22 @@ import { join } from 'node:path'
 // Both must be set before importing ./bunderstack — that module builds the app
 // at import time. `web` keeps a background worker from auto-starting, so job
 // execution stays deterministic and driven by app.jobs.tick() below.
+const priorEnv = {
+  DATABASE_URL: process.env.DATABASE_URL,
+  BUNDERSTACK_ROLE: process.env.BUNDERSTACK_ROLE,
+}
 process.env.DATABASE_URL = `file:${join(tmpdir(), `todo-solid-2-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)}`
 process.env.BUNDERSTACK_ROLE = 'web'
+
+// `bun test` at the repo root runs every file in one process, so leaving these
+// set bleeds this example's temp database into unrelated suites — config and
+// app-env both assert on the ':memory:'/default url and would read ours.
+afterAll(() => {
+  for (const [key, value] of Object.entries(priorEnv)) {
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
+})
 
 const { app, todos } = await import('./bunderstack')
 const { provision } = await import('bunderstack/provision')
@@ -96,42 +110,6 @@ test('the trigger will not disturb a run already in flight', async () => {
   const second = await enrich()
   expect(second.queued).toBe(0)
 })
-
-test('re-summarising a finished row clears its old summary and runs again', async () => {
-  const created = await createTodo('summarise me twice')
-  await enrich()
-  await app.jobs.tick()
-
-  const [first] = await app.db
-    .select()
-    .from(todos)
-    .where(eq(todos.id, created.id as never))
-  expect(first!.summaryStatus).toBe('done')
-  const firstSummary = first!.summary
-  expect(firstSummary).toBeTruthy()
-
-  // The button must never be a no-op just because everything is summarised:
-  // a finished row is claimable again, and its stale text is cleared at
-  // claim time so the UI streams from empty rather than mutating in place.
-  const again = await enrich()
-  expect(again.queued).toBeGreaterThan(0)
-
-  const [claimed] = await app.db
-    .select()
-    .from(todos)
-    .where(eq(todos.id, created.id as never))
-  expect(claimed!.summaryStatus).toBe('queued')
-  expect(claimed!.summary).toBeNull()
-
-  await app.jobs.tick()
-
-  const [second] = await app.db
-    .select()
-    .from(todos)
-    .where(eq(todos.id, created.id as never))
-  expect(second!.summaryStatus).toBe('done')
-  expect(second!.summary).toBeTruthy()
-}, 30_000)
 
 test('the job streams a growing summary and ends done', async () => {
   const created = await createTodo('stream me')

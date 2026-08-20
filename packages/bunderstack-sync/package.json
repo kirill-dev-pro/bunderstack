@@ -36,7 +36,8 @@
   "scripts": {
     "build": "bun ../../scripts/build-package.ts bunderstack-sync",
     "prepack": "bun run build",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "bunderstack-query": "workspace:*"

@@ -107,7 +107,7 @@
     "db:push": "drizzle-kit push",
     "dev": "bun --hot ../../examples/standalone/server.ts",
     "prepack": "bun run build",
-    "test": "bun test",
+    "test": "bun test --parallel --timeout=30000",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

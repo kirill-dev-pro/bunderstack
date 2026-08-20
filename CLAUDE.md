@@ -116,12 +116,12 @@ A batteries-included backend framework for Bun. See PLAN.md for the full design.
 
 ## Core philosophy
 
-Compose Drizzle + BetterAuth + Hono + Bun.s3 + sharp; re-export the raw
+Compose Drizzle + BetterAuth + Hono + Bun.s3 + Bun.Image; re-export the raw
 instances, never seal them. Progressive disclosure — users never hit a wall.
 
 ## Stack
 
-Bun · Drizzle (+ drizzle-kit) · BetterAuth · Hono · libSQL · sharp
+Bun · Drizzle (+ drizzle-kit) · BetterAuth · Hono · libSQL · Bun.Image
 
 ## Conventions
 
