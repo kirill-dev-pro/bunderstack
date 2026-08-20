@@ -63,6 +63,66 @@ export const api = createClient<App>({ queryClient })
 `
 
 const snippets: Record<string, string> = {
+  declaration: `${SCHEMA_FILE}// @filename: bunderstack.ts
+// ---cut---
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import * as v from 'valibot'
+import * as schema from './schema'
+
+export const app = await createBunderstack({
+  schema,
+  database: { adapter: libsql() },
+
+  // Sessions, providers, and the user tables, on the same database.
+  auth: { secret: process.env.AUTH_SECRET! },
+
+  // Generated CRUD, with the rules it is allowed to answer.
+  access: {
+    posts: { ownerColumn: 'userId', searchableColumns: ['title'] },
+  },
+
+  // Checked at boot; \`app.env\` and \`ctx.env\` are typed from here.
+  env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
+
+  // Local disk in dev, S3 in production, resizing on the way out.
+  storage: { local: true, buckets: { images: { transforms: true } } },
+
+  // Console in dev, SMTP or Resend in production.
+  email: { from: 'hello@example.com' },
+
+  // An SSE endpoint plus broadcast-on-write for every change.
+  realtime: true,
+
+  // A durable queue and cron, from the same process model.
+  jobs: (j) =>
+    j.define({
+      digest: j.cron({
+        schedule: '0 9 * * *',
+        handler: async (_run, ctx) => {
+          await ctx.email.send({
+            to: 'team@example.com',
+            subject: ctx.env.PUBLIC_APP_NAME,
+            text: 'Daily digest',
+          })
+        },
+      }),
+    }),
+
+  // Anything CRUD does not cover.
+  api: (o) => ({
+    stats: o.protected
+      .input(v.object({ boardId: v.string() }))
+      .handler(async ({ context, input }) => ({
+        boardId: input.boardId,
+        total: 12,
+        requestedBy: context.user.id,
+      })),
+  }),
+})
+
+export type App = typeof app`,
+
   procedure: `${SCHEMA_FILE}// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'

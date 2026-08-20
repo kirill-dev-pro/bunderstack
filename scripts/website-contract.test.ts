@@ -98,18 +98,35 @@ describe('public website contract', () => {
     expect(pages).not.toContain('custom-routes')
   })
 
-  test('landing uses the focused architectural blueprint story', () => {
+  test('landing leads with the single-file declaration story', () => {
     const landing = read('website/src/routes/index.tsx')
     const snippets = read('website/scripts/gen-code-snippets.ts')
 
     expect(landing).toContain('system-trace')
     expect(landing).toContain('type-trace')
-    expect(landing).toContain('One graph. Every boundary typed.')
     expect(landing).toContain('prefers-reduced-motion')
+    expect(landing).toContain('Your whole backend as a single file declaration.')
+    // The value the library sells, in the order the page argues it. The typed
+    // graph is what makes these possible, not the headline claim itself.
+    expect(landing).toContain('A / Declare')
+    expect(landing).toContain('B / Run')
+    expect(landing).toContain('C / Context')
+    expect(landing).not.toContain('One graph. Every boundary typed.')
+    expect(snippets).toContain('declaration:')
     expect(snippets).toContain('procedure:')
     expect(snippets).toContain('client:')
     expect(snippets).toContain('realtime:')
     expect(snippets).not.toContain('trpc:')
+  })
+
+  test('the landing and README make the same promise', () => {
+    const landing = read('website/src/routes/index.tsx')
+    const readme = read('README.md')
+
+    expect(readme).toContain('single file declaration')
+    // One measured claim, quoted in two places; they must not drift apart.
+    expect(landing).toContain('439 lines')
+    expect(readme).toContain('439 lines')
   })
 
   test('docs deserialization cannot mutate router loader data', () => {
