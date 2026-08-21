@@ -12,6 +12,8 @@ WORKDIR /repo
 COPY package.json bun.lock ./
 COPY packages/ ./packages/
 COPY scripts/ ./scripts/
+# prepare -> build-package.ts ships .agents/skills into packages/bunderstack/skills
+COPY .agents/ ./.agents/
 RUN bun install
 
 # The website keeps its own lockfile — it is not a workspace member.

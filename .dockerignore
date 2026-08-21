@@ -1,6 +1,7 @@
 .git/
 **/bun.lock
 !bun.lock
+!website/bun.lock
 **/node_modules/
 **/.output/
 **/.vinxi/
