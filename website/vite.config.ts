@@ -18,6 +18,11 @@ const docPages = readdirSync('content/docs')
 export default defineConfig({
   base,
   server: { port: 3010 },
+  // Prerendering crawls the vite preview server it starts. With the default
+  // `localhost` host, Docker builds can resolve the server onto ::1 while
+  // Bun's fetch dials 127.0.0.1 (or IPv6 loopback is unreachable), producing
+  // instant ConnectionRefused. A literal IP leaves nothing to resolve.
+  preview: { host: '127.0.0.1' },
   plugins: [
     mdx(await import('./source.config')),
     tailwindcss(),
