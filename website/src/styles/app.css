@@ -183,18 +183,18 @@ body {
 
 .landing-brand {
   display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   color: var(--paper);
   font-family: var(--landing-brand);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
   text-decoration: none;
 }
 
-.landing-brand > span {
-  color: var(--accent);
+.landing-brand__logo {
+  object-fit: contain;
 }
 
 .landing-brand small {
@@ -274,15 +274,42 @@ html:not(.dark) .landing-hero__glow {
   );
 }
 
+/* --- Shiki Dual Theme Token Colors --------------------------------------- */
+
+.shiki,
+.shiki span {
+  color: var(--shiki-dark);
+}
+
+html:not(.dark) .shiki,
+html:not(.dark) .shiki span {
+  color: var(--shiki-light);
+}
+
 html:not(.dark) .landing-code {
-  background: #0c0f14;
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  border-color: rgba(17, 24, 39, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  --twoslash-border-color: rgba(17, 24, 39, 0.12);
+  --twoslash-underline-color: rgba(107, 70, 193, 0.7);
+  --twoslash-popup-bg: #ffffff;
+  --twoslash-popup-color: #111827;
+  --twoslash-popup-shadow: rgba(0, 0, 0, 0.14) 0 10px 32px -4px;
+  --twoslash-docs-color: #596779;
+}
+
+html:not(.dark) .landing-code .twoslash-hover {
+  border-bottom: 1px dotted rgba(17, 24, 39, 0.4);
 }
 
 html:not(.dark) .landing-code__caption {
-  border-top-color: rgba(255, 255, 255, 0.08);
-  color: #8b949e;
+  border-top-color: rgba(17, 24, 39, 0.08);
+  color: #596779;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+html:not(.dark) .landing-code__caption code {
+  color: #596779;
 }
 
 html:not(.dark) .landing-showcase__tabs {
@@ -337,6 +364,21 @@ html:not(.dark) .landing-button--primary {
 .landing-hero > *:not(.landing-hero__glow) {
   position: relative;
   z-index: 1;
+}
+
+.landing-hero__logo-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.landing-hero__logo {
+  width: clamp(80px, 12vw, 104px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
 }
 
 .landing-hero h1 {
@@ -957,8 +999,8 @@ html:not(.dark) .landing-hex-card__lib {
 }
 
 html:not(.dark) .landing-hex-card__code {
-  background: #0d1117;
-  border-color: rgba(0, 0, 0, 0.12);
+  background: #f8fafc;
+  border-color: rgba(17, 24, 39, 0.08);
 }
 
 html:not(.dark) .landing-hex-card__link {
@@ -1063,12 +1105,32 @@ html:not(.dark) .landing-hex-card__link:hover {
 }
 
 .landing-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   width: min(var(--landing-column), calc(100% - 48px));
   margin-inline: auto;
-  padding-block: 28px 40px;
+  padding-block: 40px 48px;
   border-top: 1px solid var(--hairline);
   color: var(--muted);
   font-size: 13px;
+  text-align: center;
+}
+
+.landing-footer__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--paper);
+  font-family: var(--landing-brand);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.landing-footer__logo {
+  object-fit: contain;
 }
 
 /* --- Narrow viewports ----------------------------------------------------- */

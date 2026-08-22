@@ -224,7 +224,7 @@ export function Feed() {
 }
 
 const highlighter = await createHighlighter({
-  themes: ['min-dark'],
+  themes: ['min-dark', 'min-light'],
   langs: ['ts', 'tsx'],
 })
 
@@ -347,7 +347,11 @@ for (const [name, code] of Object.entries(snippets)) {
   const lang = name === 'frontend' ? 'tsx' : 'ts'
   const html = highlighter.codeToHtml(code, {
     lang,
-    theme: 'min-dark',
+    themes: {
+      dark: 'min-dark',
+      light: 'min-light',
+    },
+    defaultColor: false,
     transformers: [twoslash],
   })
   assertHealthyTypes(name, html)
@@ -359,7 +363,11 @@ const conceptsOut: Record<string, string> = {}
 for (const [id, code] of Object.entries(conceptSnippets)) {
   conceptsOut[id] = highlighter.codeToHtml(code, {
     lang: 'ts',
-    theme: 'min-dark',
+    themes: {
+      dark: 'min-dark',
+      light: 'min-light',
+    },
+    defaultColor: false,
   })
 }
 out.concepts = conceptsOut

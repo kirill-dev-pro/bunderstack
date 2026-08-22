@@ -333,8 +333,14 @@ function Landing() {
     <main className="landing">
       <nav className="landing-nav" aria-label="Main navigation">
         <Link className="landing-brand" to="/">
-          <span aria-hidden>⌁</span>
-          bunderstack
+          <img
+            src="/logo-192.png"
+            alt="bunderstack logo"
+            className="landing-brand__logo"
+            width={26}
+            height={26}
+          />
+          <span>bunderstack</span>
           <small>beta</small>
         </Link>
         <div className="landing-nav__links">
@@ -350,8 +356,17 @@ function Landing() {
 
       <header className="landing-hero">
         <div aria-hidden className="landing-hero__glow" />
+        <div className="landing-hero__logo-box" aria-hidden="true">
+          <img
+            src="/logo.png"
+            alt="bunderstack logo"
+            className="landing-hero__logo"
+            width={96}
+            height={96}
+          />
+        </div>
         <h1>
-          Your whole backend as a <em>single file</em>.
+          Your whole backend as a <em>single file declaration</em>.
         </h1>
         <p className="landing-hero__lede">
           Database, auth, CRUD, storage, jobs, email, and realtime are keys on
@@ -503,7 +518,17 @@ function Landing() {
       </section>
 
       <footer className="landing-footer">
-        MIT licensed · Bun · Drizzle · Better Auth · oRPC
+        <div className="landing-footer__brand">
+          <img
+            src="/logo-192.png"
+            alt="bunderstack logo"
+            width={20}
+            height={20}
+            className="landing-footer__logo"
+          />
+          <span>bunderstack</span>
+        </div>
+        <p>MIT licensed · Bun · Drizzle · Better Auth · oRPC</p>
       </footer>
     </main>
   )

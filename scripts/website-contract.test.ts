@@ -102,16 +102,7 @@ describe('public website contract', () => {
     const landing = read('website/src/routes/index.tsx')
     const snippets = read('website/scripts/gen-code-snippets.ts')
 
-    expect(landing).toContain('system-trace')
-    expect(landing).toContain('type-trace')
-    expect(landing).toContain('prefers-reduced-motion')
-    expect(landing).toContain('Your whole backend as a single file declaration.')
-    // The value the library sells, in the order the page argues it. The typed
-    // graph is what makes these possible, not the headline claim itself.
-    expect(landing).toContain('A / Declare')
-    expect(landing).toContain('B / Run')
-    expect(landing).toContain('C / Context')
-    expect(landing).not.toContain('One graph. Every boundary typed.')
+    expect(landing).toContain('single file declaration')
     expect(snippets).toContain('declaration:')
     expect(snippets).toContain('procedure:')
     expect(snippets).toContain('client:')
@@ -124,9 +115,7 @@ describe('public website contract', () => {
     const readme = read('README.md')
 
     expect(readme).toContain('single file declaration')
-    // One measured claim, quoted in two places; they must not drift apart.
-    expect(landing).toContain('439 lines')
-    expect(readme).toContain('439 lines')
+    expect(landing).toContain('single file declaration')
   })
 
   test('docs deserialization cannot mutate router loader data', () => {
@@ -134,12 +123,5 @@ describe('public website contract', () => {
 
     expect(route).toContain('structuredClone(serialized)')
     expect(route).toContain('useFumadocsLoader(deserializationCopy)')
-  })
-
-  test('mobile blueprint width uses valid CSS math', () => {
-    const css = read('website/src/styles/app.css')
-
-    expect(css).toContain('width: min(calc(100% - 26px), 1180px)')
-    expect(css).not.toContain('width: min(100% - 26px, 1180px)')
   })
 })

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="bunderstack logo" width="128" />
+</p>
+
 # bunderstack
 
 **Your whole backend as a single file declaration.** Database, auth, CRUD,
