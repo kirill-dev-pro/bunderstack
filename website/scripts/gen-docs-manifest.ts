@@ -78,16 +78,20 @@ console.log(
 // `lastmod` comes from the last commit that touched the page, so a rebuild of
 // unchanged content does not tell crawlers the whole site changed today.
 function lastModified(file: string): string {
-  const git = Bun.spawnSync([
-    'git',
-    'log',
-    '-1',
-    '--format=%cI',
-    '--',
-    join(contentDir, file),
-  ])
-  const iso = git.success ? git.stdout.toString().trim() : ''
-  if (iso) return iso.slice(0, 10)
+  try {
+    const git = Bun.spawnSync([
+      'git',
+      'log',
+      '-1',
+      '--format=%cI',
+      '--',
+      join(contentDir, file),
+    ])
+    const iso = git.success ? git.stdout.toString().trim() : ''
+    if (iso) return iso.slice(0, 10)
+  } catch {
+    // git may not be installed in the build environment or .git may not be present
+  }
   return new Date().toISOString().slice(0, 10)
 }
 
