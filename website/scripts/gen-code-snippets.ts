@@ -178,11 +178,14 @@ connection.close()`,
 }
 
 const highlighter = await createHighlighter({
-  themes: ['min-light'],
+  themes: ['min-dark'],
   langs: ['ts'],
 })
 
 const twoslash = transformerTwoslash({
+  // `^?` queries render on their own line so the popup takes real layout
+  // space instead of covering the code beneath it.
+  rendererRich: { queryRendering: 'line' },
   twoslashOptions: {
     compilerOptions: {
       strict: true,
@@ -227,7 +230,7 @@ const out: Record<string, { html: string; code: string }> = {}
 for (const [name, code] of Object.entries(snippets)) {
   const html = highlighter.codeToHtml(code, {
     lang: 'ts',
-    theme: 'min-light',
+    theme: 'min-dark',
     transformers: [twoslash],
   })
   assertHealthyTypes(name, html)
