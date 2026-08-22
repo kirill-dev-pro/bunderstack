@@ -8,6 +8,17 @@ import {
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
 import { Provider } from '@/components/provider'
+import {
+  absoluteUrl,
+  GITHUB_URL,
+  NPM_URL,
+  OG_IMAGE,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_SOCIAL_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL,
+} from '@/lib/site'
 import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRoute({
@@ -16,54 +27,36 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { name: 'theme-color', content: '#050608' },
-      {
-        name: 'description',
-        content:
-          'Your whole backend as a single file declaration. Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object.',
-      },
-      {
-        name: 'keywords',
-        content:
-          'bun, backend framework, typescript, drizzle orm, better auth, orpc, rest api, s3, realtime, background jobs, sqlite, libsql, postgres, standard schema',
-      },
-      { name: 'author', content: 'bunderstack' },
+      // Routes override title/description; these keep the SPA fallback shell
+      // from being served to a crawler with an empty head.
+      { title: SITE_TITLE },
+      { name: 'description', content: SITE_DESCRIPTION },
+      { name: 'application-name', content: SITE_NAME },
+      { name: 'author', content: SITE_NAME },
       {
         name: 'robots',
         content:
           'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
       },
       // Open Graph
-      { property: 'og:site_name', content: 'bunderstack' },
+      { property: 'og:site_name', content: SITE_NAME },
       { property: 'og:type', content: 'website' },
       { property: 'og:locale', content: 'en_US' },
-      {
-        property: 'og:title',
-        content:
-          'bunderstack — Your whole backend as a single file declaration.',
-      },
-      {
-        property: 'og:description',
-        content:
-          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
-      },
-      { property: 'og:image', content: 'https://bunderstack.dev/og.webp' },
-      { property: 'og:image:type', content: 'image/webp' },
-      { property: 'og:image:width', content: '1200' },
-      { property: 'og:image:height', content: '630' },
-      { property: 'og:image:alt', content: 'bunderstack webpage preview' },
+      { property: 'og:title', content: SITE_TITLE },
+      { property: 'og:description', content: SITE_SOCIAL_DESCRIPTION },
+      { property: 'og:url', content: `${SITE_URL}/` },
+      { property: 'og:image', content: OG_IMAGE.url },
+      { property: 'og:image:secure_url', content: OG_IMAGE.url },
+      { property: 'og:image:type', content: OG_IMAGE.type },
+      { property: 'og:image:width', content: OG_IMAGE.width },
+      { property: 'og:image:height', content: OG_IMAGE.height },
+      { property: 'og:image:alt', content: OG_IMAGE.alt },
       // Twitter Card
       { name: 'twitter:card', content: 'summary_large_image' },
-      {
-        name: 'twitter:title',
-        content:
-          'bunderstack — Your whole backend as a single file declaration.',
-      },
-      {
-        name: 'twitter:description',
-        content:
-          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
-      },
-      { name: 'twitter:image', content: 'https://bunderstack.dev/og.webp' },
+      { name: 'twitter:title', content: SITE_TITLE },
+      { name: 'twitter:description', content: SITE_SOCIAL_DESCRIPTION },
+      { name: 'twitter:image', content: OG_IMAGE.url },
+      { name: 'twitter:image:alt', content: OG_IMAGE.alt },
     ],
     links: [
       { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -84,6 +77,7 @@ export const Route = createRootRoute({
         sizes: '180x180',
         href: '/apple-touch-icon.png',
       },
+      { rel: 'manifest', href: '/site.webmanifest' },
       {
         rel: 'alternate',
         type: 'text/plain',
@@ -101,37 +95,50 @@ const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'WebSite',
-      '@id': 'https://bunderstack.dev/#website',
-      url: 'https://bunderstack.dev',
-      name: 'bunderstack',
-      description:
-        'Your whole backend as a single file declaration. Batteries-included backend framework for Bun.',
-      publisher: {
-        '@type': 'Organization',
-        name: 'bunderstack',
-        url: 'https://bunderstack.dev',
-        logo: {
-          '@type': 'ImageObject',
-          url: 'https://bunderstack.dev/logo-1024.webp',
-        },
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/logo.png'),
+        width: 512,
+        height: 512,
       },
+      sameAs: [GITHUB_URL, NPM_URL],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      description: SITE_DESCRIPTION,
+      inLanguage: 'en',
+      publisher: { '@id': `${SITE_URL}/#organization` },
     },
     {
       '@type': 'SoftwareApplication',
-      '@id': 'https://bunderstack.dev/#software',
-      name: 'bunderstack',
+      '@id': `${SITE_URL}/#software`,
+      name: SITE_NAME,
       applicationCategory: 'DeveloperApplication',
+      applicationSubCategory: 'Backend framework',
       operatingSystem: 'macOS, Linux, Windows',
+      url: SITE_URL,
+      downloadUrl: NPM_URL,
+      codeRepository: GITHUB_URL,
+      programmingLanguage: 'TypeScript',
+      runtimePlatform: 'Bun',
+      image: OG_IMAGE.url,
+      description:
+        'Batteries-included backend framework for Bun: Drizzle + BetterAuth + oRPC + S3 + Jobs + Realtime in a single file declaration.',
+      license: 'https://opensource.org/licenses/MIT',
+      isAccessibleForFree: true,
       offers: {
         '@type': 'Offer',
         price: '0',
         priceCurrency: 'USD',
       },
-      description:
-        'Batteries-included backend framework for Bun: Drizzle + BetterAuth + oRPC + S3 + Jobs + Realtime in a single file declaration.',
-      url: 'https://bunderstack.dev',
-      license: 'https://opensource.org/licenses/MIT',
+      author: { '@id': `${SITE_URL}/#organization` },
     },
   ],
 }

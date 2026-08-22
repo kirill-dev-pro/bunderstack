@@ -1,0 +1,28 @@
+{
+  "name": "bunderstack",
+  "short_name": "bunderstack",
+  "description": "Declare database, auth, CRUD, storage, jobs, email, and realtime in one TypeScript file. Batteries-included backend framework for Bun, built on Drizzle, BetterAuth, and oRPC.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050608",
+  "theme_color": "#050608",
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

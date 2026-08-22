@@ -1,7 +1,7 @@
 BUNDERSTACK
 
 A batteries-included backend framework for Bun. Version 0.17 (beta).
-Docs: https://bunderstack.dev/docs
+Docs: https://bunderstack.kcrz.dev/docs
 This file is written for coding agents. It is dense on purpose.
 
 WHAT IT IS

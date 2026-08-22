@@ -33,6 +33,12 @@ export default defineConfig({
       srcDirectory: 'src',
       spa: {
         enabled: true,
+        // The shell renders from its own route (src/routes/shell.tsx) and is
+        // written to _shell.html. With the default mask ("/") the shell and
+        // the real landing page are one prerender entry, and the empty-bodied
+        // shell wins — crawlers then get a landing page with no markup at all.
+        // A dedicated mask keeps index.html as the prerendered landing page.
+        maskPath: '/shell',
         prerender: { enabled: true, crawlLinks: false },
       },
       // `spa.prerender` only configures the SPA shell. Page prerendering reads

@@ -13,6 +13,8 @@ import { loader, type VirtualFile } from 'fumadocs-core/source'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '../src/lib/site'
+
 const root = join(import.meta.dir, '..')
 const contentDir = join(root, 'content/docs')
 const outFile = join(root, 'src/lib/docs-manifest.gen.json')
@@ -73,14 +75,39 @@ console.log(
 )
 
 // Generate sitemap.xml
-const siteUrl = 'https://bunderstack.dev'
-const sitemapPages = [
-  { loc: `${siteUrl}/`, priority: '1.0', changefreq: 'weekly' },
-  ...Object.keys(paths).map((slug) => ({
-    loc: slug ? `${siteUrl}/docs/${slug}` : `${siteUrl}/docs`,
+// `lastmod` comes from the last commit that touched the page, so a rebuild of
+// unchanged content does not tell crawlers the whole site changed today.
+function lastModified(file: string): string {
+  const git = Bun.spawnSync([
+    'git',
+    'log',
+    '-1',
+    '--format=%cI',
+    '--',
+    join(contentDir, file),
+  ])
+  const iso = git.success ? git.stdout.toString().trim() : ''
+  if (iso) return iso.slice(0, 10)
+  return new Date().toISOString().slice(0, 10)
+}
+
+const docEntries = Object.entries(paths)
+  .map(([slug, file]) => ({
+    loc: slug ? `${SITE_URL}/docs/${slug}` : `${SITE_URL}/docs`,
+    lastmod: lastModified(file),
     priority: slug === '' || slug === 'getting-started' ? '0.9' : '0.8',
     changefreq: 'weekly',
-  })),
+  }))
+  .sort((a, b) => a.loc.localeCompare(b.loc))
+
+const sitemapPages = [
+  {
+    loc: `${SITE_URL}/`,
+    lastmod: new Date().toISOString().slice(0, 10),
+    priority: '1.0',
+    changefreq: 'weekly',
+  },
+  ...docEntries,
 ]
 
 const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -89,6 +116,7 @@ ${sitemapPages
   .map(
     (p) => `  <url>
     <loc>${p.loc}</loc>
+    <lastmod>${p.lastmod}</lastmod>
     <changefreq>${p.changefreq}</changefreq>
     <priority>${p.priority}</priority>
   </url>`,
@@ -99,11 +127,44 @@ ${sitemapPages
 
 await Bun.write(join(root, 'public/sitemap.xml'), sitemapXml)
 
-// Generate robots.txt
+// Generate robots.txt. The search endpoint returns a JSON index, not a page —
+// keeping it out of the crawl budget costs nothing and avoids a junk result.
 const robotsTxt = `User-agent: *
 Allow: /
+Disallow: /api/
 
-Sitemap: ${siteUrl}/sitemap.xml
+# Condensed documentation for LLM agents: ${SITE_URL}/llms.txt
+
+Sitemap: ${SITE_URL}/sitemap.xml
 `
 await Bun.write(join(root, 'public/robots.txt'), robotsTxt)
-console.log('seo: generated public/sitemap.xml & public/robots.txt')
+
+// Generate site.webmanifest — installability plus a defined icon set for
+// Android/Chrome, which otherwise upscales the favicon.
+const webmanifest = {
+  name: SITE_NAME,
+  short_name: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  start_url: '/',
+  scope: '/',
+  display: 'standalone',
+  background_color: '#050608',
+  theme_color: '#050608',
+  icons: [
+    { src: '/logo-192.png', sizes: '192x192', type: 'image/png' },
+    { src: '/logo.png', sizes: '512x512', type: 'image/png' },
+    {
+      src: '/logo.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable',
+    },
+  ],
+}
+await Bun.write(
+  join(root, 'public/site.webmanifest'),
+  `${JSON.stringify(webmanifest, null, 2)}\n`,
+)
+console.log(
+  'seo: generated public/sitemap.xml, public/robots.txt & public/site.webmanifest',
+)

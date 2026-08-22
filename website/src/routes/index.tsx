@@ -5,10 +5,24 @@ import '@fontsource-variable/ubuntu-sans'
 import '@fontsource-variable/tektur'
 import '@shikijs/twoslash/style-rich.css'
 
+// The landing page is the only page using these faces. Preloading the latin
+// subsets removes the swap flash on the headline, which is the LCP element.
+import tekturLatin from '@fontsource-variable/tektur/files/tektur-latin-wght-normal.woff2?url'
+import ubuntuSansLatin from '@fontsource-variable/ubuntu-sans/files/ubuntu-sans-latin-wght-normal.woff2?url'
+
 import snippets from '@/lib/code-snippets.gen.json'
 import { ThemeToggle } from '@/components/theme-toggle'
+import {
+  GITHUB_URL,
+  OG_IMAGE,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_SOCIAL_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL,
+} from '@/lib/site'
 
-const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
+const GITHUB = GITHUB_URL
 
 interface ConceptBlock {
   id: string
@@ -175,38 +189,77 @@ const FRONTEND_POINTS = [
   'Direct file uploads and on-the-fly transformed image URLs.',
 ]
 
+/**
+ * Page-level graph. The site-wide WebSite/Organization/SoftwareApplication
+ * nodes live in __root.tsx; these nodes only reference them by @id so the
+ * same entity is never described twice.
+ */
+const landingStructuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${SITE_URL}/#webpage`,
+      url: `${SITE_URL}/`,
+      name: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      inLanguage: 'en',
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      about: { '@id': `${SITE_URL}/#software` },
+      primaryImageOfPage: {
+        '@type': 'ImageObject',
+        url: OG_IMAGE.url,
+        width: Number(OG_IMAGE.width),
+        height: Number(OG_IMAGE.height),
+      },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_URL}/#software`,
+      name: SITE_NAME,
+      abstract: SITE_SOCIAL_DESCRIPTION,
+      featureList: CONCEPTS.map(
+        (concept) => `${concept.title} — ${concept.library}`,
+      ),
+    },
+  ],
+}
+
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'bunderstack — Your whole backend as a single file declaration' },
+      { title: SITE_TITLE },
+      { name: 'description', content: SITE_DESCRIPTION },
+      { property: 'og:title', content: SITE_TITLE },
+      { property: 'og:description', content: SITE_SOCIAL_DESCRIPTION },
+      { property: 'og:url', content: `${SITE_URL}/` },
+      { property: 'og:type', content: 'website' },
+      { name: 'twitter:title', content: SITE_TITLE },
+      { name: 'twitter:description', content: SITE_SOCIAL_DESCRIPTION },
+    ],
+    links: [
+      { rel: 'canonical', href: `${SITE_URL}/` },
       {
-        name: 'description',
-        content:
-          'Declare schema, auth, storage, jobs, email, and realtime in one file. Batteries-included backend framework for Bun.',
+        rel: 'preload',
+        as: 'font',
+        type: 'font/woff2',
+        href: tekturLatin,
+        crossOrigin: 'anonymous',
       },
       {
-        property: 'og:title',
-        content:
-          'bunderstack — Your whole backend as a single file declaration',
-      },
-      {
-        property: 'og:description',
-        content:
-          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
-      },
-      { property: 'og:url', content: 'https://bunderstack.dev/' },
-      {
-        name: 'twitter:title',
-        content:
-          'bunderstack — Your whole backend as a single file declaration',
-      },
-      {
-        name: 'twitter:description',
-        content:
-          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
+        rel: 'preload',
+        as: 'font',
+        type: 'font/woff2',
+        href: ubuntuSansLatin,
+        crossOrigin: 'anonymous',
       },
     ],
-    links: [{ rel: 'canonical', href: 'https://bunderstack.dev/' }],
+    scripts: [
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify(landingStructuredData),
+      },
+    ],
   }),
   component: Landing,
 })
@@ -380,9 +433,10 @@ function Landing() {
         <div aria-hidden className="landing-hero__glow" />
         <div className="landing-hero__logo-box" aria-hidden="true">
           <img
-            src="/logo.webp"
-            alt="bunderstack logo"
+            src="/logo-192.webp"
+            alt=""
             className="landing-hero__logo"
+            fetchPriority="high"
             width={96}
             height={96}
           />

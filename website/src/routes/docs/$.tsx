@@ -19,6 +19,7 @@ import { useMDXComponents } from '@/components/mdx'
 // for static hosting (GitHub Pages), where /_serverFn/* RPCs would 404.
 import manifestJson from '@/lib/docs-manifest.gen.json'
 import { baseOptions } from '@/lib/layout.shared'
+import { OG_IMAGE, SITE_NAME, SITE_URL } from '@/lib/site'
 
 // The JSON is produced by fumadocs-core's own serializePageTree (see the
 // generator script), so this assertion restores the type the JSON import
@@ -31,6 +32,52 @@ const manifest = manifestJson as unknown as {
 
 const paths = manifest.paths
 const pagesMeta = manifest.pagesMeta ?? {}
+
+/**
+ * TechArticle + breadcrumbs per docs page. Search engines use the breadcrumb
+ * trail in the result snippet, and the article node ties each page back to the
+ * site-wide entities declared in __root.tsx.
+ */
+function docsStructuredData(
+  slug: string,
+  pageMeta: { title: string; description: string },
+  canonicalUrl: string,
+) {
+  const trail = [
+    { name: 'Home', item: `${SITE_URL}/` },
+    { name: 'Docs', item: `${SITE_URL}/docs` },
+    ...(slug ? [{ name: pageMeta.title, item: canonicalUrl }] : []),
+  ]
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'TechArticle',
+        '@id': `${canonicalUrl}#article`,
+        headline: pageMeta.title,
+        description: pageMeta.description,
+        url: canonicalUrl,
+        inLanguage: 'en',
+        image: OG_IMAGE.url,
+        isPartOf: { '@id': `${SITE_URL}/#website` },
+        about: { '@id': `${SITE_URL}/#software` },
+        publisher: { '@id': `${SITE_URL}/#organization` },
+        proficiencyLevel: 'Beginner',
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${canonicalUrl}#breadcrumb`,
+        itemListElement: trail.map((entry, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: entry.name,
+          item: entry.item,
+        })),
+      },
+    ],
+  }
+}
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,
@@ -53,10 +100,10 @@ export const Route = createFileRoute('/docs/$')({
         title: 'Documentation',
         description: 'bunderstack documentation',
       }
-    const pageTitle = `${pageMeta.title} — bunderstack`
+    const pageTitle = `${pageMeta.title} — ${SITE_NAME}`
     const canonicalUrl = slug
-      ? `https://bunderstack.dev/docs/${slug}`
-      : `https://bunderstack.dev/docs`
+      ? `${SITE_URL}/docs/${slug}`
+      : `${SITE_URL}/docs`
 
     return {
       meta: [
@@ -66,10 +113,17 @@ export const Route = createFileRoute('/docs/$')({
         { property: 'og:description', content: pageMeta.description },
         { property: 'og:url', content: canonicalUrl },
         { property: 'og:type', content: 'article' },
+        { property: 'article:section', content: 'Documentation' },
         { name: 'twitter:title', content: pageTitle },
         { name: 'twitter:description', content: pageMeta.description },
       ],
       links: [{ rel: 'canonical', href: canonicalUrl }],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(docsStructuredData(slug, pageMeta, canonicalUrl)),
+        },
+      ],
     }
   },
 })

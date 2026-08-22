@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 
-Sitemap: https://bunderstack.dev/sitemap.xml
+# Condensed documentation for LLM agents: https://bunderstack.kcrz.dev/llms.txt
+
+Sitemap: https://bunderstack.kcrz.dev/sitemap.xml
