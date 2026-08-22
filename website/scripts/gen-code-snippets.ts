@@ -12,41 +12,29 @@ const drizzleOrmDir = dirname(
   ),
 )
 
-const SCHEMA_FILE = `// @filename: schema.ts
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+const APP_FILE = `// @filename: bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import * as v from 'valibot'
+
 export const posts = sqliteTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
 })
-`
-
-const APP_FILE = `// @filename: bunderstack.ts
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import * as v from 'valibot'
-import * as schema from './schema'
 
 export const app = await createBunderstack({
-  schema,
+  schema: { posts },
   database: { adapter: libsql() },
-  access: {
-    posts: {
-      ownerColumn: 'userId',
-      searchableColumns: ['title'],
-      sortableColumns: ['createdAt', 'id'],
-    },
-  },
+  auth: { secret: process.env.AUTH_SECRET! },
+  access: { posts: { ownerColumn: 'userId' } },
   realtime: true,
   api: (o) => ({
-    stats: o.protected
-      .input(v.object({ boardId: v.string() }))
-      .handler(async ({ context, input }) => ({
-        boardId: input.boardId,
-        total: 12,
-        requestedBy: context.user.id,
-      })),
+    stats: o.protected.handler(async ({ context }) => ({
+      total: 12,
+      requestedBy: context.user.id,
+    })),
   }),
 })
 
@@ -63,38 +51,28 @@ export const api = createClient<App>({ queryClient })
 `
 
 const snippets: Record<string, string> = {
-  declaration: `${SCHEMA_FILE}// @filename: bunderstack.ts
+  declaration: `// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
-import * as schema from './schema'
+
+const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  userId: text('userId').notNull(),
+})
 
 export const app = await createBunderstack({
-  schema,
+  schema: { posts },
   database: { adapter: libsql() },
-
-  // Sessions, providers, and the user tables, on the same database.
   auth: { secret: process.env.AUTH_SECRET! },
-
-  // Generated CRUD, with the rules it is allowed to answer.
-  access: {
-    posts: { ownerColumn: 'userId', searchableColumns: ['title'] },
-  },
-
-  // Checked at boot; \`app.env\` and \`ctx.env\` are typed from here.
+  access: { posts: { ownerColumn: 'userId' } },
   env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
-
-  // Local disk in dev, S3 in production, resizing on the way out.
   storage: { local: true, buckets: { images: { transforms: true } } },
-
-  // Console in dev, SMTP or Resend in production.
   email: { from: 'hello@example.com' },
-
-  // An SSE endpoint plus broadcast-on-write for every change.
   realtime: true,
-
-  // A durable queue and cron, from the same process model.
   jobs: (j) =>
     j.define({
       digest: j.cron({
@@ -108,46 +86,43 @@ export const app = await createBunderstack({
         },
       }),
     }),
-
-  // Anything CRUD does not cover.
   api: (o) => ({
-    stats: o.protected
-      .input(v.object({ boardId: v.string() }))
-      .handler(async ({ context, input }) => ({
-        boardId: input.boardId,
-        total: 12,
-        requestedBy: context.user.id,
-      })),
+    stats: o.protected.handler(async ({ context }) => ({
+      total: 12,
+      requestedBy: context.user.id,
+    })),
   }),
 })
 
 export type App = typeof app`,
 
-  procedure: `${SCHEMA_FILE}// @filename: bunderstack.ts
+  procedure: `// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
-import * as v from 'valibot'
-import * as schema from './schema'
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+
+const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  userId: text('userId').notNull(),
+})
 
 export const app = await createBunderstack({
-  schema,
+  schema: { posts },
   database: { adapter: libsql() },
   realtime: true,
   api: (o) => ({
-    stats: o.protected
-      .input(v.object({ boardId: v.string() }))
-      .handler(async ({ context, input }) => ({
-        boardId: input.boardId,
-        total: 12,
-        requestedBy: context.user.id,
-      })),
+    stats: o.protected.handler(async ({ context }) => ({
+      total: 12,
+      requestedBy: context.user.id,
+    })),
   }),
 })
 
 export type App = typeof app`,
 
-  client: `${SCHEMA_FILE}${APP_FILE}// @filename: client.ts
+  client: `${APP_FILE}// @filename: client.ts
 // ---cut---
 import { QueryClient } from '@tanstack/react-query'
 import { createClient } from 'bunderstack-query'
@@ -155,13 +130,13 @@ import type { App } from './bunderstack'
 
 const queryClient = new QueryClient()
 const api = createClient<App>({ queryClient })
-const result = await api.stats.call({ boardId: 'board_42' })
+const result = await api.stats.call()
 //    ^?
 
 result.total
 result.requestedBy`,
 
-  realtime: `${SCHEMA_FILE}${APP_FILE}${CLIENT_FILE}// @filename: realtime.ts
+  realtime: `${APP_FILE}${CLIENT_FILE}// @filename: realtime.ts
 // ---cut---
 import { syncRealtime } from 'bunderstack-query'
 import { api, queryClient } from './api-client'
