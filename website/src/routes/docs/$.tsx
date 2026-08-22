@@ -26,9 +26,11 @@ import { baseOptions } from '@/lib/layout.shared'
 const manifest = manifestJson as unknown as {
   pageTree: SerializedPageTree
   paths: Record<string, string>
+  pagesMeta?: Record<string, { title: string; description: string }>
 }
 
 const paths = manifest.paths
+const pagesMeta = manifest.pagesMeta ?? {}
 
 export const Route = createFileRoute('/docs/$')({
   component: Page,
@@ -37,7 +39,38 @@ export const Route = createFileRoute('/docs/$')({
     const path = paths[slug]
     if (!path) throw notFound()
     await clientLoader.preload(path)
-    return { path, pageTree: manifest.pageTree }
+    const pageMeta = pagesMeta[slug] ?? {
+      title: 'Documentation',
+      description: 'bunderstack documentation',
+    }
+    return { path, pageTree: manifest.pageTree, pageMeta }
+  },
+  head: ({ loaderData, params }) => {
+    const slug = params?._splat ?? ''
+    const pageMeta =
+      loaderData?.pageMeta ??
+      pagesMeta[slug] ?? {
+        title: 'Documentation',
+        description: 'bunderstack documentation',
+      }
+    const pageTitle = `${pageMeta.title} — bunderstack`
+    const canonicalUrl = slug
+      ? `https://bunderstack.dev/docs/${slug}`
+      : `https://bunderstack.dev/docs`
+
+    return {
+      meta: [
+        { title: pageTitle },
+        { name: 'description', content: pageMeta.description },
+        { property: 'og:title', content: pageTitle },
+        { property: 'og:description', content: pageMeta.description },
+        { property: 'og:url', content: canonicalUrl },
+        { property: 'og:type', content: 'article' },
+        { name: 'twitter:title', content: pageTitle },
+        { name: 'twitter:description', content: pageMeta.description },
+      ],
+      links: [{ rel: 'canonical', href: canonicalUrl }],
+    }
   },
 })
 

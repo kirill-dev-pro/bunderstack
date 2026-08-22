@@ -54,11 +54,56 @@ for (const entry of (await readdir(contentDir)).sort()) {
 const source = loader({ baseUrl: '/docs', source: { files } })
 const pageTree = await source.serializePageTree(source.getPageTree())
 const paths: Record<string, string> = {}
+const pagesMeta: Record<string, { title: string; description: string }> = {}
 for (const page of source.getPages()) {
-  paths[page.slugs.join('/')] = page.path
+  const slug = page.slugs.join('/')
+  paths[slug] = page.path
+  pagesMeta[slug] = {
+    title: (page.data as any).title ?? 'Documentation',
+    description: (page.data as any).description ?? '',
+  }
 }
 
-await Bun.write(outFile, JSON.stringify({ pageTree, paths }, null, 2))
+await Bun.write(
+  outFile,
+  JSON.stringify({ pageTree, paths, pagesMeta }, null, 2),
+)
 console.log(
   `docs-manifest: ${Object.keys(paths).length} pages → src/lib/docs-manifest.gen.json`,
 )
+
+// Generate sitemap.xml
+const siteUrl = 'https://bunderstack.dev'
+const sitemapPages = [
+  { loc: `${siteUrl}/`, priority: '1.0', changefreq: 'weekly' },
+  ...Object.keys(paths).map((slug) => ({
+    loc: slug ? `${siteUrl}/docs/${slug}` : `${siteUrl}/docs`,
+    priority: slug === '' || slug === 'getting-started' ? '0.9' : '0.8',
+    changefreq: 'weekly',
+  })),
+]
+
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapPages
+  .map(
+    (p) => `  <url>
+    <loc>${p.loc}</loc>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`,
+  )
+  .join('\n')}
+</urlset>
+`
+
+await Bun.write(join(root, 'public/sitemap.xml'), sitemapXml)
+
+// Generate robots.txt
+const robotsTxt = `User-agent: *
+Allow: /
+
+Sitemap: ${siteUrl}/sitemap.xml
+`
+await Bun.write(join(root, 'public/robots.txt'), robotsTxt)
+console.log('seo: generated public/sitemap.xml & public/robots.txt')

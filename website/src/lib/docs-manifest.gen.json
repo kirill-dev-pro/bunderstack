@@ -176,5 +176,79 @@
     "sync-collections": "sync-collections.mdx",
     "templates-and-skills": "templates-and-skills.mdx",
     "thumbnails": "thumbnails.mdx"
+  },
+  "pagesMeta": {
+    "api-procedures": {
+      "title": "API Procedures",
+      "description": "Typed application behavior with oRPC and Standard Schema"
+    },
+    "api-reference": {
+      "title": "API Reference",
+      "description": "Current public surface of Bunderstack and its client packages"
+    },
+    "auth": {
+      "title": "Auth",
+      "description": "BetterAuth wired to your Drizzle database"
+    },
+    "background-jobs": {
+      "title": "Background jobs and cron",
+      "description": "One table, one loop, one deployable process"
+    },
+    "configuration": {
+      "title": "Configuration",
+      "description": "createBunderstack options, transports, adapters, and lifecycle"
+    },
+    "crud": {
+      "title": "Auto CRUD",
+      "description": "Generated oRPC procedures with row-level access control"
+    },
+    "email": {
+      "title": "Email",
+      "description": "Send emails with resend, SMTP, console, or a custom adapter"
+    },
+    "env": {
+      "title": "Environment Validation",
+      "description": "Standard Schema validation for server and browser environment values"
+    },
+    "framework-portability": {
+      "title": "Framework Portability",
+      "description": "Mount app.handler in any modern TypeScript framework"
+    },
+    "getting-started": {
+      "title": "Getting Started",
+      "description": "Build and call a typed Bunderstack API in five minutes"
+    },
+    "http-webhooks": {
+      "title": "HTTP & Webhooks",
+      "description": "Ordinary HTTP routes and signed provider callbacks in the same API graph"
+    },
+    "": {
+      "title": "Introduction",
+      "description": "One typed backend graph for Bun applications"
+    },
+    "middleware": {
+      "title": "Middleware",
+      "description": "Run code around one base, or around every procedure in the graph"
+    },
+    "query-client": {
+      "title": "Query Client",
+      "description": "An oRPC and TanStack Query client inferred from your app"
+    },
+    "storage": {
+      "title": "Storage",
+      "description": "File uploads with local filesystem or S3"
+    },
+    "sync-collections": {
+      "title": "Sync & Realtime",
+      "description": "Typed TanStack DB collections over the oRPC Publisher transport"
+    },
+    "templates-and-skills": {
+      "title": "Templates & Agent Skills",
+      "description": "Production-ready BunderSaaS template and TanStack AI agent skills"
+    },
+    "thumbnails": {
+      "title": "Thumbnails",
+      "description": "On-the-fly image transforms via sharp"
+    }
   }
 }

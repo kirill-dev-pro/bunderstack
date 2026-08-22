@@ -9,7 +9,7 @@ export function baseOptions(): BaseLayoutProps {
       title: (
         <span className="flex items-center gap-2 font-bold tracking-tight">
           <img
-            src="/logo-192.png"
+            src="/logo-192.webp"
             alt="bunderstack"
             className="w-5 h-5 rounded object-contain"
             width={20}

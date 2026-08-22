@@ -178,13 +178,35 @@ const FRONTEND_POINTS = [
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'Bunderstack — your whole backend as a single file declaration' },
+      { title: 'bunderstack — Your whole backend as a single file declaration' },
       {
         name: 'description',
         content:
-          'Declare schema, auth, storage, jobs, email, and realtime in one file. `bun run dev` starts all of it with no setup. Small enough to fit in your agent context and in your head.',
+          'Declare schema, auth, storage, jobs, email, and realtime in one file. Batteries-included backend framework for Bun.',
+      },
+      {
+        property: 'og:title',
+        content:
+          'bunderstack — Your whole backend as a single file declaration',
+      },
+      {
+        property: 'og:description',
+        content:
+          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
+      },
+      { property: 'og:url', content: 'https://bunderstack.dev/' },
+      {
+        name: 'twitter:title',
+        content:
+          'bunderstack — Your whole backend as a single file declaration',
+      },
+      {
+        name: 'twitter:description',
+        content:
+          'Database, auth, CRUD, storage, jobs, email, and realtime are keys on one object, and bun run dev starts all of it.',
       },
     ],
+    links: [{ rel: 'canonical', href: 'https://bunderstack.dev/' }],
   }),
   component: Landing,
 })
@@ -334,7 +356,7 @@ function Landing() {
       <nav className="landing-nav" aria-label="Main navigation">
         <Link className="landing-brand" to="/">
           <img
-            src="/logo-192.png"
+            src="/logo-192.webp"
             alt="bunderstack logo"
             className="landing-brand__logo"
             width={26}
@@ -358,7 +380,7 @@ function Landing() {
         <div aria-hidden className="landing-hero__glow" />
         <div className="landing-hero__logo-box" aria-hidden="true">
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="bunderstack logo"
             className="landing-hero__logo"
             width={96}
@@ -520,7 +542,7 @@ function Landing() {
       <footer className="landing-footer">
         <div className="landing-footer__brand">
           <img
-            src="/logo-192.png"
+            src="/logo-192.webp"
             alt="bunderstack logo"
             width={20}
             height={20}
