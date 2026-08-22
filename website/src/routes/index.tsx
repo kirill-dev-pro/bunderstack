@@ -10,33 +10,128 @@ import { ThemeToggle } from '@/components/theme-toggle'
 
 const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
 
-const CAPABILITIES = [
+interface ConceptBlock {
+  id: string
+  title: string
+  library: string
+  docPath: string
+  color: string
+  colorRgb: string
+  code: string
+  description: string
+}
+
+const CONCEPTS: ConceptBlock[] = [
   {
-    group: 'data',
-    items: [
-      ['Drizzle schema', 'Your tables remain the source of truth.'],
-      ['Generated CRUD', 'Access, filters, pagination, idempotency.'],
-      ['SQLite + Postgres', 'Choose one adapter; keep the same app model.'],
-    ],
+    id: 'database',
+    title: 'Database & Schema',
+    library: 'Drizzle ORM · LibSQL / Postgres',
+    docPath: 'configuration',
+    color: '#3b82f6',
+    colorRgb: '59, 130, 246',
+    code: `schema: { posts },
+database: { adapter: libsql() }`,
+    description:
+      'Zero-boilerplate database with automatic schema migrations, typed relations, and type-safe query building.',
   },
   {
-    group: 'application',
-    items: [
-      ['oRPC procedures', 'Public, protected, HTTP, and webhook.'],
-      ['Better Auth', 'Sessions and providers on the same database.'],
-      [
-        'Standard Schema',
-        'Valibot, Zod, ArkType, or your preferred validator.',
-      ],
-    ],
+    id: 'auth',
+    title: 'Authentication',
+    library: 'Better Auth',
+    docPath: 'auth',
+    color: '#10b981',
+    colorRgb: '16, 185, 129',
+    code: `auth: {
+  secret: process.env.AUTH_SECRET!
+}`,
+    description:
+      'Sessions, credentials, OAuth providers, and user management stored directly on your application database.',
   },
   {
-    group: 'runtime',
-    items: [
-      ['Realtime Publisher', 'Typed changes, resume, heartbeat, backoff.'],
-      ['Background jobs', 'Durable queue and cron from one process model.'],
-      ['Files + email', 'Local or S3 storage; console, Resend, or SMTP.'],
-    ],
+    id: 'crud',
+    title: 'Access & CRUD',
+    library: 'Drizzle ORM · oRPC',
+    docPath: 'crud',
+    color: '#8b5cf6',
+    colorRgb: '139, 92, 246',
+    code: `access: {
+  posts: { ownerColumn: 'userId' }
+}`,
+    description:
+      'Declarative row-level security and auto-generated type-safe CRUD operations with cursor pagination.',
+  },
+  {
+    id: 'api',
+    title: 'Typed API & Procedures',
+    library: 'oRPC · Standard Schema',
+    docPath: 'api-procedures',
+    color: '#ec4899',
+    colorRgb: '236, 72, 153',
+    code: `api: (o) => ({
+  stats: o.protected.handler(async ({ context }) => ({
+    total: 12,
+    requestedBy: context.user.id,
+  })),
+})`,
+    description:
+      'End-to-end typed RPC endpoints, OpenAPI generation, input validation with Valibot or Zod, and procedure middleware.',
+  },
+  {
+    id: 'storage',
+    title: 'S3 Storage & Transforms',
+    library: 'Bun.s3 / S3 · Bun.Image',
+    docPath: 'storage',
+    color: '#f59e0b',
+    colorRgb: '245, 158, 11',
+    code: `storage: {
+  local: true,
+  buckets: { images: { transforms: true } }
+}`,
+    description:
+      'Local dev storage or S3 buckets with signed URLs, direct file uploads, and on-the-fly image transformations.',
+  },
+  {
+    id: 'email',
+    title: 'Transactional Email',
+    library: 'Nodemailer · Resend / SMTP',
+    docPath: 'email',
+    color: '#06b6d4',
+    colorRgb: '6, 182, 212',
+    code: `email: {
+  from: 'hello@example.com'
+}`,
+    description:
+      'Type-safe transactional emailing with dev console logging in development and Resend or SMTP in production.',
+  },
+  {
+    id: 'realtime',
+    title: 'Realtime Sync',
+    library: 'SSE · Redis · WebSockets',
+    docPath: 'sync-collections',
+    color: '#14b8a6',
+    colorRgb: '20, 184, 166',
+    code: `realtime: true`,
+    description:
+      'Live database change broadcasts with automatic reconnection, heartbeat, and query cache patching.',
+  },
+  {
+    id: 'jobs',
+    title: 'Background Jobs & Cron',
+    library: 'Durable Scheduler · Queue',
+    docPath: 'background-jobs',
+    color: '#e11d48',
+    colorRgb: '225, 29, 72',
+    code: `jobs: (j) =>
+  j.define({
+    digest: j.cron({
+      schedule: '0 9 * * *',
+      handler: async (_run, ctx) => {
+        await ctx.email.send({ ... })
+      },
+    }),
+  })`,
+    description:
+      'Durable background queues with exponential backoff retries and cron scheduling unified into one process.',
   },
 ]
 
@@ -159,6 +254,77 @@ function CodePanel({
   )
 }
 
+function ConceptHexGrid() {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const container = e.currentTarget
+    const cards = container.getElementsByClassName('landing-hex-card')
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i] as HTMLElement
+      const rect = card.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      card.style.setProperty('--mouse-x', `${x}px`)
+      card.style.setProperty('--mouse-y', `${y}px`)
+    }
+  }
+
+  return (
+    <div className="landing-hex-grid" onMouseMove={handleMouseMove}>
+      {CONCEPTS.map((concept) => (
+        <article
+          key={concept.id}
+          className="landing-hex-card"
+          style={
+            {
+              '--card-accent': concept.color,
+              '--card-accent-rgb': concept.colorRgb,
+            } as React.CSSProperties
+          }
+        >
+          <div className="landing-hex-card__glow" />
+          <div className="landing-hex-card__inner">
+            <header className="landing-hex-card__header">
+              <div className="landing-hex-card__title-row">
+                <span
+                  className="landing-hex-card__dot"
+                  style={{ backgroundColor: concept.color }}
+                  aria-hidden="true"
+                />
+                <h3 className="landing-hex-card__title">{concept.title}</h3>
+              </div>
+              <span className="landing-hex-card__lib">{concept.library}</span>
+            </header>
+
+            {snippets.concepts?.[concept.id] ? (
+              <div
+                className="landing-hex-card__code"
+                dangerouslySetInnerHTML={{
+                  __html: snippets.concepts[concept.id],
+                }}
+              />
+            ) : (
+              <pre className="landing-hex-card__code">
+                <code>{concept.code}</code>
+              </pre>
+            )}
+
+            <div className="landing-hex-card__footer">
+              <p className="landing-hex-card__desc">{concept.description}</p>
+              <Link
+                to="/docs/$"
+                params={{ _splat: concept.docPath }}
+                className="landing-hex-card__link"
+              >
+                Docs <span>→</span>
+              </Link>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 function Landing() {
   usePinnablePopups()
   const [mobileTab, setMobileTab] = useState<'backend' | 'frontend'>('backend')
@@ -185,7 +351,7 @@ function Landing() {
       <header className="landing-hero">
         <div aria-hidden className="landing-hero__glow" />
         <h1>
-          Your whole backend as a <em>single file declaration</em>.
+          Your whole backend as a <em>single file</em>.
         </h1>
         <p className="landing-hero__lede">
           Database, auth, CRUD, storage, jobs, email, and realtime are keys on
@@ -285,17 +451,7 @@ function Landing() {
           Each of these is useful alone. Together they remove the adapters and
           lifecycle code that normally fill the space between them.
         </p>
-        <div className="landing-grid">
-          {CAPABILITIES.flatMap((column) =>
-            column.items.map(([title, description]) => (
-              <article className="landing-card" key={title}>
-                <span className="landing-card__group">{column.group}</span>
-                <h3>{title}</h3>
-                <p>{description}</p>
-              </article>
-            )),
-          )}
-        </div>
+        <ConceptHexGrid />
       </section>
 
       <section id="examples" className="landing-section">

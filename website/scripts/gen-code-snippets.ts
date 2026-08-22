@@ -307,7 +307,41 @@ function assertHealthyTypes(name: string, html: string) {
   }
 }
 
-const out: Record<string, { html: string; code: string }> = {}
+const conceptSnippets: Record<string, string> = {
+  database: `schema: { posts },
+database: { adapter: libsql() }`,
+  auth: `auth: {
+  secret: process.env.AUTH_SECRET!
+}`,
+  crud: `access: {
+  posts: { ownerColumn: 'userId' }
+}`,
+  api: `api: (o) => ({
+  stats: o.protected.handler(async ({ context }) => ({
+    total: 12,
+    requestedBy: context.user.id,
+  })),
+})`,
+  storage: `storage: {
+  local: true,
+  buckets: { images: { transforms: true } }
+}`,
+  email: `email: {
+  from: 'hello@example.com'
+}`,
+  realtime: `realtime: true`,
+  jobs: `jobs: (j) =>
+  j.define({
+    digest: j.cron({
+      schedule: '0 9 * * *',
+      handler: async (_run, ctx) => {
+        await ctx.email.send({ ... })
+      },
+    }),
+  })`,
+}
+
+const out: Record<string, any> = {}
 for (const [name, code] of Object.entries(snippets)) {
   activeSnippet = name
   const lang = name === 'frontend' ? 'tsx' : 'ts'
@@ -321,5 +355,14 @@ for (const [name, code] of Object.entries(snippets)) {
   console.log(`snippet ok: ${name}`)
 }
 
+const conceptsOut: Record<string, string> = {}
+for (const [id, code] of Object.entries(conceptSnippets)) {
+  conceptsOut[id] = highlighter.codeToHtml(code, {
+    lang: 'ts',
+    theme: 'min-dark',
+  })
+}
+out.concepts = conceptsOut
+
 await Bun.write(outFile, JSON.stringify(out, null, 2))
-console.log(`code-snippets: ${Object.keys(out).length} focused stories`)
+console.log(`code-snippets: ${Object.keys(out).length} stories & concepts generated`)
