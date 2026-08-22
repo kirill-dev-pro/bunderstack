@@ -2,28 +2,32 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const isDark = mounted ? resolvedTheme === 'dark' : true
+  const currentTheme = mounted ? (theme ?? 'system') : 'system'
 
   return (
-    <button
-      type="button"
+    <div
       className={`landing-theme-toggle ${className ?? ''}`}
-      aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-      title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      role="group"
+      aria-label="Color theme"
     >
-      {isDark ? (
+      <button
+        type="button"
+        className={`landing-theme-toggle__btn ${currentTheme === 'light' ? 'landing-theme-toggle__btn--active' : ''}`}
+        aria-label="Light theme"
+        title="Light theme"
+        onClick={() => setTheme('light')}
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
+          width="14"
+          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -42,11 +46,19 @@ export function ThemeToggle({ className }: { className?: string }) {
           <path d="m6.34 17.66-1.41 1.41" />
           <path d="m19.07 4.93-1.41 1.41" />
         </svg>
-      ) : (
+      </button>
+
+      <button
+        type="button"
+        className={`landing-theme-toggle__btn ${currentTheme === 'dark' ? 'landing-theme-toggle__btn--active' : ''}`}
+        aria-label="Dark theme"
+        title="Dark theme"
+        onClick={() => setTheme('dark')}
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
+          width="14"
+          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -57,7 +69,32 @@ export function ThemeToggle({ className }: { className?: string }) {
         >
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
-      )}
-    </button>
+      </button>
+
+      <button
+        type="button"
+        className={`landing-theme-toggle__btn ${currentTheme === 'system' ? 'landing-theme-toggle__btn--active' : ''}`}
+        aria-label="System theme"
+        title="System theme"
+        onClick={() => setTheme('system')}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect width="20" height="14" x="2" y="3" rx="2" />
+          <line x1="8" x2="16" y1="21" y2="21" />
+          <line x1="12" x2="12" y1="17" y2="21" />
+        </svg>
+      </button>
+    </div>
   )
 }

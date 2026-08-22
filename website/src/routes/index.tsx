@@ -366,7 +366,7 @@ function Landing() {
           />
         </div>
         <h1>
-          Your whole backend as a <em>single file declaration</em>.
+          Your whole backend as a <em>single file declaration</em>
         </h1>
         <p className="landing-hero__lede">
           Database, auth, CRUD, storage, jobs, email, and realtime are keys on

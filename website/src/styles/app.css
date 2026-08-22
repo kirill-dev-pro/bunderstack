@@ -226,24 +226,36 @@ body {
 .landing-theme-toggle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
+  gap: 2px;
+  padding: 2px;
   border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.landing-theme-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition:
     color 0.15s ease,
-    border-color 0.15s ease,
-    background 0.15s ease;
+    background-color 0.15s ease;
 }
 
-.landing-theme-toggle:hover {
-  border-color: rgba(242, 245, 243, 0.22);
-  background: rgba(242, 245, 243, 0.06);
+.landing-theme-toggle__btn:hover {
+  color: var(--paper);
+}
+
+.landing-theme-toggle__btn--active {
+  background: rgba(255, 255, 255, 0.12);
   color: var(--paper);
 }
 
@@ -260,9 +272,18 @@ html:not(.dark) .landing {
   color-scheme: light;
 }
 
-html:not(.dark) .landing-theme-toggle:hover {
-  border-color: rgba(17, 24, 39, 0.2);
-  background: rgba(17, 24, 39, 0.05);
+html:not(.dark) .landing-theme-toggle {
+  background: rgba(17, 24, 39, 0.03);
+  border-color: rgba(17, 24, 39, 0.1);
+}
+
+html:not(.dark) .landing-theme-toggle__btn:hover {
+  color: #111827;
+}
+
+html:not(.dark) .landing-theme-toggle__btn--active {
+  background: rgba(17, 24, 39, 0.1);
+  color: #111827;
 }
 
 html:not(.dark) .landing-hero__glow {
