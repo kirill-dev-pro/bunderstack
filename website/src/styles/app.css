@@ -209,7 +209,7 @@ body {
 .landing-nav__links {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .landing-nav__links a {
@@ -221,6 +221,83 @@ body {
 
 .landing-nav__links a:hover {
   color: var(--paper);
+}
+
+.landing-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.landing-theme-toggle:hover {
+  border-color: rgba(242, 245, 243, 0.22);
+  background: rgba(242, 245, 243, 0.06);
+  color: var(--paper);
+}
+
+/* --- Light theme overrides for the landing page -------------------------- */
+
+html:not(.dark) .landing {
+  --void: #f4f6f8;
+  --carbon: #ffffff;
+  --paper: #111827;
+  --muted: #596779;
+  --accent: #6b46c1;
+  --accent-strong: #553c9a;
+  --hairline: rgba(17, 24, 39, 0.08);
+  color-scheme: light;
+}
+
+html:not(.dark) .landing-theme-toggle:hover {
+  border-color: rgba(17, 24, 39, 0.2);
+  background: rgba(17, 24, 39, 0.05);
+}
+
+html:not(.dark) .landing-hero__glow {
+  background: radial-gradient(
+    circle,
+    rgba(107, 70, 193, 0.12) 0%,
+    rgba(107, 70, 193, 0.03) 40%,
+    transparent 70%
+  );
+}
+
+html:not(.dark) .landing-code {
+  background: #0c0f14;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+}
+
+html:not(.dark) .landing-code__caption {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #8b949e;
+}
+
+html:not(.dark) .landing-showcase__tabs {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(17, 24, 39, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+html:not(.dark) .landing-showcase__tab--active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+html:not(.dark) .landing-button--primary {
+  color: #ffffff;
 }
 
 /* --- Hero ----------------------------------------------------------------- */
@@ -362,6 +439,89 @@ body {
 
 /* --- Sections ------------------------------------------------------------- */
 
+.landing-showcase {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  width: min(84rem, calc(100% - 48px));
+  margin-inline: auto;
+  padding-block: 48px 72px;
+  border-top: 1px solid var(--hairline);
+}
+
+.landing-showcase__nav {
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.landing-showcase__tabs {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(11, 13, 18, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.landing-showcase__tab {
+  padding: 8px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--landing-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.landing-showcase__tab:hover {
+  color: var(--paper);
+}
+
+.landing-showcase__tab--active {
+  background: var(--accent);
+  color: var(--void);
+}
+
+@media (max-width: 1023px) {
+  .landing-showcase__column--hidden-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-showcase {
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+    padding-block: 72px;
+    align-items: start;
+  }
+
+  .landing-showcase__nav {
+    display: none;
+  }
+}
+
+.landing-showcase__column {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  min-width: 0;
+}
+
 .landing-section {
   display: flex;
   flex-direction: column;
@@ -370,6 +530,13 @@ body {
   margin-inline: auto;
   padding-block: 72px;
   border-top: 1px solid var(--hairline);
+}
+
+.landing-section--inline {
+  width: 100%;
+  margin-inline: 0;
+  padding-block: 0;
+  border-top: 0;
 }
 
 .landing-section h2 {

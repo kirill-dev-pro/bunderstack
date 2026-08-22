@@ -6,6 +6,7 @@ import '@fontsource-variable/tektur'
 import '@shikijs/twoslash/style-rich.css'
 
 import snippets from '@/lib/code-snippets.gen.json'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const GITHUB = 'https://github.com/kirill-dev-pro/bunderstack'
 
@@ -72,10 +73,17 @@ const CLIENT_POINTS = [
   'One error contract from the handler to the query cache.',
 ]
 
+const FRONTEND_POINTS = [
+  'Auto-generated query and mutation options for TanStack Query.',
+  'authClient.useSession() for reactive user session state.',
+  'syncRealtime automatically patches the query cache on live changes.',
+  'Direct file uploads and on-the-fly transformed image URLs.',
+]
+
 export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
-      { title: 'Bunderstack — your whole backend as a single file' },
+      { title: 'Bunderstack — your whole backend as a single file declaration' },
       {
         name: 'description',
         content:
@@ -153,6 +161,7 @@ function CodePanel({
 
 function Landing() {
   usePinnablePopups()
+  const [mobileTab, setMobileTab] = useState<'backend' | 'frontend'>('backend')
 
   return (
     <main className="landing">
@@ -169,13 +178,14 @@ function Landing() {
           <a href={GITHUB} target="_blank" rel="noreferrer">
             GitHub ↗
           </a>
+          <ThemeToggle />
         </div>
       </nav>
 
       <header className="landing-hero">
         <div aria-hidden className="landing-hero__glow" />
         <h1>
-          Your whole backend as a <em>single file</em>.
+          Your whole backend as a <em>single file declaration</em>.
         </h1>
         <p className="landing-hero__lede">
           Database, auth, CRUD, storage, jobs, email, and realtime are keys on
@@ -196,28 +206,78 @@ function Landing() {
         </div>
       </header>
 
-      <section className="landing-section">
-        <h2>One object is the backend</h2>
-        <p className="landing-lede">
-          Every facility is a key, not a service to stand up. Read the file top
-          to bottom and you know the system.
-        </p>
-        <CodePanel file="src/bunderstack.ts" snippet={snippets.declaration} />
-      </section>
+      <div className="landing-showcase">
+        <div className="landing-showcase__nav">
+          <div className="landing-showcase__tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'backend'}
+              className={`landing-showcase__tab ${mobileTab === 'backend' ? 'landing-showcase__tab--active' : ''}`}
+              onClick={() => setMobileTab('backend')}
+            >
+              Backend
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'frontend'}
+              className={`landing-showcase__tab ${mobileTab === 'frontend' ? 'landing-showcase__tab--active' : ''}`}
+              onClick={() => setMobileTab('frontend')}
+            >
+              Frontend
+            </button>
+          </div>
+        </div>
 
-      <section className="landing-section">
-        <h2>Types reach the client</h2>
-        <p className="landing-lede">
-          Import <code>type App</code> and stop. Tables, procedures, inputs,
-          outputs, and errors are inferred from the declaration.
-        </p>
-        <CodePanel file="src/api-client.ts" snippet={snippets.client} />
-        <ul className="landing-points">
-          {CLIENT_POINTS.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ul>
-      </section>
+        <div
+          className={`landing-showcase__column ${mobileTab !== 'backend' ? 'landing-showcase__column--hidden-mobile' : ''}`}
+        >
+          <section className="landing-section landing-section--inline">
+            <h2>One object is the backend</h2>
+            <p className="landing-lede">
+              Every facility is a key, not a service to stand up. Read the file
+              top to bottom and you know the system.
+            </p>
+            <CodePanel
+              file="src/bunderstack.ts"
+              snippet={snippets.declaration}
+            />
+          </section>
+
+          <section className="landing-section landing-section--inline">
+            <h2>Types reach the client</h2>
+            <p className="landing-lede">
+              Import <code>type App</code> and stop. Tables, procedures, inputs,
+              outputs, and errors are inferred from the declaration.
+            </p>
+            <CodePanel file="src/api-client.ts" snippet={snippets.client} />
+            <ul className="landing-points">
+              {CLIENT_POINTS.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        <div
+          className={`landing-showcase__column ${mobileTab !== 'frontend' ? 'landing-showcase__column--hidden-mobile' : ''}`}
+        >
+          <section className="landing-section landing-section--inline">
+            <h2>Use it on frontend</h2>
+            <p className="landing-lede">
+              Queries, mutations, realtime subscriptions, and storage helpers
+              in your React components with full inference.
+            </p>
+            <CodePanel file="src/Feed.tsx" snippet={snippets.frontend} />
+            <ul className="landing-points">
+              {FRONTEND_POINTS.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </div>
 
       <section className="landing-section">
         <h2>Included, not integrated by you</h2>
