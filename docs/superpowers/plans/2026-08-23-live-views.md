@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `GET /api/{table}:live` — one SSE stream that opens with a snapshot of a list query and then delivers server-decided `upsert`/`remove` frames — plus a zero-dependency browser client at `bunderstack/live`.
+**Goal:** Add `GET /api/live/{table}` — one SSE stream that opens with a snapshot of a list query and then delivers server-decided `upsert`/`remove` frames — plus a zero-dependency browser client at `bunderstack/live`.
 
 **Architecture:** The live procedure is built beside the CRUD procedures, only when realtime is enabled. It subscribes to the publisher before it reads the snapshot, then holds a per-connection `LiveWindow` that turns each table change into the frames this view needs. The window owns row placement (`afterId`), so the browser never repeats `ORDER BY`. The client core is a reconnecting loop over the stream with a `subscribe`/`getSnapshot` surface.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Branch: `feat/live-views`. Run tests from `packages/bunderstack` with `bun test`.
-- Route path is exactly `/api/{table}:live`. Never `/api/{table}/live` and never a `live` flag on the list path — both were verified to break (see the spec's Decisions table).
+- Route path is exactly `/api/live/{table}`. Never `/api/{table}/live` and never a `live` flag on the list path — both were verified to break (see the spec's Decisions table).
 - Frames are the four in `src/live/protocol.ts`. Do not add a frame type.
 - `src/live/**` must stay browser-safe: no `drizzle-orm`, no `better-auth`, no `@orpc/*`, no `node:*`. Server files may import types from it; it may import nothing from the server.
 - Sort comparison uses two keys, sort column then `id`, both in the query's direction. This mirrors `buildOrderBy` in `src/list-query.ts:243`.
@@ -220,7 +220,7 @@ export async function* filterRealtimeChanges(
 
 /**
  * The same stream narrowed to one table with its access entry known up front —
- * what a live view (`GET /{table}:live`) consumes.
+ * what a live view (`GET /api/live/{table}`) consumes.
  */
 export async function* filterTableChanges(
   source: AsyncIterable<RealtimeChange>,
@@ -319,7 +319,7 @@ Expected: FAIL — module not found.
 
 ```ts
 /**
- * The wire frames of a live view (`GET /api/{table}:live`).
+ * The wire frames of a live view (`GET /api/live/{table}`).
  *
  * A live view is one SSE stream that opens with a snapshot of a list query and
  * then delivers only what that view cares about. The server decides membership
@@ -801,7 +801,7 @@ Append to `list-input-schema.ts`:
 
 ```ts
 /**
- * The input contract of a live view (`GET /api/{table}:live`): the list
+ * The input contract of a live view (`GET /api/live/{table}`): the list
  * contract narrowed to what a stream can honor. No text search, no pagination.
  * Membership is decided per streamed record on the server, which only
  * equality-style filters allow.
@@ -850,7 +850,7 @@ git commit -m "feat(live): add the live-view input schema"
 
 **Interfaces:**
 - Consumes: `filterTableChanges` (Task 1), `LiveInput`/`LiveFrame` (Task 2), `createLiveWindow` (Task 3), `buildLiveInputSchema` (Task 4).
-- Produces: `router[table].live`, reachable at `GET /api/{table}:live`; `CrudApiRouterOptions.livePublisher`; `BuildTableCrudProceduresArgs.schemaKey` and `.livePublisher`; the exported type `LiveInputFor<TTable, TFilterable, TSortable>`.
+- Produces: `router[table].live`, reachable at `GET /api/live/{table}`; `CrudApiRouterOptions.livePublisher`; `BuildTableCrudProceduresArgs.schemaKey` and `.livePublisher`; the exported type `LiveInputFor<TTable, TFilterable, TSortable>`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -969,7 +969,7 @@ test('a live view streams a snapshot and then server-placed changes', async () =
   const handler = new OpenAPIHandler({ router })
   const controller = new AbortController()
   const request = new Request(
-    `http://test/api/posts:live?filters=${encodeURIComponent(
+    `http://test/api/live/posts?filters=${encodeURIComponent(
       JSON.stringify({ userId: 'u1' }),
     )}`,
     { signal: controller.signal },
@@ -1045,7 +1045,7 @@ test('a live view denies the deltas when it denies the list', async () => {
   })
   const handler = new OpenAPIHandler({ router })
   const controller = new AbortController()
-  const request = new Request('http://test/api/posts:live', {
+  const request = new Request('http://test/api/live/posts', {
     signal: controller.signal,
   })
   const result = await handler.handle(request, { context: context(request) })
@@ -1182,7 +1182,7 @@ After the delete procedure, add the live procedure:
           method: 'GET',
           // A custom method, not a child resource: `/{table}/live` would
           // shadow the id "live" on the get route.
-          path: `/api/${name}:live`,
+          path: `/api/live/${name}`,
           summary: `Live view of ${name}`,
           tags: [name],
           // Filters arrive as one URL-encoded JSON value, so no per-key query
@@ -1286,13 +1286,13 @@ Expected: PASS, including the pre-existing CRUD and OpenAPI tests.
 - [ ] **Step 5: Check the OpenAPI document**
 
 Run: `cd packages/bunderstack && bun test src/api/openapi.test.ts`
-Expected: PASS. If a snapshot of the document lists paths, add `/api/{table}:live` to it.
+Expected: PASS. If a snapshot of the document lists paths, add `/api/live/{table}` to it.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add packages/bunderstack/src/api/crud-router.ts packages/bunderstack/src/api/live-router.test.ts packages/bunderstack/src/index.ts
-git commit -m "feat(live): serve GET /api/{table}:live beside the CRUD routes"
+git commit -m "feat(live): serve GET /api/live/{table} beside the CRUD routes"
 ```
 
 ---
@@ -1595,7 +1595,7 @@ async function until(check: () => boolean, label: string) {
 }
 
 test('the view fills from the snapshot and applies deltas', async () => {
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     fetch: async () =>
       sseResponse(
         [snapshot, frame({ type: 'upsert', record: { id: 'c', title: 'C' }, afterId: 'a' })],
@@ -1614,7 +1614,7 @@ test('the view fills from the snapshot and applies deltas', async () => {
 
 test('the request carries the input as query parameters', async () => {
   const seen: string[] = []
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     input: { limit: 10, sort: 'rank', order: 'desc', filters: { userId: 'u1' } },
     fetch: async (input) => {
       seen.push(String(input))
@@ -1632,7 +1632,7 @@ test('the request carries the input as query parameters', async () => {
 
 test('a dropped stream reconnects and the new snapshot heals the view', async () => {
   let attempts = 0
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     backoff: () => 0,
     fetch: async () => {
       attempts++
@@ -1650,7 +1650,7 @@ test('a dropped stream reconnects and the new snapshot heals the view', async ()
 
 test('a first failure reports failed; a later one reports reconnecting', async () => {
   let attempts = 0
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     backoff: () => 5,
     fetch: async () => {
       attempts++
@@ -1666,7 +1666,7 @@ test('a first failure reports failed; a later one reports reconnecting', async (
 })
 
 test('patch writes optimistically and notifies once', async () => {
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     fetch: async () => sseResponse([snapshot], true),
   })
   await until(() => view.getRows().length === 2, 'the snapshot')
@@ -1682,7 +1682,7 @@ test('patch writes optimistically and notifies once', async () => {
 
 test('close stops the loop', async () => {
   let attempts = 0
-  const view = createLiveView<Row>('/api/posts:live', {
+  const view = createLiveView<Row>('/api/live/posts', {
     backoff: () => 0,
     fetch: async () => {
       attempts++
@@ -1773,7 +1773,7 @@ function buildUrl(url: string, input: LiveInput | undefined): string {
 }
 
 /**
- * One live view: a reconnecting loop over `GET /api/{table}:live` that folds
+ * One live view: a reconnecting loop over `GET /api/live/{table}` that folds
  * frames into an immutable array of rows.
  *
  * The view holds no cache and no second copy of the data. Every connection
@@ -1935,7 +1935,7 @@ Add a section after the realtime section of the README:
 ````md
 ### Live views
 
-`GET /api/{table}:live` is one list query as a stream. It opens with a snapshot
+`GET /api/live/{table}` is one list query as a stream. It opens with a snapshot
 of the result and then sends only the changes that belong to that result: the
 server decides membership against the view's filters and places each row, so the
 browser holds no cache and never repeats the sort.
@@ -1943,7 +1943,7 @@ browser holds no cache and never repeats the sort.
 ```ts
 import { createLiveView } from 'bunderstack/live'
 
-const view = createLiveView<Todo>('/api/todos:live', {
+const view = createLiveView<Todo>('/api/live/todos', {
   input: { sort: 'createdAt', order: 'desc', limit: 100 },
 })
 
@@ -1965,7 +1965,7 @@ change the stream delivers.
 Add under the unreleased heading, following the file's existing style:
 
 ```md
-- Live views: `GET /api/{table}:live` streams a snapshot of a list query and
+- Live views: `GET /api/live/{table}` streams a snapshot of a list query and
   then server-placed `upsert`/`remove` frames. The new `bunderstack/live`
   subpath holds a zero-dependency browser client for it.
 ```

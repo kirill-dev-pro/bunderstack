@@ -34,7 +34,7 @@ no `Last-Event-ID` bookkeeping, and no "refetch after a gap" branch.
 
 | Decision | Choice | Reason |
 | --- | --- | --- |
-| Path shape | `GET /api/{table}:live` | `/{table}/live` would shadow the id `"live"` on `/{table}/{id}`. `?live=1` is impossible: two GET procedures on one path leave the second unreachable, and a single procedure cannot declare a union of a JSON output and an `eventIterator`, so `list` would lose its response type. Verified on `@orpc/*` 2.0.0-beta.26. |
+| Path shape | `GET /api/live/{table}` | A path of its own is the only shape without a collision. `/{table}/live` shadows the id `"live"` on `/{table}/{id}`. `?live=1` is impossible: two GET procedures on one path leave the second unreachable, and one procedure cannot declare a union of a JSON output and an `eventIterator`, so `list` would lose its response type. A colon suffix (`/{table}:live`) is worse still — the oRPC matcher reads `:live` as a wildcard parameter, so `/api/postsXY` matches it. All three were verified on `@orpc/*` 2.0.0-beta.26. |
 | Row placement | Server sends `afterId` on every upsert | The client never repeats `ORDER BY`. No comparator, no null rules, no collation guesswork in the browser. |
 | Window repair | Server re-sends `snapshot` | A removal inside a full window must pull one row in from below. A fresh snapshot is one code path instead of a second frame type, and the client already replaces the view on a snapshot. |
 | Access rule | `list` right plus `readScope`, for the snapshot and the deltas | The caller asked for a list. Checking deltas with the `get` right, as the branch did, lets a table deliver a snapshot and then silently deliver nothing. |
@@ -44,7 +44,7 @@ no `Last-Event-ID` bookkeeping, and no "refetch after a gap" branch.
 
 ## The wire contract
 
-`GET /api/{table}:live` accepts `limit`, `sort`, `order`, and `filters`, with the
+`GET /api/live/{table}` accepts `limit`, `sort`, `order`, and `filters`, with the
 same meaning and the same coercion as `GET /api/{table}`. It answers
 `text/event-stream` with these frames:
 
@@ -91,11 +91,11 @@ of the rows in the window, the sort value of each row, `limit`, `sort`,
 `order`, and `hasMore`. It answers one question — what does this change mean
 for this view? — and returns one of:
 
-- `{ kind: 'ignore' }` — the change is outside the window and does not disturb it.
-- `{ kind: 'upsert', record, afterId }` — with an optional trailing
-  `{ kind: 'remove', id }` when a full window evicts its last row.
-- `{ kind: 'remove', id }` — the row left the view or the database.
-- `{ kind: 'resnapshot' }` — the window lost a row while rows exist below it.
+- `{ type: 'none' }` — the change is outside the window and does not disturb it.
+- `{ type: 'frames', frames }` — one `upsert` frame carrying its `afterId`, plus
+  a trailing `remove` when a full window evicts its last row, or one `remove`
+  when the row left the view.
+- `{ type: 'resnapshot' }` — the window lost a row while rows exist below it.
 
 `resnapshot` re-runs the same list query and emits a fresh `snapshot`. It
 happens only when `hasMore` is true, so a view that fits inside its limit never
@@ -104,8 +104,9 @@ pays for a query.
 The window compares sort values in the process, on the raw column values, not on
 JSON. That is exact for numbers, dates, and booleans, and matches the database
 for ordinary text. A collation that differs from code-unit order can place a row
-inside the window differently from the database; the window still holds the
-right rows, and a documented note says so.
+inside the window differently from the database, as can a NULLS rule other than
+"nulls first"; the window still holds the right rows, and the module's own
+comment says so.
 
 ### Membership and access
 
@@ -124,12 +125,13 @@ behaviour and is rewritten on top of the shared guard.
 ```ts
 import { createLiveView } from 'bunderstack/live'
 
-const view = createLiveView<Todo>('/api/todos:live', {
+const view = createLiveView<Todo>('/api/live/todos', {
   input: { sort: 'createdAt', order: 'desc', limit: 100 },
 })
 
 view.subscribe(() => render(view.getRows(), view.getStatus()))
-view.patch((draft) => { draft[0]!.done = true })   // optimistic
+// Optimistic: replace the row, so identity comparisons see the change.
+view.patch((rows) => { rows[0] = { ...rows[0]!, done: true } })
 view.close()
 ```
 
