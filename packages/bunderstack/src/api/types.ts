@@ -102,6 +102,6 @@ export type MergeApiRouterTypes<A, B> = {
 }
 
 export type UnifiedApiRouter<
-  TCrud extends AnyRouter,
+  TCrud,
   TCustom extends AnyRouter | undefined,
 > = TCustom extends AnyRouter ? MergeApiRouterTypes<TCrud, TCustom> : TCrud

@@ -458,13 +458,13 @@ export function buildTableCrudProcedures<
     update,
     delete: deleteProc,
     ...(live ? { live } : {}),
-  } as {
+  } as unknown as {
     list: typeof list
     get: typeof get
     create: typeof create
     update: typeof update
     delete: typeof deleteProc
-    live?: NonNullable<typeof live>
+    live: NonNullable<typeof live>
   }
 }
 
