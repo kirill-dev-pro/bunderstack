@@ -60,6 +60,10 @@
       "types": "./dist/database/postgres-js.d.ts",
       "default": "./dist/database/postgres-js.js"
     },
+    "./live": {
+      "types": "./dist/live/index.d.ts",
+      "default": "./dist/live/index.js"
+    },
     "./provision": {
       "types": "./dist/provision.d.ts",
       "default": "./dist/provision.js"

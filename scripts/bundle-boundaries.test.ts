@@ -79,4 +79,17 @@ describe('browser bundle boundaries', () => {
     ])
     expect(output.text).not.toContain('better-auth')
   })
+
+  test('the live view client stays browser-only and dependency-free', async () => {
+    const output = await bundle('packages/bunderstack/src/live/index.ts')
+    expect(output.size).toBeLessThan(8 * 1024)
+    expectNoBundleInputs(output.inputs, [
+      '/drizzle-orm/',
+      '/better-auth/',
+      '/valibot/',
+      'packages/bunderstack/src/api',
+      'packages/bunderstack/src/index.ts',
+    ])
+    expect(output.text).not.toContain('@orpc/')
+  })
 })
