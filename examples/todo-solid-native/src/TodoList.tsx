@@ -1,4 +1,4 @@
-import { Errored, For, Loading, Show, createSignal, onSettled } from 'solid-js'
+import { For, Show, createSignal, onSettled } from 'solid-js'
 
 import {
   createTodoStore,
@@ -10,13 +10,16 @@ import {
 
 /**
  * The data layer is two imports: the generated client (api.gen.ts) and one
- * projection store fed by a single async iterator over `/api/todos/live`.
+ * store fed by a single imperative loop over `/api/todos/live`.
  *
  * Mutations are plain async functions. They write optimistically *before*
  * the fetch and nothing after — server truth arrives through the stream —
- * so there is nothing for an `action` transaction to protect and no
- * generator ceremony. A failure rejects into the one listener below, which
- * shows a notice and resyncs server truth.
+ * so there is nothing for an `action` transaction to protect. A failure
+ * rejects into the one listener below, which shows a notice and resyncs.
+ *
+ * Pending and error states of the stream live on the store (`ready`,
+ * `error`); fetch rejections never enter the reactive graph, so `<Errored>`
+ * is reserved for what actually flows through it — reads and render errors.
  */
 export default function TodoList() {
   const todos = createTodoStore()
@@ -25,9 +28,6 @@ export default function TodoList() {
   // The ephemeral layer: recoverable notices that survive optimistic rollback.
   const [failure, setFailure] = createSignal('')
   onSettled(() => {
-    // Fetch rejections never enter the reactive graph — `<Errored>` sees
-    // reads and render errors only — so this one listener is what gives a
-    // failed mutation a face.
     const onRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault()
       setFailure(
@@ -90,19 +90,19 @@ export default function TodoList() {
         <button type="submit">Add</button>
       </form>
 
-      <Show when={!todos.connected}>
+      <Show when={!todos.connected && todos.ready}>
         <p class="hint">reconnecting…</p>
       </Show>
 
-      <Errored
-        fallback={(error, reset) => (
-          <div class="error">
-            <p>{String(error())}</p>
-            <button onClick={reset}>Retry</button>
-          </div>
-        )}
-      >
-        <Loading fallback={<p class="empty">Loading…</p>}>
+      <Show when={todos.error}>
+        <div class="error">
+          <p>{String(todos.error)}</p>
+          <button onClick={() => todos.resync()}>Retry</button>
+        </div>
+      </Show>
+
+      <Show when={!todos.error} fallback={null}>
+        <Show when={todos.ready} fallback={<p class="empty">Loading…</p>}>
           <Show
             when={todos.items.length > 0}
             fallback={<p class="empty">Nothing yet.</p>}
@@ -133,8 +133,8 @@ export default function TodoList() {
               </For>
             </ul>
           </Show>
-        </Loading>
-      </Errored>
+        </Show>
+      </Show>
 
       <Show when={failure()}>
         <p class="error">{failure()}</p>
