@@ -522,6 +522,7 @@ export async function createBunderstack<
       access: resolvedAccess,
       idempotency: options.idempotency,
       realtime,
+      livePublisher: publisher,
     })
 
     const customApiRouter =
