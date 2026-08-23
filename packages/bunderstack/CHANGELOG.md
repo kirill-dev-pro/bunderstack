@@ -4,6 +4,16 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-08-23
+
+### Fixed
+
+- **Inline source maps in published packages.** `tsconfig.build.json` enables
+  `inlineSources: true` across all packages, embedding TypeScript source code
+  into `.js.map` files. This prevents bundlers and dev servers (like Vite) from
+  emitting warnings about missing source files when consuming packages whose
+  `src/` directory is omitted from npm tarballs.
+
 ## [0.19.0] - 2026-08-23
 
 ### Added
