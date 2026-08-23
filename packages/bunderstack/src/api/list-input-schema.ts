@@ -68,3 +68,29 @@ export function buildListInputSchema(
     }),
   )
 }
+
+/**
+ * The input contract of a live view (`GET /api/{table}:live`): the list
+ * contract narrowed to what a stream can honor. No text search, no pagination
+ * — membership is decided per streamed record on the server, which only
+ * equality-style filters allow.
+ */
+export function buildLiveInputSchema(
+  table: Table,
+  options: {
+    filterableColumns: readonly string[]
+    sortableColumns: readonly string[]
+  },
+) {
+  const filterEntries = buildFilterEntries(table, options.filterableColumns)
+
+  return v.optional(
+    v.strictObject({
+      limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+      sort: v.optional(v.picklist(options.sortableColumns as string[])),
+      order: v.optional(v.picklist(['asc', 'desc'])),
+      // Always present, even with no filterable columns: clients send `{}`.
+      filters: v.optional(v.strictObject(filterEntries)),
+    }),
+  )
+}
