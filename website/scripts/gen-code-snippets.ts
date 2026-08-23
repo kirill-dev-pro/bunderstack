@@ -20,11 +20,11 @@ const betterAuthDir = dirname(
 
 const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { bunSql } from 'bunderstack/database/bun-sql'
+import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
-export const posts = sqliteTable('posts', {
+export const posts = pgTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
@@ -32,7 +32,7 @@ export const posts = sqliteTable('posts', {
 
 export const app = await createBunderstack({
   schema: { posts },
-  database: { adapter: libsql() },
+  database: { adapter: bunSql() },
   auth: { secret: process.env.AUTH_SECRET! },
   access: { posts: { ownerColumn: 'userId' } },
   realtime: true,
@@ -62,11 +62,11 @@ const snippets: Record<string, string> = {
   declaration: `// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { bunSql } from 'bunderstack/database/bun-sql'
+import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
-const posts = sqliteTable('posts', {
+const posts = pgTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
@@ -74,7 +74,7 @@ const posts = sqliteTable('posts', {
 
 export const app = await createBunderstack({
   schema: { posts },
-  database: { adapter: libsql() },
+  database: { adapter: bunSql() },
   auth: { secret: process.env.AUTH_SECRET! },
   access: { posts: { ownerColumn: 'userId' } },
   env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
@@ -107,10 +107,10 @@ export type App = typeof app`,
   procedure: `// @filename: bunderstack.ts
 // ---cut---
 import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { bunSql } from 'bunderstack/database/bun-sql'
+import { pgTable, text } from 'drizzle-orm/pg-core'
 
-const posts = sqliteTable('posts', {
+const posts = pgTable('posts', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
@@ -118,7 +118,7 @@ const posts = sqliteTable('posts', {
 
 export const app = await createBunderstack({
   schema: { posts },
-  database: { adapter: libsql() },
+  database: { adapter: bunSql() },
   realtime: true,
   api: (o) => ({
     stats: o.protected.handler(async ({ context }) => ({
@@ -309,7 +309,7 @@ function assertHealthyTypes(name: string, html: string) {
 
 const conceptSnippets: Record<string, string> = {
   database: `schema: { posts },
-database: { adapter: libsql() }`,
+database: { adapter: bunSql() }`,
   auth: `auth: {
   secret: process.env.AUTH_SECRET!
 }`,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import '@fontsource-variable/ubuntu-sans'
 import '@fontsource-variable/tektur'
@@ -39,12 +39,12 @@ const CONCEPTS: ConceptBlock[] = [
   {
     id: 'database',
     title: 'Database & Schema',
-    library: 'Drizzle ORM · LibSQL / Postgres',
+    library: 'Drizzle ORM · Bun.sql / Postgres',
     docPath: 'configuration',
     color: '#3b82f6',
     colorRgb: '59, 130, 246',
     code: `schema: { posts },
-database: { adapter: libsql() }`,
+database: { adapter: bunSql() }`,
     description:
       'Zero-boilerplate database with automatic schema migrations, typed relations, and type-safe query building.',
   },
@@ -330,6 +330,58 @@ function CodePanel({
 }
 
 function ConceptHexGrid() {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [activeCardId, setActiveCardId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let rafId: number | null = null
+
+    const updateActiveCard = () => {
+      if (typeof window === 'undefined' || window.innerWidth >= 1024 || !gridRef.current) {
+        setActiveCardId(null)
+        return
+      }
+
+      const cards = gridRef.current.getElementsByClassName('landing-hex-card')
+      const viewportCenter = window.innerHeight / 2
+      let closestId: string | null = null
+      let minDistance = Infinity
+
+      for (let i = 0; i < cards.length; i++) {
+        const card = cards[i] as HTMLElement
+        const rect = card.getBoundingClientRect()
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          const cardCenter = rect.top + rect.height / 2
+          const distance = Math.abs(cardCenter - viewportCenter)
+          if (distance < window.innerHeight * 0.45 && distance < minDistance) {
+            minDistance = distance
+            closestId = card.getAttribute('data-concept-id')
+          }
+        }
+      }
+
+      setActiveCardId(closestId)
+    }
+
+    const onScrollOrResize = () => {
+      if (rafId !== null) return
+      rafId = requestAnimationFrame(() => {
+        updateActiveCard()
+        rafId = null
+      })
+    }
+
+    window.addEventListener('scroll', onScrollOrResize, { passive: true })
+    window.addEventListener('resize', onScrollOrResize, { passive: true })
+    updateActiveCard()
+
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize)
+      window.removeEventListener('resize', onScrollOrResize)
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
+  }, [])
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const container = e.currentTarget
     const cards = container.getElementsByClassName('landing-hex-card')
@@ -344,11 +396,16 @@ function ConceptHexGrid() {
   }
 
   return (
-    <div className="landing-hex-grid" onMouseMove={handleMouseMove}>
+    <div
+      ref={gridRef}
+      className="landing-hex-grid"
+      onMouseMove={handleMouseMove}
+    >
       {CONCEPTS.map((concept) => (
         <article
           key={concept.id}
-          className="landing-hex-card"
+          data-concept-id={concept.id}
+          className={`landing-hex-card ${activeCardId === concept.id ? 'landing-hex-card--active' : ''}`}
           style={
             {
               '--card-accent': concept.color,
@@ -537,7 +594,7 @@ function Landing() {
       </div>
 
       <section className="landing-section">
-        <h2>Included, not integrated by you</h2>
+        <h2>Works <em>out-of-the-box</em></h2>
         <p className="landing-lede">
           Each of these is useful alone. Together they remove the adapters and
           lifecycle code that normally fill the space between them.
