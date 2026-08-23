@@ -39,6 +39,26 @@ function apiWith(events: Array<Record<string, unknown>>) {
   }
 }
 
+async function waitFor(
+  condition: () => void | boolean,
+  timeoutMs = 2000,
+): Promise<void> {
+  const start = Date.now()
+  let lastError: unknown
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = condition()
+      if (res !== false) return
+    } catch (err) {
+      lastError = err
+    }
+    await new Promise((r) => setTimeout(r, 10))
+  }
+  if (lastError) throw lastError
+  const res = condition()
+  if (res === false) throw new Error('waitFor timed out')
+}
+
 test('routes create and delete events from the typed iterator', async () => {
   const posts = fakeCollection()
   const realtime = createSyncRealtimeClient({
@@ -50,9 +70,10 @@ test('routes create and delete events from the typed iterator', async () => {
     tables: ['posts'],
     collections: { posts },
   })
-  await new Promise((resolve) => setTimeout(resolve, 5))
-  expect(posts.upserts).toEqual([{ id: 'p1', title: 'A' }])
-  expect(posts.deletes).toEqual(['p2'])
+  await waitFor(() => {
+    expect(posts.upserts).toEqual([{ id: 'p1', title: 'A' }])
+    expect(posts.deletes).toEqual(['p2'])
+  })
   realtime.close()
 })
 
@@ -69,7 +90,9 @@ test('resolver mode routes events to materialized targets', async () => {
     tables: ['posts'],
     resolve: () => target as any,
   })
-  await new Promise((resolve) => setTimeout(resolve, 5))
-  expect(seen).toEqual([['update', { id: 'p1' }]])
+  await waitFor(() => {
+    expect(seen).toEqual([['update', { id: 'p1' }]])
+  })
   realtime.close()
 })
+
