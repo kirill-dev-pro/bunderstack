@@ -44,6 +44,10 @@
       "types": "./dist/access.d.ts",
       "default": "./dist/access.js"
     },
+    "./codegen": {
+      "types": "./dist/codegen.d.ts",
+      "default": "./dist/codegen.js"
+    },
     "./database/bun-sql": {
       "types": "./dist/database/bun-sql.d.ts",
       "default": "./dist/database/bun-sql.js"
