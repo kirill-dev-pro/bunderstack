@@ -3,6 +3,8 @@ import { pgTable, text } from 'drizzle-orm/pg-core'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import openapiTS, { astToString } from 'openapi-typescript'
+import ts from 'typescript'
 import * as v from 'valibot'
 
 import { pglite } from '../database/pglite'
@@ -96,21 +98,13 @@ test('reproducible openapi-typescript client generation and type verification', 
 
   // 2. Client code generation via openapi-typescript
   const tmpDir = await mkdtemp(join(tmpdir(), 'bunderstack-openapi-gen-'))
-  const specPath = join(tmpDir, 'openapi.json')
   const clientPath = join(tmpDir, 'client.d.ts')
   const testConsumerPath = join(tmpDir, 'consumer.ts')
 
   try {
-    await Bun.write(specPath, JSON.stringify(spec, null, 2))
-
-    // Run pinned local openapi-typescript binary
-    const genProc = Bun.spawnSync(
-      ['bunx', 'openapi-typescript', specPath, '-o', clientPath],
-      {
-        cwd: process.cwd(),
-      },
-    )
-    expect(genProc.exitCode, genProc.stderr.toString()).toBe(0)
+    const ast = await openapiTS(spec)
+    const clientTypes = astToString(ast)
+    await Bun.write(clientPath, clientTypes)
 
     // Write a consumer TypeScript file referencing CRUD body, custom response, and auth path
     const consumerCode = `
@@ -138,28 +132,18 @@ test('reproducible openapi-typescript client generation and type verification', 
     `
     await Bun.write(testConsumerPath, consumerCode)
 
-    // Type-check generated client consumer using tsc
-    const tscProc = Bun.spawnSync(
-      [
-        'bunx',
-        'tsc',
-        '--noEmit',
-        '--skipLibCheck',
-        '--target',
-        'esnext',
-        '--module',
-        'esnext',
-        '--moduleResolution',
-        'bundler',
-        testConsumerPath,
-      ],
-      {
-        cwd: process.cwd(),
-      },
-    )
-    const tscOutput =
-      (tscProc.stdout?.toString() || '') + (tscProc.stderr?.toString() || '')
-    expect(tscProc.exitCode, tscOutput).toBe(0)
+    // Type-check generated client consumer in-memory using TypeScript compiler API
+    const program = ts.createProgram([testConsumerPath], {
+      noEmit: true,
+      skipLibCheck: true,
+      target: ts.ScriptTarget.ESNext,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+    })
+    const diagnostics = ts.getPreEmitDiagnostics(program)
+    expect(
+      diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n')),
+    ).toEqual([])
   } finally {
     await rm(tmpDir, { recursive: true, force: true })
     await app.close()
