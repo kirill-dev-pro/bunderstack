@@ -96,6 +96,10 @@ export function createTodoStore(): TodoStore {
               rows = frame.items.map((record) => record as Todo)
             } else if (frame.type === 'upsert') {
               const record = frame.record as Todo
+              // Upsert means replace: drop the stale copy first, or an
+              // update would duplicate its own row (equal sort keys place
+              // the fresh record right next to the stale one).
+              rows = rows.filter((row) => row.id !== record.id)
               // The default sort is createdAt desc; without metadata, new
               // rows go on top.
               const at =

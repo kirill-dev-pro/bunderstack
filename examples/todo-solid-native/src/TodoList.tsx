@@ -1,14 +1,4 @@
-import {
-  Errored,
-  For,
-  Loading,
-  Show,
-  action,
-  affects,
-  createSignal,
-  isPending,
-  onSettled,
-} from 'solid-js'
+import { Errored, For, Loading, Show, createSignal, onSettled } from 'solid-js'
 
 import {
   createTodoStore,
@@ -22,14 +12,11 @@ import {
  * The data layer is two imports: the generated client (api.gen.ts) and one
  * projection store fed by a single async iterator over `/api/todos/live`.
  *
- * - Mutations are linear `action` generators: declare `affects`, write the
- *   optimistic draft, `yield` the fetch. A throw rejects the returned
- *   promise; nothing catches it here — see the listener below.
- * - Successful mutations are never applied locally: the write broadcasts over
- *   SSE and the stream applies the row, exactly as it does for writes made by
- *   any other client.
- * - Pending and error states are not tracked by hand: unsettled reads fall
- *   into `<Loading>`, rejections into `<Errored>`.
+ * Mutations are plain async functions. They write optimistically *before*
+ * the fetch and nothing after — server truth arrives through the stream —
+ * so there is nothing for an `action` transaction to protect and no
+ * generator ceremony. A failure rejects into the one listener below, which
+ * shows a notice and resyncs server truth.
  */
 export default function TodoList() {
   const todos = createTodoStore()
@@ -38,10 +25,9 @@ export default function TodoList() {
   // The ephemeral layer: recoverable notices that survive optimistic rollback.
   const [failure, setFailure] = createSignal('')
   onSettled(() => {
-    // Action rejections never enter the reactive graph — `<Errored>` sees
+    // Fetch rejections never enter the reactive graph — `<Errored>` sees
     // reads and render errors only — so this one listener is what gives a
-    // failed mutation a face. It also resyncs: an optimistic draft write has
-    // already happened by then, and server truth is the arbiter.
+    // failed mutation a face.
     const onRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault()
       setFailure(
@@ -56,36 +42,39 @@ export default function TodoList() {
       window.removeEventListener('unhandledrejection', onRejection)
   })
 
-  const add = action(function* (title: string) {
-    affects(todos.items)
-    // Cleared only on success — while in flight `isPending` blocks a second
-    // submit anyway, so a failure leaves the user's text untouched.
-    yield todosCreate({ title })
+  const add = async (title: string) => {
+    // Cleared synchronously, before any await: a double click re-enters with
+    // an empty draft and is rejected by the guard below, so no in-flight
+    // flag is needed. On failure the text goes back.
     setDraft('')
-  })
+    try {
+      await todosCreate({ title })
+    } catch (error) {
+      setDraft(title)
+      throw error
+    }
+  }
 
-  const toggle = action(function* (todo: Todo, done: boolean) {
-    affects(todos.items)
+  const toggle = async (todo: Todo, done: boolean) => {
     todos.patch((draftTodos) => {
       const current = draftTodos.find((item) => item.id === todo.id)
       if (current) current.done = done
     })
-    yield todosUpdate(todo.id, { done })
-  })
+    await todosUpdate(todo.id, { done })
+  }
 
-  const remove = action(function* (todo: Todo) {
-    affects(todos.items)
+  const remove = async (todo: Todo) => {
     todos.patch((draftTodos) => {
       const index = draftTodos.findIndex((item) => item.id === todo.id)
       if (index !== -1) draftTodos.splice(index, 1)
     })
-    yield todosDelete(todo.id)
-  })
+    await todosDelete(todo.id)
+  }
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault()
     const title = draft().trim()
-    if (!title || isPending(() => todos.items)) return
+    if (!title) return
     void add(title)
   }
 
@@ -98,9 +87,7 @@ export default function TodoList() {
           placeholder="What needs doing?"
           aria-label="New todo"
         />
-        <button type="submit" disabled={isPending(() => todos.items)}>
-          Add
-        </button>
+        <button type="submit">Add</button>
       </form>
 
       <Show when={!todos.connected}>
