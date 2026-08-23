@@ -372,100 +372,100 @@ export function buildTableCrudProcedures<
     v.strictObject({ type: v.literal('heartbeat'), intervalMs: v.number() }),
   ])
 
-  const live = builder.public
-    .route({
-      method: 'GET',
-      // A path of its own, not a child of the table: `/{table}/live`
-      // would make the id "live" unreachable on the get route, and a
-      // colon suffix is a wildcard parameter in the oRPC matcher.
-      path: `/api/live/${name}`,
-      summary: `Live view of ${name}`,
-      tags: [name],
-      // Filters arrive as one URL-encoded JSON value, so no per-key query
-      // parsing rule is needed.
-      queryStyles: { filters: 'json' },
-    })
-    .input(liveQuerySchema)
-    .output(eventIterator(liveFrameSchema))
-    .handler(({ input, context, signal }) => {
-      if (!livePublisher) {
-        throw new Error(`Realtime is not enabled for live view of ${name}`)
-      }
-      // Subscribe before anything awaits, so no change slips between the
-      // snapshot read and the start of the stream; events that arrive
-      // during the query buffer in the publisher and replay on first pull.
-      const changes = filterTableChanges(
-        livePublisher.subscribe('change', { signal }),
-        {
-          tableName: schemaKey,
-          entry: access,
-          rule: access.list,
-          request: context.request,
-          getSession: context.getSession,
-        },
-      )
+  const live = !livePublisher
+    ? undefined
+    : builder.public
+        .route({
+          method: 'GET',
+          // A path of its own, not a child of the table: `/{table}/live`
+          // would make the id "live" unreachable on the get route, and a
+          // colon suffix is a wildcard parameter in the oRPC matcher.
+          path: `/api/live/${name}`,
+          summary: `Live view of ${name}`,
+          tags: [name],
+          // Filters arrive as one URL-encoded JSON value, so no per-key query
+          // parsing rule is needed.
+          queryStyles: { filters: 'json' },
+        })
+        .input(liveQuerySchema)
+        .output(eventIterator(liveFrameSchema))
+        .handler(({ input, context, signal }) => {
+          // Subscribe before anything awaits, so no change slips between the
+          // snapshot read and the start of the stream; events that arrive
+          // during the query buffer in the publisher and replay on first pull.
+          const changes = filterTableChanges(
+            livePublisher.subscribe('change', { signal }),
+            {
+              tableName: schemaKey,
+              entry: access,
+              rule: access.list,
+              request: context.request,
+              getSession: context.getSession,
+            },
+          )
 
-      return withRealtimeHeartbeat(
-        (async function* () {
-          const session = await context.getSession()
-          const execCtx = {
-            request: context.request,
-            user: session.user,
-            session: { activeOrganizationId: session.activeOrganizationId },
-          }
-          let view: ReturnType<typeof createLiveWindow> | undefined
+          return withRealtimeHeartbeat(
+            (async function* () {
+              const session = await context.getSession()
+              const execCtx = {
+                request: context.request,
+                user: session.user,
+                session: { activeOrganizationId: session.activeOrganizationId },
+              }
+              let view: ReturnType<typeof createLiveWindow> | undefined
 
-          const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
-            const result = await operations.list(name, input ?? {}, execCtx)
-            view = createLiveWindow({
-              sort: result.sort,
-              order: result.order,
-              limit: result.limit,
-              filters: input?.filters as
-                | Record<string, unknown>
-                | undefined,
-            })
-            view.reset(result.items, result.hasMore)
-            return {
-              type: 'snapshot',
-              items: result.items,
-              sort: result.sort,
-              order: result.order,
-              limit: result.limit,
-              hasMore: result.hasMore,
-            }
-          }
+              const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
+                const result = await operations.list(name, input ?? {}, execCtx)
+                view = createLiveWindow({
+                  sort: result.sort,
+                  order: result.order,
+                  limit: result.limit,
+                  filters: input?.filters as
+                    | Record<string, unknown>
+                    | undefined,
+                })
+                view.reset(result.items, result.hasMore)
+                return {
+                  type: 'snapshot',
+                  items: result.items,
+                  sort: result.sort,
+                  order: result.order,
+                  limit: result.limit,
+                  hasMore: result.hasMore,
+                }
+              }
 
-          yield await readSnapshot()
-
-          for await (const change of changes) {
-            const outcome = view!.apply(change)
-            if (outcome.type === 'none') continue
-            if (outcome.type === 'resnapshot') {
               yield await readSnapshot()
-              continue
-            }
-            for (const frame of outcome.frames) yield frame
-          }
-        })(),
-        { intervalMs: REALTIME_HEARTBEAT_INTERVAL_MS, signal },
-      )
-    })
 
-  const procedures = {
+              for await (const change of changes) {
+                const outcome = view!.apply(change)
+                if (outcome.type === 'none') continue
+                if (outcome.type === 'resnapshot') {
+                  yield await readSnapshot()
+                  continue
+                }
+                for (const frame of outcome.frames) yield frame
+              }
+            })(),
+            { intervalMs: REALTIME_HEARTBEAT_INTERVAL_MS, signal },
+          )
+        })
+
+  return {
     list,
     get,
     create,
     update,
     delete: deleteProc,
-    live,
+    ...(live ? { live } : {}),
+  } as {
+    list: typeof list
+    get: typeof get
+    create: typeof create
+    update: typeof update
+    delete: typeof deleteProc
+    live?: NonNullable<typeof live>
   }
-
-  if (!livePublisher) {
-    delete (procedures as { live?: unknown }).live
-  }
-
-  return procedures
 }
 
 export type TableCrudProcedures<

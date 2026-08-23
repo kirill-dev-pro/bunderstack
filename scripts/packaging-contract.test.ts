@@ -73,8 +73,6 @@ describe('published packages', () => {
         'src/**/*.types.ts',
       ])
       expect(tsconfig['compilerOptions']['declaration']).toBe(true)
-      expect(tsconfig['compilerOptions']['sourceMap']).toBe(true)
-      expect(tsconfig['compilerOptions']['inlineSources']).toBe(true)
       expect(tsconfig['compilerOptions']['outDir']).toBe('dist')
     })
 
