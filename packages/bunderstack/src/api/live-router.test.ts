@@ -36,7 +36,7 @@ async function setupTestDb() {
 function context(request: Request) {
   return createApiContext(
     {
-      db: {},
+      db: {} as never,
       env: {},
       storage: {} as never,
       email: {} as never,
@@ -50,7 +50,7 @@ function context(request: Request) {
 
 /** Reads SSE data frames until one satisfies `until`, or the cap is hit. */
 async function readFrames(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
+  reader: { read: () => Promise<{ done: boolean; value?: Uint8Array }> },
   until: (frame: Record<string, unknown>) => boolean,
   cap = 20,
 ): Promise<Record<string, unknown>[]> {

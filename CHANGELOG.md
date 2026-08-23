@@ -4,6 +4,18 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Live views.** `GET /api/live/{table}` streams one list query: a snapshot of
+  the result, then only the changes that belong to it. The server evaluates the
+  view's filters per record and places each row (`afterId`), so a client keeps
+  the view current without a cache, without invalidation, and without repeating
+  the sort. Every connection opens with a snapshot, which makes a reconnect its
+  own resynchronisation. The new `bunderstack/live` subpath holds a
+  dependency-free browser client (`createLiveView`) built on `subscribe` plus
+  `getRows`. Reading a live view needs the table's `list` right, which also
+  gates every delivered change.
+
 ## [0.18.0] - 2026-08-20
 
 ### Fixed

@@ -5,10 +5,22 @@
  * names never surface. Written here rather than taken from a library, so the
  * browser entry point keeps zero dependencies.
  */
+/**
+ * The part of a byte stream this reader uses. Stated structurally, so the DOM
+ * and Bun definitions of `ReadableStream` both satisfy it without a cast.
+ */
+export type ByteStream = {
+  getReader: () => {
+    read: () => Promise<{ done: boolean; value?: Uint8Array }>
+    cancel: () => Promise<unknown>
+  }
+}
+
 export async function* parseSseFrames<TFrame>(
-  body: ReadableStream<Uint8Array>,
+  body: ByteStream,
 ): AsyncGenerator<TFrame, void, void> {
-  const reader = body.pipeThrough(new TextDecoderStream()).getReader()
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
   let buffer = ''
   let data: string[] = []
 
@@ -23,7 +35,7 @@ export async function* parseSseFrames<TFrame>(
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      buffer += value
+      buffer += decoder.decode(value, { stream: true })
       let newline: number
       while ((newline = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, newline)

@@ -13,7 +13,7 @@ export type {
   LiveUpsertFrame,
 } from './protocol'
 export { applyLiveFrame } from './apply'
-export { parseSseFrames } from './sse'
+export { parseSseFrames, type ByteStream } from './sse'
 
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'failed'
 
@@ -40,7 +40,7 @@ export type LiveView<TRow extends { id: string }> = {
 export type CreateLiveViewOptions = {
   input?: LiveInput
   /** For tests, and for a fetch that carries credentials or a base URL. */
-  fetch?: typeof fetch
+  fetch?: (input: string, init?: RequestInit) => Promise<Response>
   /** Delay in milliseconds before retry number `attempt`, counted from zero. */
   backoff?: (attempt: number) => number
 }
