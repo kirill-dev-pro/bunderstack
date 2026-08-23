@@ -5,7 +5,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { RealtimeChange } from './publisher'
 
 import { validateAndResolveAccess } from '../access'
-import { filterRealtimeChanges } from './filter'
+import { filterRealtimeChanges, filterTableChanges } from './filter'
 
 const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
@@ -157,4 +157,55 @@ test('returning the filtered iterator closes the Publisher subscription', async 
   await filtered.next()
   await filtered.return(undefined)
   expect(closed).toBe(true)
+})
+
+test('filterTableChanges keeps one table and applies the given rule', async () => {
+  const access = validateAndResolveAccess(
+    { boards, secrets },
+    {
+      boards: { crud: true, list: 'public', get: 'deny' },
+      secrets: { crud: true, list: 'public', get: 'public' },
+    },
+  )
+  const entry = access.get('boards')!
+  const seen: string[] = []
+  for await (const change of filterTableChanges(
+    changes(
+      event('boards', { id: 'b1', organizationId: 'o1', ownerId: 'u1' }),
+      event('secrets', { id: 's1' }),
+      event('boards', { id: 'b2', organizationId: 'o1', ownerId: 'u1' }),
+    ),
+    {
+      tableName: 'boards',
+      entry,
+      rule: entry.list,
+      request: new Request('http://test/'),
+      getSession: async () => ({ user: null, activeOrganizationId: null }),
+    },
+  )) {
+    seen.push(String(change.record.id))
+  }
+  expect(seen).toEqual(['b1', 'b2'])
+})
+
+test('filterTableChanges denies every change when the rule denies', async () => {
+  const access = validateAndResolveAccess(
+    { boards, secrets },
+    { boards: { crud: true, list: 'deny', get: 'public' } },
+  )
+  const entry = access.get('boards')!
+  const seen: string[] = []
+  for await (const change of filterTableChanges(
+    changes(event('boards', { id: 'b1', organizationId: 'o1', ownerId: 'u1' })),
+    {
+      tableName: 'boards',
+      entry,
+      rule: entry.list,
+      request: new Request('http://test/'),
+      getSession: async () => ({ user: null, activeOrganizationId: null }),
+    },
+  )) {
+    seen.push(String(change.record.id))
+  }
+  expect(seen).toEqual([])
 })
