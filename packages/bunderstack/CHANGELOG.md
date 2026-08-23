@@ -4,6 +4,8 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-23
+
 ### Added
 
 - **Live views.** `GET /api/live/{table}` streams one list query: a snapshot of
