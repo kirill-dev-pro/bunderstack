@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
@@ -59,6 +59,10 @@
     "./database/postgres-js": {
       "types": "./dist/database/postgres-js.d.ts",
       "default": "./dist/database/postgres-js.js"
+    },
+    "./live": {
+      "types": "./dist/live/index.d.ts",
+      "default": "./dist/live/index.js"
     },
     "./provision": {
       "types": "./dist/provision.d.ts",

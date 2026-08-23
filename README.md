@@ -178,6 +178,41 @@ realtime.close()
 multiple instances must share events. `app.realtime.transport` reports
 `disabled`, `memory`, or `redis`.
 
+## Live views
+
+`GET /api/live/{table}` is one list query as a stream. It opens with a snapshot
+of the result and then sends only the changes that belong to that result: the
+server decides membership against the view's filters and places every row, so
+the browser holds no cache and never repeats the sort.
+
+```ts
+import { createLiveView } from 'bunderstack/live'
+
+const view = createLiveView<Todo>('/api/live/todos', {
+  input: { sort: 'createdAt', order: 'desc', limit: 100 },
+})
+
+view.subscribe(() => render(view.getRows(), view.getStatus()))
+view.patch((rows) => {
+  rows[0] = { ...rows[0], done: true } // optimistic; the echo replaces it
+})
+view.close()
+```
+
+Frames are `snapshot`, `upsert` (with the id the row follows), `remove`, and
+`heartbeat`. Every connection starts with a snapshot, so a reconnect is the
+resynchronisation: there is no event buffer, no `Last-Event-ID` bookkeeping,
+and no refetch path.
+
+A live view accepts `limit`, `sort`, `order`, and `filters`. `q`, `offset`, and
+`cursor` belong to `GET /api/{table}`, because a stream cannot decide text
+search or pagination from one record. Reading a live view needs the table's
+`list` right, which also gates every change the stream delivers.
+
+`bunderstack/live` has no dependencies and no framework binding: `subscribe`
+plus `getRows` is the pair `useSyncExternalStore` expects, and a Solid or Vue
+binding writes `getRows()` into a store from the same listener.
+
 ## Files
 
 Configured buckets are generated under `api.files.<bucket>` and have typed

@@ -5,11 +5,14 @@ import {
   createUpdateSchema,
 } from 'drizzle-valibot'
 import '@orpc/openapi/extensions/route'
+import { eventIterator } from '@orpc/server'
 import * as v from 'valibot'
 
 import type { AnyDb } from '../dialect'
 import type { IdempotencyConfig } from '../idempotency'
+import type { LiveSnapshotFrame } from '../live/protocol'
 import type { RealtimeFacade } from '../realtime/facade'
+import type { RealtimePublisher } from '../realtime/publisher'
 import type { CrudApiRouterFor } from './types'
 
 import {
@@ -19,8 +22,14 @@ import {
   type TableAccessInput,
 } from '../access'
 import { createCrudOperations, type CrudOperations } from '../crud-operations'
+import { filterTableChanges } from '../realtime/filter'
+import {
+  REALTIME_HEARTBEAT_INTERVAL_MS,
+  withRealtimeHeartbeat,
+} from '../realtime/heartbeat'
 import { createApiBuilder } from './builder'
-import { buildListInputSchema } from './list-input-schema'
+import { createLiveWindow } from './live-window'
+import { buildListInputSchema, buildLiveInputSchema } from './list-input-schema'
 
 export type CrudApiRouterOptions<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -28,6 +37,12 @@ export type CrudApiRouterOptions<
   access: ResolvedAccess
   idempotency?: boolean | IdempotencyConfig
   realtime?: RealtimeFacade<TSchema>
+  /**
+   * The raw realtime publisher, present when realtime is enabled. The CRUD
+   * router subscribes on behalf of live views (`GET /{table}:live`);
+   * publishing stays behind the facade.
+   */
+  livePublisher?: RealtimePublisher
 }
 
 function strictObject<TEntries extends v.ObjectEntries>(schema: {
@@ -72,6 +87,23 @@ export type ListInputFor<
     }
   | undefined
 
+/**
+ * The live-view input as callers see it: the list contract narrowed to what a
+ * stream can honor — no text search, no pagination.
+ */
+export type LiveInputFor<
+  TTable extends Table,
+  TFilterable extends string,
+  TSortable extends string,
+> =
+  | {
+      limit?: number
+      sort?: TSortable
+      order?: 'asc' | 'desc'
+      filters?: ListFilters<TTable, TFilterable>
+    }
+  | undefined
+
 export type BuildTableCrudProceduresArgs<
   TSchema extends Record<string, unknown>,
   TTable extends Table,
@@ -80,6 +112,10 @@ export type BuildTableCrudProceduresArgs<
   operations: CrudOperations
   builder: ReturnType<typeof createApiBuilder<TSchema>>
   access: ResolvedTableAccess
+  /** The schema key events are published under. */
+  schemaKey: string
+  /** Present when realtime is enabled; without it no live procedure is built. */
+  livePublisher?: RealtimePublisher
 }
 
 export function buildTableCrudProcedures<
@@ -88,7 +124,8 @@ export function buildTableCrudProcedures<
   TFilterable extends string = string,
   TSortable extends string = string,
 >(args: BuildTableCrudProceduresArgs<TSchema, TTable>) {
-  const { table, operations, builder, access } = args
+  const { table, operations, builder, access, schemaKey, livePublisher } =
+    args
   const name = getTableName(table)
 
   // drizzle-valibot infers its schemas through internal generics. Left as-is,
@@ -304,12 +341,130 @@ export function buildTableCrudProcedures<
       return undefined
     })
 
+  // 6. LIVE procedure — one list query as a stream. A snapshot first, then the
+  // changes this view cares about, placed by the server. Every connection
+  // opens with a snapshot, so a reconnect is its own recovery: no client-side
+  // event buffer, no Last-Event-ID bookkeeping, and no refetch path.
+  const liveQuerySchema = buildLiveInputSchema(table, {
+    filterableColumns: access.filterableColumns,
+    sortableColumns: access.sortableColumns,
+  }) as unknown as v.GenericSchema<
+    LiveInputFor<TTable, TFilterable, TSortable>,
+    LiveInputFor<TTable, TFilterable, TSortable>
+  >
+
+  const recordSchema = v.record(v.string(), v.unknown())
+  const liveFrameSchema = v.union([
+    v.strictObject({
+      type: v.literal('snapshot'),
+      items: v.array(recordSchema),
+      sort: v.string(),
+      order: v.picklist(['asc', 'desc']),
+      limit: v.number(),
+      hasMore: v.boolean(),
+    }),
+    v.strictObject({
+      type: v.literal('upsert'),
+      record: recordSchema,
+      afterId: v.union([v.string(), v.null()]),
+    }),
+    v.strictObject({ type: v.literal('remove'), id: v.string() }),
+    v.strictObject({ type: v.literal('heartbeat'), intervalMs: v.number() }),
+  ])
+
+  const live = !livePublisher
+    ? undefined
+    : builder.public
+        .route({
+          method: 'GET',
+          // A path of its own, not a child of the table: `/{table}/live`
+          // would make the id "live" unreachable on the get route, and a
+          // colon suffix is a wildcard parameter in the oRPC matcher.
+          path: `/api/live/${name}`,
+          summary: `Live view of ${name}`,
+          tags: [name],
+          // Filters arrive as one URL-encoded JSON value, so no per-key query
+          // parsing rule is needed.
+          queryStyles: { filters: 'json' },
+        })
+        .input(liveQuerySchema)
+        .output(eventIterator(liveFrameSchema))
+        .handler(({ input, context, signal }) => {
+          // Subscribe before anything awaits, so no change slips between the
+          // snapshot read and the start of the stream; events that arrive
+          // during the query buffer in the publisher and replay on first pull.
+          const changes = filterTableChanges(
+            livePublisher.subscribe('change', { signal }),
+            {
+              tableName: schemaKey,
+              entry: access,
+              rule: access.list,
+              request: context.request,
+              getSession: context.getSession,
+            },
+          )
+
+          return withRealtimeHeartbeat(
+            (async function* () {
+              const session = await context.getSession()
+              const execCtx = {
+                request: context.request,
+                user: session.user,
+                session: { activeOrganizationId: session.activeOrganizationId },
+              }
+              let view: ReturnType<typeof createLiveWindow> | undefined
+
+              const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
+                const result = await operations.list(name, input ?? {}, execCtx)
+                view = createLiveWindow({
+                  sort: result.sort,
+                  order: result.order,
+                  limit: result.limit,
+                  filters: input?.filters as
+                    | Record<string, unknown>
+                    | undefined,
+                })
+                view.reset(result.items, result.hasMore)
+                return {
+                  type: 'snapshot',
+                  items: result.items,
+                  sort: result.sort,
+                  order: result.order,
+                  limit: result.limit,
+                  hasMore: result.hasMore,
+                }
+              }
+
+              yield await readSnapshot()
+
+              for await (const change of changes) {
+                const outcome = view!.apply(change)
+                if (outcome.type === 'none') continue
+                if (outcome.type === 'resnapshot') {
+                  yield await readSnapshot()
+                  continue
+                }
+                for (const frame of outcome.frames) yield frame
+              }
+            })(),
+            { intervalMs: REALTIME_HEARTBEAT_INTERVAL_MS, signal },
+          )
+        })
+
   return {
     list,
     get,
     create,
     update,
     delete: deleteProc,
+    ...(live ? { live } : {}),
+  } as {
+    list: typeof list
+    get: typeof get
+    create: typeof create
+    update: typeof update
+    delete: typeof deleteProc
+    live?: NonNullable<typeof live>
   }
 }
 
@@ -334,7 +489,7 @@ export function buildCrudApiRouter<
   db: AnyDb,
   options: CrudApiRouterOptions<TSchema>,
 ): CrudApiRouterFor<TSchema, TAccess> {
-  const { access, realtime, idempotency } = options
+  const { access, realtime, idempotency, livePublisher } = options
   const builder = createApiBuilder<TSchema>()
   const operations = createCrudOperations({
     schema,
@@ -361,6 +516,8 @@ export function buildCrudApiRouter<
       operations,
       builder,
       access: tableAccess,
+      schemaKey: tableKey,
+      livePublisher,
     })
 
     routerObj[tableKey] = procedures
