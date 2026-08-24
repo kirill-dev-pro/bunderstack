@@ -134,7 +134,7 @@
           "$id": "framework-portability.mdx",
           "type": "page",
           "name": "Framework Portability",
-          "description": "Mount app.handler in any modern TypeScript framework",
+          "description": "Mount app.handler in TanStack Start, React SPA, Solid 2, Bun SSR, Next.js, and other modern TypeScript frameworks",
           "url": "/docs/framework-portability",
           "$ref": "framework-portability.mdx"
         },
@@ -212,7 +212,7 @@
     },
     "framework-portability": {
       "title": "Framework Portability",
-      "description": "Mount app.handler in any modern TypeScript framework"
+      "description": "Mount app.handler in TanStack Start, React SPA, Solid 2, Bun SSR, Next.js, and other modern TypeScript frameworks"
     },
     "getting-started": {
       "title": "Getting Started",

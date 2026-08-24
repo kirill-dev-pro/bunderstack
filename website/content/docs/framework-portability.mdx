@@ -1,34 +1,366 @@
 ---
 title: Framework Portability
-description: Mount app.handler in any modern TypeScript framework
+description: Mount app.handler in TanStack Start, React SPA, Solid 2, Bun SSR, Next.js, and other modern TypeScript frameworks
 ---
 
-`app.handler(req: Request): Promise<Response>` — every modern TS framework knows this shape.
+`app.handler(req: Request): Promise<Response>` — every modern TypeScript framework knows this Web Standard shape.
 
-## Standalone Bun
+Bunderstack runs in any environment supporting standard Web Requests and Responses. Below are the recommended integration patterns, configuration files, and deployment setups for each supported framework.
+
+---
+
+## TanStack Start (Full-Stack SSR)
+
+[TanStack Start](https://tanstack.com/start) provides full-stack React with server-side rendering and streaming. The official [`bunderstack-start`](/docs/query-client) adapter handles API routing, SSR-aware data fetching, session lookup, and auth client configuration.
+
+### 1. Installation
+
+```bash
+bun add bunderstack bunderstack-start bunderstack-query bunderstack-sync drizzle-orm valibot @libsql/client @tanstack/react-query
+```
+
+### 2. Configuration (`src/bunderstack.ts`)
+
+TanStack Start supports top-level `await`, allowing you to export `app` and its TypeScript type directly:
+
+```ts
+// src/bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { provision } from 'bunderstack/provision'
+import { access } from './access'
+import * as schema from './schema'
+
+export const app = await createBunderstack({
+  schema,
+  access,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export type App = typeof app
+await provision(app)
+```
+
+### 3. API Catch-All Route (`src/routes/api/$.tsx`)
+
+Mount the API handler on TanStack Start's catch-all route:
+
+```ts
+// src/routes/api/$.tsx
+import { createFileRoute } from '@tanstack/react-router'
+import { createApiHandlers } from 'bunderstack-start'
+import { app } from '~/bunderstack'
+
+export const Route = createFileRoute('/api/$')({
+  server: { handlers: createApiHandlers(app) },
+})
+```
+
+### 4. Typed Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { bunderstackStart } from 'bunderstack-start'
+import type { App } from './bunderstack'
+
+export const { createQueryClient, createApi } = bunderstackStart<App>()
+```
+
+> **Important:** Do not name this file `src/client.ts`. TanStack Start reserves `client.ts` as its hydration entry point.
+
+### 5. Package Scripts & Deployment
+
+```json
+{
+  "scripts": {
+    "build": "vite build",
+    "start": "bun .output/server/index.mjs"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects `@tanstack/react-start` and outputs `framework: tanstack-start`.
+
+---
+
+## Solid 2 (Standalone Vite + Bun SSR)
+
+Standalone [Solid 2](https://solidjs.com) (without SolidStart) uses a unified Bun server to handle static assets, perform server-side rendering, and delegate API requests directly to Bunderstack.
+
+### 1. Installation
+
+```bash
+bun add bunderstack solid-js@2.0.0-rc.1 @solidjs/web@2.0.0-rc.1 @solidjs/router@2.0.0-next.17 drizzle-orm valibot @libsql/client @orpc/client
+bun add -d vite vite-plugin-solid@3.0.0-next.27
+```
+
+### 2. Configuration (`src/bunderstack.ts`)
+
+```ts
+// src/bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const app = await createBunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export type App = typeof app
+await provision(app)
+```
+
+### 3. Unified HTTP Server (`src/server.ts`)
+
+In production, `src/server.ts` routes all `/api/*` requests to `app.handler`, serves compiled client assets, and renders Solid 2 components via `renderToString`:
+
+```tsx
+// src/server.ts
+import { renderToString } from '@solidjs/web/server'
+import { app } from './bunderstack'
+import App from './App'
+
+const port = Number(process.env.PORT) || 3000
+
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+
+    // 1. Route API, auth, storage, jobs, and health check
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    // 2. Serve static client assets from dist/client
+    const filePath = `dist/client${url.pathname}`
+    const file = Bun.file(filePath)
+    if (await file.exists()) {
+      return new Response(file)
+    }
+
+    // 3. Render Solid 2 SSR HTML
+    const html = renderToString(() => <App url={url.pathname} />)
+    return new Response(
+      `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script type="module" src="/entry-client.js"></script>
+  </head>
+  <body>
+    <div id="app">${html}</div>
+  </body>
+</html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  },
+})
+
+console.log(`Solid 2 + Bunderstack running on port ${port}`)
+```
+
+### 4. Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { createClient } from 'bunderstack-query'
+import { QueryClient } from '@tanstack/solid-query'
+import type { App } from './bunderstack'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient, baseUrl: '/api' })
+```
+
+### 5. Package Scripts & Deployment
+
+```json
+{
+  "bunderstack": {
+    "entry": "src/bunderstack.ts"
+  },
+  "scripts": {
+    "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "start": "bun src/server.ts"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects `solid-js` and sets `framework: solid`.
+
+---
+
+## TanStack Router / React SPA (Vite)
+
+In a Single Page Application (SPA) with Vite and React (or TanStack Router), the frontend bundle runs entirely in the browser and connects to a Bunderstack backend.
+
+### 1. Configuration & Server (`server.ts` or `src/bunderstack.ts`)
 
 ```ts
 // server.ts
-import { app } from './bunderstack'
-Bun.serve({ port: 3001, fetch: app.handler })
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const app = await createBunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export type App = typeof app
+await provision(app)
+
+const port = Number(process.env.PORT) || 3000
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    const file = Bun.file(`dist/${url.pathname}`)
+    if (await file.exists()) return new Response(file)
+
+    return new Response(Bun.file('dist/index.html'))
+  },
+})
 ```
+
+### 2. Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { createClient } from 'bunderstack-query'
+import { QueryClient } from '@tanstack/react-query'
+import type { App } from '../server'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({
+  queryClient,
+  baseUrl: '/api',
+})
+```
+
+### 3. Vite Proxy for Development (`vite.config.ts`)
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
+  },
+})
+```
+
+---
+
+## Bun SSR (Pure Web Standards Bun Server)
+
+For server-rendered applications using Bun with template literals, JSX, HTMX, Alpine.js, or Web Components without a full frontend framework.
+
+### 1. Configuration (`src/bunderstack.ts`)
+
+```ts
+// src/bunderstack.ts
+import { createBunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const app = await createBunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export type App = typeof app
+await provision(app)
+```
+
+### 2. Server Entry (`src/server.ts`)
+
+```ts
+// src/server.ts
+import { app } from './bunderstack'
+
+const port = Number(process.env.PORT) || 3000
+
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+
+    // Route API requests (oRPC, Auth, Storage, Jobs, Health)
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    // Server-rendered HTML response
+    return new Response(
+      `<!DOCTYPE html>
+<html>
+  <head><title>Bun SSR App</title></head>
+  <body>
+    <h1>Welcome to Bunderstack on Bun SSR</h1>
+  </body>
+</html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  },
+})
+```
+
+### 3. Package Scripts & Deployment
+
+```json
+{
+  "scripts": {
+    "build": "bun build ./src/client.ts --outdir ./dist",
+    "start": "bun src/server.ts"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects a generic Bun project and assigns `framework: bun-ssr`.
+
+---
 
 ## Next.js (App Router)
 
-```ts
-// app/api/[...bunderstack]/route.ts
-import { getApp } from '@/bunderstack'
-
-export async function GET(req: Request) {
-  return (await getApp()).handler(req)
-}
-export const POST = GET
-export const PATCH = GET
-export const DELETE = GET
-```
+### 1. Lazy Singleton (`lib/bunderstack.ts`)
 
 ```ts
-// bunderstack.ts — lazy singleton for Next.js
+// lib/bunderstack.ts
 import { createBunderstack, type BunderstackApp } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
@@ -47,79 +379,60 @@ export async function getApp() {
 }
 ```
 
-Next.js runs on Node, not Bun. If your schema uses `pgTable` and
-`DATABASE_URL` points at a real Postgres server, install the Node driver:
-`npm install postgres` (postgres.js). Under Bun the built-in `Bun.sql` driver
-is used automatically — no extra package needed there.
-
-## TanStack Start: bunderstack-start
-
-The `bunderstack-start` adapter owns all Start-specific glue — the API file
-route, SSR-aware fetch, the client setup, session lookup, and the auth client.
-
-```bash
-bun add bunderstack-start bunderstack-sync bunderstack-query
-```
-
-TanStack Start supports top-level `await`, so `bunderstack.ts` exports `app`
-directly, plus the type handle for client inference:
+### 2. Route Handler (`app/api/[...bunderstack]/route.ts`)
 
 ```ts
-// src/bunderstack.ts
-import { createBunderstack } from 'bunderstack'
-import { provision } from 'bunderstack/provision'
-import * as schema from './schema'
-import { access } from './access'
+// app/api/[...bunderstack]/route.ts
+import { getApp } from '@/lib/bunderstack'
 
-export const app = await createBunderstack({
-  schema,
-  access,
-  auth: { emailAndPassword: { enabled: true } },
-})
-
-export type App = typeof app
-
-await provision(app)
+export async function GET(req: Request) {
+  return (await getApp()).handler(req)
+}
+export const POST = GET
+export const PATCH = GET
+export const DELETE = GET
 ```
 
-Mount the API and set up the whole client:
+> Next.js runs on Node.js. If connecting to a PostgreSQL database, install the Node driver: `npm install postgres`. When running under Bun, the native `Bun.sql` driver is selected automatically.
+
+---
+
+## Other Web Standards Runtimes
+
+Because `app.handler` implements the Web Standard `(req: Request) => Promise<Response>` signature, it integrates into any standard runtime in one line:
+
+### Hono
 
 ```ts
-// src/routes/api/$.tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { createApiHandlers } from 'bunderstack-start'
-import { app } from '~/bunderstack'
+import { Hono } from 'hono'
+import { app } from './bunderstack'
 
-export const Route = createFileRoute('/api/$')({
-  server: { handlers: createApiHandlers(app) },
-})
+// Delegate all /api/* routes to Bunderstack
+const server = createHonoApp()
+server.all('/api/*', (c) => app.handler(c.req.raw))
+export default server
 ```
+
+### Astro
 
 ```ts
-// src/api.ts — the entire client setup
-import { bunderstackStart } from 'bunderstack-start'
-import type { App } from './bunderstack'
+// src/pages/api/[...all].ts
+import type { APIRoute } from 'astro'
+import { app } from '../../bunderstack'
 
-export const { createQueryClient, createApi } = bunderstackStart<App>()
+export const ALL: APIRoute = ({ request }) => app.handler(request)
 ```
 
-`createApi(queryClient)` returns the fully inferred
-[sync client](/docs/sync-collections) with SSR-aware fetch and
-realtime-off-during-SSR already handled.
+---
 
-> **Don't name that file `src/client.ts`.** It's a reserved TanStack Start
-> entry-point name — a file called `client.ts` silently replaces the
-> framework's hydration entry, and the app renders server-side but is
-> completely inert in the browser, with no console error.
+## Deployment Blueprint Comparison
 
-Also included:
+When generating a deployment contract via `bunx bunderstack blueprint`, Bunderstack identifies the application type and specifies it in `bunderstack.blueprint.yaml`:
 
-```ts
-import { getSessionUser, createStartAuthClient } from 'bunderstack-start'
+| Framework Type | Blueprint `framework` | Detection Rule | Typical `build` Script | Typical `start` Script |
+|---|---|---|---|---|
+| **TanStack Start** | `tanstack-start` | `@tanstack/react-start` in dependencies | `vite build` | `bun .output/server/index.mjs` |
+| **Solid 2** | `solid` | `solid-js` or `@solidjs/web` in dependencies | `vite build && vite build --ssr ...` | `bun src/server.ts` |
+| **Bun SSR** | `bun-ssr` | Standard Bun scripts present | `bun build ...` | `bun src/server.ts` |
+| **Custom / SPA** | `custom` | Custom specified framework | Custom build command | Custom startup command |
 
-// In a server function: resolve the BetterAuth session
-const user = await getSessionUser(app, request)
-
-// Browser-side BetterAuth SDK pointed at /api/auth/*
-export const authClient = createStartAuthClient()
-```
