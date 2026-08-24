@@ -94,3 +94,54 @@ test('generateBlueprint normalizes absolute migration directories inside the app
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('generateBlueprint detects solid framework from dependencies', async () => {
+  const tempRoot = await realpath(tmpdir())
+  const directory = await mkdtemp(
+    join(tempRoot, 'bunderstack-blueprint-solid-'),
+  )
+  const entryPath = join(directory, 'src/bunderstack.ts')
+  await mkdir(join(entryPath, '..'), { recursive: true })
+  await Bun.write(
+    join(directory, 'package.json'),
+    JSON.stringify({
+      scripts: { build: 'vite build', start: 'bun src/server.ts' },
+      dependencies: {
+        'solid-js': '^2.0.0-rc.1',
+        '@solidjs/web': '^2.0.0-rc.1',
+        bunderstack: '^1.0.0',
+      },
+    }),
+  )
+  await Bun.write(
+    entryPath,
+    `export const app = { manifest: ${JSON.stringify({
+      version: 3,
+      database: {
+        dialect: 'sqlite',
+        migrationsDirectory: './migrations',
+        tables: [],
+      },
+      storage: {
+        defaultBucket: 'default',
+        buckets: [{ name: 'default', visibility: 'private' }],
+      },
+      realtime: { required: false },
+      environment: [],
+      background: {
+        jobs: [],
+        cron: [],
+        maintenance: [
+          { name: 'storage-sweep', schedule: '0 4 * * *', timezone: 'UTC' },
+        ],
+      },
+    })}, close: async () => {} }`,
+  )
+  try {
+    const result = await generateBlueprint({ directory })
+    expect(result.blueprint.application.framework).toBe('solid')
+    expect(result.source).toContain('framework: solid')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

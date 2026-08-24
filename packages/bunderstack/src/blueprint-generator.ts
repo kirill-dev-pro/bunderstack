@@ -113,10 +113,14 @@ export async function generateBlueprint(
   const packagePath = join(directory, 'package.json')
   const pkg = JSON.parse(await readFile(packagePath, 'utf8')) as AppPackage
   const allDependencies = { ...pkg.dependencies, ...pkg.devDependencies }
-  if (typeof allDependencies['@tanstack/react-start'] !== 'string') {
-    throw new Error(
-      '[bunderstack] package.json must depend on @tanstack/react-start',
-    )
+  let framework: 'tanstack-start' | 'solid' | 'bun-ssr' = 'bun-ssr'
+  if (typeof allDependencies['@tanstack/react-start'] === 'string') {
+    framework = 'tanstack-start'
+  } else if (
+    typeof allDependencies['solid-js'] === 'string' ||
+    typeof allDependencies['@solidjs/web'] === 'string'
+  ) {
+    framework = 'solid'
   }
   requireScript(pkg, 'build', true)
   requireScript(pkg, 'start', true)
@@ -174,6 +178,7 @@ export async function generateBlueprint(
       generatorVersion: await packageVersion(),
       entry,
       migrationMode,
+      framework,
     })
     const source = serializeBlueprint(blueprint)
     const existing = (await Bun.file(outputPath).exists())

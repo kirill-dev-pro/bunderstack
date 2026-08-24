@@ -7,12 +7,17 @@ import { parseCron } from './jobs/cron'
 import { validateStandardSchema } from './standard-schema'
 
 export type MigrationMode = 'migrations' | 'push'
+export type ApplicationFramework =
+  | 'tanstack-start'
+  | 'solid'
+  | 'bun-ssr'
+  | 'custom'
 
 export type BunderstackBlueprint = {
   version: 1
   generator: { name: 'bunderstack'; version: string }
   application: {
-    framework: 'tanstack-start'
+    framework: ApplicationFramework
     scripts: { build: 'build'; start: 'start'; worker?: 'worker' }
   }
   bunderstack: { entry: string; manifestVersion: 3 }
@@ -57,7 +62,7 @@ const blueprintSchema = v.strictObject({
     version: nonEmpty,
   }),
   application: v.strictObject({
-    framework: v.literal('tanstack-start'),
+    framework: v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom']),
     scripts: v.strictObject({
       build: v.literal('build'),
       start: v.literal('start'),
@@ -194,13 +199,14 @@ export function blueprintFromManifest(args: {
   generatorVersion: string
   entry: string
   migrationMode: MigrationMode
+  framework?: ApplicationFramework
 }): BunderstackBlueprint {
   const workerRequired = args.manifest.background.jobs.length > 0
   return parseBlueprint({
     version: 1,
     generator: { name: 'bunderstack', version: args.generatorVersion },
     application: {
-      framework: 'tanstack-start',
+      framework: args.framework ?? 'tanstack-start',
       scripts: {
         build: 'build',
         start: 'start',

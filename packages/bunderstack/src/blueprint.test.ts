@@ -100,3 +100,17 @@ test('blueprint parser rejects unsafe and duplicate declarations', () => {
     }),
   ).toThrow(/defaultBucket/)
 })
+
+test('blueprint accepts solid and bun-ssr framework declarations', () => {
+  const solidBlueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '0.13.0',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+    framework: 'solid',
+  })
+  expect(solidBlueprint.application.framework).toBe('solid')
+  const yaml = serializeBlueprint(solidBlueprint)
+  expect(yaml).toContain('framework: solid')
+  expect(parseBlueprintYaml(yaml).application.framework).toBe('solid')
+})
