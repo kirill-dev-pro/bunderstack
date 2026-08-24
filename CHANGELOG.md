@@ -4,6 +4,16 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-08-24
+
+### Added
+
+- **Solid and Bun SSR application support in deployment blueprint.** The
+  `bunderstack blueprint` generator and contract schema now support
+  standalone Solid 2, Bun SSR, and custom full-stack setups without requiring
+  `@tanstack/react-start`. The generator automatically infers the framework from
+  declared dependencies.
+
 ## [0.19.1] - 2026-08-23
 
 ### Fixed
