@@ -65,7 +65,7 @@ resources:
     required: true
 environment:
   - key: AI_API_KEY
-    required: false
+    required: true
     scope: server
   - key: AI_BASE_URL
     required: false
