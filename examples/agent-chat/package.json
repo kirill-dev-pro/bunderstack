@@ -6,8 +6,8 @@
     "dev": "bun --bun vite dev --port 3007",
     "build": "vite build",
     "start": "bun .output/server/index.mjs",
-    "blueprint": "bunderstack blueprint",
-    "worker": "echo 'No worker, sorry!'"
+    "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
+    "worker": "bun src/worker.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.30",
