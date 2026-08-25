@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "bun --bun vite dev --port 3007",
     "build": "vite build",
-    "start": "bun .output/server/index.mjs"
+    "start": "bun .output/server/index.mjs",
+    "blueprint": "bunderstack blueprint",
+    "worker": "echo 'No worker, sorry!'"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.30",

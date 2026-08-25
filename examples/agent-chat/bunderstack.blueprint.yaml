@@ -1,0 +1,95 @@
+version: 1
+generator:
+  name: bunderstack
+  version: 0.21.0
+application:
+  framework: tanstack-start
+  scripts:
+    build: build
+    start: start
+    worker: worker
+bunderstack:
+  entry: src/bunderstack.ts
+  manifestVersion: 3
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: push
+    tables:
+      - exportName: _system.emailEvents
+        physicalName: _bunderstack_email_events
+        system: true
+      - exportName: _system.emails
+        physicalName: _bunderstack_emails
+        system: true
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: agentCommitments
+        physicalName: agent_commitments
+        system: false
+      - exportName: agentMessages
+        physicalName: agent_messages
+        system: false
+      - exportName: agentRuns
+        physicalName: agent_runs
+        system: false
+      - exportName: agentThreads
+        physicalName: agent_threads
+        system: false
+      - exportName: agentToolCalls
+        physicalName: agent_tool_calls
+        system: false
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: tasks
+        physicalName: tasks
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+  storage:
+    defaultBucket: default
+    buckets:
+      - name: default
+        visibility: private
+  realtime:
+    required: true
+environment:
+  - key: AI_API_KEY
+    required: false
+    scope: server
+  - key: AI_BASE_URL
+    required: false
+    scope: server
+  - key: AI_MODEL
+    required: false
+    scope: server
+  - key: OPENAI_API_KEY
+    required: false
+    scope: server
+  - key: OPENAI_MODEL
+    required: false
+    scope: server
+  - key: PUBLIC_APP_NAME
+    required: false
+    scope: client
+background:
+  worker:
+    required: true
+  jobs:
+    - name: agentReminder
+    - name: agentTurn
+  cron: []
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC
