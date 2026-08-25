@@ -1,0 +1,9 @@
+.env
+.DS_Store
+.output
+.tanstack
+dist
+node_modules
+data.db
+data.db-shm
+data.db-wal

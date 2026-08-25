@@ -1,0 +1,273 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { useEffect, useRef, useState } from 'react'
+
+import { app } from '~/bunderstack'
+import { LoginGate } from '~/components/LoginGate'
+
+const getAppName = createServerFn({ method: 'GET' }).handler(
+  () => app.env.PUBLIC_APP_NAME,
+)
+
+export const Route = createFileRoute('/')({
+  loader: async () => ({ appName: await getAppName() }),
+  component: HomePage,
+})
+
+function HomePage() {
+  const { user } = Route.useRouteContext()
+  const { appName } = Route.useLoaderData()
+  if (!user) return <LoginGate />
+  return <AgentDesk appName={appName} userName={user.name} />
+}
+
+function AgentDesk({
+  appName,
+  userName,
+}: {
+  appName: string
+  userName: string
+}) {
+  const { api } = Route.useRouteContext()
+  const queryClient = useQueryClient()
+  const [content, setContent] = useState('')
+  const messagesEnd = useRef<HTMLDivElement>(null)
+
+  const threads = useQuery(
+    api.agentThreads.list.queryOptions({ input: { limit: 1 } }),
+  )
+  const messages = useQuery(
+    api.agentMessages.list.queryOptions({ input: { limit: 200 } }),
+  )
+  const tasks = useQuery(api.tasks.list.queryOptions({ input: { limit: 100 } }))
+  const runs = useQuery(
+    api.agentRuns.list.queryOptions({ input: { limit: 12 } }),
+  )
+  const calls = useQuery(
+    api.agentToolCalls.list.queryOptions({ input: { limit: 20 } }),
+  )
+  const commitments = useQuery(
+    api.agentCommitments.list.queryOptions({ input: { limit: 20 } }),
+  )
+
+  const send = useMutation(
+    api.sendMessage.mutationOptions({
+      onSuccess: () => {
+        setContent('')
+        void queryClient.invalidateQueries()
+      },
+    }),
+  )
+
+  useEffect(() => {
+    messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.data?.items.length])
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!content.trim() || send.isPending) return
+    send.mutate({ content: content.trim() })
+  }
+
+  const thread = threads.data?.items[0]
+  const openTasks = tasks.data?.items.filter((task) => !task.done) ?? []
+  const lastRun = runs.data?.items[0]
+
+  return (
+    <main className="desk-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">BUNDERSTACK / AGENT EXPERIMENT 01</p>
+          <h1>{appName}</h1>
+        </div>
+        <div className="identity">
+          <span className="presence-dot" aria-hidden="true" />
+          <span>{userName}</span>
+        </div>
+      </header>
+
+      <div className="desk-grid">
+        <section className="panel conversation-panel" aria-label="Conversation">
+          <div className="panel-heading">
+            <div>
+              <span className="section-index">01</span>
+              <h2>Conversation</h2>
+            </div>
+            <span
+              className={`status-pill status-pill--${thread?.status ?? 'idle'}`}
+            >
+              {thread?.status === 'running' ? 'Agent working' : 'Agent ready'}
+            </span>
+          </div>
+
+          <div className="message-list" aria-live="polite">
+            {messages.data?.items.length ? (
+              messages.data.items.map((message) => (
+                <article
+                  key={message.id}
+                  className={`message message--${message.role}`}
+                >
+                  <div className="message-meta">
+                    <span>
+                      {message.role === 'user' ? userName : message.role}
+                    </span>
+                    <time>{formatTime(message.createdAt)}</time>
+                  </div>
+                  <p>{message.content}</p>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">
+                <span className="empty-mark">↳</span>
+                <h3>Start with an action.</h3>
+                <p>
+                  Try “Add book flights” or “Remind me in 5 minutes to stretch”.
+                </p>
+              </div>
+            )}
+            <div ref={messagesEnd} />
+          </div>
+
+          <form className="composer" onSubmit={submit}>
+            <label htmlFor="message">Message the agent</label>
+            <div className="composer-row">
+              <textarea
+                id="message"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    submit(event)
+                  }
+                }}
+                placeholder="Add a task, list tasks, complete one, or schedule a reminder…"
+                rows={2}
+              />
+              <button
+                type="submit"
+                disabled={!content.trim() || send.isPending}
+              >
+                {send.isPending ? 'Queued' : 'Send ↗'}
+              </button>
+            </div>
+            {send.isError && (
+              <p className="form-error">
+                Could not queue the message. Try again.
+              </p>
+            )}
+          </form>
+        </section>
+
+        <aside className="panel runtime-panel" aria-label="Agent runtime">
+          <div className="panel-heading">
+            <div>
+              <span className="section-index">02</span>
+              <h2>Runtime</h2>
+            </div>
+            <span className="wake-counter">wake {thread?.wakeSeq ?? 0}</span>
+          </div>
+
+          <div className="runtime-block">
+            <p className="runtime-label">Latest run</p>
+            <div className="run-card">
+              <span
+                className={`run-state run-state--${lastRun?.status ?? 'idle'}`}
+              >
+                {lastRun?.status ?? 'idle'}
+              </span>
+              <strong>{lastRun?.reason ?? 'Waiting for first message'}</strong>
+              {lastRun && <time>{formatTime(lastRun.startedAt)}</time>}
+            </div>
+          </div>
+
+          <div className="runtime-block">
+            <p className="runtime-label">Tool journal</p>
+            <div className="journal-list">
+              {calls.data?.items.length ? (
+                calls.data.items.slice(0, 6).map((call) => (
+                  <div className="journal-row" key={call.id}>
+                    <span className="journal-icon">
+                      {call.status === 'done' ? '✓' : '!'}
+                    </span>
+                    <div>
+                      <strong>{call.tool}</strong>
+                      <small>{formatTime(call.createdAt)}</small>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="quiet">No tool calls yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="runtime-block">
+            <p className="runtime-label">Commitments</p>
+            <div className="commitment-list">
+              {commitments.data?.items.length ? (
+                commitments.data.items.slice(0, 4).map((item) => (
+                  <div className="commitment" key={item.id}>
+                    <span>{item.status}</span>
+                    <strong>{item.title}</strong>
+                    <time>{formatDateTime(item.dueAt)}</time>
+                  </div>
+                ))
+              ) : (
+                <p className="quiet">Nothing scheduled.</p>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <section className="panel task-panel" aria-label="Tasks">
+        <div className="panel-heading">
+          <div>
+            <span className="section-index">03</span>
+            <h2>Agent-managed tasks</h2>
+          </div>
+          <span className="task-count">
+            {openTasks.length} open / {tasks.data?.items.length ?? 0} total
+          </span>
+        </div>
+        <div className="task-grid">
+          {tasks.data?.items.length ? (
+            tasks.data.items.map((task) => (
+              <div
+                className={`task-card ${task.done ? 'task-card--done' : ''}`}
+                key={task.id}
+              >
+                <span className="task-check" aria-hidden="true">
+                  {task.done ? '✓' : ''}
+                </span>
+                <div>
+                  <strong>{task.title}</strong>
+                  <small>{task.done ? 'Completed by agent' : 'Open'}</small>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="quiet">
+              Tasks created through the agent appear here.
+            </p>
+          )}
+        </div>
+      </section>
+    </main>
+  )
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateTime(date: Date) {
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

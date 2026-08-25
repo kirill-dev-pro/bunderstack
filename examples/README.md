@@ -54,6 +54,7 @@ Use separate terminals — each binds a different port.
 | ------------------------------ | --------------------------------- | --------------------- |
 | Twitter (TanStack Start)       | `bun run dev:twitter-tanstack`    | http://localhost:3000 |
 | Todo (TanStack Start)          | `bun run dev:todo`                | http://localhost:3005 |
+| Agent Chat (TanStack Start)    | `bun run dev:agent-chat`          | http://localhost:3007 |
 | Twitter (TanStack DB + shadcn) | `bun run dev:twitter-db-tanstack` | http://localhost:3003 |
 | Todo (Solid 2 + Solid Query)   | `bun run dev:todo-solid-2`        | http://localhost:3006 |
 | Kanban (Solid + Vite)          | `bun run dev:kanban`              | http://localhost:5174 |
@@ -128,6 +129,20 @@ bun run dev:todo-solid-2
 
 See `examples/todo-solid-2/README.md` for the integration and the client
 patterns side by side.
+
+### Agent Chat (TanStack Start)
+
+A long-lived personal agent with a durable inbox, per-thread turn lock,
+auditable tools, and scheduled reminder wakes. It runs without an API key using
+a deterministic responder; an OpenAI adapter is optional. The development app
+embeds its worker so queue events share the in-memory realtime transport:
+
+```bash
+bun run dev:agent-chat
+```
+
+See `examples/agent-chat/README.md` for the architecture and the deliberately
+deferred domain-event design.
 
 ### Next.js
 

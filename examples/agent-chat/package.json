@@ -1,0 +1,37 @@
+{
+  "name": "bunderstack-example-agent-chat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --bun vite dev --port 3007",
+    "build": "vite build",
+    "start": "bun .output/server/index.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.30",
+    "@libsql/client": "^0.14.0",
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/react-router-ssr-query": "^1.167.1",
+    "@tanstack/react-start": "^1.168.26",
+    "ai": "^7.0.52",
+    "arktype": "^2.2.3",
+    "better-auth": "^1.0.0",
+    "bunderstack": "workspace:*",
+    "bunderstack-query": "workspace:*",
+    "bunderstack-start": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "superjson": "^2.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^8.0.0"
+  }
+}
