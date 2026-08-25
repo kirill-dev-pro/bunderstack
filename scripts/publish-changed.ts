@@ -12,12 +12,7 @@
 
 // Dependency order: a package must be published before its dependents so the
 // rewritten version ranges always resolve on the registry.
-const PUBLISH_ORDER = [
-  'bunderstack',
-  'bunderstack-query',
-  'bunderstack-sync',
-  'bunderstack-start',
-] as const
+const PUBLISH_ORDER = ['bunderstack'] as const
 
 // Overridable so the script can be tested against a stub registry.
 const REGISTRY = process.env.PUBLISH_REGISTRY ?? 'https://registry.npmjs.org'

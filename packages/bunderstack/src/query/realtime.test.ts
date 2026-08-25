@@ -43,7 +43,12 @@ function fakeApi(calls: Array<{ lastEventId?: string }>) {
                 { id: 'evt-1' },
               ),
             ])
-          return new Promise<AsyncIterable<RealtimeEvent>>(() => {})
+          return new Promise<AsyncIterable<RealtimeEvent>>((_, reject) => {
+            if (options?.signal?.aborted) reject(new Error('aborted'))
+            options?.signal?.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            )
+          })
         },
       },
     },
@@ -126,7 +131,7 @@ test('reconnect failures use capped exponential backoff with full jitter', async
   Math.random = () => 0.5
   const retries: Array<{ attempt: number; delayMs: number }> = []
   let realtime: RealtimeSyncHandle
-  const fallback = setTimeout(() => realtime.close(), 100)
+  const fallback = setTimeout(() => realtime.close(), 5000)
 
   try {
     realtime = syncRealtime({
@@ -169,7 +174,7 @@ test('receiving a stream event resets reconnect backoff', async () => {
   const retries: Array<{ attempt: number; delayMs: number }> = []
   let calls = 0
   let realtime: RealtimeSyncHandle
-  const fallback = setTimeout(() => realtime.close(), 100)
+  const fallback = setTimeout(() => realtime.close(), 5000)
 
   try {
     realtime = syncRealtime({
@@ -225,10 +230,15 @@ function burstApi(changes: RealtimeEvent[]) {
     },
     realtime: {
       changes: {
-        async call() {
+        async call(_input: unknown, options?: { signal?: AbortSignal }) {
           connection++
           if (connection === 1) return stream(changes)
-          return new Promise<AsyncIterable<RealtimeEvent>>(() => {})
+          return new Promise<AsyncIterable<RealtimeEvent>>((_, reject) => {
+            if (options?.signal?.aborted) reject(new Error('aborted'))
+            options?.signal?.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            )
+          })
         },
       },
     },
