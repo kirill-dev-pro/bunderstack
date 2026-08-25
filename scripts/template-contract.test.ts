@@ -20,6 +20,7 @@ test('SaaS template exposes the Bunderstack deployment contract', () => {
 test('SaaS template contains all required routes and deployment files', () => {
   const files = [
     'src/bunderstack/index.ts',
+    'src/server.ts',
     'src/routes/api/$.tsx',
     '.env.example',
     'README.md',
