@@ -359,7 +359,7 @@ test('succeeded rows are reaped after the retention window', async () => {
   const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const r = runner(defs)
   const t0 = Date.now()
-  await enqueueJob(db, defs, 'ok', undefined)
+  await enqueueJob(db, defs, 'ok', undefined, { runAt: t0 })
   await r.tick(t0)
   await r.tick(t0 + 25 * 60 * 60 * 1000 + 10_000) // > 24h later
   const rows = await db.select().from(bunderstackJobs)

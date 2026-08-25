@@ -11,6 +11,11 @@
       "name": "Bunderstack",
       "children": [
         {
+          "$id": "_0",
+          "type": "separator",
+          "name": "Start"
+        },
+        {
           "$id": "index.mdx",
           "type": "page",
           "name": "Introduction",
@@ -25,6 +30,19 @@
           "description": "Build and call a typed Bunderstack API in five minutes",
           "url": "/docs/getting-started",
           "$ref": "getting-started.mdx"
+        },
+        {
+          "$id": "configuration.mdx",
+          "type": "page",
+          "name": "Configuration",
+          "description": "createBunderstack options, transports, adapters, and lifecycle",
+          "url": "/docs/configuration",
+          "$ref": "configuration.mdx"
+        },
+        {
+          "$id": "_1",
+          "type": "separator",
+          "name": "API &amp; Data"
         },
         {
           "$id": "crud.mdx",
@@ -51,6 +69,19 @@
           "$ref": "middleware.mdx"
         },
         {
+          "$id": "http-webhooks.mdx",
+          "type": "page",
+          "name": "HTTP &amp; Webhooks",
+          "description": "Ordinary HTTP routes and signed provider callbacks in the same API graph",
+          "url": "/docs/http-webhooks",
+          "$ref": "http-webhooks.mdx"
+        },
+        {
+          "$id": "_2",
+          "type": "separator",
+          "name": "Client &amp; Sync"
+        },
+        {
           "$id": "query-client.mdx",
           "type": "page",
           "name": "Query Client",
@@ -67,20 +98,9 @@
           "$ref": "sync-collections.mdx"
         },
         {
-          "$id": "http-webhooks.mdx",
-          "type": "page",
-          "name": "HTTP &amp; Webhooks",
-          "description": "Ordinary HTTP routes and signed provider callbacks in the same API graph",
-          "url": "/docs/http-webhooks",
-          "$ref": "http-webhooks.mdx"
-        },
-        {
-          "$id": "configuration.mdx",
-          "type": "page",
-          "name": "Configuration",
-          "description": "createBunderstack options, transports, adapters, and lifecycle",
-          "url": "/docs/configuration",
-          "$ref": "configuration.mdx"
+          "$id": "_3",
+          "type": "separator",
+          "name": "Facilities"
         },
         {
           "$id": "auth.mdx",
@@ -129,6 +149,11 @@
           "description": "On-the-fly image transforms via sharp",
           "url": "/docs/thumbnails",
           "$ref": "thumbnails.mdx"
+        },
+        {
+          "$id": "_4",
+          "type": "separator",
+          "name": "Reference"
         },
         {
           "$id": "framework-portability.mdx",

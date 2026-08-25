@@ -22,10 +22,7 @@ export function baseOptions(): BaseLayoutProps {
         </span>
       ),
     },
-    links: [
-      { text: 'Start', url: '/docs/getting-started' },
-      { text: 'API procedures', url: '/docs/api-procedures' },
-      { text: 'GitHub', url: 'https://github.com/kirill-dev-pro/bunderstack' },
-    ],
+    githubUrl: 'https://github.com/kirill-dev-pro/bunderstack',
+    links: [],
   }
 }

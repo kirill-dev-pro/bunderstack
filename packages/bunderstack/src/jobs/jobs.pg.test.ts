@@ -89,9 +89,11 @@ test('pg: failure retries then fails with onFailed', async () => {
   }
   const r = runner(defs)
   const t0 = Date.now()
-  const { id } = await enqueueJob(db as never, defs, 'flaky', undefined)
+  const { id } = await enqueueJob(db as never, defs, 'flaky', undefined, {
+    runAt: t0,
+  })
   await r.tick(t0)
-  await r.tick(t0 + 20)
+  await r.tick(t0 + 1000)
   const rows = await (db as unknown as PgDatabase<never>)
     .select()
     .from(bunderstackJobsPg)

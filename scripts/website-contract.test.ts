@@ -82,17 +82,18 @@ describe('public website contract', () => {
 
   test('navigation follows the primary learning path', () => {
     const meta = read('website/content/docs/meta.json')
-    const pages = JSON.parse(meta).pages as string[]
+    const rawPages = JSON.parse(meta).pages as string[]
+    const pages = rawPages.filter((p) => !p.startsWith('---'))
 
     expect(pages.slice(0, 8)).toEqual([
       'index',
       'getting-started',
+      'configuration',
       'crud',
       'api-procedures',
       'middleware',
-      'query-client',
-      'sync-collections',
       'http-webhooks',
+      'query-client',
     ])
     expect(pages).not.toContain('trpc')
     expect(pages).not.toContain('custom-routes')
