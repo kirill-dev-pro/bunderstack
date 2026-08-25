@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "bun --bun vite dev",
     "build": "bun --bun vite build",
-    "start": "bun .output/server/index.mjs",
+    "start": "bun dist/server/server.js",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",
     "seed": "bun scripts/seed.ts"
   },

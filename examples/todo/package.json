@@ -6,7 +6,7 @@
     "dev": "bun --bun vite dev --port 3005",
     "worker": "bun src/worker.ts",
     "build": "vite build",
-    "start": "bun .output/server/index.mjs",
+    "start": "bun dist/server/server.js",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
     "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"
   },

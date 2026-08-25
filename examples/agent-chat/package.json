@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun --bun vite dev --port 3007",
     "build": "vite build",
-    "start": "bun .output/server/index.mjs",
+    "start": "bun dist/server/server.js",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
     "worker": "bun src/worker.ts",
     "db:generate": "drizzle-kit generate",

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --bun vite dev",
     "build": "vite build",
-    "start": "bun run .output/server/index.mjs",
+    "start": "bun dist/server/server.js",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
