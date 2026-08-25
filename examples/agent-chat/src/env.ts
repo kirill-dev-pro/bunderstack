@@ -2,7 +2,7 @@ import { type } from 'arktype'
 
 export const envSchema = {
   server: {
-    AI_API_KEY: type('string | undefined'),
+    AI_API_KEY: type('string'),
     AI_BASE_URL: type('string | undefined').pipe(
       (v) => v ?? 'https://inference.hetzner.com/api/v1',
     ),

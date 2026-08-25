@@ -7,7 +7,9 @@
     "build": "vite build",
     "start": "bun .output/server/index.mjs",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
-    "worker": "bun src/worker.ts"
+    "worker": "bun src/worker.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.30",
@@ -31,6 +33,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
+    "drizzle-kit": "^0.30.0",
     "typescript": "^5.0.0",
     "vite": "^8.0.0"
   }

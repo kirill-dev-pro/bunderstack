@@ -15,7 +15,7 @@ resources:
   database:
     dialect: sqlite
     migrationsDirectory: ./migrations
-    migrationMode: push
+    migrationMode: migrations
     tables:
       - exportName: _system.emailEvents
         physicalName: _bunderstack_email_events
@@ -91,5 +91,5 @@ background:
   cron: []
   maintenance:
     - name: storage-sweep
-      schedule: '0 4 * * *'
+      schedule: "0 4 * * *"
       timezone: UTC
