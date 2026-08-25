@@ -31,7 +31,7 @@
     "format": "oxfmt",
     "fix": "bun run lint && bun run format",
     "build": "bun scripts/build-package.ts bunderstack",
-    "prepare": "bun run build",
+    "prepare": "bun scripts/prepare.ts",
     "verify:consumer": "bun scripts/verify-consumer.ts"
   },
   "devDependencies": {

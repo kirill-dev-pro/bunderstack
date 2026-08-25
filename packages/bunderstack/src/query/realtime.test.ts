@@ -29,7 +29,10 @@ function fakeApi(calls: Array<{ lastEventId?: string }>) {
     },
     realtime: {
       changes: {
-        async call(_input: unknown, options?: { lastEventId?: string }) {
+        async call(
+          _input: unknown,
+          options?: { lastEventId?: string; signal?: AbortSignal },
+        ) {
           calls.push({ lastEventId: options?.lastEventId })
           connection++
           if (connection === 1)
