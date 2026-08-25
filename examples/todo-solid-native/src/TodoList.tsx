@@ -1,81 +1,45 @@
-import { For, Show, createSignal, onSettled } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 
-import {
-  createTodoStore,
-  todosCreate,
-  todosDelete,
-  todosUpdate,
-  type Todo,
-} from './native/todos'
+import { createTodoStore, type Todo } from './native/todos'
 
 /**
- * The data layer is two imports: the generated client (api.gen.ts) and one
- * store fed by a single imperative loop over `/api/todos/live`.
- *
- * Mutations are plain async functions. They write optimistically *before*
- * the fetch and nothing after — server truth arrives through the stream —
- * so there is nothing for an `action` transaction to protect. A failure
- * rejects into the one listener below, which shows a notice and resyncs.
- *
- * Pending and error states of the stream live on the store (`ready`,
- * `error`); fetch rejections never enter the reactive graph, so `<Errored>`
- * is reserved for what actually flows through it — reads and render errors.
+ * The component sees one list. Internally it is the optimistic Solid store
+ * layered over the SSE-confirmed store; named actions own every mutation.
  */
 export default function TodoList() {
   const todos = createTodoStore()
 
   const [draft, setDraft] = createSignal('')
-  // The ephemeral layer: recoverable notices that survive optimistic rollback.
   const [failure, setFailure] = createSignal('')
-  onSettled(() => {
-    const onRejection = (event: PromiseRejectionEvent) => {
-      event.preventDefault()
-      setFailure(
-        event.reason instanceof Error
-          ? event.reason.message
-          : String(event.reason),
-      )
-      todos.resync()
-    }
-    window.addEventListener('unhandledrejection', onRejection)
-    return () =>
-      window.removeEventListener('unhandledrejection', onRejection)
-  })
 
-  const add = async (title: string) => {
-    // Cleared synchronously, before any await: a double click re-enters with
-    // an empty draft and is rejected by the guard below, so no in-flight
-    // flag is needed. On failure the text goes back.
-    setDraft('')
+  const run = async (mutation: Promise<void>, recover?: () => void) => {
+    setFailure('')
     try {
-      await todosCreate({ title })
+      await mutation
     } catch (error) {
-      setDraft(title)
-      throw error
+      recover?.()
+      setFailure(error instanceof Error ? error.message : String(error))
     }
   }
 
-  const toggle = async (todo: Todo, done: boolean) => {
-    todos.patch((draftTodos) => {
-      const current = draftTodos.find((item) => item.id === todo.id)
-      if (current) current.done = done
-    })
-    await todosUpdate(todo.id, { done })
+  const add = (title: string) => {
+    setDraft('')
+    void run(todos.add(title), () => setDraft(title))
   }
 
-  const remove = async (todo: Todo) => {
-    todos.patch((draftTodos) => {
-      const index = draftTodos.findIndex((item) => item.id === todo.id)
-      if (index !== -1) draftTodos.splice(index, 1)
-    })
-    await todosDelete(todo.id)
+  const toggle = (todo: Todo, done: boolean) => {
+    void run(todos.toggle(todo, done))
+  }
+
+  const remove = (todo: Todo) => {
+    void run(todos.remove(todo))
   }
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault()
     const title = draft().trim()
     if (!title) return
-    void add(title)
+    add(title)
   }
 
   return (
@@ -110,13 +74,16 @@ export default function TodoList() {
             <ul class="todos">
               <For each={todos.items}>
                 {(todo) => (
-                  <li class={{ done: todo.done }}>
+                  <li
+                    class={{ done: todo.done, pending: !!todo.pending }}
+                    aria-busy={todo.pending ? 'true' : undefined}
+                  >
                     <label>
                       <input
                         type="checkbox"
                         checked={todo.done}
                         onInput={(event) =>
-                          void toggle(todo, event.currentTarget.checked)
+                          toggle(todo, event.currentTarget.checked)
                         }
                       />
                       <span>{todo.title}</span>
@@ -124,7 +91,7 @@ export default function TodoList() {
                     <button
                       class="remove"
                       aria-label={`Delete ${todo.title}`}
-                      onClick={() => void remove(todo)}
+                      onClick={() => remove(todo)}
                     >
                       ×
                     </button>

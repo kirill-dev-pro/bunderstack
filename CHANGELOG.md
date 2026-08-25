@@ -4,6 +4,28 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-08-25
+
+### Added
+
+- **Framework-neutral typed client.** The new `bunderstack-client` package
+  exposes `createClient<App>()`, confirmed realtime `LiveView`, and thin Solid,
+  React, Vue, and Svelte adapters. TanStack Query and TanStack DB integrations
+  reuse the same transport and realtime primitives.
+- **Confirmed mutation correlation.** CRUD writes propagate an opaque
+  `operationId` into live-view frames. Reconnect snapshots settle successful
+  writes whose delta was lost, and a heartbeat watchdog reconnects silent
+  streams.
+
+### Changed
+
+- **Direct oRPC CRUD inputs.** Update procedures now accept
+  `{ id, ...changes }`; REST keeps `PATCH /api/{table}/{id}` and rejects an
+  immutable `id` in the body. Live frames preserve the table row type.
+- **Optional REST artifact.** OpenAPI route-map generation is now the fallback
+  for separate frontend repositories and deliberately excludes Better Auth
+  routes, which continue to use the official Better Auth client.
+
 ## [0.19.2] - 2026-08-24
 
 ### Added

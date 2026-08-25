@@ -5,6 +5,7 @@ import { join } from 'node:path'
 const repoRoot = join(import.meta.dir, '..')
 const packages = [
   'bunderstack',
+  'bunderstack-client',
   'bunderstack-query',
   'bunderstack-sync',
   'bunderstack-start',
@@ -182,14 +183,32 @@ describe('published dependency boundaries', () => {
     expect(query.peerDependencies['@orpc/client']).toBe('2.0.0-beta.26')
     expect(query.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
     expect(query.peerDependencies['@orpc/tanstack-query']).toBe('2.0.0-beta.26')
-    expect(query.peerDependencies['@standardserver/core']).toBeDefined()
+    expect(query.peerDependencies['@standardserver/core']).toBeUndefined()
     expect(query.peerDependencies['bunderstack']).toBeDefined()
-    expect(query.dependencies).toBeUndefined()
+    expect(query.dependencies).toEqual({
+      'bunderstack-client': 'workspace:*',
+    })
+
+    const client = await Bun.file(
+      join(repoRoot, 'packages/bunderstack-client/package.json'),
+    ).json()
+    expect(client.dependencies).toEqual({
+      '@orpc/client': '2.0.0-beta.26',
+      '@orpc/server': '2.0.0-beta.26',
+      '@standardserver/core': '0.7.1',
+    })
+    for (const framework of ['react', 'solid-js', 'vue']) {
+      expect(client.peerDependencies[framework]).toBeDefined()
+      expect(client.peerDependenciesMeta[framework].optional).toBe(true)
+    }
 
     const sync = await Bun.file(
       join(repoRoot, 'packages/bunderstack-sync/package.json'),
     ).json()
-    expect(Object.keys(sync.dependencies)).toEqual(['bunderstack-query'])
+    expect(Object.keys(sync.dependencies).sort()).toEqual([
+      'bunderstack-client',
+      'bunderstack-query',
+    ])
     expect(sync.peerDependencies['@tanstack/react-query']).toBeDefined()
 
     const start = await Bun.file(

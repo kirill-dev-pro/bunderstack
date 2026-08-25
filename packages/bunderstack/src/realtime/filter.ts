@@ -61,7 +61,9 @@ export function createChangeGuard(
       row: change.record,
       session: { activeOrganizationId: session.activeOrganizationId },
     }
-    if (!(await checkAccess(options.rule, context, entry.ownerColumn)).allowed) {
+    if (
+      !(await checkAccess(options.rule, context, entry.ownerColumn)).allowed
+    ) {
       return false
     }
     if (
@@ -80,6 +82,7 @@ function project(change: RealtimeChange): RealtimeChange {
     table: change.table,
     action: change.action,
     record: change.record,
+    ...(change.operationId ? { operationId: change.operationId } : {}),
   }
   const meta = getEventMeta(change)
   return meta ? withEventMeta(projected, meta) : projected

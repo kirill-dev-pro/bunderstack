@@ -43,6 +43,7 @@ test('streams Publisher events and resumes through the v2 HTTP handler', async (
   await publisher.publish('change', {
     table: 'boards',
     action: 'update',
+    operationId: 'op-second',
     record: { id: 'b1', title: 'second' },
   })
 
@@ -69,6 +70,7 @@ test('streams Publisher events and resumes through the v2 HTTP handler', async (
   controller.abort()
   await reader.cancel()
   expect(frame).toContain('second')
+  expect(frame).toContain('op-second')
   expect(frame).toContain(firstId ? 'id:' : 'data:')
 })
 

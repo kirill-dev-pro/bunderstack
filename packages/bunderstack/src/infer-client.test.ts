@@ -68,6 +68,7 @@ describe('client type inference carriers', () => {
             handler: async () => {},
           }),
         }),
+      realtime: true,
     })
     type Carrier = NonNullable<(typeof app)['$inferClient']>
     void (0 as unknown as Expect<Equal<Carrier['schema'], typeof schema>>)
@@ -77,6 +78,9 @@ describe('client type inference carriers', () => {
     >)
     void (0 as unknown as Expect<
       Equal<'stats' extends keyof Carrier['api'] ? true : false, true>
+    >)
+    void (0 as unknown as Expect<
+      Equal<'live' extends keyof Carrier['api']['posts'] ? true : false, true>
     >)
     // @ts-expect-error the old runtime router is intentionally not exposed
     void app.router

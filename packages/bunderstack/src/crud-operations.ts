@@ -47,6 +47,11 @@ export interface CrudExecutionContext {
   session: { activeOrganizationId: string | null }
 }
 
+function operationMetadata(request: Request): { operationId?: string } {
+  const operationId = request.headers.get('x-bunderstack-operation-id')?.trim()
+  return operationId ? { operationId } : {}
+}
+
 function errorCodeForStatus(status: number): BunderstackErrorCode {
   if (status === 401) return 'UNAUTHORIZED'
   if (status === 403) return 'FORBIDDEN'
@@ -333,7 +338,12 @@ export function createCrudOperations<
         throw error
       }
       const created = rows[0] as Record<string, unknown>
-      void realtime?.publish(table as never, 'create', created as never)
+      void realtime?.publish(
+        table as never,
+        'create',
+        created as never,
+        operationMetadata(ctx.request),
+      )
 
       if (idempotency && trimmedKey) {
         await storeIdempotency(
@@ -423,7 +433,12 @@ export function createCrudOperations<
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
       const updated = rows[0] as Record<string, unknown>
-      void realtime?.publish(table as never, 'update', updated as never)
+      void realtime?.publish(
+        table as never,
+        'update',
+        updated as never,
+        operationMetadata(ctx.request),
+      )
       return updated
     },
 
@@ -460,7 +475,12 @@ export function createCrudOperations<
       }
 
       await db.delete(table).where(eq(idCol, id))
-      void realtime?.publish(table as never, 'delete', existingRow as never)
+      void realtime?.publish(
+        table as never,
+        'delete',
+        existingRow as never,
+        operationMetadata(ctx.request),
+      )
     },
   }
 }

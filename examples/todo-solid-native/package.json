@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "bun src/provision.ts && bun --bun ./node_modules/vite/bin/vite.js --port 3008",
     "provision": "bun src/provision.ts",
-    "gen": "bun scripts/generate-api.ts",
-    "test": "bun test src/",
+    "test": "bun test --conditions=browser src/",
     "build": "bun --bun ./node_modules/vite/bin/vite.js build",
     "start": "bun src/provision.ts && bun .output/server/index.mjs"
   },
@@ -15,6 +14,7 @@
     "@solidjs/web": "2.0.0-rc.0",
     "better-auth": "^1.0.0",
     "bunderstack": "workspace:*",
+    "bunderstack-client": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "solid-js": "2.0.0-rc.0",
     "valibot": "1.4.2"

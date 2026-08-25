@@ -1,7 +1,7 @@
 /**
  * Proves what a consumer's TypeScript sees.
  *
- * Packs the four packages exactly as publishing would (`workspace:*` rewritten
+ * Packs the five packages exactly as publishing would (`workspace:*` rewritten
  * to the concrete version, `prepack` building `dist`), installs the tarballs
  * into a throwaway app, and typechecks that app under the strictest flags we
  * expect in the wild — with `skipLibCheck` OFF, so our declarations are checked
@@ -18,6 +18,7 @@ import { join } from 'node:path'
 const repoRoot = new URL('..', import.meta.url).pathname
 const PACKAGES = [
   'bunderstack',
+  'bunderstack-client',
   'bunderstack-query',
   'bunderstack-sync',
   'bunderstack-start',
@@ -106,7 +107,9 @@ await writeFile(
         'drizzle-orm': '^0.45.0',
         'drizzle-valibot': '0.4.2',
         react: '^19.0.0',
+        'solid-js': '2.0.0-rc.0',
         valibot: '1.4.2',
+        vue: '^3.5.0',
       },
       devDependencies: {
         '@types/bun': '^1.3.14',
@@ -246,7 +249,16 @@ export type App = typeof app
 
 await writeFile(
   join(app, 'src/client.ts'),
-  `import { createClient } from 'bunderstack-query'
+  `import {
+  createClient as createCoreClient,
+  createLiveView,
+} from 'bunderstack-client'
+import { createRestClient, type RouteOperation } from 'bunderstack-client/rest'
+import { useLiveView as useReactLiveView } from 'bunderstack-client/react'
+import { createLiveStore } from 'bunderstack-client/solid'
+import { liveStore } from 'bunderstack-client/svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack-client/vue'
+import { createClient } from 'bunderstack-query'
 import { createSyncClient } from 'bunderstack-sync'
 import { QueryClient } from '@tanstack/react-query'
 
@@ -254,6 +266,23 @@ import type { App } from './app'
 
 const queryClient = new QueryClient()
 export const api = createClient<App>({ queryClient })
+export const coreApi = createCoreClient<App>()
+
+type Routes = {
+  ping: RouteOperation<'GET', '/api/ping', undefined, undefined, { ok: true }>
+}
+export const routeApi = createRestClient<Routes>({
+  ping: { method: 'GET', path: '/api/ping' },
+})
+export const live = createLiveView<{ id: string }>({
+  subscribe: async function* () {
+    yield { type: 'snapshot', items: [] }
+  },
+})
+void useReactLiveView
+void createLiveStore
+void liveStore
+void useVueLiveView
 
 // Typed nested filters, the beta.2 list contract.
 export const listOptions = api.creditBalances.list.queryOptions({
@@ -286,7 +315,7 @@ const diagnostics = tsc.out
 // are noise here — nobody typechecks node_modules without `skipLibCheck`, and
 // drizzle-orm alone reports dozens for its mysql/gel drivers.
 const fromBunderstack = diagnostics.filter((line) =>
-  /node_modules\/bunderstack(-query|-sync|-start)?\//.test(line),
+  /node_modules\/bunderstack(-client|-query|-sync|-start)?\//.test(line),
 )
 const fromOtherVendors = diagnostics.filter(
   (line) => line.includes('node_modules') && !fromBunderstack.includes(line),

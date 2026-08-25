@@ -18,6 +18,7 @@ const changeSchema = v.strictObject({
   table: v.string(),
   action: v.picklist(['create', 'update', 'delete']),
   record: v.record(v.string(), v.unknown()),
+  operationId: v.optional(v.string()),
 })
 
 const heartbeatSchema = v.strictObject({

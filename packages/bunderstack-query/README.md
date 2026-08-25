@@ -3,6 +3,9 @@
 One typed oRPC client with TanStack Query option factories, file helpers, and
 Publisher-driven realtime cache sync.
 
+Connection lifecycle and raw event delivery come from `bunderstack-client`;
+this package owns only TanStack Query keys, patching, and invalidation policy.
+
 ```sh
 bun add bunderstack-query @tanstack/react-query
 ```

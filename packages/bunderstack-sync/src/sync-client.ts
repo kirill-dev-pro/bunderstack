@@ -91,7 +91,6 @@ export function createSyncClient<TApp extends AnyBunderstackApp>(
           property,
           createSyncRealtimeClient({
             api: api as any,
-            queryClient: options.queryClient,
             tables: [property],
             resolve: (table) => materialized.get(table),
             resolveAll: () => materialized.values(),

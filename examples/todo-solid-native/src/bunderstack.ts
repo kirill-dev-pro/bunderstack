@@ -42,9 +42,6 @@ function createApp() {
     // Broadcast every CRUD write over SSE. The client consumes the stream
     // as a plain async iterator — see src/native/sse.ts.
     realtime: true,
-
-    // Serves /api/openapi.json — the source for scripts/generate-api.ts.
-    openapi: true,
   })
 }
 

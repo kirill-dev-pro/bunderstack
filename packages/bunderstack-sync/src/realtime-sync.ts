@@ -1,46 +1,57 @@
-import type { QueryClient } from '@tanstack/react-query'
-
 import {
-  syncRealtime,
-  type RealtimeQueryApi,
+  openRealtimeStream,
+  type RealtimeProcedure,
   type RealtimeSyncHandle,
-} from 'bunderstack-query'
+} from 'bunderstack-client'
 
 type SyncableCollection = {
   utils: {
-    writeUpsert: (item: unknown) => void
-    writeDelete: (key: unknown) => void
-    refetch: () => Promise<void>
+    writeUpsert(item: unknown): void
+    writeDelete(key: unknown): void
+    refetch(): Promise<void>
   }
 }
 
 export type SyncRealtimeTarget = {
-  applyRealtimeEvent: (
+  applyRealtimeEvent(
     action: 'create' | 'update' | 'delete',
     record: Record<string, unknown>,
-  ) => void
-  refetchAll: () => Promise<void>
+  ): void
+  refetchAll(): Promise<void>
 }
 
 export type SyncRealtimeConfig = {
-  api: RealtimeQueryApi
-  queryClient: QueryClient
+  api: { realtime: { changes: RealtimeProcedure } }
   tables: string[]
   collections?: Record<string, SyncableCollection>
   resolve?: (table: string) => SyncRealtimeTarget | undefined
   resolveAll?: () => Iterable<SyncRealtimeTarget>
+  signal?: AbortSignal
   retryMs?: number
+  maxRetryMs?: number
+  onError?: (error: unknown) => void
 }
 
+/** TanStack DB consumes the shared raw stream without a QueryClient detour. */
 export function createSyncRealtimeClient(
   config: SyncRealtimeConfig,
 ): RealtimeSyncHandle {
   const collections = config.collections ?? {}
-  return syncRealtime({
-    api: config.api,
-    queryClient: config.queryClient,
-    tables: config.tables,
+  const caller = new AbortController()
+  const signal = config.signal
+    ? AbortSignal.any([caller.signal, config.signal])
+    : caller.signal
+
+  const stream = openRealtimeStream({
+    signal,
     retryMs: config.retryMs,
+    maxRetryMs: config.maxRetryMs,
+    onError: config.onError,
+    subscribe: ({ signal, lastEventId }) =>
+      config.api.realtime.changes.call(
+        { tables: config.tables },
+        { signal, lastEventId },
+      ),
     onChange: (event) => {
       if (config.resolve) {
         config
@@ -68,4 +79,12 @@ export function createSyncRealtimeClient(
       )
     },
   })
+
+  return {
+    close() {
+      caller.abort()
+      stream.close()
+    },
+    done: stream.done,
+  }
 }

@@ -34,6 +34,27 @@ test('a new row lands after its predecessor', () => {
   })
 })
 
+test('operation metadata follows every frame caused by the write', () => {
+  const view = windowOf([row('b', 2), row('c', 3), row('d', 4)], false)
+  expect(
+    view.apply({
+      ...change('create', row('a', 1)),
+      operationId: 'op-create-a',
+    }),
+  ).toEqual({
+    type: 'frames',
+    frames: [
+      {
+        type: 'upsert',
+        record: row('a', 1),
+        afterId: null,
+        operationId: 'op-create-a',
+      },
+      { type: 'remove', id: 'd', operationId: 'op-create-a' },
+    ],
+  })
+})
+
 test('a new head row reports a null anchor', () => {
   const view = windowOf([row('b', 2)], false)
   expect(view.apply(change('create', row('a', 1)))).toEqual({

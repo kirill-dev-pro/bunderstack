@@ -51,7 +51,9 @@ it('publishes a create event after insert', async () => {
     undefined,
     undefined,
     {
-      request: new Request('http://x/api/boards'),
+      request: new Request('http://x/api/boards', {
+        headers: { 'x-bunderstack-operation-id': 'op-create-board' },
+      }),
       user: { id: 'u_1', email: 'a@b.c' },
       session: { activeOrganizationId: 'org_1' },
     },
@@ -60,6 +62,7 @@ it('publishes a create event after insert', async () => {
   expect((await received.next()).value).toEqual({
     action: 'create',
     table: 'boards',
+    operationId: 'op-create-board',
     record: { id: 'b1', organizationId: 'org_1', title: 'X' },
   })
 })

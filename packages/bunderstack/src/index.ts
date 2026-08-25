@@ -165,6 +165,7 @@ export type BunderstackApp<
   TEnv extends EnvConfigInput | undefined = undefined,
   TJobsDefs extends JobsDefs | undefined = undefined,
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
+  TRealtime = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
@@ -199,8 +200,15 @@ export type BunderstackApp<
     access: TAccess
     buckets: TBuckets
     api: MergeApiRouterTypes<
-      UnifiedApiRouter<CrudApiRouterFor<TSchema, TAccess>, TCustomApiRouter>,
-      RealtimeApiRouter
+      UnifiedApiRouter<
+        CrudApiRouterFor<
+          TSchema,
+          TAccess,
+          [TRealtime] extends [false | undefined] ? false : true
+        >,
+        TCustomApiRouter
+      >,
+      [TRealtime] extends [false | undefined] ? {} : RealtimeApiRouter
     >
   }
 }
@@ -213,6 +221,13 @@ export function createBunderstack<
   const TEnv extends EnvConfigInput | undefined = undefined,
   const TJobsDefs extends JobsDefs | undefined = undefined,
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
+  const TRealtime extends BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  >['realtime'] = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -221,6 +236,7 @@ export function createBunderstack<
     TEnv,
     TCustomApiRouter
   > & {
+    realtime?: TRealtime
     jobs?:
       | TJobsDefs
       | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
@@ -232,7 +248,8 @@ export function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     TJobsDefs,
-    TCustomApiRouter
+    TCustomApiRouter,
+    TRealtime
   >
 >
 export async function createBunderstack<
@@ -242,6 +259,13 @@ export async function createBunderstack<
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
+  const TRealtime extends BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter
+  >['realtime'] = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -250,6 +274,7 @@ export async function createBunderstack<
     TEnv,
     TCustomApiRouter
   > & {
+    realtime?: TRealtime
     jobs?:
       | JobsDefs
       | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => JobsDefs)
@@ -261,7 +286,8 @@ export async function createBunderstack<
     BucketNamesOf<TStorage>,
     TEnv,
     JobsDefs | undefined,
-    TCustomApiRouter
+    TCustomApiRouter,
+    TRealtime
   >
 > {
   const dialect = detectDialect(options.schema)
@@ -518,7 +544,11 @@ export async function createBunderstack<
         await lifecycle.close()
       }
     }
-    const crudApiRouter = buildCrudApiRouter(options.schema, userDb, {
+    const crudApiRouter = buildCrudApiRouter<
+      TSchema,
+      TAccess,
+      [TRealtime] extends [false | undefined] ? false : true
+    >(options.schema, userDb, {
       access: resolvedAccess,
       idempotency: options.idempotency,
       realtime,
@@ -714,7 +744,8 @@ export async function createBunderstack<
       BucketNamesOf<TStorage>,
       TEnv,
       JobsDefs | undefined,
-      TCustomApiRouter
+      TCustomApiRouter,
+      TRealtime
     > = {
       handler,
       // Internal tables live on the runtime db but stay out of the public type.
