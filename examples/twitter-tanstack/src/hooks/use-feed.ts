@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 
 import type { app } from '../bunderstack'
 

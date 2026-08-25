@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query'
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 import { createSignal, For, Match, onCleanup, Show, Switch } from 'solid-js'
 
 import type { App } from './bunderstack'
@@ -67,10 +67,8 @@ export default function TodoList() {
   const toggle = useMutation(() => ({
     mutationFn: (input: { id: string; done: boolean }) =>
       api.todos.update.call({
-        params: { id: input.id },
-        query: {},
-        headers: {},
-        body: { done: input.done },
+        id: input.id,
+        done: input.done,
       }),
   }))
 

@@ -1365,7 +1365,11 @@ html:not(.dark) .landing-hex-card__link:hover {
 .fd-layout {
   background-image:
     linear-gradient(var(--blueprint-grid-line-faint) 1px, transparent 1px),
-    linear-gradient(90deg, var(--blueprint-grid-line-faint) 1px, transparent 1px);
+    linear-gradient(
+      90deg,
+      var(--blueprint-grid-line-faint) 1px,
+      transparent 1px
+    );
   background-size: 32px 32px;
 }
 

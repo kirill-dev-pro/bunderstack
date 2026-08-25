@@ -1,4 +1,4 @@
-/** @deprecated Import transport primitives from `bunderstack-client`. */
+/** @deprecated Import transport primitives from `bunderstack/client`. */
 export {
   DEFAULT_KEEPALIVE_MS,
   DEFAULT_LIVENESS_FACTOR,
@@ -11,4 +11,4 @@ export {
   type RealtimeProcedure,
   type RealtimeStreamOptions,
   type RealtimeSyncHandle,
-} from 'bunderstack-client'
+} from '../client/realtime'

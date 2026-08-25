@@ -3,18 +3,18 @@ title: Sync & Realtime
 description: Typed TanStack DB collections over the oRPC Publisher transport
 ---
 
-`bunderstack-sync` layers TanStack DB collections over the same generated oRPC
+`bunderstack/sync` layers TanStack DB collections over the same generated oRPC
 procedures. It provides local live queries, optimistic mutations, scoped
 windows, and reliable realtime updates inferred from your server app.
 
 ## Create a sync client
 
 ```bash
-bun add bunderstack-sync @tanstack/react-query @tanstack/db @tanstack/query-db-collection
+bun add bunderstack @tanstack/react-query @tanstack/db @tanstack/query-db-collection
 ```
 
 ```ts
-import { createSyncClient } from 'bunderstack-sync'
+import { createSyncClient } from 'bunderstack/sync'
 import type { App } from './bunderstack'
 
 const api = createSyncClient<App>({ queryClient })
@@ -136,5 +136,5 @@ Use Redis realtime configuration when web and worker processes are separate;
 the memory publisher is process-local.
 
 For TanStack Query without collections, use `syncRealtime` from
-`bunderstack-query`. Framework adapters are covered in
+`bunderstack/query`. Framework adapters are covered in
 [Framework Portability](/docs/framework-portability).

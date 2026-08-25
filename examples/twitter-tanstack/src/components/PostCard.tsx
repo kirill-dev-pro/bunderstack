@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { Link, useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
@@ -210,13 +210,9 @@ export function PostCard({
             e.preventDefault()
             if (!editBody.trim()) return
             updateMutation.mutate({
-              params: { id: post.id },
-              query: {},
-              headers: {},
-              body: {
-                body: editBody.trim(),
-                title: editBody.trim().slice(0, 80) || 'Post',
-              },
+              id: post.id,
+              body: editBody.trim(),
+              title: editBody.trim().slice(0, 80) || 'Post',
             })
           }}
         >

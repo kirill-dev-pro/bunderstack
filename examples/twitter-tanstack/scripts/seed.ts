@@ -23,7 +23,7 @@ const SEED_USERS = [
     name: 'Bob Rivera',
     email: 'bob@example.com',
     image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob',
-    about: 'Full-stack on Bun. TanStack Start + bunderstack-query',
+    about: 'Full-stack on Bun. TanStack Start + bunderstack/query',
   },
   {
     name: 'Carol Kim',
@@ -60,7 +60,7 @@ const EDUCATIONAL_POSTS: Array<{
   },
   {
     author: 'bob@example.com',
-    title: 'bunderstack-query',
+    title: 'bunderstack/query',
     body: 'createClient exposes typed oRPC call and queryOptions helpers from one root. Wire useQuery/useMutation directly — no custom hooks layer.',
   },
   {
@@ -214,4 +214,4 @@ console.log('')
 console.log('Done. Demo accounts (password: password123):')
 for (const u of SEED_USERS) console.log(`  ${u.email}`)
 console.log('')
-console.log('Try search: drizzle, thumbnail, access control, bunderstack-query')
+console.log('Try search: drizzle, thumbnail, access control, bunderstack/query')

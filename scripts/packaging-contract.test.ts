@@ -9,13 +9,7 @@ import { join } from 'node:path'
  * `scripts/verify-consumer.ts`.
  */
 const repoRoot = join(import.meta.dir, '..')
-const packages = [
-  'bunderstack',
-  'bunderstack-client',
-  'bunderstack-query',
-  'bunderstack-sync',
-  'bunderstack-start',
-]
+const packages = ['bunderstack']
 
 /** Tolerates the `//` comments tsconfig files are allowed to carry. */
 async function readJson(path: string) {

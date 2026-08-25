@@ -1,4 +1,4 @@
-import type { UploadedFile } from 'bunderstack-sync'
+import type { UploadedFile } from 'bunderstack/sync'
 
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'
@@ -11,7 +11,7 @@ export const FILES_BUCKET = ATTACHMENTS_BUCKET
 type UploadBucket = typeof ATTACHMENTS_BUCKET | typeof AVATARS_BUCKET
 export type { UploadedFile }
 
-/** Matches the path building in bunderstack-query's bucket client `url()` — a
+/** Matches the path building in bunderstack/query's bucket client `url()` — a
  * pure function of bucket + fileId, so it doesn't need a live api instance. */
 function encodeFilePath(idOrFileId: string): string {
   return idOrFileId

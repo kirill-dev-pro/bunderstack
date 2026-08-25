@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { useQuery } from '@tanstack/react-query'
 import { asTypeId } from 'bunderstack'
@@ -187,10 +187,8 @@ export function CardDialog({
                     if (next && next !== card.title) {
                       updateCard.mutate(
                         {
-                          params: { id: card.id },
-                          query: {},
-                          headers: {},
-                          body: { title: next },
+                          id: card.id,
+                          title: next,
                         },
                         {
                           onSuccess: () =>
@@ -236,10 +234,8 @@ export function CardDialog({
                       const description = desc || card.description || ''
                       updateCard.mutate(
                         {
-                          params: { id: card.id },
-                          query: {},
-                          headers: {},
-                          body: { description },
+                          id: card.id,
+                          description,
                         },
                         {
                           onSuccess: () =>
@@ -413,10 +409,8 @@ export function CardDialog({
                       const assigneeId = raw ? asTypeId('user', raw) : null
                       updateCard.mutate(
                         {
-                          params: { id: card.id },
-                          query: {},
-                          headers: {},
-                          body: { assigneeId },
+                          id: card.id,
+                          assigneeId,
                         },
                         {
                           onSuccess: () =>

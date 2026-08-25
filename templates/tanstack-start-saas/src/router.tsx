@@ -1,4 +1,4 @@
-import type { SessionUser } from 'bunderstack-start'
+import type { SessionUser } from 'bunderstack/start'
 
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'

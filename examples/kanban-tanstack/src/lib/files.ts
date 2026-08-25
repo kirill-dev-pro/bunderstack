@@ -1,4 +1,4 @@
-import type { UploadedFile } from 'bunderstack-query'
+import type { UploadedFile } from 'bunderstack/query'
 
 import { api } from '~/api-client'
 

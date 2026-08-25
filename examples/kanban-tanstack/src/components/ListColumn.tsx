@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'

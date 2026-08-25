@@ -1,4 +1,4 @@
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 
 import { api, queryClient } from '~/api-client'
 

@@ -23,7 +23,9 @@ class MemoryAdapter implements StorageAdapter {
   async get(key: string) {
     const value = this.objects.get(key)
     return value
-      ? new Response(value.bytes, { headers: { 'Content-Type': value.type } })
+      ? new Response(value.bytes as unknown as BodyInit, {
+          headers: { 'Content-Type': value.type },
+        })
       : new Response('Not found', { status: 404 })
   }
   async delete(key: string) {

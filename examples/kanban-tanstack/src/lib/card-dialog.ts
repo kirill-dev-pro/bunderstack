@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { useSyncExternalStore } from 'react'
 

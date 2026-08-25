@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import {
   DndContext,
@@ -249,10 +249,9 @@ function BoardPage() {
 
     moveCard.mutate(
       {
-        params: { id: cardId },
-        query: {},
-        headers: {},
-        body: { listId: targetListId, position: newPos },
+        id: cardId,
+        listId: targetListId,
+        position: newPos,
       },
       {
         onSuccess: () => {

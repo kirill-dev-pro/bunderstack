@@ -94,7 +94,7 @@ circular evaluation loop at boot.
 One catch-all route, built by the adapter rather than by hand:
 
 ```ts
-import { createApiHandlers } from 'bunderstack-start'
+import { createApiHandlers } from 'bunderstack/start'
 import { createFileRoute } from '@tanstack/react-router'
 import { app } from '../../bunderstack'
 
@@ -188,7 +188,7 @@ query client consumes it automatically without updating cache state or the
 Publisher resume ID. Delete custom polling, keepalive, SSE registration, and
 client reconnect loops instead of wrapping them around the oRPC stream.
 
-For TanStack DB applications, use `bunderstack-sync`. Successful mutations are
+For TanStack DB applications, use `bunderstack/sync`. Successful mutations are
 reconciled from their complete server response without a follow-up `list`
 refetch, and same-row updates are coalesced while a request is in flight.
 

@@ -46,9 +46,9 @@ describe('website SEO contract', () => {
     }
     for (const loc of locs) expect(loc.startsWith(`${siteUrl}/`)).toBe(true)
     // Stale dates are worse than none: every entry carries an ISO day.
-    expect(sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)?.length).toBe(
-      locs.length,
-    )
+    expect(
+      sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g)?.length,
+    ).toBe(locs.length)
   })
 
   test('the social card is a 1200x630 PNG that the meta tags reference', () => {

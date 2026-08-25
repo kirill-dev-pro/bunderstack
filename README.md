@@ -85,7 +85,7 @@ else is dispatched by Bunderstack's Web Standard handler.
 
 ```ts
 import { QueryClient, useQuery } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import type { App } from './bunderstack'
 
 export const queryClient = new QueryClient()
@@ -162,7 +162,7 @@ heartbeats internally: they do not update cache state, call `onChange`, enter
 the Publisher replay buffer, or advance `lastEventId`.
 
 ```ts
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 
 const realtime = syncRealtime({
   api,
@@ -186,7 +186,7 @@ server decides membership against the view's filters and places every row, so
 the browser holds no cache and never repeats the sort.
 
 ```ts
-import { createLiveView } from 'bunderstack/live'
+import { createLiveView } from 'bunderstack/client'
 
 const view = createLiveView<Todo>('/api/live/todos', {
   input: { sort: 'createdAt', order: 'desc', limit: 100 },
@@ -209,7 +209,7 @@ A live view accepts `limit`, `sort`, `order`, and `filters`. `q`, `offset`, and
 search or pagination from one record. Reading a live view needs the table's
 `list` right, which also gates every change the stream delivers.
 
-`bunderstack/live` has no dependencies and no framework binding: `subscribe`
+`bunderstack/client` has no dependencies and no framework binding: `subscribe`
 plus `getRows` is the pair `useSyncExternalStore` expects, and a Solid or Vue
 binding writes `getRows()` into a store from the same listener.
 
@@ -243,11 +243,11 @@ and third-party HTTP integrations.
 
 ## TanStack DB collections
 
-`bunderstack-sync` layers optimistic TanStack DB collections over the same
+`bunderstack/sync` layers optimistic TanStack DB collections over the same
 oRPC client:
 
 ```ts
-import { createSyncClient } from 'bunderstack-sync'
+import { createSyncClient } from 'bunderstack/sync'
 
 const sync = createSyncClient<App>({ queryClient })
 const posts = sync.posts.collection

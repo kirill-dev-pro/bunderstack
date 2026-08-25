@@ -75,7 +75,7 @@ test('a remove drops one row, and an unknown id is a no-op', () => {
 
 test('a heartbeat keeps the same array reference', () => {
   const rows: readonly Row[] = [row('a')]
-  expect(applyLiveFrame<Row>(rows, { type: 'heartbeat', intervalMs: 5000 })).toBe(
-    rows,
-  )
+  expect(
+    applyLiveFrame<Row>(rows, { type: 'heartbeat', intervalMs: 5000 }),
+  ).toBe(rows)
 })

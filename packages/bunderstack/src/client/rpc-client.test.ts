@@ -1,10 +1,10 @@
 import { eventIterator } from '@orpc/server'
 import { expect, test } from 'bun:test'
-import { createBunderstack } from 'bunderstack'
-import { pglite } from 'bunderstack/database/pglite'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
+import { pglite } from '../database/pglite'
+import { createBunderstack } from '../index'
 import { createClient } from './rpc-client'
 
 const marker = pgTable('client_test_marker', {

@@ -75,7 +75,9 @@ export interface AIResponderOptions {
   model?: string
 }
 
-export function createAIResponder(options: AIResponderOptions = {}): AgentResponder {
+export function createAIResponder(
+  options: AIResponderOptions = {},
+): AgentResponder {
   if (!options.apiKey?.trim()) {
     return createDemoResponder()
   }

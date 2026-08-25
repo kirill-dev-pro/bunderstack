@@ -4,7 +4,8 @@ import {
   createTanstackQueryUtils,
   type RouterUtils,
 } from '@orpc/tanstack-query'
-import { createRpcClient, type Fetch } from 'bunderstack-client'
+
+import { createRpcClient, type Fetch } from '../client/rpc-client'
 
 export interface ApiClientOptions {
   baseUrl?: string

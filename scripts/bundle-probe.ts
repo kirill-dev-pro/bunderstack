@@ -13,9 +13,7 @@ import { join } from 'node:path'
 type Request = { entrypoint: string; external: string[] }
 
 const repoRoot = join(import.meta.dir, '..')
-const { entrypoint, external } = JSON.parse(
-  await Bun.stdin.text(),
-) as Request
+const { entrypoint, external } = JSON.parse(await Bun.stdin.text()) as Request
 
 const result = await Bun.build({
   entrypoints: [join(repoRoot, entrypoint)],

@@ -1,4 +1,4 @@
-import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack-query'
+import type { UploadedFile as BunderstackUploadedFile } from 'bunderstack/query'
 
 import * as React from 'react'
 

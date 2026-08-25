@@ -98,10 +98,8 @@ function ProfilePage() {
               bucket={AVATARS_BUCKET}
               onUploaded={async (file) => {
                 await avatarMutation.mutateAsync({
-                  params: { id: user.id },
-                  query: {},
-                  headers: {},
-                  body: { image: file.url },
+                  id: user.id,
+                  image: file.url,
                 })
               }}
               disabled={avatarMutation.isPending}
@@ -114,10 +112,8 @@ function ProfilePage() {
                 disabled={avatarMutation.isPending}
                 onClick={() =>
                   avatarMutation.mutate({
-                    params: { id: user.id },
-                    query: {},
-                    headers: {},
-                    body: { image: null },
+                    id: user.id,
+                    image: null,
                   })
                 }
               >
@@ -132,10 +128,8 @@ function ProfilePage() {
           onSubmit={(e) => {
             e.preventDefault()
             aboutMutation.mutate({
-              params: { id: user.id },
-              query: {},
-              headers: {},
-              body: { about: about.trim() },
+              id: user.id,
+              about: about.trim(),
             })
           }}
         >

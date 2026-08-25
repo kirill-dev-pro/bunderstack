@@ -16,13 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const repoRoot = new URL('..', import.meta.url).pathname
-const PACKAGES = [
-  'bunderstack',
-  'bunderstack-client',
-  'bunderstack-query',
-  'bunderstack-sync',
-  'bunderstack-start',
-] as const
+const PACKAGES = ['bunderstack'] as const
 
 async function run(
   cmd: string[],
@@ -103,6 +97,7 @@ await writeFile(
         '@tanstack/db': '0.6.16',
         '@tanstack/query-db-collection': '1.1.0',
         '@tanstack/react-query': '^5.101.1',
+        '@tanstack/react-start': '^1.168.26',
         'better-auth': '^1.0.0',
         'drizzle-orm': '^0.45.0',
         'drizzle-valibot': '0.4.2',
@@ -252,14 +247,16 @@ await writeFile(
   `import {
   createClient as createCoreClient,
   createLiveView,
-} from 'bunderstack-client'
-import { createRestClient, type RouteOperation } from 'bunderstack-client/rest'
-import { useLiveView as useReactLiveView } from 'bunderstack-client/react'
-import { createLiveStore } from 'bunderstack-client/solid'
-import { liveStore } from 'bunderstack-client/svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack-client/vue'
-import { createClient } from 'bunderstack-query'
-import { createSyncClient } from 'bunderstack-sync'
+} from 'bunderstack/client'
+import { createRestClient, type RouteOperation } from 'bunderstack/client/rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
+import { createLiveStore } from 'bunderstack/client/solid'
+import { liveStore } from 'bunderstack/client/svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+import { createClient } from 'bunderstack/query'
+import { createSyncClient } from 'bunderstack/sync'
+import { bunderstackStart } from 'bunderstack/start'
+import { createStartAuthClient } from 'bunderstack/start/auth'
 import { QueryClient } from '@tanstack/react-query'
 
 import type { App } from './app'
@@ -298,6 +295,9 @@ export const feed = sync.creditBalances.scopedCollection({
   filters: { userId: 'u1' },
 })
 
+export const startSetup = bunderstackStart<App>()
+export const authClient = createStartAuthClient()
+
 export async function realtime(): Promise<void> {
   await sync.realtime?.subscribe(['creditBalances'])
 }
@@ -315,7 +315,7 @@ const diagnostics = tsc.out
 // are noise here — nobody typechecks node_modules without `skipLibCheck`, and
 // drizzle-orm alone reports dozens for its mysql/gel drivers.
 const fromBunderstack = diagnostics.filter((line) =>
-  /node_modules\/bunderstack(-client|-query|-sync|-start)?\//.test(line),
+  /node_modules\/bunderstack\//.test(line),
 )
 const fromOtherVendors = diagnostics.filter(
   (line) => line.includes('node_modules') && !fromBunderstack.includes(line),

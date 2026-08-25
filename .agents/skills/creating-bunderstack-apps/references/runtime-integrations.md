@@ -61,7 +61,7 @@ client filters it before cache callbacks and does not advance the Publisher
 resume ID. Do not add an application polling loop or publish heartbeat events
 through oRPC Publisher.
 
-`bunderstack-sync` reconciles successful mutations from the canonical row
+`bunderstack/sync` reconciles successful mutations from the canonical row
 returned by generated CRUD, without a follow-up list refetch. Realtime echoes
 are idempotent, and reconnect performs the full refetch used to repair drift.
 Keep custom replacement procedures compatible by returning the complete row,

@@ -55,14 +55,14 @@ default mode.
 
 ## Decisions
 
-| Decision                | Choice                                                     | Reason                                                                                                                     |
-| ----------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Liveness source         | Server advertises its interval on the heartbeat             | The client derives its timeout instead of hardcoding a constant that drifts from the server's.                              |
-| Protocol compatibility  | One optional field, additive both directions                | New client + old server falls back to 5s; old client + new server ignores it. No coordinated deploy.                        |
-| Default scheduler       | `'frame'`, with `'sync'` as escape hatch                    | The synchronous cache write was never a documented contract, and apps relying on it are already racing the network.         |
-| Row-level dedupe        | Not done                                                    | Muddies the `onChange` contract for a marginal win once the flush and the invalidation collapse are in place.               |
-| Structure               | Extract the stream lifecycle before changing it             | A dead-stream timer is testable with a fake clock only if it is not tangled with the TanStack cache writes.                 |
-| Versioned live queries  | Out of scope                                                | Reshapes the framework contract. Nothing here forecloses it.                                                                |
+| Decision               | Choice                                          | Reason                                                                                                              |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Liveness source        | Server advertises its interval on the heartbeat | The client derives its timeout instead of hardcoding a constant that drifts from the server's.                      |
+| Protocol compatibility | One optional field, additive both directions    | New client + old server falls back to 5s; old client + new server ignores it. No coordinated deploy.                |
+| Default scheduler      | `'frame'`, with `'sync'` as escape hatch        | The synchronous cache write was never a documented contract, and apps relying on it are already racing the network. |
+| Row-level dedupe       | Not done                                        | Muddies the `onChange` contract for a marginal win once the flush and the invalidation collapse are in place.       |
+| Structure              | Extract the stream lifecycle before changing it | A dead-stream timer is testable with a fake clock only if it is not tangled with the TanStack cache writes.         |
+| Versioned live queries | Out of scope                                    | Reshapes the framework contract. Nothing here forecloses it.                                                        |
 
 ## Module layout
 
@@ -73,11 +73,11 @@ precedent for splitting is `bunderstack-sync`'s `update-queue.ts`, extracted as
 "pure logic, no TanStack dependency, unit-testable on its own" for the same
 reason: a risky timing change wants to be tested without the network.
 
-| File                                        | Owns                                                | Imports TanStack |
-| ------------------------------------------- | --------------------------------------------------- | ---------------- |
-| `realtime-stream.ts` *(new)*                | Connect, liveness, backoff, `lastEventId`            | No               |
-| `realtime-flush.ts` *(new)*                 | Pacing: `'sync'` \| `'frame'` \| number              | No               |
-| `realtime.ts` *(shrinks)*                   | What an event does to the cache                      | Yes              |
+| File                         | Owns                                      | Imports TanStack |
+| ---------------------------- | ----------------------------------------- | ---------------- |
+| `realtime-stream.ts` _(new)_ | Connect, liveness, backoff, `lastEventId` | No               |
+| `realtime-flush.ts` _(new)_  | Pacing: `'sync'` \| `'frame'` \| number   | No               |
+| `realtime.ts` _(shrinks)_    | What an event does to the cache           | Yes              |
 
 Both new modules accept an injectable clock (`setTimeout`, `clearTimeout`) so
 tests drive time directly.
@@ -255,7 +255,6 @@ stays there until the caller closes the handle.
 - `onChange` observes all fifty, in arrival order
 - `close()` flushes buffered work
 
-
 ## Out of scope
 
 **The access filter.** `filterRealtimeChanges` awaits the async `checkAccess`
@@ -269,4 +268,4 @@ filter shows up, this is the first thing to try.
 
 Server-side frame batching, a protocol-aware connection budget, and versioned
 live queries with JSON Patch. Those belong to a separate design that would
-change what an event *is*; nothing here forecloses it.
+change what an event _is_; nothing here forecloses it.

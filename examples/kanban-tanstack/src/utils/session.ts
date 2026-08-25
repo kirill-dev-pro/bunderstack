@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { getRequest } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'

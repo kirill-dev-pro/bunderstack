@@ -4,8 +4,8 @@ import {
   syncRealtime,
   type InferSchema,
   type InferSelect,
-} from 'bunderstack-query'
-import { createIsomorphicFetch } from 'bunderstack-start'
+} from 'bunderstack/query'
+import { createIsomorphicFetch } from 'bunderstack/start'
 
 import type { App } from './bunderstack'
 

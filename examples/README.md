@@ -97,7 +97,7 @@ bun run --cwd examples/tldraw migrate   # once
 
 ### Twitter (TanStack Start)
 
-Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via the unified **bunderstack-query** client. Its custom `feed` oRPC procedure returns posts, authors, and like counts in one typed call (`api.feed.queryOptions(...)`).
+Twitter-style social demo — auth, posts, follows, comments, image attachments. UI via [Oat](https://oat.ink/), data via the unified **bunderstack/query** client. Its custom `feed` oRPC procedure returns posts, authors, and like counts in one typed call (`api.feed.queryOptions(...)`).
 
 ```bash
 bun run dev:twitter-tanstack
@@ -120,7 +120,7 @@ mode takes `app.handler` as fetch-style middleware, so six lines mount
 Bunderstack into Solid's own request handler — one handler for pages and `/api`
 in dev, preview, and production, with Nitro turning that same handler into the
 production server. The client is `@tanstack/solid-query@6` (the first release
-supporting Solid 2) driven by `bunderstack-query`'s generated query options.
+supporting Solid 2) driven by `bunderstack/query`'s generated query options.
 Public CRUD on one table, no auth.
 
 ```bash
@@ -154,7 +154,7 @@ bun run dev:nextjs
 
 ### Kanban (Solid)
 
-Realtime kanban — orgs, boards, lists, cards, comments, activity. Solid 1.9 + Oat, with oRPC Publisher realtime via `bunderstack-query`.
+Realtime kanban — orgs, boards, lists, cards, comments, activity. Solid 1.9 + Oat, with oRPC Publisher realtime via `bunderstack/query`.
 
 ```bash
 bun run dev:kanban
@@ -215,14 +215,14 @@ Auto-CRUD routes are secured by default:
 - Other tables need explicit `access` config (see `examples/standalone/server.ts` for `authorId`)
 - File uploads require authentication by default; delete is owner-only
 
-## bunderstack-query
+## bunderstack/query
 
-Typed TanStack Query options for auto-CRUD tables. See `packages/bunderstack-query` and the TanStack example feed.
+Typed TanStack Query options for auto-CRUD tables. See `packages/bunderstack/query` and the TanStack example feed.
 
 ```ts
 import { QueryClient } from '@tanstack/react-query'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import type { App } from './bunderstack' // type-only: export type App = typeof app
 
 export const queryClient = new QueryClient()
@@ -236,9 +236,9 @@ useMutation(api.posts.createMutation())
 api.files.avatars.upload(file)
 ```
 
-TanStack Start apps can skip even that: `bunderstack-start`'s
+TanStack Start apps can skip even that: `bunderstack/start`'s
 `bunderstackStart<App>()` wires the QueryClient, SSR-aware fetch, and a
-`bunderstack-sync` collection client in one call — see
+`bunderstack/sync` collection client in one call — see
 `examples/twitter-db-tanstack/src/api.ts` and `examples/tldraw/src/api.ts`.
 
 ## Environment variables

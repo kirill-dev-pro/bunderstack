@@ -11,7 +11,7 @@ A Trello-like kanban board on **TanStack Start + React**, showcasing Bunderstack
 - Emoji reactions on cards and comments
 - Realtime via the typed `api.realtime.changes` iterator — broadcast-on-write with cache sync
 - TanStack Start full-stack pattern: `src/routes/api/$.tsx` → `app.handler`
-- `@dnd-kit` drag-and-drop, Oat UI, `@tanstack/react-query` + `bunderstack-query`
+- `@dnd-kit` drag-and-drop, Oat UI, `@tanstack/react-query` + `bunderstack/query`
 
 ## Prerequisites
 
@@ -82,7 +82,7 @@ bun run --cwd examples/kanban-tanstack start
 
 1. `syncRealtime` calls `api.realtime.changes` with the subscribed table names
 2. oRPC Publisher streams access-filtered row changes and resumable event metadata
-3. `bunderstack-query` patches details and invalidates affected TanStack Query caches
+3. `bunderstack/query` patches details and invalidates affected TanStack Query caches
 
 ## Compared to `kanban-solid-1.9`
 

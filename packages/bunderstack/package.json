@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
@@ -107,6 +107,50 @@
     "./api": {
       "types": "./dist/api/types.d.ts",
       "default": "./dist/api/types.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./client/rest": {
+      "types": "./dist/client/rest.d.ts",
+      "default": "./dist/client/rest.js"
+    },
+    "./client/react": {
+      "types": "./dist/client/react.d.ts",
+      "default": "./dist/client/react.js"
+    },
+    "./client/solid": {
+      "types": "./dist/client/solid.d.ts",
+      "default": "./dist/client/solid.js"
+    },
+    "./client/svelte": {
+      "types": "./dist/client/svelte.d.ts",
+      "default": "./dist/client/svelte.js"
+    },
+    "./client/vue": {
+      "types": "./dist/client/vue.d.ts",
+      "default": "./dist/client/vue.js"
+    },
+    "./query": {
+      "types": "./dist/query/index.d.ts",
+      "default": "./dist/query/index.js"
+    },
+    "./query/react": {
+      "types": "./dist/query/react.d.ts",
+      "default": "./dist/query/react.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
+    },
+    "./start": {
+      "types": "./dist/start/index.d.ts",
+      "default": "./dist/start/index.js"
+    },
+    "./start/auth": {
+      "types": "./dist/start/auth-client.d.ts",
+      "default": "./dist/start/auth-client.js"
     }
   },
   "scripts": {
@@ -119,7 +163,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@orpc/client": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.26",
     "@standard-schema/spec": "1.1.0",
+    "@standardserver/core": "0.7.1",
     "valibot": "1.4.2",
     "yaml": "^2.9.0"
   },
@@ -127,39 +174,83 @@
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
     "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/client": "2.0.0-beta.26",
     "@orpc/json-schema": "2.0.0-beta.26",
     "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
+    "@orpc/tanstack-query": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",
+    "@standardserver/core": "0.7.1",
+    "@tanstack/db": "0.6.16",
+    "@tanstack/query-core": "^5.101.1",
+    "@tanstack/query-db-collection": "1.1.0",
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-start": "^1.168.26",
     "@types/nodemailer": "^6",
+    "@types/react": "^19.0.0",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
-    "drizzle-valibot": "0.4.2"
+    "drizzle-valibot": "0.4.2",
+    "react": "^19.0.0",
+    "solid-js": "2.0.0-rc.0",
+    "typescript": "^5.8.0",
+    "vue": "^3.5.0"
   },
   "peerDependencies": {
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
     "@orpc/bun": "2.0.0-beta.26",
+    "@orpc/client": "2.0.0-beta.26",
     "@orpc/json-schema": "2.0.0-beta.26",
     "@orpc/openapi": "2.0.0-beta.26",
     "@orpc/publisher": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
+    "@orpc/tanstack-query": "2.0.0-beta.26",
     "@orpc/valibot": "2.0.0-beta.26",
+    "@tanstack/db": "0.6.16",
+    "@tanstack/query-core": "^5.101.0",
+    "@tanstack/query-db-collection": "1.1.0",
+    "@tanstack/react-query": "^5.101.0",
+    "@tanstack/react-start": ">=1.0.0",
     "better-auth": "^1.0.0",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
     "drizzle-valibot": "0.4.2",
     "nodemailer": ">=6 <10",
     "postgres": ">=3.4.0",
-    "typescript": ">=5"
+    "react": ">=18",
+    "solid-js": ">=2.0.0-rc.0",
+    "typescript": ">=5",
+    "vue": ">=3.5"
   },
   "peerDependenciesMeta": {
     "@electric-sql/pglite": {
       "optional": true
     },
     "@libsql/client": {
+      "optional": true
+    },
+    "@orpc/tanstack-query": {
+      "optional": true
+    },
+    "@tanstack/db": {
+      "optional": true
+    },
+    "@tanstack/query-core": {
+      "optional": true
+    },
+    "@tanstack/query-db-collection": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "@tanstack/react-start": {
+      "optional": true
+    },
+    "better-auth": {
       "optional": true
     },
     "drizzle-kit": {
@@ -171,7 +262,16 @@
     "postgres": {
       "optional": true
     },
+    "react": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    },
     "typescript": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   }

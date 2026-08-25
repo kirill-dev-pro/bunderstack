@@ -2,7 +2,7 @@ import {
   openRealtimeStream,
   type RealtimeProcedure,
   type RealtimeSyncHandle,
-} from 'bunderstack-client'
+} from '../client/realtime'
 
 type SyncableCollection = {
   utils: {

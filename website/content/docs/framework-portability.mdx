@@ -11,12 +11,12 @@ Bunderstack runs in any environment supporting standard Web Requests and Respons
 
 ## TanStack Start (Full-Stack SSR)
 
-[TanStack Start](https://tanstack.com/start) provides full-stack React with server-side rendering and streaming. The official [`bunderstack-start`](/docs/query-client) adapter handles API routing, SSR-aware data fetching, session lookup, and auth client configuration.
+[TanStack Start](https://tanstack.com/start) provides full-stack React with server-side rendering and streaming. The official [`bunderstack/start`](/docs/query-client) adapter handles API routing, SSR-aware data fetching, session lookup, and auth client configuration.
 
 ### 1. Installation
 
 ```bash
-bun add bunderstack bunderstack-start bunderstack-query bunderstack-sync drizzle-orm valibot @libsql/client @tanstack/react-query
+bun add bunderstack drizzle-orm valibot @libsql/client @tanstack/react-query @tanstack/react-start
 ```
 
 ### 2. Configuration (`src/bunderstack.ts`)
@@ -53,7 +53,7 @@ Mount the API handler on TanStack Start's catch-all route:
 ```ts
 // src/routes/api/$.tsx
 import { createFileRoute } from '@tanstack/react-router'
-import { createApiHandlers } from 'bunderstack-start'
+import { createApiHandlers } from 'bunderstack/start'
 import { app } from '~/bunderstack'
 
 export const Route = createFileRoute('/api/$')({
@@ -65,7 +65,7 @@ export const Route = createFileRoute('/api/$')({
 
 ```ts
 // src/api.ts
-import { bunderstackStart } from 'bunderstack-start'
+import { bunderstackStart } from 'bunderstack/start'
 import type { App } from './bunderstack'
 
 export const { createQueryClient, createApi } = bunderstackStart<App>()
@@ -177,7 +177,7 @@ console.log(`Solid 2 + Bunderstack running on port ${port}`)
 
 ```ts
 // src/api.ts
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import { QueryClient } from '@tanstack/solid-query'
 import type { App } from './bunderstack'
 
@@ -250,7 +250,7 @@ Bun.serve({
 
 ```ts
 // src/api.ts
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import { QueryClient } from '@tanstack/react-query'
 import type { App } from '../server'
 
@@ -429,10 +429,9 @@ export const ALL: APIRoute = ({ request }) => app.handler(request)
 
 When generating a deployment contract via `bunx bunderstack blueprint`, Bunderstack identifies the application type and specifies it in `bunderstack.blueprint.yaml`:
 
-| Framework Type | Blueprint `framework` | Detection Rule | Typical `build` Script | Typical `start` Script |
-|---|---|---|---|---|
-| **TanStack Start** | `tanstack-start` | `@tanstack/react-start` in dependencies | `vite build` | `bun .output/server/index.mjs` |
-| **Solid 2** | `solid` | `solid-js` or `@solidjs/web` in dependencies | `vite build && vite build --ssr ...` | `bun src/server.ts` |
-| **Bun SSR** | `bun-ssr` | Standard Bun scripts present | `bun build ...` | `bun src/server.ts` |
-| **Custom / SPA** | `custom` | Custom specified framework | Custom build command | Custom startup command |
-
+| Framework Type     | Blueprint `framework` | Detection Rule                               | Typical `build` Script               | Typical `start` Script         |
+| ------------------ | --------------------- | -------------------------------------------- | ------------------------------------ | ------------------------------ |
+| **TanStack Start** | `tanstack-start`      | `@tanstack/react-start` in dependencies      | `vite build`                         | `bun .output/server/index.mjs` |
+| **Solid 2**        | `solid`               | `solid-js` or `@solidjs/web` in dependencies | `vite build && vite build --ssr ...` | `bun src/server.ts`            |
+| **Bun SSR**        | `bun-ssr`             | Standard Bun scripts present                 | `bun build ...`                      | `bun src/server.ts`            |
+| **Custom / SPA**   | `custom`              | Custom specified framework                   | Custom build command                 | Custom startup command         |

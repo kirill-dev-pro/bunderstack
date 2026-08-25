@@ -46,7 +46,7 @@ function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
 
 describe('browser bundle boundaries', () => {
   test('unified query root stays browser-only', async () => {
-    const output = await bundle('packages/bunderstack-query/src/index.ts', [
+    const output = await bundle('packages/bunderstack/src/query/index.ts', [
       '@orpc/client',
       '@orpc/client/fetch',
       '@orpc/tanstack-query',
@@ -57,7 +57,9 @@ describe('browser bundle boundaries', () => {
     expectNoBundleInputs(output.inputs, [
       '/@tanstack/react-query/',
       '/better-auth/',
-      'packages/bunderstack/src',
+      '/drizzle-orm/',
+      'packages/bunderstack/src/index.ts',
+      'packages/bunderstack/src/database',
     ])
     expect(output.text).toContain('@orpc/client')
     expect(output.text).toContain('@orpc/tanstack-query')
@@ -67,21 +69,29 @@ describe('browser bundle boundaries', () => {
   })
 
   test('start root keeps TanStack server external and excludes auth', async () => {
-    const output = await bundle('packages/bunderstack-start/src/index.ts', [
-      '@tanstack/react-start/server',
+    const output = await bundle('packages/bunderstack/src/start/index.ts', [
+      '@orpc/client',
+      '@orpc/client/fetch',
+      '@orpc/tanstack-query',
+      '@standardserver/core',
+      '@tanstack/db',
+      '@tanstack/query-core',
+      '@tanstack/query-db-collection',
       '@tanstack/react-query',
-      'bunderstack-sync',
+      '@tanstack/react-start/server',
     ])
     expect(output.size).toBeLessThan(32 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/better-auth/',
-      'packages/bunderstack-start/src/auth-client.',
+      'packages/bunderstack/src/start/auth-client.',
+      'packages/bunderstack/src/index.ts',
+      'packages/bunderstack/src/database',
     ])
     expect(output.text).not.toContain('better-auth')
   })
 
   test('the live view client stays browser-only and dependency-free', async () => {
-    const output = await bundle('packages/bunderstack/src/live/index.ts')
+    const output = await bundle('packages/bunderstack/src/client/live-view.ts')
     expect(output.size).toBeLessThan(8 * 1024)
     expectNoBundleInputs(output.inputs, [
       '/drizzle-orm/',

@@ -11,7 +11,7 @@ export function baseOptions(): BaseLayoutProps {
           <img
             src="/logo-192.webp"
             alt="bunderstack"
-            className="w-5 h-5 rounded object-contain"
+            className="h-5 w-5 rounded object-contain"
             width={20}
             height={20}
           />

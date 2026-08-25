@@ -21,7 +21,7 @@ test('sync collections use the React DB Collection runtime', async () => {
   )
   const syncImporter = fileURLToPath(
     new URL(
-      '../../../../packages/bunderstack-sync/src/collection.ts',
+      '../../../../packages/bunderstack/sync/src/collection.ts',
       import.meta.url,
     ),
   )

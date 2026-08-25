@@ -8,8 +8,7 @@ import {
   type InferSchema,
   type InferSelect,
   type InferTables,
-} from 'bunderstack-query'
-
+} from '../query/index'
 import { createTableCollection, type TableCollection } from './collection'
 import {
   createSyncRealtimeClient,

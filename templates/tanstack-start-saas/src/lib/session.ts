@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { getSessionUser, type SessionUser } from 'bunderstack-start'
+import { getSessionUser, type SessionUser } from 'bunderstack/start'
 
 import { app } from '~/bunderstack'
 

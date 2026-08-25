@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-sync'
+import type { InferSelect } from 'bunderstack/sync'
 
 import { useRouteContext } from '@tanstack/react-router'
 import { generate as generateTypeId } from 'bunderstack/typeid'

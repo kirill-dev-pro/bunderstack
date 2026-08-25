@@ -4,25 +4,13 @@
     {
       "name": "website",
       "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "website",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "--cwd", "website", "dev"],
       "port": 3010
     },
     {
       "name": "website-preview",
       "runtimeExecutable": "bun",
-      "runtimeArgs": [
-        "run",
-        "--cwd",
-        "website",
-        "preview",
-        "--port",
-        "3011"
-      ],
+      "runtimeArgs": ["run", "--cwd", "website", "preview", "--port", "3011"],
       "port": 3011
     }
   ]

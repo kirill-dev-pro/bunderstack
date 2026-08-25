@@ -73,7 +73,10 @@ function harness(
   } = {},
 ) {
   const clock = fakeClock()
-  const connections: Array<{ lastEventId?: string; stream: ReturnType<typeof controllable> }> = []
+  const connections: Array<{
+    lastEventId?: string
+    stream: ReturnType<typeof controllable>
+  }> = []
   const changes: RealtimeChange[] = []
   const errors: unknown[] = []
   const retries: Array<{ attempt: number; delayMs: number }> = []

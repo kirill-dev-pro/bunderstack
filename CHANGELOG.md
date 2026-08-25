@@ -2,7 +2,23 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
-## [Unreleased]
+## [0.21.0] - 2026-08-25
+
+### Changed
+
+- **Consolidated package architecture.** Merged `bunderstack-client`,
+  `bunderstack-query`, `bunderstack-sync`, and `bunderstack-start` into the single
+  `bunderstack` npm package. Consumers now install only `bunderstack` and import
+  modules via clean subpath exports:
+  - `bunderstack/client` (core RPC client & framework-neutral `LiveView`)
+  - `bunderstack/client/rest` (type-safe REST client)
+  - `bunderstack/client/react`, `bunderstack/client/solid`, `bunderstack/client/svelte`, `bunderstack/client/vue` (UI framework live view bindings)
+  - `bunderstack/query` & `bunderstack/query/react` (TanStack Query client and hooks)
+  - `bunderstack/sync` (TanStack DB client with realtime collections)
+  - `bunderstack/start` & `bunderstack/start/auth` (TanStack Start full-stack integration)
+- Framework integrations (`react`, `solid-js`, `vue`, `@tanstack/react-query`,
+  `@tanstack/react-start`, `@tanstack/db`, etc.) and database drivers remain
+  optional peer dependencies.
 
 ## [0.20.0] - 2026-08-25
 

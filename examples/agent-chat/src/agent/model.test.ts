@@ -2,7 +2,11 @@ import { describe, expect, mock, test } from 'bun:test'
 
 import type { AgentResponderInput, AgentTools } from './types'
 
-import { createAIResponder, createDemoResponder, createOpenAIResponder } from './model'
+import {
+  createAIResponder,
+  createDemoResponder,
+  createOpenAIResponder,
+} from './model'
 
 function input(
   latestMessage: string,
@@ -92,8 +96,10 @@ describe('AI responder factory', () => {
   })
 
   test('createOpenAIResponder is compatible alias', () => {
-    const responder = createOpenAIResponder({ apiKey: 'test-key', model: 'gpt-5-mini' })
+    const responder = createOpenAIResponder({
+      apiKey: 'test-key',
+      model: 'gpt-5-mini',
+    })
     expect(typeof responder).toBe('function')
   })
 })
-

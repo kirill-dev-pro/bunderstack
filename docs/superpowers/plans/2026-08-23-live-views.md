@@ -24,10 +24,12 @@
 ### Task 1: Shared change guard
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/realtime/filter.ts`
 - Test: `packages/bunderstack/src/realtime/filter.test.ts`
 
 **Interfaces:**
+
 - Produces: `createChangeGuard(entry: ResolvedTableAccess, options: { rule: OperationRule; request: Request; getSession: GetSession }): (change: RealtimeChange) => Promise<boolean>` and `filterTableChanges(source: AsyncIterable<RealtimeChange>, options: { tableName: string; entry: ResolvedTableAccess; rule: OperationRule; request: Request; getSession: GetSession }): AsyncGenerator<RealtimeChange>`.
 - `filterRealtimeChanges` keeps its current signature and behaviour (it guards with `entry.get`).
 
@@ -43,9 +45,21 @@ test('filterTableChanges keeps one table and applies the given rule', async () =
   )
   const entry = access.get('posts')!
   async function* source() {
-    yield { table: 'posts', action: 'create', record: { id: 'p1' } } as RealtimeChange
-    yield { table: 'users', action: 'create', record: { id: 'u1' } } as RealtimeChange
-    yield { table: 'posts', action: 'update', record: { id: 'p2' } } as RealtimeChange
+    yield {
+      table: 'posts',
+      action: 'create',
+      record: { id: 'p1' },
+    } as RealtimeChange
+    yield {
+      table: 'users',
+      action: 'create',
+      record: { id: 'u1' },
+    } as RealtimeChange
+    yield {
+      table: 'posts',
+      action: 'update',
+      record: { id: 'p2' },
+    } as RealtimeChange
   }
   const seen: string[] = []
   for await (const change of filterTableChanges(source(), {
@@ -67,7 +81,11 @@ test('filterTableChanges denies when the rule denies', async () => {
   )
   const entry = access.get('posts')!
   async function* source() {
-    yield { table: 'posts', action: 'create', record: { id: 'p1' } } as RealtimeChange
+    yield {
+      table: 'posts',
+      action: 'create',
+      record: { id: 'p1' },
+    } as RealtimeChange
   }
   const seen: string[] = []
   for await (const change of filterTableChanges(source(), {
@@ -156,7 +174,9 @@ export function createChangeGuard(
       row: change.record,
       session: { activeOrganizationId: session.activeOrganizationId },
     }
-    if (!(await checkAccess(options.rule, context, entry.ownerColumn)).allowed) {
+    if (
+      !(await checkAccess(options.rule, context, entry.ownerColumn)).allowed
+    ) {
       return false
     }
     if (
@@ -254,11 +274,13 @@ git commit -m "refactor(realtime): share one change guard between streams"
 ### Task 2: Wire protocol and membership
 
 **Files:**
+
 - Create: `packages/bunderstack/src/live/protocol.ts`
 - Create: `packages/bunderstack/src/api/live-view.ts`
 - Test: `packages/bunderstack/src/api/live-view.test.ts`
 
 **Interfaces:**
+
 - Produces: `LiveFrame<T>`, `LiveSnapshotFrame<T>`, `LiveUpsertFrame<T>`, `LiveRemoveFrame`, `LiveHeartbeatFrame`, `LiveDeltaFrame<T>`, `LiveInput` from `src/live/protocol.ts`; `matchesLiveFilters(record, filters)` from `src/api/live-view.ts`.
 
 - [ ] **Step 1: Write the failing test**
@@ -282,8 +304,12 @@ describe('matchesLiveFilters', () => {
   })
 
   test('an array is IN', () => {
-    expect(matchesLiveFilters({ status: 'b' }, { status: ['a', 'b'] })).toBe(true)
-    expect(matchesLiveFilters({ status: 'c' }, { status: ['a', 'b'] })).toBe(false)
+    expect(matchesLiveFilters({ status: 'b' }, { status: ['a', 'b'] })).toBe(
+      true,
+    )
+    expect(matchesLiveFilters({ status: 'c' }, { status: ['a', 'b'] })).toBe(
+      false,
+    )
   })
 
   test('null is IS NULL, and undefined counts as null', () => {
@@ -302,7 +328,9 @@ describe('matchesLiveFilters', () => {
 
   test('dates compare by time', () => {
     const at = new Date('2026-01-01T00:00:00Z')
-    expect(matchesLiveFilters({ at }, { at: new Date(at.getTime()) })).toBe(true)
+    expect(matchesLiveFilters({ at }, { at: new Date(at.getTime()) })).toBe(
+      true,
+    )
     expect(matchesLiveFilters({ at }, { at: new Date(0) })).toBe(false)
   })
 })
@@ -431,10 +459,12 @@ git commit -m "feat(live): add the live-view wire protocol and membership rule"
 ### Task 3: The per-connection window
 
 **Files:**
+
 - Create: `packages/bunderstack/src/api/live-window.ts`
 - Test: `packages/bunderstack/src/api/live-window.test.ts`
 
 **Interfaces:**
+
 - Consumes: `matchesLiveFilters` (Task 2), `LiveDeltaFrame` (Task 2), `RealtimeChange` from `../realtime/publisher`.
 - Produces: `createLiveWindow(options: { sort: string; order: 'asc' | 'desc'; limit: number; filters?: Record<string, unknown> }): LiveWindow` where `LiveWindow = { reset(items: Record<string, unknown>[], hasMore: boolean): void; apply(change: RealtimeChange): LiveWindowResult }` and `LiveWindowResult = { type: 'none' } | { type: 'frames'; frames: LiveDeltaFrame[] } | { type: 'resnapshot' }`.
 
@@ -738,10 +768,12 @@ git commit -m "feat(live): add the per-connection live window"
 ### Task 4: The live input schema
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/list-input-schema.ts`
 - Test: `packages/bunderstack/src/api/list-input-schema.test.ts` (create if absent)
 
 **Interfaces:**
+
 - Produces: `buildLiveInputSchema(table, { filterableColumns, sortableColumns })` — the list schema without `q`, `offset`, `cursor`, and `count`.
 
 - [ ] **Step 1: Write the failing test**
@@ -844,11 +876,13 @@ git commit -m "feat(live): add the live-view input schema"
 ### Task 5: The live procedure
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/api/crud-router.ts`
 - Modify: `packages/bunderstack/src/index.ts` (pass the publisher)
 - Test: `packages/bunderstack/src/api/live-router.test.ts`
 
 **Interfaces:**
+
 - Consumes: `filterTableChanges` (Task 1), `LiveInput`/`LiveFrame` (Task 2), `createLiveWindow` (Task 3), `buildLiveInputSchema` (Task 4).
 - Produces: `router[table].live`, reachable at `GET /api/live/{table}`; `CrudApiRouterOptions.livePublisher`; `BuildTableCrudProceduresArgs.schemaKey` and `.livePublisher`; the exported type `LiveInputFor<TTable, TFilterable, TSortable>`.
 
@@ -987,10 +1021,9 @@ test('a live view streams a snapshot and then server-placed changes', async () =
     )
     const snapshot = untilSnapshot.find((frame) => frame.type === 'snapshot')!
     expect(snapshot).toBeDefined()
-    expect((snapshot.items as { id: string }[]).map((item) => item.id)).toEqual([
-      'p1',
-      'p3',
-    ])
+    expect((snapshot.items as { id: string }[]).map((item) => item.id)).toEqual(
+      ['p1', 'p3'],
+    )
     // Resolved values, not the caller's input: the request sent no sort.
     expect(snapshot.sort).toBe('rank')
     expect(snapshot.order).toBe('asc')
@@ -1037,7 +1070,9 @@ test('a live view streams a snapshot and then server-placed changes', async () =
 
 test('a live view denies the deltas when it denies the list', async () => {
   const db = await setupTestDb()
-  await db.insert(posts).values([{ id: 'p1', title: 'x', userId: 'u1', rank: 1 }])
+  await db
+    .insert(posts)
+    .values([{ id: 'p1', title: 'x', userId: 'u1', rank: 1 }])
   const publisher = createMemoryRealtimePublisher({ resumeSeconds: 60 })
   const router = buildCrudApiRouter(schema, db, {
     access: liveAccess('deny'),
@@ -1056,7 +1091,9 @@ test('a live view denies the deltas when it denies the list', async () => {
 
 test('the live path does not shadow an id that reads "live"', async () => {
   const db = await setupTestDb()
-  await db.insert(posts).values([{ id: 'live', title: 'x', userId: 'u1', rank: 1 }])
+  await db
+    .insert(posts)
+    .values([{ id: 'live', title: 'x', userId: 'u1', rank: 1 }])
   const publisher = createMemoryRealtimePublisher({ resumeSeconds: 60 })
   const router = buildCrudApiRouter(schema, db, {
     access: liveAccess(),
@@ -1106,11 +1143,11 @@ import { buildListInputSchema, buildLiveInputSchema } from './list-input-schema'
 Add `livePublisher?: RealtimePublisher` to `CrudApiRouterOptions` with this comment:
 
 ```ts
-  /**
-   * The raw realtime publisher, present when realtime is enabled. The CRUD
-   * router subscribes on behalf of live views; publishing stays behind the
-   * facade.
-   */
+/**
+ * The raw realtime publisher, present when realtime is enabled. The CRUD
+ * router subscribes on behalf of live views; publishing stays behind the
+ * facade.
+ */
 ```
 
 Add to `BuildTableCrudProceduresArgs`:
@@ -1144,134 +1181,132 @@ export type LiveInputFor<
 After the delete procedure, add the live procedure:
 
 ```ts
-  // 6. LIVE procedure — the whole view as one stream. A snapshot first, then
-  // the changes this view cares about, placed by the server. Every connection
-  // opens with a snapshot, so a reconnect is its own recovery: no client-side
-  // event buffer, no Last-Event-ID bookkeeping, no refetch path.
-  const liveQuerySchema = buildLiveInputSchema(table, {
-    filterableColumns: access.filterableColumns,
-    sortableColumns: access.sortableColumns,
-  }) as unknown as v.GenericSchema<
-    LiveInputFor<TTable, TFilterable, TSortable>,
-    LiveInputFor<TTable, TFilterable, TSortable>
-  >
+// 6. LIVE procedure — the whole view as one stream. A snapshot first, then
+// the changes this view cares about, placed by the server. Every connection
+// opens with a snapshot, so a reconnect is its own recovery: no client-side
+// event buffer, no Last-Event-ID bookkeeping, no refetch path.
+const liveQuerySchema = buildLiveInputSchema(table, {
+  filterableColumns: access.filterableColumns,
+  sortableColumns: access.sortableColumns,
+}) as unknown as v.GenericSchema<
+  LiveInputFor<TTable, TFilterable, TSortable>,
+  LiveInputFor<TTable, TFilterable, TSortable>
+>
 
-  const recordSchema = v.record(v.string(), v.unknown())
-  const liveFrameSchema = v.union([
-    v.strictObject({
-      type: v.literal('snapshot'),
-      items: v.array(recordSchema),
-      sort: v.string(),
-      order: v.picklist(['asc', 'desc']),
-      limit: v.number(),
-      hasMore: v.boolean(),
-    }),
-    v.strictObject({
-      type: v.literal('upsert'),
-      record: recordSchema,
-      afterId: v.union([v.string(), v.null()]),
-    }),
-    v.strictObject({ type: v.literal('remove'), id: v.string() }),
-    v.strictObject({ type: v.literal('heartbeat'), intervalMs: v.number() }),
-  ])
+const recordSchema = v.record(v.string(), v.unknown())
+const liveFrameSchema = v.union([
+  v.strictObject({
+    type: v.literal('snapshot'),
+    items: v.array(recordSchema),
+    sort: v.string(),
+    order: v.picklist(['asc', 'desc']),
+    limit: v.number(),
+    hasMore: v.boolean(),
+  }),
+  v.strictObject({
+    type: v.literal('upsert'),
+    record: recordSchema,
+    afterId: v.union([v.string(), v.null()]),
+  }),
+  v.strictObject({ type: v.literal('remove'), id: v.string() }),
+  v.strictObject({ type: v.literal('heartbeat'), intervalMs: v.number() }),
+])
 
-  const live = !livePublisher
-    ? undefined
-    : builder.public
-        .route({
-          method: 'GET',
-          // A custom method, not a child resource: `/{table}/live` would
-          // shadow the id "live" on the get route.
-          path: `/api/live/${name}`,
-          summary: `Live view of ${name}`,
-          tags: [name],
-          // Filters arrive as one URL-encoded JSON value, so no per-key query
-          // parsing rule is needed.
-          queryStyles: { filters: 'json' },
-        })
-        .input(liveQuerySchema)
-        .output(eventIterator(liveFrameSchema))
-        .handler(({ input, context, signal }) => {
-          // Subscribe before anything awaits, so no change slips between the
-          // snapshot read and the start of the stream; events that arrive
-          // during the query buffer in the publisher and replay on first pull.
-          const changes = filterTableChanges(
-            livePublisher.subscribe('change', { signal }),
-            {
-              tableName: schemaKey,
-              entry: access,
-              rule: access.list,
+const live = !livePublisher
+  ? undefined
+  : builder.public
+      .route({
+        method: 'GET',
+        // A custom method, not a child resource: `/{table}/live` would
+        // shadow the id "live" on the get route.
+        path: `/api/live/${name}`,
+        summary: `Live view of ${name}`,
+        tags: [name],
+        // Filters arrive as one URL-encoded JSON value, so no per-key query
+        // parsing rule is needed.
+        queryStyles: { filters: 'json' },
+      })
+      .input(liveQuerySchema)
+      .output(eventIterator(liveFrameSchema))
+      .handler(({ input, context, signal }) => {
+        // Subscribe before anything awaits, so no change slips between the
+        // snapshot read and the start of the stream; events that arrive
+        // during the query buffer in the publisher and replay on first pull.
+        const changes = filterTableChanges(
+          livePublisher.subscribe('change', { signal }),
+          {
+            tableName: schemaKey,
+            entry: access,
+            rule: access.list,
+            request: context.request,
+            getSession: context.getSession,
+          },
+        )
+
+        return withRealtimeHeartbeat(
+          (async function* () {
+            const session = await context.getSession()
+            const execCtx = {
               request: context.request,
-              getSession: context.getSession,
-            },
-          )
+              user: session.user,
+              session: { activeOrganizationId: session.activeOrganizationId },
+            }
+            let view: ReturnType<typeof createLiveWindow> | undefined
 
-          return withRealtimeHeartbeat(
-            (async function* () {
-              const session = await context.getSession()
-              const execCtx = {
-                request: context.request,
-                user: session.user,
-                session: { activeOrganizationId: session.activeOrganizationId },
+            const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
+              const result = await operations.list(name, input ?? {}, execCtx)
+              view = createLiveWindow({
+                sort: result.sort,
+                order: result.order,
+                limit: result.limit,
+                filters: input?.filters as Record<string, unknown> | undefined,
+              })
+              view.reset(result.items, result.hasMore)
+              return {
+                type: 'snapshot',
+                items: result.items,
+                sort: result.sort,
+                order: result.order,
+                limit: result.limit,
+                hasMore: result.hasMore,
               }
-              let view: ReturnType<typeof createLiveWindow> | undefined
+            }
 
-              const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
-                const result = await operations.list(name, input ?? {}, execCtx)
-                view = createLiveWindow({
-                  sort: result.sort,
-                  order: result.order,
-                  limit: result.limit,
-                  filters: input?.filters as
-                    | Record<string, unknown>
-                    | undefined,
-                })
-                view.reset(result.items, result.hasMore)
-                return {
-                  type: 'snapshot',
-                  items: result.items,
-                  sort: result.sort,
-                  order: result.order,
-                  limit: result.limit,
-                  hasMore: result.hasMore,
-                }
+            yield await readSnapshot()
+
+            for await (const change of changes) {
+              const outcome = view!.apply(change)
+              if (outcome.type === 'none') continue
+              if (outcome.type === 'resnapshot') {
+                yield await readSnapshot()
+                continue
               }
-
-              yield await readSnapshot()
-
-              for await (const change of changes) {
-                const outcome = view!.apply(change)
-                if (outcome.type === 'none') continue
-                if (outcome.type === 'resnapshot') {
-                  yield await readSnapshot()
-                  continue
-                }
-                for (const frame of outcome.frames) yield frame
-              }
-            })(),
-            { intervalMs: REALTIME_HEARTBEAT_INTERVAL_MS, signal },
-          )
-        })
+              for (const frame of outcome.frames) yield frame
+            }
+          })(),
+          { intervalMs: REALTIME_HEARTBEAT_INTERVAL_MS, signal },
+        )
+      })
 ```
 
 Return the live procedure without widening the other four:
 
 ```ts
-  return {
-    list,
-    get,
-    create,
-    update,
-    delete: deleteProc,
-    ...(live ? { live } : {}),
-  } as {
-    list: typeof list
-    get: typeof get
-    create: typeof create
-    update: typeof update
-    delete: typeof deleteProc
-    live?: NonNullable<typeof live>
-  }
+return {
+  list,
+  get,
+  create,
+  update,
+  delete: deleteProc,
+  ...(live ? { live } : {}),
+} as {
+  list: typeof list
+  get: typeof get
+  create: typeof create
+  update: typeof update
+  delete: typeof deleteProc
+  live?: NonNullable<typeof live>
+}
 ```
 
 In `buildCrudApiRouter`, destructure `livePublisher` from the options and pass `schemaKey: tableKey` and `livePublisher` into `buildTableCrudProcedures`. In `src/index.ts`, pass `livePublisher: publisher` where `buildCrudApiRouter` is called (beside `realtime`).
@@ -1300,11 +1335,13 @@ git commit -m "feat(live): serve GET /api/live/{table} beside the CRUD routes"
 ### Task 6: Client fold and SSE reader
 
 **Files:**
+
 - Create: `packages/bunderstack/src/live/apply.ts`
 - Create: `packages/bunderstack/src/live/sse.ts`
 - Test: `packages/bunderstack/src/live/apply.test.ts`, `packages/bunderstack/src/live/sse.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LiveFrame` (Task 2).
 - Produces: `applyLiveFrame<T extends { id: string }>(rows: readonly T[], frame: LiveFrame<T>): readonly T[]` and `parseSseFrames<T>(body: ReadableStream<Uint8Array>): AsyncGenerator<T>`.
 
@@ -1538,12 +1575,14 @@ git commit -m "feat(live): add the client-side frame fold and SSE reader"
 ### Task 7: The client view
 
 **Files:**
+
 - Create: `packages/bunderstack/src/live/index.ts`
 - Modify: `packages/bunderstack/package.json` (add the `./live` export)
 - Modify: `scripts/bundle-boundaries.test.ts`
 - Test: `packages/bunderstack/src/live/live-view.test.ts`
 
 **Interfaces:**
+
 - Consumes: `applyLiveFrame`, `parseSseFrames` (Task 6), `LiveFrame`, `LiveInput` (Task 2).
 - Produces: `createLiveView<T extends { id: string }>(url: string, options?: CreateLiveViewOptions): LiveView<T>`, `LiveStatus`, and re-exports of the protocol types and `applyLiveFrame`.
 
@@ -1598,7 +1637,14 @@ test('the view fills from the snapshot and applies deltas', async () => {
   const view = createLiveView<Row>('/api/live/posts', {
     fetch: async () =>
       sseResponse(
-        [snapshot, frame({ type: 'upsert', record: { id: 'c', title: 'C' }, afterId: 'a' })],
+        [
+          snapshot,
+          frame({
+            type: 'upsert',
+            record: { id: 'c', title: 'C' },
+            afterId: 'a',
+          }),
+        ],
         true,
       ),
   })
@@ -1615,7 +1661,12 @@ test('the view fills from the snapshot and applies deltas', async () => {
 test('the request carries the input as query parameters', async () => {
   const seen: string[] = []
   const view = createLiveView<Row>('/api/live/posts', {
-    input: { limit: 10, sort: 'rank', order: 'desc', filters: { userId: 'u1' } },
+    input: {
+      limit: 10,
+      sort: 'rank',
+      order: 'desc',
+      filters: { userId: 'u1' },
+    },
     fetch: async (input) => {
       seen.push(String(input))
       return sseResponse([snapshot], true)
@@ -1818,7 +1869,8 @@ export function createLiveView<TRow extends { id: string }>(
         )) {
           attempt = 0
           const next = applyLiveFrame(rows, frame)
-          const changed = next !== rows || status !== 'live' || error !== undefined
+          const changed =
+            next !== rows || status !== 'live' || error !== undefined
           rows = next
           status = 'live'
           error = undefined
@@ -1883,18 +1935,18 @@ In `packages/bunderstack/package.json`, add to `exports`, keeping the keys sorte
 Append a case to the `describe('browser bundle boundaries')` block in `scripts/bundle-boundaries.test.ts`:
 
 ```ts
-  test('the live view client stays browser-only and dependency-free', async () => {
-    const output = await bundle('packages/bunderstack/src/live/index.ts')
-    expect(output.size).toBeLessThan(8 * 1024)
-    expectNoBundleInputs(output.inputs, [
-      '/drizzle-orm/',
-      '/better-auth/',
-      '/valibot/',
-      'packages/bunderstack/src/api',
-      'packages/bunderstack/src/index.ts',
-    ])
-    expect(output.text).not.toContain('@orpc/')
-  })
+test('the live view client stays browser-only and dependency-free', async () => {
+  const output = await bundle('packages/bunderstack/src/live/index.ts')
+  expect(output.size).toBeLessThan(8 * 1024)
+  expectNoBundleInputs(output.inputs, [
+    '/drizzle-orm/',
+    '/better-auth/',
+    '/valibot/',
+    'packages/bunderstack/src/api',
+    'packages/bunderstack/src/index.ts',
+  ])
+  expect(output.text).not.toContain('@orpc/')
+})
 ```
 
 - [ ] **Step 7: Run the contract tests**
@@ -1914,6 +1966,7 @@ git commit -m "feat(live): add the bunderstack/live browser client"
 ### Task 8: Build, typecheck, and documentation
 
 **Files:**
+
 - Modify: `packages/bunderstack/README.md` or the root `README.md` (whichever documents realtime)
 - Modify: `CHANGELOG.md`
 - Modify: `docs/` entries that list subpath exports, if the contract tests demand it

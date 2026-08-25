@@ -5,8 +5,8 @@
 ```text
 Bunderstack CRUD + realtime
   -> createClient<App>() (typed oRPC, no codegen)
-       -> bunderstack-client LiveView (confirmed state)
-       -> bunderstack-client/solid (keyed Solid store)
+       -> bunderstack/client LiveView (confirmed state)
+       -> bunderstack/client/solid (keyed Solid store)
             -> createOptimisticStore (action-local speculation)
                  -> UI
 ```
@@ -14,7 +14,7 @@ Bunderstack CRUD + realtime
 Пример больше не содержит SSE parser, reconnect-loop, frame reducer,
 AbortController, ручной `createStore` или `reconcile`. Эти механизмы не имеют
 отношения к предметной области Todo и теперь живут в framework-neutral
-`bunderstack-client`.
+`bunderstack/client`.
 
 В `todos.ts` остались только:
 
@@ -57,16 +57,16 @@ snapshot с `operationId`. Это дороже одиночного delta, но 
 
 ```text
 bunderstack (server/protocol)
-  -> bunderstack-client (oRPC, SSE, reconnect, LiveView, operation ack)
+  -> bunderstack/client (oRPC, SSE, reconnect, LiveView, operation ack)
        -> /solid, /react, /vue, /svelte
-       -> bunderstack-query (TanStack Query cache policy)
-            -> bunderstack-sync (TanStack DB collections)
+       -> bunderstack/query (TanStack Query cache policy)
+            -> bunderstack/sync (TanStack DB collections)
 ```
 
-Raw realtime transport был вынесен из `bunderstack-query` в общий пакет;
+Raw realtime transport был вынесен из `bunderstack/query` в общий пакет;
 старый Query module теперь лишь re-export. Query сохраняет query keys,
 invalidation и patch policy. TanStack DB сохраняет collections и optimistic
-transactions, но realtime получает напрямую из `bunderstack-client`, без
+transactions, но realtime получает напрямую из `bunderstack/client`, без
 транзитного `QueryClient`.
 
 ## Framework adapters

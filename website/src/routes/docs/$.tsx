@@ -94,16 +94,13 @@ export const Route = createFileRoute('/docs/$')({
   },
   head: ({ loaderData, params }) => {
     const slug = params?._splat ?? ''
-    const pageMeta =
-      loaderData?.pageMeta ??
+    const pageMeta = loaderData?.pageMeta ??
       pagesMeta[slug] ?? {
         title: 'Documentation',
         description: 'bunderstack documentation',
       }
     const pageTitle = `${pageMeta.title} — ${SITE_NAME}`
-    const canonicalUrl = slug
-      ? `${SITE_URL}/docs/${slug}`
-      : `${SITE_URL}/docs`
+    const canonicalUrl = slug ? `${SITE_URL}/docs/${slug}` : `${SITE_URL}/docs`
 
     return {
       meta: [
@@ -121,7 +118,9 @@ export const Route = createFileRoute('/docs/$')({
       scripts: [
         {
           type: 'application/ld+json',
-          children: JSON.stringify(docsStructuredData(slug, pageMeta, canonicalUrl)),
+          children: JSON.stringify(
+            docsStructuredData(slug, pageMeta, canonicalUrl),
+          ),
         },
       ],
     }

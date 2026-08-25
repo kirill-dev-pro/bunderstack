@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { createApiHandlers } from 'bunderstack-start'
+import { createApiHandlers } from 'bunderstack/start'
 
 import { app } from '~/bunderstack'
 

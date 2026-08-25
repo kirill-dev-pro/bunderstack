@@ -17,6 +17,18 @@ const betterAuthDir = dirname(
     join(root, '../packages/bunderstack'),
   ),
 )
+const reactQueryDir = dirname(
+  Bun.resolveSync(
+    '@tanstack/react-query/package.json',
+    join(root, '../packages/bunderstack'),
+  ),
+)
+const queryCoreDir = dirname(
+  Bun.resolveSync(
+    '@tanstack/query-core/package.json',
+    join(root, '../packages/bunderstack'),
+  ),
+)
 
 const APP_FILE = `// @filename: bunderstack.ts
 import { createBunderstack } from 'bunderstack'
@@ -49,7 +61,7 @@ export type App = typeof app
 
 const CLIENT_FILE = `// @filename: api-client.ts
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import { createAuthClient } from 'better-auth/react'
 import type { App } from './bunderstack'
 
@@ -133,7 +145,7 @@ export type App = typeof app`,
   client: `${APP_FILE}// @filename: client.ts
 // ---cut---
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import { createAuthClient } from 'better-auth/react'
 import type { App } from './bunderstack'
 
@@ -146,7 +158,7 @@ const result = await api.stats.call()
 
   realtime: `${APP_FILE}${CLIENT_FILE}// @filename: realtime.ts
 // ---cut---
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 import { api, queryClient } from './api-client'
 
 const connection = syncRealtime({
@@ -162,7 +174,7 @@ connection.close()`,
   frontend: `${APP_FILE}${CLIENT_FILE}// @filename: Feed.tsx
 // ---cut---
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 import { useEffect, useState } from 'react'
 import { api, authClient } from './api-client'
 
@@ -242,16 +254,24 @@ const compilerOptions: ts.CompilerOptions = {
   baseUrl: root,
   paths: {
     bunderstack: ['../packages/bunderstack/src/index.ts'],
+    'bunderstack/client': ['../packages/bunderstack/src/client/index.ts'],
+    'bunderstack/client/*': ['../packages/bunderstack/src/client/*.ts'],
+    'bunderstack/query': ['../packages/bunderstack/src/query/index.ts'],
+    'bunderstack/query/*': ['../packages/bunderstack/src/query/*.ts'],
+    'bunderstack/sync': ['../packages/bunderstack/src/sync/index.ts'],
+    'bunderstack/sync/*': ['../packages/bunderstack/src/sync/*.ts'],
+    'bunderstack/start': ['../packages/bunderstack/src/start/index.ts'],
+    'bunderstack/start/*': ['../packages/bunderstack/src/start/*.ts'],
     'bunderstack/*': ['../packages/bunderstack/src/*.ts'],
-    'bunderstack-query': ['../packages/bunderstack-query/src/index.ts'],
-    'bunderstack-query/*': ['../packages/bunderstack-query/src/*.ts'],
     'drizzle-orm': [drizzleOrmDir],
     'drizzle-orm/*': [join(drizzleOrmDir, '*')],
     'better-auth': [betterAuthDir],
     'better-auth/*': [join(betterAuthDir, '*')],
-    'better-auth/react': [
-      join(betterAuthDir, 'dist/client/react/index.d.mts'),
-    ],
+    'better-auth/react': [join(betterAuthDir, 'dist/client/react/index.d.mts')],
+    '@tanstack/react-query': [reactQueryDir],
+    '@tanstack/react-query/*': [join(reactQueryDir, '*')],
+    '@tanstack/query-core': [queryCoreDir],
+    '@tanstack/query-core/*': [join(queryCoreDir, '*')],
   },
 }
 
@@ -373,4 +393,6 @@ for (const [id, code] of Object.entries(conceptSnippets)) {
 out.concepts = conceptsOut
 
 await Bun.write(outFile, JSON.stringify(out, null, 2))
-console.log(`code-snippets: ${Object.keys(out).length} stories & concepts generated`)
+console.log(
+  `code-snippets: ${Object.keys(out).length} stories & concepts generated`,
+)

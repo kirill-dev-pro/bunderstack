@@ -9,7 +9,7 @@ A Trello-like kanban board showcasing Bunderstack's **org-scoped access** (`scop
 - BetterAuth `organization` plugin (orgs, members)
 - Auto-CRUD at `/api/:table` with scope enforced on list/get/create/update/delete
 - Realtime via the typed `api.realtime.changes` iterator — broadcast-on-write, per-event get-rule + scope authorization
-- Solid 1.9 + Vite + Oat UI, `@tanstack/solid-query` + the unified `bunderstack-query` client
+- Solid 1.9 + Vite + Oat UI, `@tanstack/solid-query` + the unified `bunderstack/query` client
 
 > **Note:** The plan targets Solid 2 beta; this example uses Solid 1.9 until `@thisbeyond/solid-dnd`, `@solidjs/router`, and `@tanstack/solid-query` publish Solid 2–compatible releases.
 

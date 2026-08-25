@@ -60,7 +60,7 @@ everything else through the same middleware chain.
 
 ## The client
 
-`bunderstack-query` reads the server's `App` type and returns TanStack Query
+`bunderstack/query` reads the server's `App` type and returns TanStack Query
 option builders for every table and procedure, so `src/api.ts` is the whole
 setup:
 
@@ -131,7 +131,7 @@ Bunderstack's list contract is narrow — a filter is `=`, `IN`, or `IS NULL`,
 and ordering is one column — so membership and position are decidable from the
 cached list and the record. Where they are not, a text search or a page that is
 not the whole result, that list is invalidated instead. See
-`packages/bunderstack-query/README.md`.
+`packages/bunderstack/query/README.md`.
 
 Under the hood the stream is an async iterable, which Solid 2 could also
 consume directly as a reactive source — a computation can return an async
@@ -202,7 +202,7 @@ exists.
 
 Measured with a render counter against a live stream: rows the job is not
 touching are never recreated, but each streaming row's `<li>` is rebuilt on
-every token. `bunderstack-query`'s patch path replaces the matched row with the
+every token. `bunderstack/query`'s patch path replaces the matched row with the
 incoming record, and Solid's `<For>` keys by reference, so a new object means a
 new row.
 

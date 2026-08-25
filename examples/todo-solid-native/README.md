@@ -10,7 +10,7 @@ into a keyed store, while Solid actions own the optimistic overlay.
   optimistic actions.
 - `src/TodoList.tsx` — UI and mutation-scoped error presentation.
 
-The database generates canonical Todo IDs. `bunderstack-client` generates an
+The database generates canonical Todo IDs. `bunderstack/client` generates an
 internal `operationId` for each mutation, sends it as a request header, and
 waits for the matching live frame before allowing Solid to discard the
 optimistic overlay. A temporary `pending:*` value is only a local render key.

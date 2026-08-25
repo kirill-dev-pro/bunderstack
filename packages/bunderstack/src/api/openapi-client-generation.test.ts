@@ -142,7 +142,9 @@ test('reproducible openapi-typescript client generation and type verification', 
     })
     const diagnostics = ts.getPreEmitDiagnostics(program)
     expect(
-      diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n')),
+      diagnostics.map((d) =>
+        ts.flattenDiagnosticMessageText(d.messageText, '\n'),
+      ),
     ).toEqual([])
   } finally {
     await rm(tmpDir, { recursive: true, force: true })

@@ -1,17 +1,15 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
-
-import '@fontsource-variable/ubuntu-sans'
-import '@fontsource-variable/tektur'
-import '@shikijs/twoslash/style-rich.css'
-
 // The landing page is the only page using these faces. Preloading the latin
 // subsets removes the swap flash on the headline, which is the LCP element.
 import tekturLatin from '@fontsource-variable/tektur/files/tektur-latin-wght-normal.woff2?url'
 import ubuntuSansLatin from '@fontsource-variable/ubuntu-sans/files/ubuntu-sans-latin-wght-normal.woff2?url'
+import '@fontsource-variable/ubuntu-sans'
+import '@fontsource-variable/tektur'
+import '@shikijs/twoslash/style-rich.css'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 
-import snippets from '@/lib/code-snippets.gen.json'
 import { ThemeToggle } from '@/components/theme-toggle'
+import snippets from '@/lib/code-snippets.gen.json'
 import {
   GITHUB_URL,
   OG_IMAGE,
@@ -337,7 +335,11 @@ function ConceptHexGrid() {
     let rafId: number | null = null
 
     const updateActiveCard = () => {
-      if (typeof window === 'undefined' || window.innerWidth >= 1024 || !gridRef.current) {
+      if (
+        typeof window === 'undefined' ||
+        window.innerWidth >= 1024 ||
+        !gridRef.current
+      ) {
         setActiveCardId(null)
         return
       }
@@ -580,8 +582,8 @@ function Landing() {
           <section className="landing-section landing-section--inline">
             <h2>Use it on frontend</h2>
             <p className="landing-lede">
-              Queries, mutations, realtime subscriptions, and storage helpers
-              in your React components with full inference.
+              Queries, mutations, realtime subscriptions, and storage helpers in
+              your React components with full inference.
             </p>
             <CodePanel file="src/Feed.tsx" snippet={snippets.frontend} />
             <ul className="landing-points">
@@ -594,7 +596,9 @@ function Landing() {
       </div>
 
       <section className="landing-section">
-        <h2>Works <em>out-of-the-box</em></h2>
+        <h2>
+          Works <em>out-of-the-box</em>
+        </h2>
         <p className="landing-lede">
           Each of these is useful alone. Together they remove the adapters and
           lifecycle code that normally fill the space between them.

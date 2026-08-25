@@ -3,14 +3,14 @@ title: Query Client
 description: An oRPC and TanStack Query client inferred from your app
 ---
 
-`bunderstack-query` derives generated CRUD and application procedures from
+`bunderstack/query` derives generated CRUD and application procedures from
 `typeof app`. There is no code generation, route list, or duplicated response
 interface.
 
 ## Create the client
 
 ```bash
-bun add bunderstack-query @tanstack/react-query
+bun add bunderstack @tanstack/react-query
 ```
 
 ```ts
@@ -22,7 +22,7 @@ export type App = typeof app
 ```ts
 // api-client.ts — client
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import type { App } from './bunderstack'
 
 export const queryClient = new QueryClient({
@@ -107,7 +107,7 @@ Use `syncRealtime` when the application uses TanStack Query without TanStack
 DB collections:
 
 ```ts
-import { syncRealtime } from 'bunderstack-query'
+import { syncRealtime } from 'bunderstack/query'
 
 const connection = syncRealtime({
   api,
@@ -138,7 +138,7 @@ membership and ordering can be settled locally, and invalidated otherwise.
 ## Type utilities
 
 ```ts
-import type { InferSchema, InferSelect } from 'bunderstack-query'
+import type { InferSchema, InferSelect } from 'bunderstack/query'
 
 type Schema = InferSchema<App>
 type Post = InferSelect<Schema['posts']>

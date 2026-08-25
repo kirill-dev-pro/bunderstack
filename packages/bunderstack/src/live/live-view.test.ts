@@ -68,7 +68,12 @@ test('the view fills from the snapshot and applies deltas', async () => {
 test('the request carries the input as query parameters', async () => {
   const seen: string[] = []
   const view = createLiveView<Row>('/api/live/posts', {
-    input: { limit: 10, sort: 'rank', order: 'desc', filters: { userId: 'u1' } },
+    input: {
+      limit: 10,
+      sort: 'rank',
+      order: 'desc',
+      filters: { userId: 'u1' },
+    },
     fetch: async (input) => {
       seen.push(String(input))
       return sseResponse([snapshot], true)

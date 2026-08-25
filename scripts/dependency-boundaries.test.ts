@@ -3,13 +3,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const repoRoot = join(import.meta.dir, '..')
-const packages = [
-  'bunderstack',
-  'bunderstack-client',
-  'bunderstack-query',
-  'bunderstack-sync',
-  'bunderstack-start',
-] as const
+const packages = ['bunderstack'] as const
 
 async function sourceFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true })
@@ -114,12 +108,13 @@ describe('published dependency boundaries', () => {
 
   test('client roots do not import server implementations or optional auth', async () => {
     const query = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-query/src/index.ts'),
+      join(repoRoot, 'packages/bunderstack/src/query/index.ts'),
     ).text()
     expect(query).not.toMatch(/from ['"](?:bunderstack(?:\/|['"])|better-auth)/)
+    expect(query).not.toMatch(/from ['"]\.\.\/index/)
 
     const start = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-start/src/index.ts'),
+      join(repoRoot, 'packages/bunderstack/src/start/index.ts'),
     ).text()
     expect(start).not.toMatch(/from ['"]better-auth/)
     expect(start).not.toContain('export { createStartAuthClient }')
@@ -127,7 +122,7 @@ describe('published dependency boundaries', () => {
 
   test('query client keeps QueryClient type-only and framework-neutral', async () => {
     const source = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-query/src/client.ts'),
+      join(repoRoot, 'packages/bunderstack/src/query/client.ts'),
     ).text()
 
     expect(source).toContain(
@@ -152,9 +147,10 @@ describe('published dependency boundaries', () => {
     const core = await Bun.file(
       join(repoRoot, 'packages/bunderstack/package.json'),
     ).json()
-    expect(core.peerDependencies['better-auth']).toBeDefined()
+    expect(core.peerDependencies['better-auth']).toBe('^1.0.0')
     expect(core.peerDependencies['drizzle-orm']).toBeDefined()
     expect(core.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
+    expect(core.peerDependencies['@orpc/client']).toBe('2.0.0-beta.26')
     expect(core.peerDependencies['@orpc/publisher']).toBe('2.0.0-beta.26')
     expect(core.peerDependencies['@orpc/bun']).toBe('2.0.0-beta.26')
     expect(core.peerDependencies['@orpc/valibot']).toBe('2.0.0-beta.26')
@@ -167,58 +163,16 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['postgres']).toBeDefined()
 
     expect(Object.keys(core.dependencies).sort()).toEqual([
+      '@orpc/client',
+      '@orpc/server',
       '@standard-schema/spec',
+      '@standardserver/core',
       'valibot',
       'yaml',
     ])
 
     const rootManifest = await Bun.file(join(repoRoot, 'package.json')).json()
     expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')
-
-    const query = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-query/package.json'),
-    ).json()
-    expect(query.peerDependencies['@tanstack/query-core']).toBeDefined()
-    expect(query.peerDependencies['@tanstack/react-query']).toBeUndefined()
-    expect(query.peerDependencies['@orpc/client']).toBe('2.0.0-beta.26')
-    expect(query.peerDependencies['@orpc/server']).toBe('2.0.0-beta.26')
-    expect(query.peerDependencies['@orpc/tanstack-query']).toBe('2.0.0-beta.26')
-    expect(query.peerDependencies['@standardserver/core']).toBeUndefined()
-    expect(query.peerDependencies['bunderstack']).toBeDefined()
-    expect(query.dependencies).toEqual({
-      'bunderstack-client': 'workspace:*',
-    })
-
-    const client = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-client/package.json'),
-    ).json()
-    expect(client.dependencies).toEqual({
-      '@orpc/client': '2.0.0-beta.26',
-      '@orpc/server': '2.0.0-beta.26',
-      '@standardserver/core': '0.7.1',
-    })
-    for (const framework of ['react', 'solid-js', 'vue']) {
-      expect(client.peerDependencies[framework]).toBeDefined()
-      expect(client.peerDependenciesMeta[framework].optional).toBe(true)
-    }
-
-    const sync = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-sync/package.json'),
-    ).json()
-    expect(Object.keys(sync.dependencies).sort()).toEqual([
-      'bunderstack-client',
-      'bunderstack-query',
-    ])
-    expect(sync.peerDependencies['@tanstack/react-query']).toBeDefined()
-
-    const start = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-start/package.json'),
-    ).json()
-    expect(Object.keys(start.dependencies)).toEqual(['bunderstack-sync'])
-    expect(start.peerDependencies['@tanstack/react-query']).toBeDefined()
-    expect(start.peerDependencies['@tanstack/react-start']).toBeDefined()
-    expect(start.peerDependencies['better-auth']).toBeDefined()
-    expect(start.peerDependenciesMeta['better-auth']?.optional).toBe(true)
   })
 
   test('bunderstack peer metadata matches runtime import boundaries', async () => {
@@ -227,7 +181,7 @@ describe('published dependency boundaries', () => {
     ).json()
 
     expect(pkg.peerDependencies['better-auth']).toBe('^1.0.0')
-    expect(pkg.peerDependenciesMeta?.['better-auth']).toBeUndefined()
+    expect(pkg.peerDependenciesMeta?.['better-auth']?.optional).toBe(true)
     expect(pkg.peerDependencies.nodemailer).toBe('>=6 <10')
     expect(pkg.peerDependenciesMeta.nodemailer.optional).toBe(true)
     expect(pkg.peerDependencies.typescript).toBe('>=5')
@@ -243,18 +197,6 @@ describe('published dependency boundaries', () => {
     ]) {
       expect(pkg.peerDependencies[dependency]).toBeDefined()
       expect(pkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
-    }
-
-    const queryPkg = await Bun.file(
-      join(repoRoot, 'packages/bunderstack-query/package.json'),
-    ).json()
-    for (const dependency of [
-      '@orpc/client',
-      '@orpc/server',
-      '@orpc/tanstack-query',
-    ]) {
-      expect(queryPkg.peerDependencies[dependency]).toBeDefined()
-      expect(queryPkg.peerDependenciesMeta?.[dependency]).toBeUndefined()
     }
   })
 

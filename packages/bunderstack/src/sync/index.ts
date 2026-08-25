@@ -22,4 +22,4 @@ export type {
   InferSelect,
   InferTables,
   UploadedFile,
-} from 'bunderstack-query'
+} from '../query/index'

@@ -136,7 +136,20 @@ await provision(app, { force: false })
 Without a migration journal, provisioning uses the development schema push.
 With committed migrations, it applies pending migrations.
 
-## `bunderstack-query`
+## `bunderstack/client`
+
+```ts
+import { createClient, createLiveView } from 'bunderstack/client'
+import { createRestClient } from 'bunderstack/client/rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
+import { createLiveStore } from 'bunderstack/client/solid'
+import { liveStore } from 'bunderstack/client/svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+```
+
+A zero-dependency typed RPC client and confirmed realtime `LiveView` with reactive store adapters for Solid, React, Svelte, and Vue. Use it for lightweight clients, mobile/native applications, or when you don't need TanStack Query.
+
+## `bunderstack/query`
 
 ```ts
 function createClient<TApp>(options?: {
@@ -160,7 +173,7 @@ api.files.images.url(id, transforms)
 Other exports include `createApiClient`, `syncRealtime`, `InferSchema`,
 `InferSelect`, `InferInsert`, and the list input helpers.
 
-## `bunderstack-sync`
+## `bunderstack/sync`
 
 ```ts
 function createSyncClient<TApp>(options: {
@@ -176,7 +189,7 @@ Each generated table exposes `collection`, `table`,
 typed realtime iterator in the browser by default and keeps it disabled during
 SSR.
 
-## `bunderstack-start`
+## `bunderstack/start`
 
 ```ts
 createApiHandlers(app)

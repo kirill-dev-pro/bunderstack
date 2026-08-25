@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createIsomorphicFn } from '@tanstack/react-start'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 
 import type { App } from './bunderstack'
 

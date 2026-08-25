@@ -24,14 +24,14 @@ Landing only — docs keep their current light fumadocs style.
 
 Tokens (from kcrz.dev `global.css`):
 
-| Token   | Value                      |
-| ------- | -------------------------- |
-| void    | `#050608` page background  |
-| carbon  | `#0b0d12` card surface     |
-| paper   | `#f2f5f3` primary text     |
-| muted   | `#92999a` secondary text   |
-| accent  | `#9b7bff`, hover `#7353e6` |
-| hairline| `rgba(242,245,243,0.08)`   |
+| Token    | Value                      |
+| -------- | -------------------------- |
+| void     | `#050608` page background  |
+| carbon   | `#0b0d12` card surface     |
+| paper    | `#f2f5f3` primary text     |
+| muted    | `#92999a` secondary text   |
+| accent   | `#9b7bff`, hover `#7353e6` |
+| hairline | `rgba(242,245,243,0.08)`   |
 
 Type: Ubuntu Sans Variable for body and headings (headings 800 weight,
 `letter-spacing: -0.03em`, clamp sizes). Tektur Variable only for the brand

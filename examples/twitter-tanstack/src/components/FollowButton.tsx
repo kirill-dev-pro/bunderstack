@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-query'
+import type { InferSelect } from 'bunderstack/query'
 
 import { useRouteContext } from '@tanstack/react-router'
 import * as React from 'react'

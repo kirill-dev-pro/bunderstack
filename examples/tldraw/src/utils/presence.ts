@@ -1,4 +1,4 @@
-import type { InferSelect } from 'bunderstack-sync'
+import type { InferSelect } from 'bunderstack/sync'
 
 import type * as schema from '~/schema'
 

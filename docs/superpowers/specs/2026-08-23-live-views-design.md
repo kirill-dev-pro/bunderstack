@@ -27,20 +27,20 @@ row here, drop that row, or nothing at all. The client applies frames in order
 and holds no second copy of the data.
 
 The recovery story gets shorter as well. Every connection starts with a
-snapshot, so a reconnect *is* the resynchronisation. There is no event buffer,
+snapshot, so a reconnect _is_ the resynchronisation. There is no event buffer,
 no `Last-Event-ID` bookkeeping, and no "refetch after a gap" branch.
 
 ## Decisions
 
-| Decision | Choice | Reason |
-| --- | --- | --- |
-| Path shape | `GET /api/live/{table}` | A path of its own is the only shape without a collision. `/{table}/live` shadows the id `"live"` on `/{table}/{id}`. `?live=1` is impossible: two GET procedures on one path leave the second unreachable, and one procedure cannot declare a union of a JSON output and an `eventIterator`, so `list` would lose its response type. A colon suffix (`/{table}:live`) is worse still — the oRPC matcher reads `:live` as a wildcard parameter, so `/api/postsXY` matches it. All three were verified on `@orpc/*` 2.0.0-beta.26. |
-| Row placement | Server sends `afterId` on every upsert | The client never repeats `ORDER BY`. No comparator, no null rules, no collation guesswork in the browser. |
-| Window repair | Server re-sends `snapshot` | A removal inside a full window must pull one row in from below. A fresh snapshot is one code path instead of a second frame type, and the client already replaces the view on a snapshot. |
-| Access rule | `list` right plus `readScope`, for the snapshot and the deltas | The caller asked for a list. Checking deltas with the `get` right, as the branch did, lets a table deliver a snapshot and then silently deliver nothing. |
-| Input contract | List contract without `q`, `offset`, and `cursor` | Only equality-style filters can be decided against one streamed record. Text search and pagination cannot. |
-| Client core | New subpath `bunderstack/live`, zero runtime dependencies | The wire types stay next to the server that emits them. A browser bundle of this subpath must not reach server code. |
-| Client bindings | None in this work | The core exposes a `subscribe` / `getSnapshot` pair, which React consumes through `useSyncExternalStore` and Solid through a store write. A framework adapter can follow when an example needs one. |
+| Decision        | Choice                                                         | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path shape      | `GET /api/live/{table}`                                        | A path of its own is the only shape without a collision. `/{table}/live` shadows the id `"live"` on `/{table}/{id}`. `?live=1` is impossible: two GET procedures on one path leave the second unreachable, and one procedure cannot declare a union of a JSON output and an `eventIterator`, so `list` would lose its response type. A colon suffix (`/{table}:live`) is worse still — the oRPC matcher reads `:live` as a wildcard parameter, so `/api/postsXY` matches it. All three were verified on `@orpc/*` 2.0.0-beta.26. |
+| Row placement   | Server sends `afterId` on every upsert                         | The client never repeats `ORDER BY`. No comparator, no null rules, no collation guesswork in the browser.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Window repair   | Server re-sends `snapshot`                                     | A removal inside a full window must pull one row in from below. A fresh snapshot is one code path instead of a second frame type, and the client already replaces the view on a snapshot.                                                                                                                                                                                                                                                                                                                                        |
+| Access rule     | `list` right plus `readScope`, for the snapshot and the deltas | The caller asked for a list. Checking deltas with the `get` right, as the branch did, lets a table deliver a snapshot and then silently deliver nothing.                                                                                                                                                                                                                                                                                                                                                                         |
+| Input contract  | List contract without `q`, `offset`, and `cursor`              | Only equality-style filters can be decided against one streamed record. Text search and pagination cannot.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Client core     | New subpath `bunderstack/live`, zero runtime dependencies      | The wire types stay next to the server that emits them. A browser bundle of this subpath must not reach server code.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Client bindings | None in this work                                              | The core exposes a `subscribe` / `getSnapshot` pair, which React consumes through `useSyncExternalStore` and Solid through a store write. A framework adapter can follow when an example needs one.                                                                                                                                                                                                                                                                                                                              |
 
 ## The wire contract
 
@@ -50,8 +50,14 @@ same meaning and the same coercion as `GET /api/{table}`. It answers
 
 ```ts
 type LiveFrame =
-  | { type: 'snapshot'; items: Record<string, unknown>[]
-      sort: string; order: 'asc' | 'desc'; limit: number; hasMore: boolean }
+  | {
+      type: 'snapshot'
+      items: Record<string, unknown>[]
+      sort: string
+      order: 'asc' | 'desc'
+      limit: number
+      hasMore: boolean
+    }
   | { type: 'upsert'; record: Record<string, unknown>; afterId: string | null }
   | { type: 'remove'; id: string }
   | { type: 'heartbeat'; intervalMs: number }
@@ -131,7 +137,9 @@ const view = createLiveView<Todo>('/api/live/todos', {
 
 view.subscribe(() => render(view.getRows(), view.getStatus()))
 // Optimistic: replace the row, so identity comparisons see the change.
-view.patch((rows) => { rows[0] = { ...rows[0]!, done: true } })
+view.patch((rows) => {
+  rows[0] = { ...rows[0]!, done: true }
+})
 view.close()
 ```
 

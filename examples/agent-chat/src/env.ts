@@ -11,11 +11,6 @@ export const envSchema = {
     OPENAI_MODEL: type('string | undefined'),
   },
   client: {
-    PUBLIC_APP_NAME: type('string | undefined').pipe(
-      (v) => v ?? 'Agent Desk',
-    ),
+    PUBLIC_APP_NAME: type('string | undefined').pipe((v) => v ?? 'Agent Desk'),
   },
 }
-
-
-

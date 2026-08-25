@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import manifest from '../package.json' with { type: 'json' }
+import manifest from '../../package.json' with { type: 'json' }
 
 describe('TanStack dependency compatibility', () => {
   it('requires the exact TanStack DB versions used to construct collections', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 
-import pkg from '../package.json'
+import pkg from '../../package.json'
 import { createStartAuthClient } from './auth-client'
 import {
   bunderstackStart,
@@ -98,7 +98,7 @@ describe('auth isolation', () => {
   it('exports auth subpath', () => {
     // The auth client lives behind its own entry so importing the root never
     // pulls better-auth into a bundle that does not use it.
-    const auth = (pkg.exports as any)['./auth'] as {
+    const auth = (pkg.exports as any)['./start/auth'] as {
       types: string
       default: string
     }

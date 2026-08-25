@@ -1,4 +1,4 @@
-import type { SessionUser } from 'bunderstack-start'
+import type { SessionUser } from 'bunderstack/start'
 
 import { redirect } from '@tanstack/react-router'
 

@@ -14,7 +14,6 @@
     "@solidjs/web": "2.0.0-rc.0",
     "better-auth": "^1.0.0",
     "bunderstack": "workspace:*",
-    "bunderstack-client": "workspace:*",
     "drizzle-orm": "^0.45.0",
     "solid-js": "2.0.0-rc.0",
     "valibot": "1.4.2"

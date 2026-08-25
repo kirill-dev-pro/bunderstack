@@ -6,7 +6,7 @@ description: Build and call a typed Bunderstack API in five minutes
 ## Install
 
 ```bash
-bun add bunderstack bunderstack-query drizzle-orm valibot @libsql/client @tanstack/react-query
+bun add bunderstack drizzle-orm valibot @libsql/client @tanstack/react-query
 bun add -d drizzle-kit
 ```
 
@@ -110,7 +110,7 @@ Only the `App` type crosses the boundary; server code is not bundled.
 ```ts
 // api-client.ts
 import { QueryClient } from '@tanstack/react-query'
-import { createClient } from 'bunderstack-query'
+import { createClient } from 'bunderstack/query'
 import type { App } from './bunderstack'
 
 export const queryClient = new QueryClient()

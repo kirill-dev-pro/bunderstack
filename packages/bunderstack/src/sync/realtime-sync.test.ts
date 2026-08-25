@@ -92,4 +92,3 @@ test('resolver mode routes events to materialized targets', async () => {
   })
   realtime.close()
 })
-

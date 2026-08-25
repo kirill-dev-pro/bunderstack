@@ -1,10 +1,10 @@
 import { QueryClient } from '@tanstack/react-query'
+
 import {
   createSyncClient,
   type AnyBunderstackApp,
   type BunderstackSyncClient,
-} from 'bunderstack-sync'
-
+} from '../sync/index'
 import { createIsomorphicFetch } from './isomorphic-fetch'
 
 export { createIsomorphicFetch } from './isomorphic-fetch'

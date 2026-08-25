@@ -39,7 +39,9 @@ describe('matchesLiveFilters', () => {
 
   test('dates compare by time', () => {
     const at = new Date('2026-01-01T00:00:00Z')
-    expect(matchesLiveFilters({ at }, { at: new Date(at.getTime()) })).toBe(true)
+    expect(matchesLiveFilters({ at }, { at: new Date(at.getTime()) })).toBe(
+      true,
+    )
     expect(matchesLiveFilters({ at }, { at: new Date(0) })).toBe(false)
   })
 })

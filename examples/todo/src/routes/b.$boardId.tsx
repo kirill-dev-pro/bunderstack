@@ -181,10 +181,8 @@ function BoardTodos({
               checked={todo.done}
               onChange={() =>
                 toggleTodo.mutate({
-                  params: { id: todo.id },
-                  query: {},
-                  headers: {},
-                  body: { done: !todo.done },
+                  id: todo.id,
+                  done: !todo.done,
                 })
               }
             />

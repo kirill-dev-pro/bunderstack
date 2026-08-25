@@ -1,4 +1,4 @@
-import { bunderstackStart } from 'bunderstack-start'
+import { bunderstackStart } from 'bunderstack/start'
 
 import type { App } from './bunderstack'
 
