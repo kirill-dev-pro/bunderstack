@@ -86,10 +86,8 @@ type PostsInputs = InferRouterInputs<Api>['posts']
 type PostsOutputs = InferRouterOutputs<Api>['posts']
 type IsAny<T> = 0 extends 1 & T ? true : false
 type ExpectedUpdateInput = {
-  params: { id: string }
-  query?: Record<string, unknown>
-  headers?: Record<string, unknown>
-  body: { title?: string }
+  id: string
+  title?: string
 }
 
 export type _CreateInput = Expect<

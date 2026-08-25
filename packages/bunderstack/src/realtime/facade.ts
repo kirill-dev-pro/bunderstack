@@ -24,6 +24,7 @@ export interface RealtimeFacade<
     table: TTable,
     action: RealtimeAction,
     record: InferSelectModel<TTable>,
+    metadata?: { operationId?: string },
   ): Promise<void>
 }
 
@@ -58,13 +59,14 @@ export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
   return {
     enabled: publisher !== undefined,
     transport,
-    async publish(table, action, record) {
+    async publish(table, action, record, metadata) {
       if (!publisher) return
       const tableName = getTableName(table)
       await publisher.publish('change', {
         table: keyByTableName.get(tableName) ?? tableName,
         action,
         record: record as unknown as Record<string, unknown>,
+        ...(metadata?.operationId ? { operationId: metadata.operationId } : {}),
       })
     },
   }

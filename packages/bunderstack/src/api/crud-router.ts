@@ -1,11 +1,11 @@
+import { eventIterator } from '@orpc/server'
 import { getTableColumns, getTableName, isTable, type Table } from 'drizzle-orm'
+import '@orpc/openapi/extensions/route'
 import {
   createInsertSchema,
   createSelectSchema,
   createUpdateSchema,
 } from 'drizzle-valibot'
-import '@orpc/openapi/extensions/route'
-import { eventIterator } from '@orpc/server'
 import * as v from 'valibot'
 
 import type { AnyDb } from '../dialect'
@@ -22,14 +22,15 @@ import {
   type TableAccessInput,
 } from '../access'
 import { createCrudOperations, type CrudOperations } from '../crud-operations'
+import { BunderstackError } from '../errors'
 import { filterTableChanges } from '../realtime/filter'
 import {
   REALTIME_HEARTBEAT_INTERVAL_MS,
   withRealtimeHeartbeat,
 } from '../realtime/heartbeat'
 import { createApiBuilder } from './builder'
-import { createLiveWindow } from './live-window'
 import { buildListInputSchema, buildLiveInputSchema } from './list-input-schema'
+import { createLiveWindow } from './live-window'
 
 export type CrudApiRouterOptions<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -124,8 +125,7 @@ export function buildTableCrudProcedures<
   TFilterable extends string = string,
   TSortable extends string = string,
 >(args: BuildTableCrudProceduresArgs<TSchema, TTable>) {
-  const { table, operations, builder, access, schemaKey, livePublisher } =
-    args
+  const { table, operations, builder, access, schemaKey, livePublisher } = args
   const name = getTableName(table)
 
   // drizzle-valibot infers its schemas through internal generics. Left as-is,
@@ -168,17 +168,16 @@ export function buildTableCrudProcedures<
   const updateBodySchema = v.omit(generatedUpdateSchema, [
     'id' as keyof typeof generatedUpdateSchema.entries,
   ])
+  // Compact input is transport-neutral: direct oRPC callers pass
+  // `{ id, ...changes }`, while OpenAPI still maps `id` to the path and the
+  // remaining fields to the PATCH body.
   const updateInputSchema = v.strictObject({
-    params: v.strictObject({ id: v.string() }),
-    query: v.optional(v.record(v.string(), v.unknown()), {}),
-    headers: v.optional(v.record(v.string(), v.unknown()), {}),
-    // Same reason as `selectSchema`: state the type instead of letting
-    // declaration emit inline drizzle-valibot's generics.
-    body: strictObject(updateBodySchema) as unknown as v.GenericSchema<
-      CrudUpdate<TTable>,
-      CrudUpdate<TTable>
-    >,
-  })
+    id: v.string(),
+    ...updateBodySchema.entries,
+  }) as unknown as v.GenericSchema<
+    { id: string } & CrudUpdate<TTable>,
+    { id: string } & CrudUpdate<TTable>
+  >
 
   // One filter field per allowed column, typed by the column itself: a scalar
   // for `=`, a list for `IN`, and `null` for `IS NULL`. Query strings are
@@ -299,11 +298,23 @@ export function buildTableCrudProcedures<
       path: `/api/${name}/{id}`,
       summary: `Update ${name}`,
       tags: [name],
-      inputStructure: 'detailed',
     })
     .input(updateInputSchema)
     .output(selectSchema)
     .handler(async ({ input, context }) => {
+      const requestPath = new URL(context.request.url).pathname
+      if (!requestPath.startsWith('/api/rpc')) {
+        const rawBody = await context.getRawBody()
+        if (rawBody) {
+          const body = JSON.parse(rawBody) as Record<string, unknown>
+          if (Object.hasOwn(body, 'id')) {
+            throw new BunderstackError(
+              'BAD_REQUEST',
+              'The id field is immutable',
+            )
+          }
+        }
+      }
       const session = await context.getSession()
       const execCtx = {
         request: context.request,
@@ -311,10 +322,11 @@ export function buildTableCrudProcedures<
         session: { activeOrganizationId: session.activeOrganizationId },
       }
 
+      const { id, ...changes } = input
       return (await operations.update(
         name,
-        input.params.id,
-        input.body,
+        id,
+        changes,
         execCtx,
       )) as TTable['$inferSelect']
     })
@@ -353,22 +365,27 @@ export function buildTableCrudProcedures<
     LiveInputFor<TTable, TFilterable, TSortable>
   >
 
-  const recordSchema = v.record(v.string(), v.unknown())
   const liveFrameSchema = v.union([
     v.strictObject({
       type: v.literal('snapshot'),
-      items: v.array(recordSchema),
+      items: v.array(selectSchema),
       sort: v.string(),
       order: v.picklist(['asc', 'desc']),
       limit: v.number(),
       hasMore: v.boolean(),
+      operationId: v.optional(v.string()),
     }),
     v.strictObject({
       type: v.literal('upsert'),
-      record: recordSchema,
+      record: selectSchema,
       afterId: v.union([v.string(), v.null()]),
+      operationId: v.optional(v.string()),
     }),
-    v.strictObject({ type: v.literal('remove'), id: v.string() }),
+    v.strictObject({
+      type: v.literal('remove'),
+      id: v.string(),
+      operationId: v.optional(v.string()),
+    }),
     v.strictObject({ type: v.literal('heartbeat'), intervalMs: v.number() }),
   ])
 
@@ -415,15 +432,15 @@ export function buildTableCrudProcedures<
           }
           let view: ReturnType<typeof createLiveWindow> | undefined
 
-          const readSnapshot = async (): Promise<LiveSnapshotFrame> => {
+          const readSnapshot = async (
+            operationId?: string,
+          ): Promise<LiveSnapshotFrame<TTable['$inferSelect']>> => {
             const result = await operations.list(name, input ?? {}, execCtx)
             view = createLiveWindow({
               sort: result.sort,
               order: result.order,
               limit: result.limit,
-              filters: input?.filters as
-                | Record<string, unknown>
-                | undefined,
+              filters: input?.filters as Record<string, unknown> | undefined,
             })
             view.reset(result.items, result.hasMore)
             return {
@@ -433,6 +450,7 @@ export function buildTableCrudProcedures<
               order: result.order,
               limit: result.limit,
               hasMore: result.hasMore,
+              ...(operationId ? { operationId } : {}),
             }
           }
 
@@ -440,9 +458,15 @@ export function buildTableCrudProcedures<
 
           for await (const change of changes) {
             const outcome = view!.apply(change)
-            if (outcome.type === 'none') continue
+            if (outcome.type === 'none') {
+              // The write succeeded but did not affect this view. A snapshot
+              // still acknowledges the operation without inventing a row.
+              if (change.operationId)
+                yield await readSnapshot(change.operationId)
+              continue
+            }
             if (outcome.type === 'resnapshot') {
-              yield await readSnapshot()
+              yield await readSnapshot(change.operationId)
               continue
             }
             for (const frame of outcome.frames) yield frame
@@ -472,23 +496,40 @@ export type TableCrudProcedures<
   TTable extends Table,
   TFilterable extends string = string,
   TSortable extends string = string,
-> = ReturnType<
-  typeof buildTableCrudProcedures<
-    Record<string, unknown>,
-    TTable,
-    TFilterable,
-    TSortable
-  >
->
+  TLive extends boolean = false,
+> = Omit<
+  ReturnType<
+    typeof buildTableCrudProcedures<
+      Record<string, unknown>,
+      TTable,
+      TFilterable,
+      TSortable
+    >
+  >,
+  'live'
+> &
+  (TLive extends true
+    ? {
+        live: ReturnType<
+          typeof buildTableCrudProcedures<
+            Record<string, unknown>,
+            TTable,
+            TFilterable,
+            TSortable
+          >
+        >['live']
+      }
+    : {})
 
 export function buildCrudApiRouter<
   TSchema extends Record<string, unknown>,
   TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TLive extends boolean = false,
 >(
   schema: TSchema,
   db: AnyDb,
   options: CrudApiRouterOptions<TSchema>,
-): CrudApiRouterFor<TSchema, TAccess> {
+): CrudApiRouterFor<TSchema, TAccess, TLive> {
   const { access, realtime, idempotency, livePublisher } = options
   const builder = createApiBuilder<TSchema>()
   const operations = createCrudOperations({
@@ -523,5 +564,5 @@ export function buildCrudApiRouter<
     routerObj[tableKey] = procedures
   }
 
-  return routerObj as CrudApiRouterFor<TSchema, TAccess>
+  return routerObj as CrudApiRouterFor<TSchema, TAccess, TLive>
 }

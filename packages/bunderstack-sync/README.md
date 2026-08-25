@@ -1,7 +1,7 @@
 # bunderstack-sync
 
 Optimistic TanStack DB collections backed by Bunderstack's unified oRPC graph
-and Publisher realtime.
+and the framework-neutral realtime transport from `bunderstack-client`.
 
 ```sh
 bun add bunderstack-sync @tanstack/db @tanstack/react-query
@@ -28,16 +28,10 @@ api.realtime?.close()
 
 Collections map optimistic inserts, updates, and deletes directly to generated
 oRPC procedures. Every materialized view receives access-filtered row changes
-from `realtime.changes`; reconnects are handled by oRPC Publisher metadata.
-
-This package publishes TypeScript source. Node-based SSR bundlers should bundle
-it instead of externalizing it; for Vite:
-
-```ts
-ssr: {
-  noExternal: [/^bunderstack/]
-}
-```
+from `realtime.changes`; reconnect, liveness, and Publisher resume metadata are
+handled by `bunderstack-client`. Realtime delivery does not pass through a
+TanStack Query cache, although collections still use the supplied QueryClient
+for their query-backed loading behavior.
 
 ## License
 

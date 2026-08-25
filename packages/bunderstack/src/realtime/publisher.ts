@@ -10,6 +10,8 @@ export interface RealtimeChange {
   table: string
   action: RealtimeAction
   record: Record<string, unknown>
+  /** Correlates this confirmed write with the client operation that caused it. */
+  operationId?: string
 }
 
 export interface RealtimeEvents extends Record<string, object> {

@@ -128,10 +128,9 @@ test('a live view streams a snapshot and then server-placed changes', async () =
     )
     const snapshot = untilSnapshot.find((frame) => frame.type === 'snapshot')!
     expect(snapshot).toBeDefined()
-    expect((snapshot.items as { id: string }[]).map((item) => item.id)).toEqual([
-      'p1',
-      'p3',
-    ])
+    expect((snapshot.items as { id: string }[]).map((item) => item.id)).toEqual(
+      ['p1', 'p3'],
+    )
     // Resolved values, not the caller's input: the request sent no sort.
     expect(snapshot.sort).toBe('rank')
     expect(snapshot.order).toBe('asc')
@@ -142,6 +141,7 @@ test('a live view streams a snapshot and then server-placed changes', async () =
     await publisher.publish('change', {
       table: 'posts',
       action: 'create',
+      operationId: 'op-create-p4',
       record: { id: 'p4', title: 'between', userId: 'u1', rank: 2 },
     } satisfies RealtimeChange)
     const untilUpsert = await readFrames(
@@ -151,6 +151,7 @@ test('a live view streams a snapshot and then server-placed changes', async () =
     const upsert = untilUpsert.find((frame) => frame.type === 'upsert')!
     expect(upsert).toBeDefined()
     expect(upsert.afterId).toBe('p1')
+    expect(upsert.operationId).toBe('op-create-p4')
 
     // An update that leaves the filters removes the row from the view.
     await publisher.publish('change', {
@@ -213,5 +214,5 @@ test('no live procedure without a publisher', () => {
   const router = buildCrudApiRouter(schema, undefined as never, {
     access: liveAccess(),
   })
-  expect(router.posts.live).toBeUndefined()
+  expect((router.posts as unknown as { live?: unknown }).live).toBeUndefined()
 })

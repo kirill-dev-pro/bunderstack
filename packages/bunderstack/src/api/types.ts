@@ -71,13 +71,15 @@ type SortableOf<TAccess, K extends string> = K extends keyof TAccess
 export type CrudApiRouterFor<
   TSchema extends Record<string, unknown>,
   TAccess = undefined,
+  TLive extends boolean = false,
 > = {
   [K in ExposedApiTables<TSchema, TAccess> as TSchema[K] extends Table
     ? K
     : never]: TableCrudProcedures<
     Extract<TSchema[K], Table>,
     FilterableOf<TAccess, K>,
-    SortableOf<TAccess, K>
+    SortableOf<TAccess, K>,
+    TLive
   >
 }
 

@@ -12,6 +12,7 @@
 export type LiveSnapshotFrame<TRow = Record<string, unknown>> = {
   type: 'snapshot'
   items: TRow[]
+  operationId?: string
   /** The values the server resolved, not the values the caller sent. */
   sort: string
   order: 'asc' | 'desc'
@@ -23,11 +24,16 @@ export type LiveSnapshotFrame<TRow = Record<string, unknown>> = {
 export type LiveUpsertFrame<TRow = Record<string, unknown>> = {
   type: 'upsert'
   record: TRow
+  operationId?: string
   /** The id this row follows in the view; `null` means the head. */
   afterId: string | null
 }
 
-export type LiveRemoveFrame = { type: 'remove'; id: string }
+export type LiveRemoveFrame = {
+  type: 'remove'
+  id: string
+  operationId?: string
+}
 
 export type LiveHeartbeatFrame = { type: 'heartbeat'; intervalMs: number }
 

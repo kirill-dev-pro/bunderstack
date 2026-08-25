@@ -11,6 +11,7 @@ import { join } from 'node:path'
 const repoRoot = join(import.meta.dir, '..')
 const packages = [
   'bunderstack',
+  'bunderstack-client',
   'bunderstack-query',
   'bunderstack-sync',
   'bunderstack-start',

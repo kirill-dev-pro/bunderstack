@@ -29,7 +29,7 @@
     "lint": "oxlint --fix",
     "format": "oxfmt",
     "fix": "bun run lint && bun run format",
-    "build": "bun scripts/build-package.ts bunderstack && bun scripts/build-package.ts bunderstack-query && bun scripts/build-package.ts bunderstack-sync && bun scripts/build-package.ts bunderstack-start",
+    "build": "bun scripts/build-package.ts bunderstack && bun scripts/build-package.ts bunderstack-client && bun scripts/build-package.ts bunderstack-query && bun scripts/build-package.ts bunderstack-sync && bun scripts/build-package.ts bunderstack-start",
     "prepare": "bun run build",
     "verify:consumer": "bun scripts/verify-consumer.ts"
   },

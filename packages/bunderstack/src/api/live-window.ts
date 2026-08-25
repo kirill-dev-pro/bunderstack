@@ -83,6 +83,9 @@ export function createLiveWindow(options: LiveWindowOptions): LiveWindow {
 
     apply(change) {
       const id = String(change.record.id)
+      const metadata = change.operationId
+        ? { operationId: change.operationId }
+        : {}
       const index = rows.findIndex((row) => row.id === id)
       const held = index !== -1
 
@@ -96,7 +99,10 @@ export function createLiveWindow(options: LiveWindowOptions): LiveWindow {
         // A row from below the window must take the free place, and only the
         // database knows which one.
         if (hasMore) return { type: 'resnapshot' }
-        return { type: 'frames', frames: [{ type: 'remove', id }] }
+        return {
+          type: 'frames',
+          frames: [{ type: 'remove', id, ...metadata }],
+        }
       }
 
       if (held) rows.splice(index, 1)
@@ -107,7 +113,10 @@ export function createLiveWindow(options: LiveWindowOptions): LiveWindow {
         // It sorts below the window. If the client holds it, it moved out.
         if (!held) return { type: 'none' }
         hasMore = true
-        return { type: 'frames', frames: [{ type: 'remove', id }] }
+        return {
+          type: 'frames',
+          frames: [{ type: 'remove', id, ...metadata }],
+        }
       }
 
       rows.splice(place, 0, row)
@@ -116,12 +125,13 @@ export function createLiveWindow(options: LiveWindowOptions): LiveWindow {
           type: 'upsert',
           record: change.record,
           afterId: place === 0 ? null : rows[place - 1]!.id,
+          ...metadata,
         },
       ]
       if (rows.length > options.limit) {
         const evicted = rows.pop()!
         hasMore = true
-        frames.push({ type: 'remove', id: evicted.id })
+        frames.push({ type: 'remove', id: evicted.id, ...metadata })
       }
       return { type: 'frames', frames }
     },

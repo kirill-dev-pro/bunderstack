@@ -63,12 +63,14 @@ export async function testRealtimeTypes() {
     onChange: (change) => {
       // Discriminated by `table`, so the row type is available after narrowing.
       if (change.table === 'todos') {
+        const operationId: string | undefined = change.operationId
         const done: boolean = change.record.done
         const title: string = change.record.title
         const createdAt: Date = change.record.createdAt
         void done
         void title
         void createdAt
+        void operationId
 
         // @ts-expect-error the todos row has no `content` column
         void change.record.content

@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import { expect, test } from 'bun:test'
 
 import { createSyncRealtimeClient } from './realtime-sync'
@@ -66,7 +65,6 @@ test('routes create and delete events from the typed iterator', async () => {
       { action: 'create', table: 'posts', record: { id: 'p1', title: 'A' } },
       { action: 'delete', table: 'posts', record: { id: 'p2' } },
     ]),
-    queryClient: new QueryClient(),
     tables: ['posts'],
     collections: { posts },
   })
@@ -86,7 +84,6 @@ test('resolver mode routes events to materialized targets', async () => {
   }
   const realtime = createSyncRealtimeClient({
     api: apiWith([{ action: 'update', table: 'posts', record: { id: 'p1' } }]),
-    queryClient: new QueryClient(),
     tables: ['posts'],
     resolve: () => target as any,
   })

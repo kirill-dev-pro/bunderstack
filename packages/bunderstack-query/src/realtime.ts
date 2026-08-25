@@ -56,6 +56,7 @@ export type RealtimeChangeFor<
   table: TTable
   action: RealtimeAction
   record: InferSelect<InferSchema<TApp>[TTable]>
+  operationId?: string
 }
 
 /**

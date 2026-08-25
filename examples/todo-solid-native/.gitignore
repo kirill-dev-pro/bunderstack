@@ -1,0 +1,4 @@
+dist
+.output
+data.db
+data.db-*

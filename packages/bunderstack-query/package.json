@@ -1,6 +1,6 @@
 {
   "name": "bunderstack-query",
-  "version": "0.19.2",
+  "version": "0.20.0",
   "description": "One typed oRPC client for Bunderstack with TanStack Query utilities and realtime cache synchronization.",
   "keywords": [
     "bun",
@@ -43,6 +43,9 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "bunderstack-client": "workspace:*"
+  },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
     "@orpc/client": "2.0.0-beta.26",
@@ -60,7 +63,6 @@
     "@orpc/client": "2.0.0-beta.26",
     "@orpc/server": "2.0.0-beta.26",
     "@orpc/tanstack-query": "2.0.0-beta.26",
-    "@standardserver/core": "0.7.1",
     "@tanstack/query-core": "^5.101.0",
     "bunderstack": "workspace:*",
     "typescript": ">=5"
