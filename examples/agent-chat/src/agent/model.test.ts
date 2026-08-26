@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test'
+import { z } from 'zod'
 
 import type { AgentResponderInput, AgentTools } from './types'
 
@@ -75,7 +76,7 @@ describe('demo responder', () => {
     )
     expect(tools.scheduleReminder).toHaveBeenCalledWith({
       title: 'check the oven',
-      dueAt: new Date('2026-08-24T10:15:00.000Z'),
+      dueAt: '2026-08-24T10:15:00.000Z',
     })
   })
 
@@ -121,8 +122,9 @@ describe('demo responder', () => {
 describe('AI responder factory', () => {
   test('builds the model tool set from the app-local agent declaration', () => {
     const { value } = input('List tasks')
+    const modelTools = createModelTools(value)
 
-    expect(Object.keys(createModelTools(value)).sort()).toEqual([
+    expect(Object.keys(modelTools).sort()).toEqual([
       'completeTask',
       'createTask',
       'deleteTask',
@@ -130,6 +132,18 @@ describe('AI responder factory', () => {
       'remember',
       'scheduleReminder',
     ])
+  })
+
+  test('all model tool schemas are JSON Schema compliant and do not throw', () => {
+    const { value } = input('List tasks')
+    const modelTools = createModelTools(value)
+
+    for (const [id, tool] of Object.entries(modelTools)) {
+      expect(() => {
+        const schema = z.toJSONSchema((tool as any).inputSchema)
+        expect(schema).toBeDefined()
+      }).not.toThrow()
+    }
   })
 
   test('creates a responder function with default Hetzner configuration', () => {

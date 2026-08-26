@@ -82,7 +82,9 @@ export function createDemoResponder(): AgentResponder {
     if (reminder) {
       const minutes = Number(reminder[1])
       const title = reminder[2]!.trim()
-      const dueAt = new Date(input.now.getTime() + minutes * 60_000)
+      const dueAt = new Date(
+        input.now.getTime() + minutes * 60_000,
+      ).toISOString()
       await input.tools.scheduleReminder({ title, dueAt })
       return { text: `I’ll remind you to “${title}” in ${minutes} minutes.` }
     }

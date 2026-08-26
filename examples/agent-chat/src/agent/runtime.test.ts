@@ -96,7 +96,10 @@ describe('agent runtime', () => {
       ctx,
       { threadId: thread.id, reason: 'message' },
       async ({ tools }) => {
-        await tools.scheduleReminder({ title: 'Check the oven', dueAt })
+        await tools.scheduleReminder({
+          title: 'Check the oven',
+          dueAt: dueAt.toISOString(),
+        })
         return { text: 'I will remind you.' }
       },
     )

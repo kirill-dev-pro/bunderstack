@@ -44,7 +44,7 @@ function AgentDesk({
   const router = useRouter()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
-  const messagesEnd = useRef<HTMLDivElement>(null)
+  const messageListRef = useRef<HTMLDivElement>(null)
 
   const threads = useQuery(
     api.agentThreads.list.queryOptions({ input: { limit: 1 } }),
@@ -106,7 +106,9 @@ function AgentDesk({
   )
 
   useEffect(() => {
-    messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight
+    }
   }, [messages.data?.items.length])
 
   function submit(event: React.FormEvent) {
@@ -146,7 +148,7 @@ function AgentDesk({
             </span>
           </div>
 
-          <div className="message-list" aria-live="polite">
+          <div className="message-list" aria-live="polite" ref={messageListRef}>
             {messages.data?.items.length ? (
               messages.data.items.map((message) => (
                 <article
@@ -171,7 +173,6 @@ function AgentDesk({
                 </p>
               </div>
             )}
-            <div ref={messagesEnd} />
           </div>
 
           <form className="composer" onSubmit={submit}>

@@ -9,7 +9,7 @@ export interface AgentTools {
   listTasks(): Promise<AgentTask[]>
   createTask(input: { title: string }): Promise<AgentTask>
   completeTask(input: { taskId: string }): Promise<AgentTask>
-  scheduleReminder(input: { title: string; dueAt: Date }): Promise<{
+  scheduleReminder(input: { title: string; dueAt: string }): Promise<{
     id: string
     title: string
     dueAt: Date

@@ -55,10 +55,20 @@ const scheduleReminder = defineTool({
   description: 'Schedule a future reminder for the current user.',
   inputSchema: z.object({
     title: z.string().trim().min(1),
-    dueAt: z.coerce.date(),
+    dueAt: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'ISO 8601 date string when the reminder is due (e.g. 2026-08-26T18:00:00.000Z)',
+      ),
   }),
   approval: { mode: 'none' },
   execute: async ({ title, dueAt }, ctx) => {
+    const dueAtDate = new Date(dueAt)
+    if (isNaN(dueAtDate.getTime())) {
+      throw new Error(`Invalid date format for dueAt: "${dueAt}"`)
+    }
     const [commitment] = await ctx.runtime.db
       .insert(agentCommitments)
       .values({
@@ -66,7 +76,7 @@ const scheduleReminder = defineTool({
         userId: ctx.userId,
         kind: 'reminder',
         title,
-        dueAt,
+        dueAt: dueAtDate,
       })
       .returning()
     await ctx.runtime.realtime.publish(
@@ -77,7 +87,7 @@ const scheduleReminder = defineTool({
     await ctx.runtime.jobs.enqueue(
       'agentReminder',
       { commitmentId: commitment!.id },
-      { runAt: dueAt },
+      { runAt: dueAtDate },
     )
     return commitment!
   },
