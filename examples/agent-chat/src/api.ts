@@ -2,9 +2,9 @@ import { type } from 'arktype'
 import { defineApi } from 'bunderstack'
 import { asTypeId } from 'bunderstack/typeid'
 
-import { getOrCreateThread, wakeAgent } from './agent/runtime'
 import { resolveApproval, revokeToolGrant } from './agent/approvals'
 import { deleteMemory, updateMemory } from './agent/memory'
+import { getOrCreateThread, wakeAgent } from './agent/runtime'
 import { envSchema } from './env'
 import * as schema from './schema'
 
@@ -87,7 +87,7 @@ export const api = {
     )
     .output(
       type({
-        status: "'executed' | 'rejected' | 'already_resolved'",
+        status: "'resuming' | 'rejected' | 'already_resolved'",
       }),
     )
     .handler(async ({ context, input, errors }) => {

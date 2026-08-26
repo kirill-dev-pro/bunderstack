@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { eq } from 'drizzle-orm'
 import { mockAuthSession } from 'bunderstack'
+import { eq } from 'drizzle-orm'
 
+import { remember } from './agent/memory'
+import { getOrCreateThread } from './agent/runtime'
 import {
   agentMemory,
   agentRequests,
@@ -9,8 +11,6 @@ import {
   agentToolGrants,
 } from './schema'
 import { createTestApp, type TestApp } from './test-app'
-import { remember } from './agent/memory'
-import { getOrCreateThread } from './agent/runtime'
 
 describe('protected agent actions', () => {
   const apps: TestApp[] = []
@@ -85,6 +85,8 @@ describe('protected agent actions', () => {
         tool: 'deleteTask',
         toolVersion: 1,
         args: { taskId: 'task_missing' },
+        approvalId: 'approval_bob_delete',
+        toolCallId: 'call_bob_delete',
       })
       .returning()
     const [grant] = await state.ctx.db
@@ -169,6 +171,8 @@ describe('protected agent actions', () => {
         tool: 'deleteTask',
         toolVersion: 1,
         args: { taskId: 'task_missing' },
+        approvalId: 'approval_alice_delete',
+        toolCallId: 'call_alice_delete',
       })
       .returning()
     const [grant] = await state.ctx.db
@@ -183,29 +187,42 @@ describe('protected agent actions', () => {
       .returning()
 
     expect(
-      (await call(state.app, `/api/agent/memory/${memory.id}`, 'PATCH', {
-        value: 'concise',
-      })).status,
+      (
+        await call(state.app, `/api/agent/memory/${memory.id}`, 'PATCH', {
+          value: 'concise',
+        })
+      ).status,
     ).toBe(200)
     expect(
-      (await call(state.app, `/api/agent/approvals/${request!.id}`, 'POST', {
-        decision: 'reject',
-      })).status,
+      (
+        await call(state.app, `/api/agent/approvals/${request!.id}`, 'POST', {
+          decision: 'reject',
+        })
+      ).status,
     ).toBe(200)
     expect(
       (await call(state.app, `/api/agent/grants/${grant!.id}/revoke`, 'POST'))
         .status,
     ).toBe(200)
     expect(
-      (await call(state.app, `/api/agent/memory/${memory.id}`, 'DELETE')).status,
+      (await call(state.app, `/api/agent/memory/${memory.id}`, 'DELETE'))
+        .status,
     ).toBe(200)
 
     expect(await state.ctx.db.select().from(agentMemory).all()).toHaveLength(0)
     expect(
-      await state.ctx.db.select().from(agentRequests).where(eq(agentRequests.id, request!.id)).get(),
+      await state.ctx.db
+        .select()
+        .from(agentRequests)
+        .where(eq(agentRequests.id, request!.id))
+        .get(),
     ).toMatchObject({ status: 'rejected' })
     expect(
-      await state.ctx.db.select().from(agentToolGrants).where(eq(agentToolGrants.id, grant!.id)).get(),
+      await state.ctx.db
+        .select()
+        .from(agentToolGrants)
+        .where(eq(agentToolGrants.id, grant!.id))
+        .get(),
     ).toMatchObject({ status: 'revoked' })
   })
 })

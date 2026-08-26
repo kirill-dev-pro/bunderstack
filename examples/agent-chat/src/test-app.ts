@@ -1,10 +1,10 @@
-import { createBunderstack, generateTypeId } from 'bunderstack'
 import { type } from 'arktype'
+import { createBunderstack, generateTypeId } from 'bunderstack'
+import { libsql } from 'bunderstack/database/libsql'
+import { provision } from 'bunderstack/provision'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { libsql } from 'bunderstack/database/libsql'
-import { provision } from 'bunderstack/provision'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
@@ -28,7 +28,10 @@ export async function createTestApp(): Promise<TestApp> {
   const app = await createBunderstack({
     schema,
     access,
-    database: { adapter: libsql(), url: `file:${join(databaseDir, 'test.db')}` },
+    database: {
+      adapter: libsql(),
+      url: `file:${join(databaseDir, 'test.db')}`,
+    },
     auth: {
       baseURL: 'http://localhost:3007',
       secret: 'test-secret-test-secret-test-secret',
@@ -38,11 +41,24 @@ export async function createTestApp(): Promise<TestApp> {
     jobs: (j) =>
       j.define({
         agentTurn: j.job({
-          input: type({ threadId: 'string', reason: 'string' }),
+          input: type({
+            threadId: 'string',
+            reason: 'string',
+            'runId?': 'string',
+            'requestId?': 'string',
+          }),
           handler: async () => {},
         }),
         agentReminder: j.job({
           input: type({ commitmentId: 'string' }),
+          handler: async () => {},
+        }),
+        agentCommitment: j.job({
+          input: type({
+            commitmentId: 'string',
+            'runId?': 'string',
+            'requestId?': 'string',
+          }),
           handler: async () => {},
         }),
       }),

@@ -1,10 +1,11 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, notInArray } from 'drizzle-orm'
 
-import { agentMemory, agentMessages, tasks } from '../schema'
-import { agentDefinition } from './definition'
-import { selectInboxContext } from './inbox'
 import type { AgentRuntimeContext } from './runtime'
 import type { AgentResponderInput, AgentTask } from './types'
+
+import { agentCommitments, agentMemory, agentMessages, tasks } from '../schema'
+import { agentDefinition } from './definition'
+import { selectInboxContext } from './inbox'
 
 export async function assembleAgentContext(
   ctx: AgentRuntimeContext,
@@ -13,7 +14,11 @@ export async function assembleAgentContext(
     reason: string
     now: Date
   },
-): Promise<AgentResponderInput & { selectedInboxIds: string[] }> {
+): Promise<
+  Omit<AgentResponderInput, 'currentExecution' | 'toolApprovalRequired'> & {
+    selectedInboxIds: string[]
+  }
+> {
   const conversationLimit = agentDefinition.context.conversation.recent
   const recentMessages = (await ctx.db
     .select()
@@ -43,6 +48,23 @@ export async function assembleAgentContext(
     limit: agentDefinition.context.inbox.maxItems,
     now: input.now,
   })
+  const activeCommitments = await ctx.db
+    .select()
+    .from(agentCommitments)
+    .where(
+      and(
+        eq(agentCommitments.userId, input.thread.userId),
+        eq(agentCommitments.threadId, input.thread.id),
+        notInArray(agentCommitments.status, [
+          'completed',
+          'failed',
+          'cancelled',
+          'fired',
+        ]),
+      ),
+    )
+    .orderBy(asc(agentCommitments.dueAt), asc(agentCommitments.id))
+    .all()
   const triggerType = input.reason.startsWith('message') ? 'user' : 'system'
 
   return {
@@ -68,6 +90,15 @@ export async function assembleAgentContext(
       sourceType: row.sourceType,
     })),
     inbox: inbox.items,
+    activeCommitments: activeCommitments.map(
+      (commitment: typeof agentCommitments.$inferSelect) => ({
+        id: commitment.id,
+        title: commitment.title,
+        status: commitment.status,
+        dueAt: commitment.dueAt,
+        executionSpec: commitment.executionSpec,
+      }),
+    ),
     selectedInboxIds: inbox.selectedIds,
     tools: {} as AgentResponderInput['tools'],
   }

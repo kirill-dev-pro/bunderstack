@@ -1,12 +1,15 @@
-import { and, eq } from 'drizzle-orm'
 import { generateTypeId } from 'bunderstack'
+import { and, eq } from 'drizzle-orm'
+
+import type { ToolDefinition, ToolExecutionContext } from './declaration'
+import type { AgentRuntimeContext } from './runtime'
 
 import {
   agentRequests,
+  agentRuns,
   agentToolCalls,
   agentToolGrants,
 } from '../schema'
-import type { ToolDefinition, ToolExecutionContext } from './declaration'
 import { agentDefinition } from './definition'
 import {
   allowTool,
@@ -14,7 +17,6 @@ import {
   type ToolCapability,
   type ToolGrant,
 } from './policy'
-import { wakeAgent, type AgentRuntimeContext } from './runtime'
 
 export type ToolInvocationResult<T = unknown> =
   | { status: 'done'; result: T }
@@ -22,12 +24,70 @@ export type ToolInvocationResult<T = unknown> =
 
 type AnyToolDefinition = ToolDefinition<string, any, any>
 
-function getTool(toolId: string): AnyToolDefinition {
+export function getAgentTool(toolId: string): AnyToolDefinition {
   const definition = agentDefinition.tools[
     toolId as keyof typeof agentDefinition.tools
   ] as AnyToolDefinition | undefined
   if (!definition) throw new Error(`Unknown agent tool: ${toolId}`)
   return definition
+}
+
+async function evaluateInvocation(
+  ctx: AgentRuntimeContext,
+  input: {
+    toolId: string
+    rawArgs: unknown
+    userId: string
+    threadId: string
+    capabilities?: ToolCapability[]
+  },
+) {
+  const definition = getAgentTool(input.toolId)
+  const parsed = definition.inputSchema.parse(input.rawArgs) as Record<
+    string,
+    unknown
+  >
+  const grants = (await ctx.db
+    .select()
+    .from(agentToolGrants)
+    .where(
+      and(
+        eq(agentToolGrants.userId, input.userId),
+        eq(agentToolGrants.threadId, input.threadId),
+        eq(agentToolGrants.tool, definition.id),
+        eq(agentToolGrants.toolVersion, definition.version),
+      ),
+    )
+    .all()) as ToolGrant[]
+  const permission = evaluateToolPermission({
+    tool: definition,
+    args: parsed,
+    userId: input.userId,
+    threadId: input.threadId,
+    grants,
+    capabilities: input.capabilities ?? [],
+  })
+  return { definition, parsed, permission }
+}
+
+export async function agentToolApprovalRequired(
+  ctx: AgentRuntimeContext,
+  input: {
+    toolId: string
+    rawArgs: unknown
+    userId: string
+    threadId: string
+    capabilities?: ToolCapability[]
+  },
+) {
+  const { permission } = await evaluateInvocation(ctx, input)
+  return permission.decision === 'approval_required'
+}
+
+export function approvedToolCapability(toolId: string, args: unknown) {
+  const definition = getAgentTool(toolId)
+  const parsed = definition.inputSchema.parse(args) as Record<string, unknown>
+  return allowTool(definition, parsed)
 }
 
 async function recordExecution(
@@ -80,40 +140,20 @@ export async function invokeAgentTool(
     capabilities?: ToolCapability[]
   },
 ): Promise<ToolInvocationResult> {
-  const definition = getTool(input.toolId)
-  const parsed = definition.inputSchema.parse(input.rawArgs) as Record<
-    string,
-    unknown
-  >
-  const grants = (await ctx.db
-    .select()
-    .from(agentToolGrants)
-    .where(
-      and(
-        eq(agentToolGrants.userId, input.userId),
-        eq(agentToolGrants.threadId, input.threadId),
-        eq(agentToolGrants.tool, definition.id),
-        eq(agentToolGrants.toolVersion, definition.version),
-      ),
-    )
-    .all()) as ToolGrant[]
-  const permission = evaluateToolPermission({
-    tool: definition,
-    args: parsed,
-    userId: input.userId,
-    threadId: input.threadId,
-    grants,
-    capabilities: input.capabilities ?? [],
-  })
+  const { definition, parsed, permission } = await evaluateInvocation(
+    ctx,
+    input,
+  )
 
   if (permission.decision === 'deny') {
     throw new Error(permission.reason)
   }
   if (permission.decision === 'approval_required') {
+    const requestId = generateTypeId('arequest')
     const [request] = await ctx.db
       .insert(agentRequests)
       .values({
-        id: generateTypeId('arequest'),
+        id: requestId,
         threadId: input.threadId,
         userId: input.userId,
         runId: input.runId,
@@ -122,6 +162,8 @@ export async function invokeAgentTool(
         tool: definition.id,
         toolVersion: definition.version,
         args: parsed,
+        approvalId: `local:${requestId}`,
+        toolCallId: `local:${requestId}`,
       })
       .returning()
     await ctx.realtime.publish(agentRequests, 'create', request)
@@ -164,9 +206,10 @@ export async function resolveApproval(
     decision: 'allow_once' | 'always_allow' | 'reject'
   },
 ): Promise<
-  { status: 'executed' | 'rejected'; result?: unknown } | {
-    status: 'already_resolved'
-  }
+  | { status: 'resuming' | 'rejected' }
+  | {
+      status: 'already_resolved'
+    }
 > {
   const request = await ctx.db
     .select()
@@ -180,6 +223,20 @@ export async function resolveApproval(
     .get()
   if (!request) throw new Error('Approval request not found')
   if (request.status !== 'pending') return { status: 'already_resolved' }
+
+  if (
+    !request.tool ||
+    !request.toolVersion ||
+    !request.args ||
+    !request.approvalId ||
+    !request.toolCallId
+  ) {
+    throw new Error('Approval request does not contain a frozen tool call')
+  }
+  const definition = getAgentTool(request.tool)
+  if (definition.version !== request.toolVersion) {
+    throw new Error('Approved tool version is no longer available')
+  }
 
   const nextStatus = input.decision === 'reject' ? 'rejected' : 'approved'
   const [claimed] = await ctx.db
@@ -195,20 +252,6 @@ export async function resolveApproval(
     .returning()
   if (!claimed) return { status: 'already_resolved' }
 
-  if (input.decision === 'reject') {
-    await ctx.realtime.publish(agentRequests, 'update', claimed)
-    await wakeAgent(ctx, request.threadId, 'tool.approval_resolved')
-    return { status: 'rejected' }
-  }
-
-  if (!request.tool || !request.toolVersion || !request.args) {
-    throw new Error('Approval request does not contain a frozen tool call')
-  }
-  const definition = getTool(request.tool)
-  if (definition.version !== request.toolVersion) {
-    throw new Error('Approved tool version is no longer available')
-  }
-
   if (input.decision === 'always_allow') {
     const [grant] = await ctx.db
       .insert(agentToolGrants)
@@ -223,26 +266,37 @@ export async function resolveApproval(
     await ctx.realtime.publish(agentToolGrants, 'create', grant)
   }
 
-  const execution = await invokeAgentTool(ctx, {
-    toolId: definition.id,
-    rawArgs: request.args,
-    userId: request.userId,
-    threadId: request.threadId,
-    runId: request.runId,
-    trigger: { type: 'system', trusted: true, sourceId: request.id },
-    capabilities: [allowTool(definition, request.args)],
-  })
-  if (execution.status !== 'done') {
-    throw new Error('Frozen approval did not authorize its exact tool call')
+  await ctx.realtime.publish(agentRequests, 'update', claimed)
+  const run = await ctx.db
+    .select({ commitmentId: agentRuns.commitmentId })
+    .from(agentRuns)
+    .where(eq(agentRuns.id, request.runId))
+    .get()
+  if (run?.commitmentId) {
+    await ctx.jobs.enqueue(
+      'agentCommitment',
+      {
+        commitmentId: run.commitmentId,
+        runId: request.runId,
+        requestId: request.id,
+      },
+      { dedupeKey: `agent-run:${request.runId}:resume:${request.id}` },
+    )
+  } else {
+    await ctx.jobs.enqueue(
+      'agentTurn',
+      {
+        threadId: request.threadId,
+        reason: 'tool.approval_resolved',
+        runId: request.runId,
+        requestId: request.id,
+      },
+      { dedupeKey: `agent-run:${request.runId}:resume:${request.id}` },
+    )
   }
-  const [resolved] = await ctx.db
-    .update(agentRequests)
-    .set({ result: execution.result })
-    .where(eq(agentRequests.id, request.id))
-    .returning()
-  await ctx.realtime.publish(agentRequests, 'update', resolved)
-  await wakeAgent(ctx, request.threadId, 'tool.approval_resolved')
-  return { status: 'executed', result: execution.result }
+  return {
+    status: input.decision === 'reject' ? 'rejected' : 'resuming',
+  }
 }
 
 export async function revokeToolGrant(

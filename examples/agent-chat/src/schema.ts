@@ -74,6 +74,76 @@ export const agentMessages = sqliteTable('agent_messages', {
     .$defaultFn(() => new Date()),
 })
 
+export type CommitmentExecutionSpec =
+  | { kind: 'notify'; message: string }
+  | {
+      kind: 'tool_call'
+      tool: 'createTask' | 'completeTask' | 'deleteTask' | 'remember'
+      args: Record<string, unknown>
+    }
+  | { kind: 'objective'; prompt: string }
+
+export const agentCommitments = sqliteTable('agent_commitments', {
+  id: typeid('acommit')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('acommit')),
+  threadId: typeid('athread')
+    .notNull()
+    .references(() => agentThreads.id, { onDelete: 'cascade' }),
+  userId: typeid('user')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  kind: text('kind', {
+    enum: ['reminder', 'notify', 'tool_call', 'objective'],
+  }).notNull(),
+  title: text('title').notNull(),
+  executionSpec: text('execution_spec', {
+    mode: 'json',
+  }).$type<CommitmentExecutionSpec>(),
+  dueAt: integer('due_at', { mode: 'timestamp' }).notNull(),
+  status: text('status', {
+    enum: [
+      'pending',
+      'blocked',
+      'running',
+      'waiting_for_approval',
+      'completed',
+      'failed',
+      'cancelled',
+      'fired',
+    ],
+  })
+    .notNull()
+    .default('pending'),
+  currentRunId: typeid('arun'),
+  result: text('result', { mode: 'json' }).$type<unknown>(),
+  error: text('error'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  firedAt: integer('fired_at', { mode: 'timestamp' }),
+})
+
+export const agentCommitmentDependencies = sqliteTable(
+  'agent_commitment_dependencies',
+  {
+    commitmentId: typeid('acommit')
+      .notNull()
+      .references(() => agentCommitments.id, { onDelete: 'cascade' }),
+    dependsOnCommitmentId: typeid('acommit')
+      .notNull()
+      .references(() => agentCommitments.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    uniqueIndex('agent_commitment_dependency_unique').on(
+      table.commitmentId,
+      table.dependsOnCommitmentId,
+    ),
+  ],
+)
+
 export const agentRuns = sqliteTable('agent_runs', {
   id: typeid('arun')
     .primaryKey()
@@ -84,8 +154,19 @@ export const agentRuns = sqliteTable('agent_runs', {
   userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
+  commitmentId: typeid('acommit').references(() => agentCommitments.id, {
+    onDelete: 'set null',
+  }),
+  triggerType: text('trigger_type', {
+    enum: ['user_message', 'system_event', 'commitment'],
+  }),
   reason: text('reason').notNull(),
-  status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
+  status: text('status', {
+    enum: ['running', 'waiting_for_approval', 'done', 'failed'],
+  }).notNull(),
+  checkpoint: text('checkpoint', { mode: 'json' }).$type<{
+    messages: Array<Record<string, unknown>>
+  }>(),
   error: text('error'),
   startedAt: integer('started_at', { mode: 'timestamp' })
     .notNull()
@@ -116,28 +197,6 @@ export const agentToolCalls = sqliteTable('agent_tool_calls', {
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
-})
-
-export const agentCommitments = sqliteTable('agent_commitments', {
-  id: typeid('acommit')
-    .primaryKey()
-    .$defaultFn(() => generateTypeId('acommit')),
-  threadId: typeid('athread')
-    .notNull()
-    .references(() => agentThreads.id, { onDelete: 'cascade' }),
-  userId: typeid('user')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  kind: text('kind', { enum: ['reminder'] }).notNull(),
-  title: text('title').notNull(),
-  dueAt: integer('due_at', { mode: 'timestamp' }).notNull(),
-  status: text('status', { enum: ['pending', 'fired', 'cancelled'] })
-    .notNull()
-    .default('pending'),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  firedAt: integer('fired_at', { mode: 'timestamp' }),
 })
 
 export const tasks = sqliteTable('tasks', {
@@ -256,6 +315,8 @@ export const agentRequests = sqliteTable(
     tool: text('tool'),
     toolVersion: integer('tool_version'),
     args: text('args', { mode: 'json' }).$type<Record<string, unknown>>(),
+    approvalId: text('approval_id'),
+    toolCallId: text('tool_call_id'),
     result: text('result', { mode: 'json' }).$type<unknown>(),
     expiresAt: integer('expires_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })

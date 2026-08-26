@@ -5,10 +5,11 @@ import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
+import { transferAnonymousAgentData } from './agent/auth-transfer'
+import { executeCommitment } from './agent/commitments'
+import { generateFriendlyName } from './agent/friendly-name'
 import { createAIResponder } from './agent/model'
 import { fireCommitment, runAgentTurn } from './agent/runtime'
-import { generateFriendlyName } from './agent/friendly-name'
-import { transferAnonymousAgentData } from './agent/auth-transfer'
 import { api } from './api'
 import { envSchema } from './env'
 import * as schema from './schema'
@@ -43,7 +44,12 @@ export const app = await createBunderstack({
   jobs: (j) =>
     j.define({
       agentTurn: j.job({
-        input: type({ threadId: 'string', reason: 'string' }),
+        input: type({
+          threadId: 'string',
+          reason: 'string',
+          'runId?': 'string',
+          'requestId?': 'string',
+        }),
         retries: 3,
         concurrency: 4,
         timeout: 120_000,
@@ -61,6 +67,24 @@ export const app = await createBunderstack({
         retries: 3,
         handler: async ({ commitmentId }, ctx) => {
           await fireCommitment(ctx, commitmentId)
+        },
+      }),
+      agentCommitment: j.job({
+        input: type({
+          commitmentId: 'string',
+          'runId?': 'string',
+          'requestId?': 'string',
+        }),
+        retries: 3,
+        concurrency: 4,
+        timeout: 120_000,
+        handler: async (input, ctx) => {
+          const responder = createAIResponder({
+            apiKey: ctx.env.AI_API_KEY,
+            baseURL: ctx.env.AI_BASE_URL,
+            model: ctx.env.AI_MODEL,
+          })
+          await executeCommitment(ctx, input, responder)
         },
       }),
     }),

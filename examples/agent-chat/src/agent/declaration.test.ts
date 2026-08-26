@@ -24,12 +24,15 @@ describe('agent declaration', () => {
 
   test('the app has one local declaration with the existing tools', () => {
     expect(Object.keys(agentDefinition.tools).sort()).toEqual([
+      'cancelCommitment',
       'completeTask',
+      'createCommitment',
       'createTask',
       'deleteTask',
+      'listCommitments',
       'listTasks',
       'remember',
-      'scheduleReminder',
+      'retryCommitment',
     ])
     expect(agentDefinition.context).toEqual({
       conversation: { recent: 20 },

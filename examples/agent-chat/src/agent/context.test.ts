@@ -65,6 +65,7 @@ describe('turn context assembly', () => {
     expect(context.memory).toHaveLength(8)
     expect(context.inbox).toHaveLength(10)
     expect(context.tasks).toMatchObject([{ title: 'Current task' }])
+    expect(context.activeCommitments).toEqual([])
     expect(context.trigger).toEqual({
       type: 'user',
       trusted: true,

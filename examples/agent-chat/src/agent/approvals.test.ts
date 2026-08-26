@@ -9,11 +9,7 @@ import {
   tasks,
 } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
-import {
-  invokeAgentTool,
-  resolveApproval,
-  revokeToolGrant,
-} from './approvals'
+import { invokeAgentTool, resolveApproval, revokeToolGrant } from './approvals'
 import { getOrCreateThread } from './runtime'
 
 describe('tool approvals', () => {
@@ -63,7 +59,9 @@ describe('tool approvals', () => {
     const result = await invokeDelete(setupState)
 
     expect(result).toMatchObject({ status: 'approval_required' })
-    expect(await setupState.ctx.db.select().from(agentRequests).all()).toMatchObject([
+    expect(
+      await setupState.ctx.db.select().from(agentRequests).all(),
+    ).toMatchObject([
       {
         status: 'pending',
         tool: 'deleteTask',
@@ -72,13 +70,16 @@ describe('tool approvals', () => {
       },
     ])
     expect(await setupState.ctx.db.select().from(tasks).all()).toHaveLength(1)
-    expect(await setupState.ctx.db.select().from(agentToolCalls).all()).toHaveLength(0)
+    expect(
+      await setupState.ctx.db.select().from(agentToolCalls).all(),
+    ).toHaveLength(0)
   })
 
-  test('allow_once executes the exact frozen call once and replay is inert', async () => {
+  test('allow_once queues the exact frozen call for same-run resume and replay is inert', async () => {
     const setupState = await setup()
     const pending = await invokeDelete(setupState)
-    if (pending.status !== 'approval_required') throw new Error('approval expected')
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
 
     const first = await resolveApproval(setupState.ctx, {
       requestId: pending.requestId,
@@ -91,16 +92,31 @@ describe('tool approvals', () => {
       decision: 'allow_once',
     })
 
-    expect(first.status).toBe('executed')
+    expect(first.status).toBe('resuming')
     expect(replay.status).toBe('already_resolved')
-    expect(await setupState.ctx.db.select().from(tasks).all()).toHaveLength(0)
-    expect(await setupState.ctx.db.select().from(agentToolCalls).all()).toHaveLength(1)
+    expect(await setupState.ctx.db.select().from(tasks).all()).toHaveLength(1)
+    expect(
+      await setupState.ctx.db.select().from(agentToolCalls).all(),
+    ).toHaveLength(0)
+    expect(setupState.enqueued.at(-1)).toEqual({
+      name: 'agentTurn',
+      input: {
+        threadId: setupState.thread.id,
+        reason: 'tool.approval_resolved',
+        runId: setupState.run.id,
+        requestId: pending.requestId,
+      },
+      options: {
+        dedupeKey: `agent-run:${setupState.run.id}:resume:${pending.requestId}`,
+      },
+    })
   })
 
   test('always_allow creates a reusable grant and later calls update its usage', async () => {
     const setupState = await setup()
     const pending = await invokeDelete(setupState)
-    if (pending.status !== 'approval_required') throw new Error('approval expected')
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
     await resolveApproval(setupState.ctx, {
       requestId: pending.requestId,
       userId: setupState.userId,
@@ -132,7 +148,8 @@ describe('tool approvals', () => {
   test('revoking a grant requires approval again', async () => {
     const setupState = await setup()
     const pending = await invokeDelete(setupState)
-    if (pending.status !== 'approval_required') throw new Error('approval expected')
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
     await resolveApproval(setupState.ctx, {
       requestId: pending.requestId,
       userId: setupState.userId,
@@ -168,7 +185,8 @@ describe('tool approvals', () => {
   test('one user cannot resolve another user’s request', async () => {
     const alice = await setup('Alice')
     const pending = await invokeDelete(alice)
-    if (pending.status !== 'approval_required') throw new Error('approval expected')
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
     const bobId = await alice.seedUser('Bob')
 
     await expect(

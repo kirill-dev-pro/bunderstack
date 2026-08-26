@@ -1,3 +1,7 @@
+import type { ModelMessage } from 'ai'
+
+import type { CommitmentExecutionSpec } from '../schema'
+
 export type AgentTask = { id: string; title: string; done: boolean }
 
 export type ApprovalRequired = {
@@ -9,11 +13,15 @@ export interface AgentTools {
   listTasks(): Promise<AgentTask[]>
   createTask(input: { title: string }): Promise<AgentTask>
   completeTask(input: { taskId: string }): Promise<AgentTask>
-  scheduleReminder(input: { title: string; dueAt: string }): Promise<{
-    id: string
+  createCommitment(input: {
     title: string
-    dueAt: Date
-  }>
+    dueAt: string
+    execution: CommitmentExecutionSpec
+    dependsOn?: string[]
+  }): Promise<unknown>
+  listCommitments(input?: { status?: string }): Promise<unknown[]>
+  cancelCommitment(input: { commitmentId: string }): Promise<unknown>
+  retryCommitment(input: { commitmentId: string }): Promise<unknown>
   deleteTask(input: { taskId: string }): Promise<AgentTask | ApprovalRequired>
   remember(input: { key: string; value: string }): Promise<{
     key: string
@@ -29,6 +37,13 @@ export interface AgentResponderInput {
     type: 'user' | 'system'
     trusted: boolean
     reason: string
+  }
+  currentExecution: {
+    trigger: 'user_message' | 'system_event' | 'commitment'
+    runId: string
+    commitmentId?: string
+    objective: string
+    executionSpec?: CommitmentExecutionSpec
   }
   latestMessage: string
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
@@ -46,9 +61,46 @@ export interface AgentResponderInput {
     aggregate: 'latest' | 'collect' | 'count'
     payload: unknown
   }>
+  activeCommitments: Array<{
+    id: string
+    title: string
+    status: string
+    dueAt: Date
+    executionSpec: CommitmentExecutionSpec | null
+  }>
+  checkpoint?: AgentCheckpoint
+  approvalResponse?: {
+    approvalId: string
+    approved: boolean
+    reason?: string
+  }
+  toolApprovalRequired(toolId: string, args: unknown): Promise<boolean>
   tools: AgentTools
 }
 
+export interface AgentCheckpoint {
+  messages: ModelMessage[]
+}
+
+export type AgentResponderResult =
+  | {
+      status: 'completed'
+      text: string
+      checkpoint: AgentCheckpoint
+    }
+  | { status: 'blocked'; reason: string; checkpoint: AgentCheckpoint }
+  | { status: 'failed'; error: string; checkpoint: AgentCheckpoint }
+  | {
+      status: 'waiting_for_approval'
+      request: {
+        approvalId: string
+        toolCallId: string
+        tool: string
+        args: Record<string, unknown>
+      }
+      checkpoint: AgentCheckpoint
+    }
+
 export type AgentResponder = (
   input: AgentResponderInput,
-) => Promise<{ text: string }>
+) => Promise<AgentResponderResult>

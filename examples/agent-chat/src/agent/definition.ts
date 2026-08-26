@@ -1,7 +1,13 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { agentCommitments, tasks } from '../schema'
+import { tasks } from '../schema'
+import {
+  cancelCommitment as cancelStoredCommitment,
+  createCommitment as createStoredCommitment,
+  listCommitments as listStoredCommitments,
+  retryCommitment as retryStoredCommitment,
+} from './commitments'
 import { defineAgent, defineTool } from './declaration'
 import { remember as storeMemory } from './memory'
 
@@ -13,7 +19,11 @@ const listTasks = defineTool({
   inputSchema: z.object({}),
   approval: { mode: 'none' },
   execute: async (_input, ctx) =>
-    ctx.runtime.db.select().from(tasks).where(eq(tasks.userId, ctx.userId)).all(),
+    ctx.runtime.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.userId, ctx.userId))
+      .all(),
 })
 
 const createTask = defineTool({
@@ -21,7 +31,11 @@ const createTask = defineTool({
   version: 1,
   description: 'Create a new task for the current user.',
   inputSchema: z.object({
-    title: z.string().trim().min(1).describe('Title or description of the task'),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .describe('Title or description of the task'),
   }),
   approval: { mode: 'none' },
   execute: async ({ title }, ctx) => {
@@ -37,10 +51,12 @@ const createTask = defineTool({
 const completeTask = defineTool({
   id: 'completeTask',
   version: 1,
-  description:
-    'Complete one task owned by the current user by its taskId.',
+  description: 'Complete one task owned by the current user by its taskId.',
   inputSchema: z.object({
-    taskId: z.string().min(1).describe('The ID of the task to mark as complete'),
+    taskId: z
+      .string()
+      .min(1)
+      .describe('The ID of the task to mark as complete'),
   }),
   approval: { mode: 'none' },
   execute: async ({ taskId }, ctx) => {
@@ -55,55 +71,99 @@ const completeTask = defineTool({
   },
 })
 
-const scheduleReminder = defineTool({
-  id: 'scheduleReminder',
+const commitmentExecutionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('notify'), message: z.string().trim().min(1) }),
+  z.object({
+    kind: z.literal('tool_call'),
+    tool: z.enum(['createTask', 'completeTask', 'deleteTask', 'remember']),
+    args: z.record(z.string(), z.unknown()),
+  }),
+  z.object({ kind: z.literal('objective'), prompt: z.string().trim().min(1) }),
+])
+
+const createCommitment = defineTool({
+  id: 'createCommitment',
   version: 1,
   description:
-    'Schedule a future commitment or reminder. When the scheduled time arrives, you will be awakened with full tool access to autonomously execute planned actions, manage tasks, or notify the user.',
+    'Persist future work. Use notify for a user notification, tool_call for an exact future application action, and objective only for genuinely multi-step agent work.',
   inputSchema: z.object({
     title: z
       .string()
       .trim()
       .min(1)
-      .describe(
-        'The description or action plan for what should be executed, checked, or reminded when awakened',
-      ),
+      .describe('Short human-readable summary of the commitment'),
     dueAt: z
       .string()
       .trim()
       .min(1)
       .describe(
-        'ISO 8601 date string when you should be awakened (e.g. 2026-08-26T18:00:00.000Z)',
+        'ISO 8601 date with explicit Z or UTC offset (e.g. 2026-08-26T18:00:00.000Z)',
       ),
+    execution: commitmentExecutionSchema,
+    dependsOn: z.array(z.string().min(1)).optional(),
   }),
   approval: { mode: 'none' },
-  execute: async ({ title, dueAt }, ctx) => {
-    const dueAtDate = new Date(dueAt)
-    if (isNaN(dueAtDate.getTime())) {
-      throw new Error(`Invalid date format for dueAt: "${dueAt}"`)
-    }
-    const [commitment] = await ctx.runtime.db
-      .insert(agentCommitments)
-      .values({
-        threadId: ctx.threadId,
-        userId: ctx.userId,
-        kind: 'reminder',
-        title,
-        dueAt: dueAtDate,
-      })
-      .returning()
-    await ctx.runtime.realtime.publish(
-      agentCommitments,
-      'create',
-      commitment,
-    )
-    await ctx.runtime.jobs.enqueue(
-      'agentReminder',
-      { commitmentId: commitment!.id },
-      { runAt: dueAtDate },
-    )
-    return commitment!
-  },
+  execute: async (input, ctx) =>
+    createStoredCommitment(ctx.runtime, {
+      ...input,
+      threadId: ctx.threadId,
+      userId: ctx.userId,
+    }),
+})
+
+const listCommitments = defineTool({
+  id: 'listCommitments',
+  version: 1,
+  description:
+    'List persisted commitments and their real execution status for the current agent.',
+  inputSchema: z.object({
+    status: z
+      .enum([
+        'pending',
+        'blocked',
+        'running',
+        'waiting_for_approval',
+        'completed',
+        'failed',
+        'cancelled',
+      ])
+      .optional(),
+  }),
+  approval: { mode: 'none' },
+  execute: async ({ status }, ctx) =>
+    listStoredCommitments(ctx.runtime, {
+      threadId: ctx.threadId,
+      userId: ctx.userId,
+      status,
+    }),
+})
+
+const cancelCommitment = defineTool({
+  id: 'cancelCommitment',
+  version: 1,
+  description:
+    'Cancel one pending or dependency-blocked commitment owned by the current user.',
+  inputSchema: z.object({ commitmentId: z.string().min(1) }),
+  approval: { mode: 'none' },
+  execute: async ({ commitmentId }, ctx) =>
+    cancelStoredCommitment(ctx.runtime, {
+      commitmentId,
+      userId: ctx.userId,
+    }),
+})
+
+const retryCommitment = defineTool({
+  id: 'retryCommitment',
+  version: 1,
+  description:
+    'Retry one failed commitment while preserving its previous execution attempts.',
+  inputSchema: z.object({ commitmentId: z.string().min(1) }),
+  approval: { mode: 'none' },
+  execute: async ({ commitmentId }, ctx) =>
+    retryStoredCommitment(ctx.runtime, {
+      commitmentId,
+      userId: ctx.userId,
+    }),
 })
 
 const deleteTask = defineTool({
@@ -137,7 +197,9 @@ const remember = defineTool({
       .trim()
       .min(1)
       .max(80)
-      .describe('Identifier key for this memory entry (e.g. preferred_flight_time)'),
+      .describe(
+        'Identifier key for this memory entry (e.g. preferred_flight_time)',
+      ),
     value: z
       .string()
       .trim()
@@ -167,14 +229,21 @@ export const agentDefinition = defineAgent({
     [
       'You are an autonomous and concise personal task agent.',
       `Current time is ${now.toISOString()}.`,
-      'Use tools for every read or mutation; never claim an effect you did not perform.',
-      'You can schedule commitments for yourself (via scheduleReminder) to wake up at a specific future time and autonomously perform tasks, check statuses, or follow up with the user.',
+      'The declared tools are your complete interface to application state. Use them for every read or mutation; never claim an effect you did not perform.',
+      'When a user names a task but a mutation requires taskId, call listTasks first and use the exact returned ID.',
+      'A tool approval suspends this run. Do not continue or repeat the call; the runtime will resume you with the approval decision and tool result.',
+      'Do not claim that an action completed until its tool result confirms success.',
+      'Use createCommitment for future work: choose tool_call for exact application actions, notify for notifications, and objective only for multi-step reasoning.',
+      'Use listCommitments to inspect real commitment state; never infer it from earlier assistant text.',
     ].join('\n'),
   tools: {
     listTasks,
     createTask,
     completeTask,
-    scheduleReminder,
+    createCommitment,
+    listCommitments,
+    cancelCommitment,
+    retryCommitment,
     deleteTask,
     remember,
   },
