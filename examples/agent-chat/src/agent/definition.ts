@@ -8,7 +8,8 @@ import { remember as storeMemory } from './memory'
 const listTasks = defineTool({
   id: 'listTasks',
   version: 1,
-  description: 'List tasks owned by the current user.',
+  description:
+    'List all tasks owned by the current user. Inspect open and completed items to plan or execute work.',
   inputSchema: z.object({}),
   approval: { mode: 'none' },
   execute: async (_input, ctx) =>
@@ -18,8 +19,10 @@ const listTasks = defineTool({
 const createTask = defineTool({
   id: 'createTask',
   version: 1,
-  description: 'Create a task for the current user.',
-  inputSchema: z.object({ title: z.string().trim().min(1) }),
+  description: 'Create a new task for the current user.',
+  inputSchema: z.object({
+    title: z.string().trim().min(1).describe('Title or description of the task'),
+  }),
   approval: { mode: 'none' },
   execute: async ({ title }, ctx) => {
     const [task] = await ctx.runtime.db
@@ -34,8 +37,11 @@ const createTask = defineTool({
 const completeTask = defineTool({
   id: 'completeTask',
   version: 1,
-  description: 'Complete one task owned by the current user.',
-  inputSchema: z.object({ taskId: z.string().min(1) }),
+  description:
+    'Complete one task owned by the current user by its taskId.',
+  inputSchema: z.object({
+    taskId: z.string().min(1).describe('The ID of the task to mark as complete'),
+  }),
   approval: { mode: 'none' },
   execute: async ({ taskId }, ctx) => {
     const [task] = await ctx.runtime.db
@@ -52,15 +58,22 @@ const completeTask = defineTool({
 const scheduleReminder = defineTool({
   id: 'scheduleReminder',
   version: 1,
-  description: 'Schedule a future reminder for the current user.',
+  description:
+    'Schedule a future commitment or reminder. When the scheduled time arrives, you will be awakened with full tool access to autonomously execute planned actions, manage tasks, or notify the user.',
   inputSchema: z.object({
-    title: z.string().trim().min(1),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'The description or action plan for what should be executed, checked, or reminded when awakened',
+      ),
     dueAt: z
       .string()
       .trim()
       .min(1)
       .describe(
-        'ISO 8601 date string when the reminder is due (e.g. 2026-08-26T18:00:00.000Z)',
+        'ISO 8601 date string when you should be awakened (e.g. 2026-08-26T18:00:00.000Z)',
       ),
   }),
   approval: { mode: 'none' },
@@ -96,8 +109,11 @@ const scheduleReminder = defineTool({
 const deleteTask = defineTool({
   id: 'deleteTask',
   version: 1,
-  description: 'Delete one task owned by the current user.',
-  inputSchema: z.object({ taskId: z.string().min(1) }),
+  description:
+    'Delete one task owned by the current user by its taskId. Requires user approval.',
+  inputSchema: z.object({
+    taskId: z.string().min(1).describe('The ID of the task to delete'),
+  }),
   approval: { mode: 'required', remember: true },
   execute: async ({ taskId }, ctx) => {
     const [task] = await ctx.runtime.db
@@ -113,10 +129,21 @@ const deleteTask = defineTool({
 const remember = defineTool({
   id: 'remember',
   version: 1,
-  description: 'Store one explicit fact or preference for the current user.',
+  description:
+    'Store one explicit fact, preference, or persistent note for the current user in long-term memory.',
   inputSchema: z.object({
-    key: z.string().trim().min(1).max(80),
-    value: z.string().trim().min(1).max(2_000),
+    key: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe('Identifier key for this memory entry (e.g. preferred_flight_time)'),
+    value: z
+      .string()
+      .trim()
+      .min(1)
+      .max(2_000)
+      .describe('The memory value or fact to remember'),
   }),
   approval: { mode: 'none' },
   execute: async ({ key, value }, ctx) => {
@@ -138,9 +165,10 @@ const remember = defineTool({
 export const agentDefinition = defineAgent({
   instructions: ({ now }) =>
     [
-      'You are a concise personal task agent.',
+      'You are an autonomous and concise personal task agent.',
       `Current time is ${now.toISOString()}.`,
       'Use tools for every read or mutation; never claim an effect you did not perform.',
+      'You can schedule commitments for yourself (via scheduleReminder) to wake up at a specific future time and autonomously perform tasks, check statuses, or follow up with the user.',
     ].join('\n'),
   tools: {
     listTasks,
