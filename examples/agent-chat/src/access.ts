@@ -43,7 +43,7 @@ export const access = defineAccess(schema, {
   agentCommitments: {
     ...agentOwnedReadOnly,
     filterableColumns: ['threadId', 'status'],
-    sortableColumns: ['dueAt'],
+    sortableColumns: ['dueAt', 'createdAt'],
     defaultSort: { column: 'dueAt', order: 'asc' },
   },
   agentMemory: {

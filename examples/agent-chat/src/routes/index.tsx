@@ -61,7 +61,7 @@ function AgentDesk({
     api.agentToolCalls.list.queryOptions({ input: { limit: 20 } }),
   )
   const commitments = useQuery(
-    api.agentCommitments.list.queryOptions({ input: { limit: 20 } }),
+    api.agentCommitments.list.queryOptions({ input: { limit: 100 } }),
   )
   const memory = useQuery(
     api.agentMemory.list.queryOptions({ input: { limit: 50 } }),
@@ -113,6 +113,27 @@ function AgentDesk({
     thread?.status === 'running' ||
     lastRun?.status === 'running' ||
     send.isPending
+
+  const sortedCommitments = [...(commitments.data?.items ?? [])].sort((a, b) => {
+    const isAActive =
+      a.status === 'pending' ||
+      a.status === 'running' ||
+      a.status === 'waiting_for_approval' ||
+      a.status === 'paused' ||
+      a.status === 'blocked'
+    const isBActive =
+      b.status === 'pending' ||
+      b.status === 'running' ||
+      b.status === 'waiting_for_approval' ||
+      b.status === 'paused' ||
+      b.status === 'blocked'
+    if (isAActive && !isBActive) return -1
+    if (!isAActive && isBActive) return 1
+    if (isAActive && isBActive) {
+      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
 
   useEffect(() => {
     if (messageListRef.current) {
@@ -350,8 +371,8 @@ function AgentDesk({
           <div className="runtime-block">
             <p className="runtime-label">Commitments</p>
             <div className="commitment-list">
-              {commitments.data?.items.length ? (
-                commitments.data.items.slice(0, 6).map((item) => {
+              {sortedCommitments.length ? (
+                sortedCommitments.slice(0, 10).map((item) => {
                   const scheduleLabel = formatSchedule(item.schedule)
                   return (
                     <div className="commitment" key={item.id}>
