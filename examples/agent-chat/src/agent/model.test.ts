@@ -5,6 +5,7 @@ import type { AgentResponderInput, AgentTools } from './types'
 import {
   createAIResponder,
   createDemoResponder,
+  createModelTools,
   createOpenAIResponder,
 } from './model'
 
@@ -81,6 +82,17 @@ describe('demo responder', () => {
 })
 
 describe('AI responder factory', () => {
+  test('builds the model tool set from the app-local agent declaration', () => {
+    const { value } = input('List tasks')
+
+    expect(Object.keys(createModelTools(value)).sort()).toEqual([
+      'completeTask',
+      'createTask',
+      'listTasks',
+      'scheduleReminder',
+    ])
+  })
+
   test('creates a responder function with default Hetzner configuration', () => {
     const responder = createAIResponder({ apiKey: 'test-token' })
     expect(typeof responder).toBe('function')

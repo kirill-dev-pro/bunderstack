@@ -1,8 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { generateText, stepCountIs, tool } from 'ai'
-import { z } from 'zod'
+import { dynamicTool, generateText, stepCountIs } from 'ai'
 
-import type { AgentResponder } from './types'
+import { agentDefinition } from './definition'
+import type { AgentResponder, AgentResponderInput, AgentTools } from './types'
 
 export function createDemoResponder(): AgentResponder {
   return async (input) => {
@@ -75,6 +75,24 @@ export interface AIResponderOptions {
   model?: string
 }
 
+export function createModelTools(input: AgentResponderInput) {
+  return Object.fromEntries(
+    Object.values(agentDefinition.tools).map((definition) => {
+      const execute = input.tools[
+        definition.id as keyof AgentTools
+      ] as (args: unknown) => Promise<unknown>
+      return [
+        definition.id,
+        dynamicTool({
+          description: definition.description,
+          inputSchema: definition.inputSchema,
+          execute: (args) => execute(args),
+        }),
+      ]
+    }),
+  )
+}
+
 export function createAIResponder(
   options: AIResponderOptions = {},
 ): AgentResponder {
@@ -92,9 +110,7 @@ export function createAIResponder(
     const result = await generateText({
       model,
       system: [
-        'You are a concise personal task agent.',
-        `Current time is ${input.now.toISOString()}.`,
-        'Use tools for every read or mutation; never claim an effect you did not perform.',
+        agentDefinition.instructions({ now: input.now }),
         'A system message beginning with "[System]: Reminder due:" means notify the user now.',
       ].join('\n'),
       messages: input.messages.map((message) => ({
@@ -104,32 +120,7 @@ export function createAIResponder(
             ? `[System]: ${message.content}`
             : message.content,
       })),
-      tools: {
-        list_tasks: tool({
-          description: 'List tasks owned by the current user.',
-          inputSchema: z.object({}),
-          execute: () => input.tools.listTasks(),
-        }),
-        create_task: tool({
-          description: 'Create a task for the current user.',
-          inputSchema: z.object({ title: z.string().min(1) }),
-          execute: ({ title }) => input.tools.createTask({ title }),
-        }),
-        complete_task: tool({
-          description: 'Complete one of the current user’s tasks by id.',
-          inputSchema: z.object({ taskId: z.string() }),
-          execute: ({ taskId }) => input.tools.completeTask({ taskId }),
-        }),
-        schedule_reminder: tool({
-          description: 'Schedule a future reminder for the current user.',
-          inputSchema: z.object({
-            title: z.string().min(1),
-            dueAt: z.string().datetime(),
-          }),
-          execute: ({ title, dueAt }) =>
-            input.tools.scheduleReminder({ title, dueAt: new Date(dueAt) }),
-        }),
-      },
+      tools: createModelTools(input),
       maxRetries: 3,
       stopWhen: stepCountIs(6),
     })
