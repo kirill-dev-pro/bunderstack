@@ -59,12 +59,13 @@ describe('createIsomorphicFetch', () => {
 })
 
 describe('bunderstackStart', () => {
-  it('builds a query client with the default staleTime and a sync api', () => {
+  it('builds a query client with the default staleTime and a query api', () => {
     const { createQueryClient, createApi } = bunderstackStart()
     const qc = createQueryClient()
     expect(qc.getDefaultOptions().queries?.staleTime).toBe(30_000)
     const api = createApi(qc)
-    expect(api.realtime).toBeUndefined() // SSR default in tests
+    expect(api).toBeDefined()
+    expect(typeof api.files).toBe('object')
   })
 
   it('honors a custom staleTime', () => {

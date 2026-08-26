@@ -1,10 +1,10 @@
 import { QueryClient } from '@tanstack/react-query'
 
 import {
-  createSyncClient,
+  createClient,
   type AnyBunderstackApp,
-  type BunderstackSyncClient,
-} from '../sync/index'
+  type BunderstackClient,
+} from '../query/index'
 import { createIsomorphicFetch } from './isomorphic-fetch'
 
 export { createIsomorphicFetch } from './isomorphic-fetch'
@@ -18,7 +18,7 @@ export type BunderstackStartOptions = {
 
 /**
  * One-call client setup for TanStack Start apps: SSR-aware fetch, sensible
- * QueryClient defaults, and a sync client whose tables and buckets are
+ * QueryClient defaults, and a typed query client whose procedures and buckets are
  * inferred from the server app type.
  *
  * @example
@@ -38,8 +38,8 @@ export function bunderstackStart<TApp extends AnyBunderstackApp>(
           queries: { staleTime: options.staleTime ?? 30_000 },
         },
       }),
-    createApi: (queryClient: QueryClient): BunderstackSyncClient<TApp> =>
-      createSyncClient<TApp>({
+    createApi: (queryClient: QueryClient): BunderstackClient<TApp> =>
+      createClient<TApp>({
         queryClient,
         fetch: isoFetch,
         baseUrl: options.baseUrl,
