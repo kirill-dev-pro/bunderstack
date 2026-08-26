@@ -2,7 +2,6 @@ import type { TypeId } from 'bunderstack/typeid'
 
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
-import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 
 import { createApi, createQueryClient, type AppApi } from './api-client'
 import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
@@ -35,14 +34,6 @@ export function getRouter() {
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,
-  })
-
-  setupRouterSsrQueryIntegration({
-    router,
-    queryClient,
-    // QueryClientProvider is wired explicitly in __root.tsx so it's visible
-    // there instead of being injected implicitly via router.options.Wrap.
-    wrapQueryClient: false,
   })
 
   return router
