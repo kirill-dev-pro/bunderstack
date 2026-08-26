@@ -1,14 +1,15 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 import type { AgentResponder, AgentTask, AgentTools } from './types'
 import { invokeAgentTool } from './approvals'
+import { assembleAgentContext } from './context'
+import { acknowledgeInbox } from './inbox'
 
 import {
   agentCommitments,
   agentMessages,
   agentRuns,
   agentThreads,
-  tasks,
 } from '../schema'
 
 export interface EnqueuedJob {
@@ -99,18 +100,11 @@ export async function runAgentTurn(
   await ctx.realtime.publish(agentRuns, 'create', run)
 
   try {
-    const messages = await ctx.db
-      .select()
-      .from(agentMessages)
-      .where(eq(agentMessages.threadId, thread.id))
-      .orderBy(asc(agentMessages.createdAt))
-      .all()
-    const currentTasks = (await ctx.db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.userId, thread.userId))
-      .orderBy(asc(tasks.createdAt))
-      .all()) as AgentTask[]
+    const context = await assembleAgentContext(ctx, {
+      thread,
+      reason: input.reason,
+      now: new Date(),
+    })
     const invoke = (toolId: string, rawArgs: unknown) =>
       invokeAgentTool(ctx, {
         toolId,
@@ -140,33 +134,32 @@ export async function runAgentTurn(
           'scheduleReminder',
           args,
         ),
+      remember: (args) =>
+        requireDone<{ key: string; value: unknown }>('remember', args),
       deleteTask: async (args) => {
         const result = await invoke('deleteTask', args)
         return result.status === 'done' ? (result.result as AgentTask) : result
       },
     }
 
-    const response = await responder({
-      reason: input.reason,
-      now: new Date(),
-      latestMessage: messages.at(-1)?.content ?? '',
-      messages: messages.map((message: any) => ({
-        role: message.role,
-        content: message.content,
-      })),
-      tasks: currentTasks,
-      tools,
+    const response = await responder({ ...context, tools })
+    if (response.text.trim()) {
+      const [assistantMessage] = await ctx.db
+        .insert(agentMessages)
+        .values({
+          threadId: thread.id,
+          userId: thread.userId,
+          role: 'assistant',
+          content: response.text,
+        })
+        .returning()
+      await ctx.realtime.publish(agentMessages, 'create', assistantMessage)
+    }
+    await acknowledgeInbox(ctx, {
+      threadId: thread.id,
+      userId: thread.userId,
+      ids: context.selectedInboxIds,
     })
-    const [assistantMessage] = await ctx.db
-      .insert(agentMessages)
-      .values({
-        threadId: thread.id,
-        userId: thread.userId,
-        role: 'assistant',
-        content: response.text,
-      })
-      .returning()
-    await ctx.realtime.publish(agentMessages, 'create', assistantMessage)
 
     const [finished] = await ctx.db
       .update(agentRuns)

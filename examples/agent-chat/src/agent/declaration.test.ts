@@ -28,6 +28,7 @@ describe('agent declaration', () => {
       'createTask',
       'deleteTask',
       'listTasks',
+      'remember',
       'scheduleReminder',
     ])
     expect(agentDefinition.context).toEqual({

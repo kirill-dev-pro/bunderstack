@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { agentCommitments, tasks } from '../schema'
 import { defineAgent, defineTool } from './declaration'
+import { remember as storeMemory } from './memory'
 
 const listTasks = defineTool({
   id: 'listTasks',
@@ -99,6 +100,31 @@ const deleteTask = defineTool({
   },
 })
 
+const remember = defineTool({
+  id: 'remember',
+  version: 1,
+  description: 'Store one explicit fact or preference for the current user.',
+  inputSchema: z.object({
+    key: z.string().trim().min(1).max(80),
+    value: z.string().trim().min(1).max(2_000),
+  }),
+  approval: { mode: 'none' },
+  execute: async ({ key, value }, ctx) => {
+    const row = await storeMemory(ctx.runtime, {
+      userId: ctx.userId,
+      kind: 'fact',
+      key,
+      value,
+      source: {
+        type: ctx.trigger.type,
+        trusted: ctx.trigger.trusted,
+        id: ctx.trigger.sourceId,
+      },
+    })
+    return { key: row.key, value: row.value }
+  },
+})
+
 export const agentDefinition = defineAgent({
   instructions: ({ now }) =>
     [
@@ -112,8 +138,18 @@ export const agentDefinition = defineAgent({
     completeTask,
     scheduleReminder,
     deleteTask,
+    remember,
   },
-  events: {},
+  events: {
+    'task.reminder_due': { delivery: 'immediate', aggregate: 'latest' },
+    'subscription.limit_near': {
+      delivery: 'next_turn',
+      aggregate: 'latest',
+    },
+    'activity.digest': { delivery: 'next_turn', aggregate: 'collect' },
+    'notification.count': { delivery: 'next_turn', aggregate: 'count' },
+    'audit.silent': { delivery: 'silent', aggregate: 'collect' },
+  },
   context: {
     conversation: { recent: 20 },
     inbox: { maxItems: 10 },

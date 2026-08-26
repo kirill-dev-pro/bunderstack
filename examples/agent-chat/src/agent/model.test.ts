@@ -35,14 +35,19 @@ function input(
       title: 'Book flights',
       done: false,
     })),
+    remember: mock(async ({ key, value }) => ({ key, value })),
   }
   return {
     value: {
       reason: 'message',
       now: new Date('2026-08-24T10:00:00.000Z'),
+      instructions: 'Test instructions',
+      trigger: { type: 'user' as const, trusted: true, reason: 'message' },
       latestMessage,
       messages: [{ role: 'user' as const, content: latestMessage }],
       tasks: [],
+      memory: [],
+      inbox: [],
       tools,
       ...overrides,
     },
@@ -99,6 +104,18 @@ describe('demo responder', () => {
     expect(response.text).toBe('Please approve deleting “Book flights”.')
     expect(tools.deleteTask).toHaveBeenCalledWith({ taskId: 'task_1' })
   })
+
+  test('stores an explicit user memory under a stable normalized key', async () => {
+    const { value, tools } = input('Remember that I prefer concise answers')
+
+    const response = await createDemoResponder()(value)
+
+    expect(response.text).toBe('I’ll remember that.')
+    expect(tools.remember).toHaveBeenCalledWith({
+      key: 'i_prefer_concise_answers',
+      value: 'I prefer concise answers',
+    })
+  })
 })
 
 describe('AI responder factory', () => {
@@ -110,6 +127,7 @@ describe('AI responder factory', () => {
       'createTask',
       'deleteTask',
       'listTasks',
+      'remember',
       'scheduleReminder',
     ])
   })

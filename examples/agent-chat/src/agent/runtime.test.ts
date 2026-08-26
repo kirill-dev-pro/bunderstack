@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 
 import {
   agentCommitments,
+  agentInbox,
   agentMessages,
   agentRuns,
   agentThreads,
@@ -178,5 +179,63 @@ describe('agent runtime', () => {
       input: { threadId: thread.id, reason: 'wake.during_turn' },
       options: { dedupeKey: `agent-turn:${thread.id}:wake:1` },
     })
+  })
+
+  test('a successful turn consumes selected inbox but a failed turn leaves it pending', async () => {
+    const success = await setup()
+    await success.ctx.db.insert(agentInbox).values({
+      threadId: success.thread.id,
+      userId: success.userId,
+      type: 'subscription.limit_near',
+      payload: { remaining: 2 },
+      delivery: 'next_turn',
+      aggregate: 'latest',
+    })
+    await runAgentTurn(
+      success.ctx,
+      { threadId: success.thread.id, reason: 'message' },
+      async () => ({ text: 'Noted.' }),
+    )
+    expect(
+      await success.ctx.db.select().from(agentInbox).get(),
+    ).toMatchObject({ status: 'consumed' })
+
+    const failure = await setup()
+    await failure.ctx.db.insert(agentInbox).values({
+      threadId: failure.thread.id,
+      userId: failure.userId,
+      type: 'subscription.limit_near',
+      payload: { remaining: 1 },
+      delivery: 'next_turn',
+      aggregate: 'latest',
+    })
+    await expect(
+      runAgentTurn(
+        failure.ctx,
+        { threadId: failure.thread.id, reason: 'message' },
+        async () => {
+          throw new Error('model unavailable')
+        },
+      ),
+    ).rejects.toThrow('model unavailable')
+    expect(
+      await failure.ctx.db
+        .select()
+        .from(agentInbox)
+        .where(eq(agentInbox.userId, failure.userId))
+        .get(),
+    ).toMatchObject({ status: 'pending' })
+  })
+
+  test('an intentional empty response does not create an assistant message', async () => {
+    const { ctx, thread } = await setup()
+
+    await runAgentTurn(
+      ctx,
+      { threadId: thread.id, reason: 'system.maintenance' },
+      async () => ({ text: '' }),
+    )
+
+    expect(await ctx.db.select().from(agentMessages).all()).toHaveLength(0)
   })
 })
