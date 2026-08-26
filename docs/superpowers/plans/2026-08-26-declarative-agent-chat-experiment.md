@@ -72,7 +72,7 @@ Existing modules remain focused:
 - `AgentDefinition` has `instructions`, `tools`, `events`, and context limits for conversation, inbox, and memory.
 - The model adapter consumes `agentDefinition` rather than declaring descriptions and schemas a second time.
 
-- [ ] **Step 1: Write failing declaration tests**
+- [x] **Step 1: Write failing declaration tests**
 
 Add tests proving a declared tool retains its literal ID/version/policy and validates input through its Zod schema, and proving the AI responder exposes the singleton declaration's tool IDs. The behavior assertion must fail when `defineTool`/`agentDefinition` do not exist; do not assert source text.
 
@@ -93,13 +93,13 @@ test('a declared tool exposes one validated server capability', () => {
 })
 ```
 
-- [ ] **Step 2: Run the focused tests and observe RED**
+- [x] **Step 2: Run the focused tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/declaration.test.ts examples/agent-chat/src/agent/model.test.ts`
 
 Expected: FAIL because the declaration API and singleton definition are absent.
 
-- [ ] **Step 3: Implement the declaration API and singleton definition**
+- [x] **Step 3: Implement the declaration API and singleton definition**
 
 Define these stable shapes:
 
@@ -138,13 +138,13 @@ keeps every intermediate commit safe and runnable.
 
 Make `createAIResponder` build its AI SDK `tools` map from the declaration. Keep `createDemoResponder` deterministic and its existing commands green; add deterministic parsing for `Delete <task title>` and `Remember that <text>` only after the declaration is wired.
 
-- [ ] **Step 4: Run focused tests until GREEN**
+- [x] **Step 4: Run focused tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/declaration.test.ts examples/agent-chat/src/agent/model.test.ts`
 
 Expected: PASS with no network calls.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add examples/agent-chat/src/agent
@@ -169,7 +169,7 @@ git commit -m "refactor(agent-chat): declare agent tools locally"
 - All four carry `userId`; inbox and requests also carry `threadId`; grants carry `threadId` because the unique thread is the personal agent instance.
 - Generated CRUD permits authenticated, user-scoped list/get only. Create/update/delete remain denied.
 
-- [ ] **Step 1: Write failing schema integration tests**
+- [x] **Step 1: Write failing schema integration tests**
 
 Use the real in-memory test app. Insert two users and prove each new table accepts owned rows with TypeIDs, JSON payloads round-trip, and the required status defaults are applied. Add an API access test proving one user's list cannot return another user's memory or grants.
 
@@ -237,29 +237,29 @@ agentToolGrants: {
 
 Add unique `(userId, key)` memory semantics and indexes supporting pending inbox by user/thread, pending requests by user/thread, and active grants by user/thread/tool/version.
 
-- [ ] **Step 2: Run schema tests and observe RED**
+- [x] **Step 2: Run schema tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/schema.test.ts`
 
 Expected: FAIL because the tables do not exist.
 
-- [ ] **Step 3: Implement tables, access rules, and test setup**
+- [x] **Step 3: Implement tables, access rules, and test setup**
 
 Use `generateTypeId`/`typeid` conventions already present. Keep generated CRUD mutations denied and add filter/sort columns needed by the UI. Do not expose raw rows across users.
 
-- [ ] **Step 4: Generate the migration**
+- [x] **Step 4: Generate the migration**
 
 Run: `bun run --cwd examples/agent-chat db:generate`
 
 Expected: a new Drizzle migration and updated migration metadata, generated from the schema rather than hand-authored.
 
-- [ ] **Step 5: Run schema and existing runtime tests until GREEN**
+- [x] **Step 5: Run schema and existing runtime tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/schema.test.ts examples/agent-chat/src/agent/runtime.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add examples/agent-chat/src/schema.ts examples/agent-chat/src/access.ts examples/agent-chat/src/test-app.ts examples/agent-chat/src/agent/schema.test.ts examples/agent-chat/migrations
@@ -287,7 +287,7 @@ git commit -m "feat(agent-chat): add durable agent state tables"
 - Permission decisions are `allow`, `approval_required`, or `deny`.
 - Capabilities and frozen-call comparison use parsed exact arguments and are never placed in model-visible messages.
 
-- [ ] **Step 1: Write failing pure policy tests**
+- [x] **Step 1: Write failing pure policy tests**
 
 Cover these literal cases:
 
@@ -300,23 +300,23 @@ Cover these literal cases:
 
 Use `isDeepStrictEqual` or an equivalently real structural comparison. Do not authorize by substring or model output.
 
-- [ ] **Step 2: Run policy tests and observe RED**
+- [x] **Step 2: Run policy tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/policy.test.ts`
 
 Expected: FAIL because policy functions are absent.
 
-- [ ] **Step 3: Implement the pure policy engine**
+- [x] **Step 3: Implement the pure policy engine**
 
 `evaluateToolPermission` first honors `{ mode: 'none' }`, then exact active grants, then exact capabilities, and otherwise requests approval. A hard invalid/unknown tool is denied before this function is called.
 
-- [ ] **Step 4: Run policy tests until GREEN**
+- [x] **Step 4: Run policy tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/policy.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Write failing approval integration tests**
+- [x] **Step 5: Write failing approval integration tests**
 
 Using the real in-memory app, prove:
 
@@ -328,13 +328,13 @@ Using the real in-memory app, prove:
 6. Revoking the grant makes the next delete require approval again.
 7. Resolving another user's request is forbidden.
 
-- [ ] **Step 6: Run approval tests and observe RED**
+- [x] **Step 6: Run approval tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/approvals.test.ts`
 
 Expected: FAIL because approval execution is absent.
 
-- [ ] **Step 7: Implement invocation, approval resolution, and grant revocation**
+- [x] **Step 7: Implement invocation, approval resolution, and grant revocation**
 
 Validate raw arguments with the tool's Zod schema before policy evaluation. Store the parsed frozen arguments. `invokeAgentTool` records successful/failed executions in `agentToolCalls`; pending approval is represented by `agentRequests` and returns:
 
@@ -348,13 +348,13 @@ Add `deleteTask` to `agentDefinition` in this step, with version `1`, a Zod
 `{ taskId: string }` input, and `{ mode: 'required', remember: true }`. Its
 effect must delete only a task owned by `ctx.userId`.
 
-- [ ] **Step 8: Run focused agent tests until GREEN**
+- [x] **Step 8: Run focused agent tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/policy.test.ts examples/agent-chat/src/agent/approvals.test.ts examples/agent-chat/src/agent/runtime.test.ts examples/agent-chat/src/agent/model.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add examples/agent-chat/src/agent
@@ -384,23 +384,23 @@ git commit -m "feat(agent-chat): enforce tool approvals and grants"
 - `AgentResponderInput` gains bounded `memory` and `inbox` arrays and no longer depends on runtime loading every row inline.
 - `sendAgentEvent` derives event delivery/aggregation/capabilities from `agentDefinition.events`; callers cannot supply authority in payload text.
 
-- [ ] **Step 1: Write failing memory tests**
+- [x] **Step 1: Write failing memory tests**
 
 Prove that trusted user/system sources can upsert `(userId, key)`, edit, and delete memory; another user cannot edit/delete it; an untrusted source is rejected; and an upsert preserves one row while updating `value`, `sourceType`, `sourceId`, and `updatedAt`.
 
-- [ ] **Step 2: Run memory tests and observe RED**
+- [x] **Step 2: Run memory tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/memory.test.ts`
 
 Expected: FAIL because memory operations are absent.
 
-- [ ] **Step 3: Implement memory operations and run GREEN**
+- [x] **Step 3: Implement memory operations and run GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/memory.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Write failing inbox tests**
+- [x] **Step 4: Write failing inbox tests**
 
 Prove:
 
@@ -412,29 +412,29 @@ Prove:
 - successful acknowledgement marks only selected rows consumed;
 - `latest`, `collect`, and `count` produce bounded literal context items.
 
-- [ ] **Step 5: Run inbox tests and observe RED**
+- [x] **Step 5: Run inbox tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/inbox.test.ts`
 
 Expected: FAIL because inbox operations are absent.
 
-- [ ] **Step 6: Implement inbox operations and run GREEN**
+- [x] **Step 6: Implement inbox operations and run GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/inbox.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 7: Write failing context/runtime tests**
+- [x] **Step 7: Write failing context/runtime tests**
 
 Seed more than the configured limits and assert that context contains exactly the most recent 20 conversation messages, at most 10 aggregated non-silent inbox items, at most 8 memory rows, current tasks, the trigger, and the singleton instructions. Assert a successful turn acknowledges selected inbox rows; a failed turn leaves them pending. Assert an empty/no-action response creates no assistant message.
 
-- [ ] **Step 8: Run context/runtime tests and observe RED**
+- [x] **Step 8: Run context/runtime tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/context.test.ts examples/agent-chat/src/agent/runtime.test.ts`
 
 Expected: FAIL because runtime still assembles context inline.
 
-- [ ] **Step 9: Implement the context boundary and refactor runtime/model**
+- [x] **Step 9: Implement the context boundary and refactor runtime/model**
 
 Keep the turn lock and `wakeSeq` recovery behavior unchanged. `runAgentTurn` calls `assembleAgentContext`, creates tool wrappers from the singleton declaration, acknowledges selected inbox only after an intentional non-failed outcome, and persists an assistant message only when responder text is non-empty.
 
@@ -444,13 +444,13 @@ Add `remember` to `agentDefinition` in this step, with version `1`, a Zod
 `{ key: string; value: string }` input, `{ mode: 'none' }`, and execution that
 delegates to the trusted-source memory operation.
 
-- [ ] **Step 10: Run all focused agent tests until GREEN**
+- [x] **Step 10: Run all focused agent tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent`
 
 Expected: PASS with no network calls.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add examples/agent-chat/src/agent
@@ -476,43 +476,43 @@ git commit -m "feat(agent-chat): add bounded memory and system inbox"
 - All user IDs come from protected context, never input.
 - `fireCommitment` emits declared `task.reminder_due` inbox instead of directly inserting an ad hoc system conversation message.
 
-- [ ] **Step 1: Write failing reminder-event test**
+- [x] **Step 1: Write failing reminder-event test**
 
 Update the existing commitment test to assert one fired commitment creates one pending `task.reminder_due` inbox event, wakes the same thread once, and remains idempotent on a second job delivery. The model's later turn, not `fireCommitment`, owns any assistant conversation message.
 
-- [ ] **Step 2: Run runtime test and observe RED**
+- [x] **Step 2: Run runtime test and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/runtime.test.ts`
 
 Expected: FAIL because `fireCommitment` still writes a system message directly.
 
-- [ ] **Step 3: Implement declared reminder event flow and run GREEN**
+- [x] **Step 3: Implement declared reminder event flow and run GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/runtime.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Write failing protected API tests**
+- [x] **Step 4: Write failing protected API tests**
 
 Use real procedure clients and sessions as existing Bunderstack API tests do. Prove unauthorized calls fail; user A cannot mutate user B's memory/request/grant even when supplying B's row ID; valid owner calls update/delete/resolve/revoke and publish realtime changes.
 
-- [ ] **Step 5: Run API tests and observe RED**
+- [x] **Step 5: Run API tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/api.test.ts examples/agent-chat/src/api-mount.test.ts`
 
 Expected: FAIL because the protected procedures are absent.
 
-- [ ] **Step 6: Implement thin protected procedures**
+- [x] **Step 6: Implement thin protected procedures**
 
 Define ArkType input/output schemas. Handlers resolve `context.user.id`, delegate to the agent modules, and return stable IDs/status values. They contain no duplicated policy or Drizzle mutation logic beyond the existing `sendMessage` entry boundary.
 
-- [ ] **Step 7: Run API and focused agent tests until GREEN**
+- [x] **Step 7: Run API and focused agent tests until GREEN**
 
 Run: `bun test examples/agent-chat/src/api.test.ts examples/agent-chat/src/api-mount.test.ts examples/agent-chat/src/agent`
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add examples/agent-chat/src/api.ts examples/agent-chat/src/api.test.ts examples/agent-chat/src/api-mount.test.ts examples/agent-chat/src/agent
@@ -539,43 +539,43 @@ git commit -m "feat(agent-chat): expose agent memory and approval actions"
 - Better Auth config enables email/password and configures anonymous `generateName` and `onLinkAccount` using the schema-typed auth factory.
 - The initial anonymous entry requires no typed name.
 
-- [ ] **Step 1: Write failing friendly-name tests**
+- [x] **Step 1: Write failing friendly-name tests**
 
 Inject literal random values and assert human-readable adjective/animal output. Cover the lower and upper selection boundaries without relying on nondeterministic `Math.random`.
 
-- [ ] **Step 2: Run name tests and observe RED**
+- [x] **Step 2: Run name tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/friendly-name.test.ts`
 
 Expected: FAIL because the generator is absent.
 
-- [ ] **Step 3: Implement the name generator and run GREEN**
+- [x] **Step 3: Implement the name generator and run GREEN**
 
 Use compact, non-offensive English word lists matching the existing English UI. The function returns exactly `Adjective Animal`.
 
-- [ ] **Step 4: Write failing transfer integration test**
+- [x] **Step 4: Write failing transfer integration test**
 
 Seed an anonymous user with a thread, messages, runs, tool calls, commitments, tasks, memory, inbox, requests, and grants plus a fresh permanent user. Call `transferAnonymousAgentData` and assert every row now belongs to the permanent user, no row remains on the anonymous ID, and deleting the anonymous user does not cascade-delete transferred data.
 
-- [ ] **Step 5: Run transfer test and observe RED**
+- [x] **Step 5: Run transfer test and observe RED**
 
 Run: `bun test examples/agent-chat/src/agent/auth-transfer.test.ts`
 
 Expected: FAIL because transfer is absent.
 
-- [ ] **Step 6: Implement transactional transfer and Better Auth hooks**
+- [x] **Step 6: Implement transactional transfer and Better Auth hooks**
 
 Use the auth factory form `auth: ({ db }) => ({ ... })`. Enable `emailAndPassword: { enabled: true }`. Configure `anonymous({ generateName, onLinkAccount })`; `onLinkAccount` calls `transferAnonymousAgentData(db, anonymousUser.user.id, newUser.user.id)` before Better Auth deletes the anonymous user. Update child rows safely around the unique thread relationship and keep the operation transactional.
 
 The experiment covers sign-up into a fresh account. If the destination already owns an agent thread, reject the transfer with a clear error rather than merging histories.
 
-- [ ] **Step 7: Replace the name form with one-click anonymous entry**
+- [x] **Step 7: Replace the name form with one-click anonymous entry**
 
 `LoginGate` shows the product explanation and one `Continue anonymously` button. It calls only `authClient.signIn.anonymous()` and invalidates the router; it does not call `updateUser`.
 
 Expose `isAnonymous` in `fetchUser` so the agent desk can conditionally show the save panel in Task 7.
 
-- [ ] **Step 8: Run focused tests and type checking until GREEN**
+- [x] **Step 8: Run focused tests and type checking until GREEN**
 
 Run: `bun test examples/agent-chat/src/agent/friendly-name.test.ts examples/agent-chat/src/agent/auth-transfer.test.ts`
 
@@ -583,7 +583,7 @@ Run: `bunx tsc --noEmit -p examples/agent-chat/tsconfig.json`
 
 Expected: both exit 0.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add examples/agent-chat/src/agent/friendly-name.ts examples/agent-chat/src/agent/friendly-name.test.ts examples/agent-chat/src/agent/auth-transfer.ts examples/agent-chat/src/agent/auth-transfer.test.ts examples/agent-chat/src/bunderstack.ts examples/agent-chat/src/components/LoginGate.tsx examples/agent-chat/src/utils/session.ts
@@ -612,7 +612,7 @@ git commit -m "feat(agent-chat): add anonymous account upgrade"
 - `ApprovalPanel` consumes pending requests and active grants; it exposes `Allow now`, `Always allow`, `Reject`, and `Revoke` actions.
 - `SaveAgentPanel` is shown only for `isAnonymous` users and calls Better Auth email sign-up with the current friendly name.
 
-- [ ] **Step 1: Write failing presentational component tests**
+- [x] **Step 1: Write failing presentational component tests**
 
 Use `renderToStaticMarkup` from `react-dom/server` with literal props. Prove
 `MemoryPanel` renders kind/key/value plus labeled Edit/Delete actions,
@@ -621,13 +621,13 @@ Use `renderToStaticMarkup` from `react-dom/server` with literal props. Prove
 email/password fields and `Save your agent`. These tests must fail because the
 components do not exist; do not test source text or mocks.
 
-- [ ] **Step 2: Run component tests and observe RED**
+- [x] **Step 2: Run component tests and observe RED**
 
 Run: `bun test examples/agent-chat/src/components/MemoryPanel.test.tsx examples/agent-chat/src/components/ApprovalPanel.test.tsx examples/agent-chat/src/components/SaveAgentPanel.test.tsx`
 
 Expected: FAIL because the components are absent.
 
-- [ ] **Step 3: Implement the prop-driven components and run GREEN**
+- [x] **Step 3: Implement the prop-driven components and run GREEN**
 
 Keep data loading outside the presentational components. Pass rows, pending
 state, errors, and callbacks as props so server rendering exercises the real
@@ -637,19 +637,19 @@ Run: `bun test examples/agent-chat/src/components/MemoryPanel.test.tsx examples/
 
 Expected: PASS.
 
-- [ ] **Step 4: Wire queries and mutations in the agent desk**
+- [x] **Step 4: Wire queries and mutations in the agent desk**
 
 Query `agentMemory`, `agentRequests`, and `agentToolGrants` using generated read-only APIs. Add protected mutations through the custom API. After a successful mutation, invalidate the affected queries. Keep existing realtime invalidation subscriptions for all new table names.
 
-- [ ] **Step 5: Complete the memory panel integration**
+- [x] **Step 5: Complete the memory panel integration**
 
 Show memory kind/key/value/source. Provide explicit edit, save, cancel, and delete controls with accessible labels. Editing changes the next turn's context; do not mutate generated CRUD directly.
 
-- [ ] **Step 6: Complete approval and grant integration**
+- [x] **Step 6: Complete approval and grant integration**
 
 Pending approvals show the tool name and frozen argument summary. Buttons map exactly to `allow_once`, `always_allow`, and `reject`. Active grants show tool/version, granted time, last-used time, and `Revoke`. Never render hidden capability data.
 
-- [ ] **Step 7: Complete the non-blocking save integration**
+- [x] **Step 7: Complete the non-blocking save integration**
 
 Show `Save your agent` only for anonymous users. Ask for email/password, call:
 
@@ -663,11 +663,11 @@ authClient.signUp.email({
 
 On success, invalidate the router and queries without leaving the desk. Show Better Auth errors inline. Do not require email verification.
 
-- [ ] **Step 8: Extend the existing visual language**
+- [x] **Step 8: Extend the existing visual language**
 
 Keep the current technical desk aesthetic and responsive one-column behavior. Add the three panels to the runtime rail or a clearly subordinate section; do not redesign the application. Every control needs visible focus, disabled/pending state, and text that does not rely on color.
 
-- [ ] **Step 9: Run component tests, build, and typecheck**
+- [x] **Step 9: Run component tests, build, and typecheck**
 
 Run: `bun test examples/agent-chat/src/components`
 
@@ -677,7 +677,7 @@ Run: `bunx tsc --noEmit -p examples/agent-chat/tsconfig.json`
 
 Expected: all three commands exit 0.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add examples/agent-chat/src/components examples/agent-chat/src/routes/index.tsx examples/agent-chat/src/router.tsx examples/agent-chat/src/styles.css
@@ -698,17 +698,17 @@ git commit -m "feat(agent-chat): expose agent memory and permissions"
 - Documents the implemented app-local experiment without claiming a public Bunderstack API.
 - Produces fresh verification evidence for focused tests, type checking, production build, and repository-wide compatibility.
 
-- [ ] **Step 1: Update the example README**
+- [x] **Step 1: Update the example README**
 
 Document the one-click anonymous flow, `Save your agent`, app-local declaration, bounded context, memory editor, system inbox delivery modes, approval/grant lifecycle, event capabilities, security boundaries, and explicit non-goals. Retain the existing provider configuration and worker/deployment notes. State that the API is intentionally unstable and app-local.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run: `bun test examples/agent-chat/src`
 
 Expected: all agent-chat tests pass with zero failures and no network requirement.
 
-- [ ] **Step 3: Run example typecheck and production build**
+- [x] **Step 3: Run example typecheck and production build**
 
 Run: `bunx tsc --noEmit -p examples/agent-chat/tsconfig.json`
 
@@ -716,7 +716,7 @@ Run: `bun run --cwd examples/agent-chat build`
 
 Expected: both exit 0.
 
-- [ ] **Step 4: Run workspace verification**
+- [x] **Step 4: Run workspace verification**
 
 Run: `bun run typecheck:all`
 
@@ -724,7 +724,7 @@ Run: `bun test`
 
 Expected: type checking succeeds. Tests have no new failures; if the repository's documented sandbox-only S3 loopback baseline occurs, record exact test names/output and rerun the agent-chat suite separately to prove the feature itself is green.
 
-- [ ] **Step 5: Inspect the final diff**
+- [x] **Step 5: Inspect the final diff**
 
 Run: `git diff --check $(git merge-base main HEAD)..HEAD`
 
@@ -732,7 +732,7 @@ Run: `git status --short`
 
 Expected: no whitespace errors and only intentional agent-chat, migration, README, and plan changes. Do not include unrelated files.
 
-- [ ] **Step 6: Commit documentation or final fixes**
+- [x] **Step 6: Commit documentation or final fixes**
 
 ```bash
 git add examples/agent-chat/README.md
