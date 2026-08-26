@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useRef, useState } from 'react'
 
 import { app } from '~/bunderstack'
 import { LoginGate } from '~/components/LoginGate'
+import { MemoryPanel } from '~/components/MemoryPanel'
+import { ApprovalPanel } from '~/components/ApprovalPanel'
+import { SaveAgentPanel } from '~/components/SaveAgentPanel'
 
 const getAppName = createServerFn({ method: 'GET' }).handler(
   () => app.env.PUBLIC_APP_NAME,
@@ -19,17 +22,26 @@ function HomePage() {
   const { user } = Route.useRouteContext()
   const { appName } = Route.useLoaderData()
   if (!user) return <LoginGate />
-  return <AgentDesk appName={appName} userName={user.name} />
+  return (
+    <AgentDesk
+      appName={appName}
+      userName={user.name}
+      isAnonymous={user.isAnonymous}
+    />
+  )
 }
 
 function AgentDesk({
   appName,
   userName,
+  isAnonymous,
 }: {
   appName: string
   userName: string
+  isAnonymous: boolean
 }) {
   const { api } = Route.useRouteContext()
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const messagesEnd = useRef<HTMLDivElement>(null)
@@ -50,6 +62,19 @@ function AgentDesk({
   const commitments = useQuery(
     api.agentCommitments.list.queryOptions({ input: { limit: 20 } }),
   )
+  const memory = useQuery(
+    api.agentMemory.list.queryOptions({ input: { limit: 50 } }),
+  )
+  const requests = useQuery(
+    api.agentRequests.list.queryOptions({
+      input: { limit: 20, filters: { status: 'pending' } },
+    }),
+  )
+  const grants = useQuery(
+    api.agentToolGrants.list.queryOptions({
+      input: { limit: 20, filters: { status: 'active' } },
+    }),
+  )
 
   const send = useMutation(
     api.sendMessage.mutationOptions({
@@ -57,6 +82,26 @@ function AgentDesk({
         setContent('')
         void queryClient.invalidateQueries()
       },
+    }),
+  )
+  const updateMemory = useMutation(
+    api.updateMemory.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries(),
+    }),
+  )
+  const deleteMemory = useMutation(
+    api.deleteMemory.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries(),
+    }),
+  )
+  const resolveApproval = useMutation(
+    api.resolveApproval.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries(),
+    }),
+  )
+  const revokeGrant = useMutation(
+    api.revokeGrant.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries(),
     }),
   )
 
@@ -252,6 +297,60 @@ function AgentDesk({
             <p className="quiet">
               Tasks created through the agent appear here.
             </p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel control-panel" aria-label="Agent controls">
+        <div className="panel-heading">
+          <div>
+            <span className="section-index">04</span>
+            <h2>User-held controls</h2>
+          </div>
+          <span className="task-count">memory · authority · account</span>
+        </div>
+        <div className="control-grid">
+          <MemoryPanel
+            rows={memory.data?.items ?? []}
+            pending={updateMemory.isPending || deleteMemory.isPending}
+            error={
+              updateMemory.isError || deleteMemory.isError
+                ? 'Memory was not changed. Try again.'
+                : null
+            }
+            onUpdate={(id, value) =>
+              updateMemory.mutateAsync({ id, value }).then(() => undefined)
+            }
+            onDelete={(id) =>
+              deleteMemory.mutateAsync({ id }).then(() => undefined)
+            }
+          />
+          <ApprovalPanel
+            requests={requests.data?.items ?? []}
+            grants={grants.data?.items ?? []}
+            pending={resolveApproval.isPending || revokeGrant.isPending}
+            error={
+              resolveApproval.isError || revokeGrant.isError
+                ? 'The permission was not changed. Try again.'
+                : null
+            }
+            onResolve={(id, decision) =>
+              resolveApproval
+                .mutateAsync({ id, decision })
+                .then(() => undefined)
+            }
+            onRevoke={(id) =>
+              revokeGrant.mutateAsync({ id }).then(() => undefined)
+            }
+          />
+          {isAnonymous && (
+            <SaveAgentPanel
+              userName={userName}
+              onSaved={async () => {
+                await router.invalidate()
+                await queryClient.invalidateQueries()
+              }}
+            />
           )}
         </div>
       </section>
