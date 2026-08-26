@@ -22,6 +22,7 @@
     "better-auth": "^1.0.0",
     "bunderstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
+    "marked": "^18.0.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "superjson": "^2.2.0",

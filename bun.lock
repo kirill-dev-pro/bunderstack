@@ -28,6 +28,7 @@
         "better-auth": "^1.0.0",
         "bunderstack": "workspace:*",
         "drizzle-orm": "^0.45.0",
+        "marked": "^18.0.11",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "superjson": "^2.2.0",
@@ -279,7 +280,7 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.21.0",
+      "version": "0.21.1",
       "bin": {
         "bunderstack": "./dist/cli.js",
       },
@@ -1304,7 +1305,7 @@
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
-    "marked": ["marked@14.1.4", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-vkVZ8ONmUdPnjCKc5uTRvmkRbx4EAi2OkTOXmfTDhZz3OFqMNBM1oTTWwTr4HY4uAEojhzPf+Fy8F1DWa3Sndg=="],
+    "marked": ["marked@18.0.11", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-HnslJfsZkRPBDJRHvVtAaWlZHEpSu7u8LgQuJCELjRKuWR+hpq4A7sLq3p8HaI9ypVoXDXxV34CsQJEe1+J5Aw=="],
 
     "merge-anything": ["merge-anything@5.1.7", "", { "dependencies": { "is-what": "^4.1.8" } }, "sha512-eRtbOb1N5iyH0tkQDAoQ4Ipsp/5qSR79Dzrz8hEPxRX10RWWR/iQXdoKmBSRCThY1Fh5EhISDtpSc93fpxUniQ=="],
 
@@ -1565,6 +1566,8 @@
     "bunderstack-example-kanban/drizzle-kit": ["drizzle-kit@0.31.10", "", { "dependencies": { "@drizzle-team/brocli": "^0.10.2", "@esbuild-kit/esm-loader": "^2.5.5", "esbuild": "^0.25.4", "tsx": "^4.21.0" }, "bin": { "drizzle-kit": "bin.cjs" } }, "sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw=="],
 
     "bunderstack-example-kanban/solid-js": ["solid-js@1.9.13", "", { "dependencies": { "csstype": "^3.1.0", "seroval": "~1.5.0", "seroval-plugins": "~1.5.0" } }, "sha512-6hJeJMOcEX8ktqjpDoJZEmld3ijvcvWBDtiXBm7f4332SiFN66QeAQI1REQshvyUoISsSeJ4PHDauKYbwao9JQ=="],
+
+    "bunderstack-example-kanban-tanstack/marked": ["marked@14.1.4", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-vkVZ8ONmUdPnjCKc5uTRvmkRbx4EAi2OkTOXmfTDhZz3OFqMNBM1oTTWwTr4HY4uAEojhzPf+Fy8F1DWa3Sndg=="],
 
     "bunderstack-example-todo-solid-2/@tanstack/solid-query": ["@tanstack/solid-query@6.0.0-rc.0", "", { "dependencies": { "@tanstack/query-core": "5.101.0" }, "peerDependencies": { "solid-js": ">=2.0.0-rc.0 <3.0.0" } }, "sha512-v6U7OWYAI9DAPrmDjizCJ90/RrJU+F2Uvu9s/xfwsnOVHQeEC15T2Jsmn1dqCHm4XpuUv21t1SNgLqB+zzzsJQ=="],
 

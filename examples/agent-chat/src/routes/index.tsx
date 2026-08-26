@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useEffect, useRef, useState } from 'react'
+import { marked } from 'marked'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { app } from '~/bunderstack'
 import { ApprovalPanel } from '~/components/ApprovalPanel'
@@ -207,7 +208,7 @@ function AgentDesk({
                       </span>
                       <time>{formatTime(message.createdAt)}</time>
                     </div>
-                    <p>{message.content}</p>
+                    <MarkdownContent content={message.content} />
                   </article>
                 ))}
 
@@ -752,5 +753,18 @@ function CommitmentPopover({
         </div>
       )}
     </div>
+  )
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  const html = useMemo(() => {
+    return marked.parse(content, { breaks: true, gfm: true }) as string
+  }, [content])
+
+  return (
+    <div
+      className="message-content"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   )
 }

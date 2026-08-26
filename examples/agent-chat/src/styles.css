@@ -176,15 +176,15 @@ h1 {
   font-size: 9px;
   margin-bottom: 7px;
 }
-.message p {
-  margin: 0;
+.message-content {
   padding: 13px 15px;
   border: 1px solid var(--line);
   background: var(--panel-raised);
   line-height: 1.5;
-  white-space: pre-wrap;
+  font-size: 13px;
+  word-break: break-word;
 }
-.message--user p {
+.message--user .message-content {
   background: var(--acid);
   border-color: var(--acid);
   color: #111b12;
@@ -193,12 +193,134 @@ h1 {
   max-width: 100%;
   text-align: center;
 }
-.message--system p {
+.message--system .message-content {
   display: inline-block;
   border-style: dashed;
   color: var(--warning);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
+}
+
+/* Markdown typography inside message */
+.message-content p {
+  margin: 0 0 10px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+.message-content ul,
+.message-content ol {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+.message-content ul:last-child,
+.message-content ol:last-child {
+  margin-bottom: 0;
+}
+.message-content li {
+  margin-bottom: 4px;
+}
+.message-content strong {
+  font-weight: 600;
+}
+.message--user .message-content strong {
+  color: #050d06;
+}
+.message-content code {
+  padding: 2px 5px;
+  background: #081412;
+  border: 1px solid #1f332f;
+  border-radius: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  color: var(--acid);
+}
+.message--user .message-content code {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #07150a;
+}
+.message-content pre {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  background: #060e0d;
+  border: 1px solid #1c2e2a;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.message-content pre code {
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: #9cd5ce;
+  font-size: 11px;
+}
+.message-content blockquote {
+  margin: 8px 0 10px;
+  padding: 4px 12px;
+  border-left: 3px solid var(--acid);
+  color: var(--muted);
+  background: rgba(184, 245, 93, 0.05);
+}
+.message--user .message-content blockquote {
+  border-left-color: #111b12;
+  color: #2b3d2e;
+  background: rgba(0, 0, 0, 0.06);
+}
+.message-content a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.message--user .message-content a {
+  color: #062823;
+}
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4 {
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.message-content h1:first-child,
+.message-content h2:first-child,
+.message-content h3:first-child,
+.message-content h4:first-child {
+  margin-top: 0;
+}
+.message--user .message-content h1,
+.message--user .message-content h2,
+.message--user .message-content h3,
+.message--user .message-content h4 {
+  color: #111b12;
+}
+.message-content hr {
+  margin: 10px 0;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+.message-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.message-content th,
+.message-content td {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+}
+.message-content th {
+  background: rgba(35, 52, 49, 0.5);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
 }
 .message--approval {
   max-width: 88%;
