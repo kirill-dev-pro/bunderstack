@@ -69,6 +69,17 @@ Bun.serve({ fetch: app.handler })
 export type App = typeof app
 ```
 
+## Package Architecture (0.21+)
+
+All capabilities are unified in the single `bunderstack` package. Import client, query, sync, and start tools via subpaths:
+
+```ts
+import { createClient } from 'bunderstack/client'          // Framework-neutral RPC & LiveView
+import { createClient as createQueryClient, syncRealtime } from 'bunderstack/query' // TanStack Query
+import { createSyncClient } from 'bunderstack/sync'           // TanStack DB collections
+import { bunderstackStart } from 'bunderstack/start'          // TanStack Start full-stack helpers
+```
+
 ## One API graph
 
 The graph is a consequence of the declaration, not a thing you assemble.
@@ -97,6 +108,8 @@ const posts = useQuery(
   }),
 )
 
+// CRUD update uses direct flat inputs
+await api.posts.update.call({ id: 'post_123', title: 'Updated Title' })
 await api.posts.create.call({ title: 'Typed end to end' })
 await api.greeting.call({ name: 'Ada' })
 ```
@@ -157,9 +170,8 @@ metadata carries event IDs, resumable delivery, and reconnect state; there is
 no client registration or separate subscription POST protocol.
 
 Idle streams carry a transport-only `heartbeat` every five seconds so Bun and
-intermediate HTTP servers keep the response open. The query client consumes
-heartbeats internally: they do not update cache state, call `onChange`, enter
-the Publisher replay buffer, or advance `lastEventId`.
+intermediate HTTP servers keep the response open. The query client monitors
+heartbeats and automatically reconnects if the connection drops.
 
 ```ts
 import { syncRealtime } from 'bunderstack/query'
@@ -168,6 +180,8 @@ const realtime = syncRealtime({
   api,
   queryClient,
   tables: ['posts', 'comments'],
+  notifyScheduler: 'frame', // batches cache flushes via requestAnimationFrame
+  apply: 'patch',           // patches cached list queries in-place
 })
 
 realtime.close()
@@ -199,25 +213,12 @@ view.patch((rows) => {
 view.close()
 ```
 
-Frames are `snapshot`, `upsert` (with the id the row follows), `remove`, and
-`heartbeat`. Every connection starts with a snapshot, so a reconnect is the
-resynchronisation: there is no event buffer, no `Last-Event-ID` bookkeeping,
-and no refetch path.
-
-A live view accepts `limit`, `sort`, `order`, and `filters`. `q`, `offset`, and
-`cursor` belong to `GET /api/{table}`, because a stream cannot decide text
-search or pagination from one record. Reading a live view needs the table's
-`list` right, which also gates every change the stream delivers.
-
-`bunderstack/client` has no dependencies and no framework binding: `subscribe`
-plus `getRows` is the pair `useSyncExternalStore` expects, and a Solid or Vue
-binding writes `getRows()` into a store from the same listener.
+`bunderstack/client` has no dependencies and no framework binding. Native UI bindings are available for React (`bunderstack/client/react`), Solid (`bunderstack/client/solid`), Vue (`bunderstack/client/vue`), and Svelte (`bunderstack/client/svelte`).
 
 ## Files
 
 Configured buckets are generated under `api.files.<bucket>` and have typed
-upload, download, confirmation, and deletion procedures. The query client adds
-small domain helpers:
+upload, download, confirmation, and deletion procedures:
 
 ```ts
 const uploaded = await api.files.avatars.upload(file)
@@ -259,7 +260,7 @@ const feed = sync.posts.scopedCollection({
 await feed.loadMore()
 ```
 
-Generated CRUD returns the canonical changed row. `bunderstack-sync` writes
+Generated CRUD returns the canonical changed row. `bunderstack/sync` writes
 that response into every materialized view without a follow-up list refetch;
 the later realtime echo is an idempotent confirmation. Updates to the same row
 are coalesced while a request is in flight, which keeps cursor-like optimistic
@@ -281,27 +282,28 @@ image must:
 
 - contain the built server and production dependencies;
 - include any operating-system packages the application needs;
-- start the application using its image command;
+- start the application using its image command (`bun dist/server/server.js`);
 - listen on `0.0.0.0` and the hosting platform's `PORT`;
 - expose the application's `/api/health` route;
 - receive database, storage, auth, and application configuration at runtime;
 - run jobs and cron in-process unless the host deliberately selects another
   supported `BUNDERSTACK_ROLE`.
 
+For TanStack Start and Bun full-stack applications, add `src/server.ts` to serve static assets from `dist/client` in production.
+
 [Bunderhost](https://github.com/kirill-dev-pro/bunderhost#custom-application-image)
 generates a standard production image by default. When an application needs OS
 packages such as Chromium or custom image construction, Bunderhost instead uses
-a committed repository-root `Dockerfile.bunderhost` unchanged. That filename is
-a Bunderhost deployment convention, not part of the Bunderstack API or
-blueprint schema.
+a committed repository-root `Dockerfile.bunderhost` unchanged.
 
-Call `await app.close()` in tests and standalone scripts that own the app.
-Jobs and cron run in the application process by default. When a deliberately
-separate worker publishes realtime changes, it must share the Redis Publisher
-with the web process.
-
-Examples live in [`examples`](./examples), including Todo, Twitter, Kanban,
+Examples live in [`examples`](./examples), including Agent Chat, Todo, Twitter, Kanban,
 TanStack DB, and tldraw applications.
+
+## Migration Guides
+
+- [Migrating to 0.21](docs/MIGRATION-0.21.md) — Single-package consolidation, subpath exports, direct CRUD inputs, and production server entry.
+- [Migrating to 0.17](docs/MIGRATION-0.17.md) — Unified oRPC procedure graph, Standard Schema, and typed filters.
+- [Migrating to 0.16](docs/MIGRATION-0.16.md) — Initial module-scope API builders and runtime contracts.
 
 ## Development
 
@@ -312,8 +314,7 @@ bun run typecheck:all
 ```
 
 Every notable user-facing change must update the root `[Unreleased]` section
-of [`CHANGELOG.md`](./CHANGELOG.md). A packaging contract test keeps the copy
-shipped with the `bunderstack` npm package identical.
+of [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## License
 

@@ -1,6 +1,6 @@
 # bunderstack
 
-The server package for Bunderstack's unified, type-safe oRPC backend.
+The complete backend & full-stack framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, live views, and client bindings from one single file declaration.
 
 ```sh
 bun add bunderstack better-auth drizzle-orm valibot @libsql/client
@@ -44,16 +44,28 @@ Use the in-memory Publisher for one process or configure
 `realtime: { redis: process.env.REDIS_URL! }` for multi-process delivery and
 replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
+## Package Subpaths (0.21+)
+
+- `bunderstack` — Backend runtime (`createBunderstack`, `provision`, `defineApi`, `buildApiRegistry`)
+- `bunderstack/client` — Framework-neutral RPC & LiveView client (`createClient`, `createLiveView`)
+- `bunderstack/client/rest` — Type-safe REST client
+- `bunderstack/client/react`, `bunderstack/client/solid`, `bunderstack/client/vue`, `bunderstack/client/svelte` — LiveView UI bindings
+- `bunderstack/query` & `bunderstack/query/react` — TanStack Query client (`createClient`, `syncRealtime`)
+- `bunderstack/sync` — TanStack DB collections (`createSyncClient`)
+- `bunderstack/start` & `bunderstack/start/auth` — TanStack Start full-stack integration
+- `bunderstack/database/*` — Database adapters (`libsql`, `postgres-js`, `bun-sql`, `pglite`)
+- `bunderstack/storage/*` — Storage adapters (`s3`, `disk`)
+- `bunderstack/email/*` — Email adapters (`smtp`, `resend`, `console`)
+- `bunderstack/jobs/*` — Job queue adapters (`memory`, `redis`)
+
 See the [workspace documentation](https://github.com/kirill-dev-pro/bunderstack#readme) for webhooks, clients,
 storage, collections, lifecycle, and complete examples.
 
 ## Upgrading
 
-0.17 is a breaking release: tRPC became oRPC, generated `list` takes nested
-typed `filters`, error codes are oRPC's own, and realtime names tables by their
-schema key. Every change is listed with before/after code in the migration
-guides, which ship with the package as `CHANGELOG.md` and live in full at:
+Every change is listed with before/after code in the migration guides, which live in full at:
 
+- [Migrating to 0.21](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.21.md)
 - [Migrating to 0.17](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.17.md)
 - [Migrating to 0.16](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.16.md)
 
