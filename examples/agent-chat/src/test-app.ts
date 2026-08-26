@@ -4,9 +4,13 @@ import { provision } from 'bunderstack/provision'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
+import { access } from './access'
 import * as schema from './schema'
 
 export interface TestApp {
+  app: Awaited<
+    ReturnType<typeof createBunderstack<typeof schema, typeof access>>
+  >
   ctx: AgentRuntimeContext
   enqueued: EnqueuedJob[]
   seedUser(name: string): Promise<string>
@@ -16,6 +20,7 @@ export interface TestApp {
 export async function createTestApp(): Promise<TestApp> {
   const app = await createBunderstack({
     schema,
+    access,
     database: { adapter: libsql(), url: ':memory:' },
     auth: {
       baseURL: 'http://localhost:3007',
@@ -38,6 +43,7 @@ export async function createTestApp(): Promise<TestApp> {
   }
 
   return {
+    app,
     ctx,
     enqueued,
     async seedUser(name) {

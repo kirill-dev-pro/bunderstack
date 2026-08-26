@@ -7,6 +7,7 @@ const ownRows = (ctx: AccessContext) => ({
 })
 
 const agentOwnedReadOnly = {
+  crud: true,
   list: 'authenticated',
   get: 'authenticated',
   create: 'deny',
@@ -44,6 +45,30 @@ export const access = defineAccess(schema, {
     filterableColumns: ['threadId', 'status'],
     sortableColumns: ['dueAt'],
     defaultSort: { column: 'dueAt', order: 'asc' },
+  },
+  agentMemory: {
+    ...agentOwnedReadOnly,
+    filterableColumns: ['kind'],
+    sortableColumns: ['updatedAt', 'createdAt'],
+    defaultSort: { column: 'updatedAt', order: 'desc' },
+  },
+  agentInbox: {
+    ...agentOwnedReadOnly,
+    filterableColumns: ['threadId', 'status', 'delivery'],
+    sortableColumns: ['createdAt'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  },
+  agentRequests: {
+    ...agentOwnedReadOnly,
+    filterableColumns: ['threadId', 'status', 'kind'],
+    sortableColumns: ['createdAt'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  },
+  agentToolGrants: {
+    ...agentOwnedReadOnly,
+    filterableColumns: ['threadId', 'status', 'tool'],
+    sortableColumns: ['grantedAt'],
+    defaultSort: { column: 'grantedAt', order: 'desc' },
   },
   tasks: {
     ...agentOwnedReadOnly,
