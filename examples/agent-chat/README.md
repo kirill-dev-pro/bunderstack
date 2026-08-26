@@ -72,10 +72,10 @@ The implementation separates core concerns into explicit, app-local boundaries:
   - `notify`: Delivers a user-facing assistant message when due.
   - `tool_call`: Executes a validated, schedulable tool call (`createTask`, `completeTask`, `remember`, `deleteTask`) deterministically without model reinterpretation at wake time.
   - `objective`: Launches an autonomous model turn with a trusted execution envelope (`trigger: 'commitment'`) and structured terminal outcomes.
-- **Dependencies**: Commitments support explicit `dependsOn` relations. A dependent commitment stays `blocked` until all prerequisite commitments reach `completed`, and is automatically enqueued when dependencies finish.
-- **Tools**: The agent manages commitments via `createCommitment`, `listCommitments`, `cancelCommitment`, and `retryCommitment`.
+- **Schedules & Recurrence**: Commitments can be one-shot (with `dueAt`) or recurring (with `schedule: { kind: 'cron', expr }` or `{ kind: 'interval', everySeconds }`). Recurring commitments automatically compute their next trigger time and re-enqueue future runs.
+- **Tools**: The agent manages commitments via `createCommitment`, `listCommitments`, `cancelCommitment`, `pauseCommitment`, `resumeCommitment`, and `retryCommitment`.
 - **Approvals & Independence**: If a scheduled tool call requires user approval, the commitment transitions to `waiting_for_approval` and releases its worker/thread lock. Other independent commitments remain runnable. Resolving the approval resumes the exact commitment run.
-- **Explicit Terminal States**: Commitments transition through `pending`, `blocked`, `running`, `waiting_for_approval`, `completed`, `failed`, and `cancelled`. Completion requires verifiable tool execution evidence, not assistant prose.
+- **Explicit Terminal States**: Commitments transition through `pending`, `blocked`, `running`, `waiting_for_approval`, `paused`, `completed`, `failed`, and `cancelled`. Completion requires verifiable tool execution evidence, not assistant prose.
 
 ### 5. Policy Engine, Approvals, and Persistent Grants (`src/agent/policy.ts`, `src/agent/approvals.ts`)
 

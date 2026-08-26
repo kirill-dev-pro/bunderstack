@@ -269,7 +269,9 @@ h1 {
   animation-delay: -0.16s;
 }
 @keyframes typingBounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0.6);
     opacity: 0.3;
   }
@@ -437,11 +439,25 @@ h1 {
   font-size: 8px;
   text-transform: uppercase;
 }
-.commitment-status--fired {
+.commitment-status--fired,
+.commitment-status--completed {
   color: var(--muted);
 }
 .commitment-status--pending {
   color: var(--acid);
+}
+.commitment-status--paused {
+  color: #ffbf00;
+}
+.commitment-schedule-badge {
+  color: var(--cyan);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  background: rgba(86, 219, 198, 0.1);
+  border: 1px solid rgba(86, 219, 198, 0.25);
+  padding: 1px 5px;
+  border-radius: 2px;
+  white-space: nowrap;
 }
 .commitment-countdown {
   color: var(--acid);

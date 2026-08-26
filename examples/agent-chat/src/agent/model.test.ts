@@ -36,6 +36,8 @@ function input(
     })),
     listCommitments: mock(async () => []),
     cancelCommitment: mock(async ({ commitmentId }) => ({ commitmentId })),
+    pauseCommitment: mock(async ({ commitmentId }) => ({ commitmentId })),
+    resumeCommitment: mock(async ({ commitmentId }) => ({ commitmentId })),
     retryCommitment: mock(async ({ commitmentId }) => ({ commitmentId })),
     deleteTask: mock(async ({ taskId }) => ({
       id: taskId,
@@ -157,7 +159,9 @@ describe('AI responder factory', () => {
       'deleteTask',
       'listCommitments',
       'listTasks',
+      'pauseCommitment',
       'remember',
+      'resumeCommitment',
       'retryCommitment',
     ])
   })

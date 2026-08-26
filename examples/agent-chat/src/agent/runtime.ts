@@ -214,6 +214,9 @@ export async function runAgentTurn(
         requireDone<unknown[]>('listCommitments', args),
       cancelCommitment: (args) =>
         requireDone<unknown>('cancelCommitment', args),
+      pauseCommitment: (args) => requireDone<unknown>('pauseCommitment', args),
+      resumeCommitment: (args) =>
+        requireDone<unknown>('resumeCommitment', args),
       retryCommitment: (args) => requireDone<unknown>('retryCommitment', args),
       remember: (args) =>
         requireDone<{ key: string; value: unknown }>('remember', args),

@@ -1,4 +1,5 @@
 import { generateTypeId } from 'bunderstack'
+import { cronMatches, parseCron } from 'bunderstack/cron'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 
 import type { AgentRuntimeContext } from './runtime'
@@ -11,6 +12,7 @@ import {
   agentRequests,
   agentRuns,
   type CommitmentExecutionSpec,
+  type CommitmentSchedule,
 } from '../schema'
 import {
   agentToolApprovalRequired,
@@ -26,9 +28,38 @@ export interface CreateCommitmentInput {
   threadId: string
   userId: string
   title: string
-  dueAt: string
+  dueAt?: string
+  schedule?: CommitmentSchedule
   execution: CommitmentExecutionSpec
   dependsOn?: string[]
+}
+
+export function nextDueAt(
+  schedule: CommitmentSchedule,
+  fromDate: Date = new Date(),
+): Date {
+  if (schedule.kind === 'interval') {
+    if (schedule.everySeconds < 1) {
+      throw new Error('Interval everySeconds must be >= 1')
+    }
+    return new Date(fromDate.getTime() + schedule.everySeconds * 1000)
+  }
+
+  if (schedule.kind === 'cron') {
+    const parsed = parseCron(schedule.expr)
+    const startMs = Math.floor(fromDate.getTime() / 60000) * 60000 + 60000
+    for (let offsetMinutes = 0; offsetMinutes < 525600; offsetMinutes++) {
+      const candidateMs = startMs + offsetMinutes * 60000
+      if (cronMatches(parsed, candidateMs)) {
+        return new Date(candidateMs)
+      }
+    }
+    throw new Error(
+      `Could not find next matching occurrence for cron "${schedule.expr}"`,
+    )
+  }
+
+  throw new Error(`Unknown schedule kind: ${(schedule as any).kind}`)
 }
 
 function parseDueAt(value: string) {
@@ -65,7 +96,25 @@ export async function createCommitment(
   ctx: AgentRuntimeContext,
   input: CreateCommitmentInput,
 ) {
-  const dueAt = parseDueAt(input.dueAt)
+  let dueAt: Date
+  if (input.dueAt) {
+    dueAt = parseDueAt(input.dueAt)
+  } else if (input.schedule) {
+    dueAt = nextDueAt(input.schedule)
+  } else {
+    throw new Error('Commitment requires either dueAt or schedule')
+  }
+
+  if (input.schedule) {
+    if (input.schedule.kind === 'cron') {
+      parseCron(input.schedule.expr)
+    } else if (input.schedule.kind === 'interval') {
+      if (input.schedule.everySeconds < 1) {
+        throw new Error('Interval everySeconds must be at least 1')
+      }
+    }
+  }
+
   const execution = validateExecution(input.execution)
   const dependencyIds = [...new Set(input.dependsOn ?? [])]
   if (dependencyIds.length > 0) {
@@ -95,6 +144,7 @@ export async function createCommitment(
       userId: input.userId,
       kind: execution.kind,
       title: input.title,
+      schedule: input.schedule,
       executionSpec: execution,
       dueAt,
       status: initialStatus,
@@ -147,12 +197,71 @@ export async function cancelCommitment(
       and(
         eq(agentCommitments.id, input.commitmentId),
         eq(agentCommitments.userId, input.userId),
-        inArray(agentCommitments.status, ['pending', 'blocked']),
+        inArray(agentCommitments.status, ['pending', 'blocked', 'paused']),
       ),
     )
     .returning()
   if (!commitment) throw new Error('Cancellable commitment not found')
   await ctx.realtime.publish(agentCommitments, 'update', commitment)
+  return commitment
+}
+
+export async function pauseCommitment(
+  ctx: AgentRuntimeContext,
+  input: { commitmentId: string; userId: string },
+) {
+  const [commitment] = await ctx.db
+    .update(agentCommitments)
+    .set({ status: 'paused' })
+    .where(
+      and(
+        eq(agentCommitments.id, input.commitmentId),
+        eq(agentCommitments.userId, input.userId),
+        eq(agentCommitments.status, 'pending'),
+      ),
+    )
+    .returning()
+  if (!commitment) {
+    throw new Error('Pausable commitment not found')
+  }
+  await ctx.realtime.publish(agentCommitments, 'update', commitment)
+  return commitment
+}
+
+export async function resumeCommitment(
+  ctx: AgentRuntimeContext,
+  input: { commitmentId: string; userId: string },
+) {
+  const existing = await ctx.db
+    .select()
+    .from(agentCommitments)
+    .where(
+      and(
+        eq(agentCommitments.id, input.commitmentId),
+        eq(agentCommitments.userId, input.userId),
+      ),
+    )
+    .get()
+  if (!existing || existing.status !== 'paused') {
+    throw new Error('Paused commitment not found')
+  }
+  const nextDue = existing.schedule
+    ? nextDueAt(existing.schedule, new Date())
+    : existing.dueAt
+  const [commitment] = await ctx.db
+    .update(agentCommitments)
+    .set({ status: 'pending', dueAt: nextDue, error: null })
+    .where(eq(agentCommitments.id, input.commitmentId))
+    .returning()
+  await ctx.realtime.publish(agentCommitments, 'update', commitment)
+  await ctx.jobs.enqueue(
+    'agentCommitment',
+    { commitmentId: commitment.id },
+    {
+      dedupeKey: `agent-commitment:${commitment.id}:${nextDue.getTime()}`,
+      runAt: nextDue,
+    },
+  )
   return commitment
 }
 
@@ -539,6 +648,10 @@ export async function executeCommitment(
           requireDone<unknown[]>('listCommitments', args),
         cancelCommitment: (args) =>
           requireDone<unknown>('cancelCommitment', args),
+        pauseCommitment: (args) =>
+          requireDone<unknown>('pauseCommitment', args),
+        resumeCommitment: (args) =>
+          requireDone<unknown>('resumeCommitment', args),
         retryCommitment: (args) =>
           requireDone<unknown>('retryCommitment', args),
         remember: (args) => requireDone('remember', args),
@@ -679,12 +792,46 @@ export async function executeCommitment(
       .set({ status: 'done', completedAt })
       .where(eq(agentRuns.id, run!.id))
       .returning()
+    await ctx.realtime.publish(agentRuns, 'update', finishedRun)
+
+    if (claimed.schedule) {
+      const fromTime =
+        claimed.schedule.kind === 'interval' &&
+        claimed.dueAt.getTime() + claimed.schedule.everySeconds * 1000 >
+          completedAt.getTime()
+          ? claimed.dueAt
+          : completedAt
+      const nextDue = nextDueAt(claimed.schedule, fromTime)
+      const [updatedCommitment] = await ctx.db
+        .update(agentCommitments)
+        .set({
+          status: 'pending',
+          dueAt: nextDue,
+          currentRunId: null,
+          result,
+          error: null,
+          completedAt,
+        })
+        .where(eq(agentCommitments.id, claimed.id))
+        .returning()
+      await ctx.realtime.publish(agentCommitments, 'update', updatedCommitment)
+      await ctx.jobs.enqueue(
+        'agentCommitment',
+        { commitmentId: claimed.id },
+        {
+          dedupeKey: `agent-commitment:${claimed.id}:${nextDue.getTime()}`,
+          runAt: nextDue,
+        },
+      )
+      await releaseCompletedDependents(ctx, claimed.id)
+      return { status: 'completed' as const, result, nextDueAt: nextDue }
+    }
+
     const [finishedCommitment] = await ctx.db
       .update(agentCommitments)
       .set({ status: 'completed', result, completedAt })
       .where(eq(agentCommitments.id, claimed.id))
       .returning()
-    await ctx.realtime.publish(agentRuns, 'update', finishedRun)
     await ctx.realtime.publish(agentCommitments, 'update', finishedCommitment)
     await releaseCompletedDependents(ctx, claimed.id)
     return { status: 'completed' as const, result }
@@ -696,13 +843,44 @@ export async function executeCommitment(
       .set({ status: 'failed', error: message, completedAt })
       .where(eq(agentRuns.id, run!.id))
       .returning()
-    const [failedCommitment] = await ctx.db
-      .update(agentCommitments)
-      .set({ status: 'failed', error: message, completedAt })
-      .where(eq(agentCommitments.id, claimed.id))
-      .returning()
     await ctx.realtime.publish(agentRuns, 'update', failedRun)
-    await ctx.realtime.publish(agentCommitments, 'update', failedCommitment)
+
+    if (claimed.schedule) {
+      const fromTime =
+        claimed.schedule.kind === 'interval' &&
+        claimed.dueAt.getTime() + claimed.schedule.everySeconds * 1000 >
+          completedAt.getTime()
+          ? claimed.dueAt
+          : completedAt
+      const nextDue = nextDueAt(claimed.schedule, fromTime)
+      const [updatedCommitment] = await ctx.db
+        .update(agentCommitments)
+        .set({
+          status: 'pending',
+          dueAt: nextDue,
+          currentRunId: null,
+          error: message,
+          completedAt,
+        })
+        .where(eq(agentCommitments.id, claimed.id))
+        .returning()
+      await ctx.realtime.publish(agentCommitments, 'update', updatedCommitment)
+      await ctx.jobs.enqueue(
+        'agentCommitment',
+        { commitmentId: claimed.id },
+        {
+          dedupeKey: `agent-commitment:${claimed.id}:${nextDue.getTime()}`,
+          runAt: nextDue,
+        },
+      )
+    } else {
+      const [failedCommitment] = await ctx.db
+        .update(agentCommitments)
+        .set({ status: 'failed', error: message, completedAt })
+        .where(eq(agentCommitments.id, claimed.id))
+        .returning()
+      await ctx.realtime.publish(agentCommitments, 'update', failedCommitment)
+    }
     throw error
   }
 }

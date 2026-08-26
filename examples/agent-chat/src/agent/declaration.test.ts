@@ -31,7 +31,9 @@ describe('agent declaration', () => {
       'deleteTask',
       'listCommitments',
       'listTasks',
+      'pauseCommitment',
       'remember',
+      'resumeCommitment',
       'retryCommitment',
     ])
     expect(agentDefinition.context).toEqual({

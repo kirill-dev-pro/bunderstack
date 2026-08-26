@@ -1,0 +1,1 @@
+ALTER TABLE `agent_commitments` ADD `schedule` text;

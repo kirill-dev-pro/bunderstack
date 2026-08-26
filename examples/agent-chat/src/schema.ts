@@ -74,6 +74,10 @@ export const agentMessages = sqliteTable('agent_messages', {
     .$defaultFn(() => new Date()),
 })
 
+export type CommitmentSchedule =
+  | { kind: 'cron'; expr: string; timezone?: string }
+  | { kind: 'interval'; everySeconds: number }
+
 export type CommitmentExecutionSpec =
   | { kind: 'notify'; message: string }
   | {
@@ -97,6 +101,9 @@ export const agentCommitments = sqliteTable('agent_commitments', {
     enum: ['reminder', 'notify', 'tool_call', 'objective'],
   }).notNull(),
   title: text('title').notNull(),
+  schedule: text('schedule', {
+    mode: 'json',
+  }).$type<CommitmentSchedule>(),
   executionSpec: text('execution_spec', {
     mode: 'json',
   }).$type<CommitmentExecutionSpec>(),
@@ -110,6 +117,7 @@ export const agentCommitments = sqliteTable('agent_commitments', {
       'completed',
       'failed',
       'cancelled',
+      'paused',
       'fired',
     ],
   })

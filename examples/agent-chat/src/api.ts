@@ -3,6 +3,11 @@ import { defineApi } from 'bunderstack'
 import { asTypeId } from 'bunderstack/typeid'
 
 import { resolveApproval, revokeToolGrant } from './agent/approvals'
+import {
+  cancelCommitment,
+  pauseCommitment,
+  resumeCommitment,
+} from './agent/commitments'
 import { deleteMemory, updateMemory } from './agent/memory'
 import { getOrCreateThread, wakeAgent } from './agent/runtime'
 import { envSchema } from './env'
@@ -123,5 +128,71 @@ export const api = {
       })
       if (!revoked) throw errors.NOT_FOUND({ message: 'Grant not found' })
       return { id: input.id, status: 'revoked' as const }
+    }),
+  pauseCommitment: o.protected
+    .route({
+      method: 'POST',
+      path: '/api/agent/commitments/{id}/pause',
+      tags: ['agent'],
+    })
+    .input(type({ id: 'string' }))
+    .output(type({ id: 'string', status: "'paused'" }))
+    .handler(async ({ context, input, errors }) => {
+      try {
+        const commitment = await pauseCommitment(context, {
+          commitmentId: input.id,
+          userId: context.user.id,
+        })
+        return { id: commitment.id, status: 'paused' as const }
+      } catch (error) {
+        throw errors.NOT_FOUND({
+          message:
+            error instanceof Error ? error.message : 'Commitment not found',
+        })
+      }
+    }),
+  resumeCommitment: o.protected
+    .route({
+      method: 'POST',
+      path: '/api/agent/commitments/{id}/resume',
+      tags: ['agent'],
+    })
+    .input(type({ id: 'string' }))
+    .output(type({ id: 'string', status: "'pending'" }))
+    .handler(async ({ context, input, errors }) => {
+      try {
+        const commitment = await resumeCommitment(context, {
+          commitmentId: input.id,
+          userId: context.user.id,
+        })
+        return { id: commitment.id, status: 'pending' as const }
+      } catch (error) {
+        throw errors.NOT_FOUND({
+          message:
+            error instanceof Error ? error.message : 'Commitment not found',
+        })
+      }
+    }),
+  cancelCommitment: o.protected
+    .route({
+      method: 'POST',
+      path: '/api/agent/commitments/{id}/cancel',
+      tags: ['agent'],
+    })
+    .input(type({ id: 'string' }))
+    .output(type({ id: 'string', status: "'cancelled'" }))
+    .handler(async ({ context, input, errors }) => {
+      try {
+        const commitment = await cancelCommitment(context, {
+          commitmentId: input.id,
+          userId: context.user.id,
+        })
+        return { id: commitment.id, status: 'cancelled' as const }
+      } catch (error) {
+        throw errors.NOT_FOUND({
+          message:
+            error instanceof Error ? error.message : 'Commitment not found',
+        })
+      }
     }),
 }

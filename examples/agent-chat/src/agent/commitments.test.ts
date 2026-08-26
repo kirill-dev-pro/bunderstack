@@ -17,6 +17,8 @@ import {
   createCommitment,
   executeCommitment,
   listCommitments,
+  pauseCommitment,
+  resumeCommitment,
   retryCommitment,
 } from './commitments'
 import { getOrCreateThread } from './runtime'
@@ -449,5 +451,101 @@ describe('durable commitment execution', () => {
         dependsOn: [foreign.id],
       }),
     ).rejects.toThrow('must belong to this agent')
+  })
+
+  test('a recurring interval commitment creates tasks repeatedly and reschedules next execution', async () => {
+    const state = await setup()
+    const commitment = await createCommitment(state.ctx, {
+      threadId: state.thread.id,
+      userId: state.userId,
+      title: 'Hourly standup check',
+      schedule: { kind: 'interval', everySeconds: 3600 },
+      execution: {
+        kind: 'tool_call',
+        tool: 'createTask',
+        args: { title: 'Hourly check' },
+      },
+    })
+
+    expect(commitment.schedule).toEqual({
+      kind: 'interval',
+      everySeconds: 3600,
+    })
+    expect(commitment.status).toBe('pending')
+    expect(commitment.dueAt.getTime()).toBeGreaterThan(Date.now())
+
+    // First execution
+    const firstResult = await executeCommitment(state.ctx, {
+      commitmentId: commitment.id,
+    })
+    expect(firstResult).toMatchObject({ status: 'completed' })
+    expect(await state.ctx.db.select().from(tasks).all()).toHaveLength(1)
+
+    // Commitment stays pending with nextDueAt
+    const updated = await state.ctx.db
+      .select()
+      .from(agentCommitments)
+      .where(eq(agentCommitments.id, commitment.id))
+      .get()
+    expect(updated).toMatchObject({
+      status: 'pending',
+      currentRunId: null,
+    })
+    expect(updated!.dueAt.getTime()).toBeGreaterThan(commitment.dueAt.getTime())
+
+    // Check enqueued next job
+    expect(state.enqueued).toContainEqual(
+      expect.objectContaining({
+        name: 'agentCommitment',
+        input: { commitmentId: commitment.id },
+      }),
+    )
+
+    // Second execution
+    await executeCommitment(state.ctx, { commitmentId: commitment.id })
+    expect(await state.ctx.db.select().from(tasks).all()).toHaveLength(2)
+  })
+
+  test('a recurring cron commitment computes next occurrence and can be paused and resumed', async () => {
+    const state = await setup()
+    const commitment = await createCommitment(state.ctx, {
+      threadId: state.thread.id,
+      userId: state.userId,
+      title: 'Daily morning report',
+      schedule: { kind: 'cron', expr: '0 9 * * *' },
+      execution: {
+        kind: 'notify',
+        message: 'Good morning!',
+      },
+    })
+
+    expect(commitment.schedule).toEqual({
+      kind: 'cron',
+      expr: '0 9 * * *',
+    })
+    expect(commitment.dueAt.getUTCHours()).toBe(9)
+    expect(commitment.dueAt.getUTCMinutes()).toBe(0)
+
+    // Pause commitment
+    const paused = await pauseCommitment(state.ctx, {
+      commitmentId: commitment.id,
+      userId: state.userId,
+    })
+    expect(paused.status).toBe('paused')
+
+    // Resume commitment
+    const resumed = await resumeCommitment(state.ctx, {
+      commitmentId: commitment.id,
+      userId: state.userId,
+    })
+    expect(resumed.status).toBe('pending')
+    expect(resumed.dueAt.getUTCHours()).toBe(9)
+
+    // Cancel paused or pending recurring commitment
+    const cancelled = await cancelCommitment(state.ctx, {
+      commitmentId: commitment.id,
+      userId: state.userId,
+    })
+    expect(cancelled.status).toBe('cancelled')
   })
 })

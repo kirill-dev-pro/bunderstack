@@ -4,9 +4,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { useEffect, useRef, useState } from 'react'
 
 import { app } from '~/bunderstack'
+import { ApprovalPanel } from '~/components/ApprovalPanel'
 import { LoginGate } from '~/components/LoginGate'
 import { MemoryPanel } from '~/components/MemoryPanel'
-import { ApprovalPanel } from '~/components/ApprovalPanel'
 import { SaveAgentPanel } from '~/components/SaveAgentPanel'
 
 const getAppName = createServerFn({ method: 'GET' }).handler(
@@ -351,24 +351,39 @@ function AgentDesk({
             <p className="runtime-label">Commitments</p>
             <div className="commitment-list">
               {commitments.data?.items.length ? (
-                commitments.data.items.slice(0, 6).map((item) => (
-                  <div className="commitment" key={item.id}>
-                    <span
-                      className={`commitment-status commitment-status--${item.status}`}
-                    >
-                      {item.status}
-                    </span>
-                    <strong>{item.title}</strong>
-                    {item.status === 'pending' && (
-                      <span className="commitment-countdown">
-                        {formatCountdown(item.dueAt, now)}
+                commitments.data.items.slice(0, 6).map((item) => {
+                  const scheduleLabel = formatSchedule(item.schedule)
+                  return (
+                    <div className="commitment" key={item.id}>
+                      <span
+                        className={`commitment-status commitment-status--${item.status}`}
+                      >
+                        {item.status}
                       </span>
-                    )}
-                    <time className="commitment-time">
-                      {formatDateTime(item.dueAt)}
-                    </time>
-                  </div>
-                ))
+                      <div>
+                        <strong>{item.title}</strong>
+                        {scheduleLabel && (
+                          <span
+                            className="commitment-schedule-badge"
+                            style={{ marginLeft: 6 }}
+                          >
+                            🔄 {scheduleLabel}
+                          </span>
+                        )}
+                      </div>
+                      {(item.status === 'pending' ||
+                        item.status === 'running') && (
+                        <span className="commitment-countdown">
+                          {item.schedule ? 'next: ' : ''}
+                          {formatCountdown(item.dueAt, now)}
+                        </span>
+                      )}
+                      <time className="commitment-time">
+                        {formatDateTime(item.dueAt)}
+                      </time>
+                    </div>
+                  )
+                })
               ) : (
                 <p className="quiet">Nothing scheduled.</p>
               )}
@@ -509,4 +524,25 @@ function formatCountdown(dueAt: Date | string | number, now: number) {
   const days = Math.floor(hours / 24)
   const remHours = hours % 24
   return remHours > 0 ? `in ${days}d ${remHours}h` : `in ${days}d`
+}
+
+function formatSchedule(schedule: unknown): string | null {
+  if (!schedule || typeof schedule !== 'object') return null
+  const s = schedule as { kind?: string; expr?: string; everySeconds?: number }
+  if (s.kind === 'cron' && s.expr) {
+    return `cron: ${s.expr}`
+  }
+  if (s.kind === 'interval' && s.everySeconds) {
+    if (s.everySeconds >= 86400 && s.everySeconds % 86400 === 0) {
+      return `every ${s.everySeconds / 86400}d`
+    }
+    if (s.everySeconds >= 3600 && s.everySeconds % 3600 === 0) {
+      return `every ${s.everySeconds / 3600}h`
+    }
+    if (s.everySeconds >= 60 && s.everySeconds % 60 === 0) {
+      return `every ${s.everySeconds / 60}m`
+    }
+    return `every ${s.everySeconds}s`
+  }
+  return null
 }

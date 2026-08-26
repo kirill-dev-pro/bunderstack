@@ -1,6 +1,6 @@
 import type { ModelMessage } from 'ai'
 
-import type { CommitmentExecutionSpec } from '../schema'
+import type { CommitmentExecutionSpec, CommitmentSchedule } from '../schema'
 
 export type AgentTask = { id: string; title: string; done: boolean }
 
@@ -15,12 +15,15 @@ export interface AgentTools {
   completeTask(input: { taskId: string }): Promise<AgentTask>
   createCommitment(input: {
     title: string
-    dueAt: string
+    dueAt?: string
+    schedule?: CommitmentSchedule
     execution: CommitmentExecutionSpec
     dependsOn?: string[]
   }): Promise<unknown>
   listCommitments(input?: { status?: string }): Promise<unknown[]>
   cancelCommitment(input: { commitmentId: string }): Promise<unknown>
+  pauseCommitment(input: { commitmentId: string }): Promise<unknown>
+  resumeCommitment(input: { commitmentId: string }): Promise<unknown>
   retryCommitment(input: { commitmentId: string }): Promise<unknown>
   deleteTask(input: { taskId: string }): Promise<AgentTask | ApprovalRequired>
   remember(input: { key: string; value: string }): Promise<{
