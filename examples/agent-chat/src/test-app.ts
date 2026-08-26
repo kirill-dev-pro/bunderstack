@@ -1,16 +1,19 @@
 import { createBunderstack, generateTypeId } from 'bunderstack'
+import { type } from 'arktype'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
 import { access } from './access'
+import { api } from './api'
 import * as schema from './schema'
 
 export interface TestApp {
-  app: Awaited<
-    ReturnType<typeof createBunderstack<typeof schema, typeof access>>
-  >
+  app: {
+    auth: unknown
+    handler(request: Request): Promise<Response>
+  }
   ctx: AgentRuntimeContext
   enqueued: EnqueuedJob[]
   seedUser(name: string): Promise<string>
@@ -28,6 +31,18 @@ export async function createTestApp(): Promise<TestApp> {
       advanced: { database: { generateId: () => false } },
     },
     realtime: true,
+    jobs: (j) =>
+      j.define({
+        agentTurn: j.job({
+          input: type({ threadId: 'string', reason: 'string' }),
+          handler: async () => {},
+        }),
+        agentReminder: j.job({
+          input: type({ commitmentId: 'string' }),
+          handler: async () => {},
+        }),
+      }),
+    api,
   })
   await provision(app)
 

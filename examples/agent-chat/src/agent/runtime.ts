@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { AgentResponder, AgentTask, AgentTools } from './types'
 import { invokeAgentTool } from './approvals'
 import { assembleAgentContext } from './context'
-import { acknowledgeInbox } from './inbox'
+import { acknowledgeInbox, sendAgentEvent } from './inbox'
 
 import {
   agentCommitments,
@@ -216,16 +216,12 @@ export async function fireCommitment(
   if (!commitment) return false
 
   await ctx.realtime.publish(agentCommitments, 'update', commitment)
-  const [message] = await ctx.db
-    .insert(agentMessages)
-    .values({
-      threadId: commitment.threadId,
-      userId: commitment.userId,
-      role: 'system',
-      content: `Reminder due: ${commitment.title}`,
-    })
-    .returning()
-  await ctx.realtime.publish(agentMessages, 'create', message)
-  await wakeAgent(ctx, commitment.threadId, 'commitment.fired')
+  await sendAgentEvent(ctx, {
+    threadId: commitment.threadId,
+    userId: commitment.userId,
+    type: 'task.reminder_due',
+    payload: { commitmentId: commitment.id, title: commitment.title },
+    dedupeKey: `commitment:${commitment.id}`,
+  })
   return true
 }

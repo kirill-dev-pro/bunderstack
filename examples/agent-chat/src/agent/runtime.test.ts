@@ -112,7 +112,7 @@ describe('agent runtime', () => {
     )
   })
 
-  test('firing a commitment is idempotent, inserts a system message, and wakes the same agent', async () => {
+  test('firing a commitment emits one declared reminder event and is idempotent', async () => {
     const { ctx, enqueued, thread, userId } = await setup()
     const [commitment] = await ctx.db
       .insert(agentCommitments)
@@ -128,19 +128,20 @@ describe('agent runtime', () => {
     expect(await fireCommitment(ctx, commitment!.id)).toBe(true)
     expect(await fireCommitment(ctx, commitment!.id)).toBe(false)
 
-    const messages = await ctx.db
-      .select()
-      .from(agentMessages)
-      .where(eq(agentMessages.threadId, thread.id))
-      .all()
-    expect(messages).toHaveLength(1)
-    expect(messages[0]).toMatchObject({
-      role: 'system',
-      content: 'Reminder due: Check the oven',
-    })
+    expect(await ctx.db.select().from(agentMessages).all()).toHaveLength(0)
+    expect(await ctx.db.select().from(agentInbox).all()).toMatchObject([
+      {
+        threadId: thread.id,
+        userId,
+        type: 'task.reminder_due',
+        payload: { commitmentId: commitment!.id, title: 'Check the oven' },
+        delivery: 'immediate',
+        status: 'pending',
+      },
+    ])
     expect(enqueued.at(-1)).toMatchObject({
       name: 'agentTurn',
-      input: { threadId: thread.id, reason: 'commitment.fired' },
+      input: { threadId: thread.id, reason: 'event:task.reminder_due' },
     })
   })
 
