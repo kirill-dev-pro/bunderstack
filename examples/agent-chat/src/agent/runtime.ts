@@ -1,13 +1,13 @@
 import { and, asc, eq, sql } from 'drizzle-orm'
 
 import type { AgentResponder, AgentTask, AgentTools } from './types'
+import { invokeAgentTool } from './approvals'
 
 import {
   agentCommitments,
   agentMessages,
   agentRuns,
   agentThreads,
-  agentToolCalls,
   tasks,
 } from '../schema'
 
@@ -29,7 +29,7 @@ export interface AgentRuntimeContext {
   realtime: {
     publish(
       table: unknown,
-      action: 'create' | 'update',
+      action: 'create' | 'update' | 'delete',
       row: unknown,
     ): Promise<unknown>
   }
@@ -66,32 +66,6 @@ export async function wakeAgent(
     .set({ wakeSeq: sql`${agentThreads.wakeSeq} + 1` })
     .where(eq(agentThreads.id, threadId))
   await enqueueTurn(ctx, threadId, reason)
-}
-
-async function recordTool<T>(
-  ctx: AgentRuntimeContext,
-  details: { runId: string; threadId: string; userId: string },
-  tool: string,
-  args: Record<string, unknown>,
-  invoke: () => Promise<T>,
-): Promise<T> {
-  try {
-    const result = await invoke()
-    const [call] = await ctx.db
-      .insert(agentToolCalls)
-      .values({ ...details, tool, args, result, status: 'done' })
-      .returning()
-    await ctx.realtime.publish(agentToolCalls, 'create', call)
-    return result
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    const [call] = await ctx.db
-      .insert(agentToolCalls)
-      .values({ ...details, tool, args, status: 'failed', error: message })
-      .returning()
-    await ctx.realtime.publish(agentToolCalls, 'create', call)
-    throw error
-  }
 }
 
 export async function runAgentTurn(
@@ -137,67 +111,39 @@ export async function runAgentTurn(
       .where(eq(tasks.userId, thread.userId))
       .orderBy(asc(tasks.createdAt))
       .all()) as AgentTask[]
-    const details = {
-      runId: run.id,
-      threadId: thread.id,
-      userId: thread.userId,
+    const invoke = (toolId: string, rawArgs: unknown) =>
+      invokeAgentTool(ctx, {
+        toolId,
+        rawArgs,
+        userId: thread.userId,
+        threadId: thread.id,
+        runId: run.id,
+        trigger: {
+          type: input.reason.startsWith('system.') ? 'system' : 'user',
+          trusted: true,
+        },
+      })
+    const requireDone = async <T>(toolId: string, rawArgs: unknown) => {
+      const result = await invoke(toolId, rawArgs)
+      if (result.status !== 'done') {
+        throw new Error(`${toolId} unexpectedly requires approval`)
+      }
+      return result.result as T
     }
 
     const tools: AgentTools = {
-      listTasks: () =>
-        recordTool(ctx, details, 'listTasks', {}, async () =>
-          ctx.db
-            .select()
-            .from(tasks)
-            .where(eq(tasks.userId, thread.userId))
-            .all(),
-        ),
-      createTask: (args) =>
-        recordTool(ctx, details, 'createTask', args, async () => {
-          const [task] = await ctx.db
-            .insert(tasks)
-            .values({ userId: thread.userId, title: args.title })
-            .returning()
-          await ctx.realtime.publish(tasks, 'create', task)
-          return task
-        }),
-      completeTask: (args) =>
-        recordTool(ctx, details, 'completeTask', args, async () => {
-          const [task] = await ctx.db
-            .update(tasks)
-            .set({ done: true, completedAt: new Date() })
-            .where(
-              and(eq(tasks.id, args.taskId), eq(tasks.userId, thread.userId)),
-            )
-            .returning()
-          if (!task) throw new Error('Task not found')
-          await ctx.realtime.publish(tasks, 'update', task)
-          return task
-        }),
+      listTasks: () => requireDone<AgentTask[]>('listTasks', {}),
+      createTask: (args) => requireDone<AgentTask>('createTask', args),
+      completeTask: (args) => requireDone<AgentTask>('completeTask', args),
       scheduleReminder: (args) =>
-        recordTool(ctx, details, 'scheduleReminder', args, async () => {
-          const [commitment] = await ctx.db
-            .insert(agentCommitments)
-            .values({
-              threadId: thread.id,
-              userId: thread.userId,
-              kind: 'reminder',
-              title: args.title,
-              dueAt: args.dueAt,
-            })
-            .returning()
-          await ctx.realtime.publish(agentCommitments, 'create', commitment)
-          await ctx.jobs.enqueue(
-            'agentReminder',
-            { commitmentId: commitment.id },
-            { runAt: args.dueAt },
-          )
-          return {
-            id: commitment.id,
-            title: commitment.title,
-            dueAt: commitment.dueAt,
-          }
-        }),
+        requireDone<{ id: string; title: string; dueAt: Date }>(
+          'scheduleReminder',
+          args,
+        ),
+      deleteTask: async (args) => {
+        const result = await invoke('deleteTask', args)
+        return result.status === 'done' ? (result.result as AgentTask) : result
+      },
     }
 
     const response = await responder({

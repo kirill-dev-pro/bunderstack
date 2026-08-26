@@ -26,6 +26,7 @@ describe('agent declaration', () => {
     expect(Object.keys(agentDefinition.tools).sort()).toEqual([
       'completeTask',
       'createTask',
+      'deleteTask',
       'listTasks',
       'scheduleReminder',
     ])

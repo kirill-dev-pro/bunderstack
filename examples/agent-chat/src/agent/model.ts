@@ -46,6 +46,24 @@ export function createDemoResponder(): AgentResponder {
       return { text: `Completed “${match.title}”.` }
     }
 
+    const remove = message.match(/^(delete|remove)\s+(.+)$/i)
+    if (remove) {
+      const query = remove[2]!.trim().toLocaleLowerCase()
+      const match = input.tasks.find((task) =>
+        task.title.toLocaleLowerCase().includes(query),
+      )
+      if (!match) {
+        return {
+          text: `I couldn’t find a task matching “${remove[2]!.trim()}”.`,
+        }
+      }
+      const result = await input.tools.deleteTask({ taskId: match.id })
+      if ('status' in result && result.status === 'approval_required') {
+        return { text: `Please approve deleting “${match.title}”.` }
+      }
+      return { text: `Deleted “${match.title}”.` }
+    }
+
     const reminder = message.match(
       /^remind me in\s+(\d+)\s+minutes?\s+to\s+(.+)$/i,
     )
@@ -63,6 +81,7 @@ export function createDemoResponder(): AgentResponder {
         '• Add book flights',
         '• List tasks',
         '• Complete book flights',
+        '• Delete book flights',
         '• Remind me in 15 minutes to check the oven',
       ].join('\n'),
     }

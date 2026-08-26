@@ -1,5 +1,10 @@
 export type AgentTask = { id: string; title: string; done: boolean }
 
+export type ApprovalRequired = {
+  status: 'approval_required'
+  requestId: string
+}
+
 export interface AgentTools {
   listTasks(): Promise<AgentTask[]>
   createTask(input: { title: string }): Promise<AgentTask>
@@ -9,6 +14,7 @@ export interface AgentTools {
     title: string
     dueAt: Date
   }>
+  deleteTask(input: { taskId: string }): Promise<AgentTask | ApprovalRequired>
 }
 
 export interface AgentResponderInput {

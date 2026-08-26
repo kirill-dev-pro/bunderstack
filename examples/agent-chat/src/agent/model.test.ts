@@ -30,6 +30,11 @@ function input(
       title,
       dueAt,
     })),
+    deleteTask: mock(async ({ taskId }) => ({
+      id: taskId,
+      title: 'Book flights',
+      done: false,
+    })),
   }
   return {
     value: {
@@ -79,6 +84,21 @@ describe('demo responder', () => {
     expect(response.text).toBe('Completed “Book flights”.')
     expect(tools.completeTask).toHaveBeenCalledWith({ taskId: 'task_1' })
   })
+
+  test('asks for approval when deleteTask returns a pending request', async () => {
+    const { value, tools } = input('Delete book flights', {
+      tasks: [{ id: 'task_1', title: 'Book flights', done: false }],
+    })
+    tools.deleteTask = mock(async () => ({
+      status: 'approval_required' as const,
+      requestId: 'arequest_1',
+    }))
+
+    const response = await createDemoResponder()(value)
+
+    expect(response.text).toBe('Please approve deleting “Book flights”.')
+    expect(tools.deleteTask).toHaveBeenCalledWith({ taskId: 'task_1' })
+  })
 })
 
 describe('AI responder factory', () => {
@@ -88,6 +108,7 @@ describe('AI responder factory', () => {
     expect(Object.keys(createModelTools(value)).sort()).toEqual([
       'completeTask',
       'createTask',
+      'deleteTask',
       'listTasks',
       'scheduleReminder',
     ])

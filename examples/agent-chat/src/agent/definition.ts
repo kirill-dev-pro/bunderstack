@@ -82,6 +82,23 @@ const scheduleReminder = defineTool({
   },
 })
 
+const deleteTask = defineTool({
+  id: 'deleteTask',
+  version: 1,
+  description: 'Delete one task owned by the current user.',
+  inputSchema: z.object({ taskId: z.string().min(1) }),
+  approval: { mode: 'required', remember: true },
+  execute: async ({ taskId }, ctx) => {
+    const [task] = await ctx.runtime.db
+      .delete(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, ctx.userId)))
+      .returning()
+    if (!task) throw new Error('Task not found')
+    await ctx.runtime.realtime.publish(tasks, 'delete', task)
+    return task
+  },
+})
+
 export const agentDefinition = defineAgent({
   instructions: ({ now }) =>
     [
@@ -89,7 +106,13 @@ export const agentDefinition = defineAgent({
       `Current time is ${now.toISOString()}.`,
       'Use tools for every read or mutation; never claim an effect you did not perform.',
     ].join('\n'),
-  tools: { listTasks, createTask, completeTask, scheduleReminder },
+  tools: {
+    listTasks,
+    createTask,
+    completeTask,
+    scheduleReminder,
+    deleteTask,
+  },
   events: {},
   context: {
     conversation: { recent: 20 },
