@@ -1,5 +1,8 @@
 import { createBunderstack, generateTypeId } from 'bunderstack'
 import { type } from 'arktype'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
@@ -21,10 +24,11 @@ export interface TestApp {
 }
 
 export async function createTestApp(): Promise<TestApp> {
+  const databaseDir = await mkdtemp(join(tmpdir(), 'bunderstack-agent-chat-'))
   const app = await createBunderstack({
     schema,
     access,
-    database: { adapter: libsql(), url: ':memory:' },
+    database: { adapter: libsql(), url: `file:${join(databaseDir, 'test.db')}` },
     auth: {
       baseURL: 'http://localhost:3007',
       secret: 'test-secret-test-secret-test-secret',
@@ -75,6 +79,9 @@ export async function createTestApp(): Promise<TestApp> {
       })
       return id
     },
-    close: () => app.close(),
+    async close() {
+      await app.close()
+      await rm(databaseDir, { recursive: true, force: true })
+    },
   }
 }
