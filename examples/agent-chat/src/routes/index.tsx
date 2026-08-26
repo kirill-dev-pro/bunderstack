@@ -114,26 +114,39 @@ function AgentDesk({
     lastRun?.status === 'running' ||
     send.isPending
 
-  const sortedCommitments = [...(commitments.data?.items ?? [])].sort((a, b) => {
-    const isAActive =
-      a.status === 'pending' ||
-      a.status === 'running' ||
-      a.status === 'waiting_for_approval' ||
-      a.status === 'paused' ||
-      a.status === 'blocked'
-    const isBActive =
-      b.status === 'pending' ||
-      b.status === 'running' ||
-      b.status === 'waiting_for_approval' ||
-      b.status === 'paused' ||
-      b.status === 'blocked'
-    if (isAActive && !isBActive) return -1
-    if (!isAActive && isBActive) return 1
-    if (isAActive && isBActive) {
-      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  })
+  const activeCommitments = (commitments.data?.items ?? [])
+    .filter(
+      (item) =>
+        item.status === 'pending' ||
+        item.status === 'running' ||
+        item.status === 'waiting_for_approval' ||
+        item.status === 'paused' ||
+        item.status === 'blocked',
+    )
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+
+  const finishedCommitments = (commitments.data?.items ?? [])
+    .filter(
+      (item) =>
+        item.status !== 'pending' &&
+        item.status !== 'running' &&
+        item.status !== 'waiting_for_approval' &&
+        item.status !== 'paused' &&
+        item.status !== 'blocked',
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+
+  // Always show all active/scheduled commitments; fill remaining slots up to 6 with recent finished items
+  const displayedCommitments =
+    activeCommitments.length >= 6
+      ? activeCommitments
+      : [
+          ...activeCommitments,
+          ...finishedCommitments.slice(0, 6 - activeCommitments.length),
+        ]
 
   useEffect(() => {
     if (messageListRef.current) {
@@ -371,8 +384,8 @@ function AgentDesk({
           <div className="runtime-block">
             <p className="runtime-label">Commitments</p>
             <div className="commitment-list">
-              {sortedCommitments.length ? (
-                sortedCommitments.slice(0, 10).map((item) => {
+              {displayedCommitments.length ? (
+                displayedCommitments.map((item) => {
                   const scheduleLabel = formatSchedule(item.schedule)
                   return (
                     <div className="commitment" key={item.id}>
