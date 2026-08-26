@@ -44,6 +44,10 @@ function AgentDesk({
   const router = useRouter()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
+  const [hoveredCallId, setHoveredCallId] = useState<string | null>(null)
+  const [hoveredCommitmentId, setHoveredCommitmentId] = useState<string | null>(
+    null,
+  )
   const messageListRef = useRef<HTMLDivElement>(null)
   const now = useNow(1000)
 
@@ -365,7 +369,12 @@ function AgentDesk({
             <div className="journal-list">
               {calls.data?.items.length ? (
                 calls.data.items.slice(0, 6).map((call) => (
-                  <div className="journal-row" key={call.id}>
+                  <div
+                    className="journal-row"
+                    key={call.id}
+                    onMouseEnter={() => setHoveredCallId(call.id)}
+                    onMouseLeave={() => setHoveredCallId(null)}
+                  >
                     <span className="journal-icon">
                       {call.status === 'done' ? '✓' : '!'}
                     </span>
@@ -373,6 +382,9 @@ function AgentDesk({
                       <strong>{call.tool}</strong>
                       <small>{formatTime(call.createdAt)}</small>
                     </div>
+                    {hoveredCallId === call.id && (
+                      <ToolCallPopover call={call} />
+                    )}
                   </div>
                 ))
               ) : (
@@ -388,7 +400,12 @@ function AgentDesk({
                 displayedCommitments.map((item) => {
                   const scheduleLabel = formatSchedule(item.schedule)
                   return (
-                    <div className="commitment" key={item.id}>
+                    <div
+                      className="commitment"
+                      key={item.id}
+                      onMouseEnter={() => setHoveredCommitmentId(item.id)}
+                      onMouseLeave={() => setHoveredCommitmentId(null)}
+                    >
                       <span
                         className={`commitment-status commitment-status--${item.status}`}
                       >
@@ -415,6 +432,9 @@ function AgentDesk({
                       <time className="commitment-time">
                         {formatDateTime(item.dueAt)}
                       </time>
+                      {hoveredCommitmentId === item.id && (
+                        <CommitmentPopover item={item} now={now} />
+                      )}
                     </div>
                   )
                 })
@@ -579,4 +599,158 @@ function formatSchedule(schedule: unknown): string | null {
     return `every ${s.everySeconds}s`
   }
   return null
+}
+
+function ToolCallPopover({
+  call,
+}: {
+  call: {
+    id: string
+    tool: string
+    args: Record<string, unknown>
+    result?: unknown
+    status: string
+    error?: string | null
+    createdAt: Date | string | number
+  }
+}) {
+  return (
+    <div className="detail-popover" role="tooltip">
+      <div className="detail-popover-header">
+        <strong className="detail-popover-title">{call.tool}</strong>
+        <span
+          className={`detail-popover-status detail-popover-status--${call.status}`}
+        >
+          {call.status}
+        </span>
+      </div>
+      <div className="detail-popover-meta">
+        <div>ID: {call.id}</div>
+        <div>Time: {formatDateTime(new Date(call.createdAt))}</div>
+      </div>
+      <div className="detail-popover-section">
+        <div className="detail-popover-section-label">Input Arguments</div>
+        <pre>{JSON.stringify(call.args, null, 2)}</pre>
+      </div>
+      {call.result !== undefined && call.result !== null && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label">Result</div>
+          <pre>{JSON.stringify(call.result, null, 2)}</pre>
+        </div>
+      )}
+      {call.error && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label detail-popover-section-label--error">
+            Error
+          </div>
+          <pre className="detail-popover-error">{call.error}</pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CommitmentPopover({
+  item,
+  now,
+}: {
+  item: {
+    id: string
+    title: string
+    status: string
+    dueAt: Date | string | number
+    schedule?: unknown
+    executionSpec?: unknown
+    result?: unknown
+    error?: string | null
+    createdAt?: Date | string | number
+    completedAt?: Date | string | number | null
+  }
+  now: number
+}) {
+  const scheduleLabel = formatSchedule(item.schedule)
+  const spec = item.executionSpec as
+    | {
+        kind?: string
+        message?: string
+        tool?: string
+        args?: Record<string, unknown>
+        prompt?: string
+      }
+    | undefined
+  const sched = item.schedule as
+    | { kind?: string; expr?: string; timezone?: string }
+    | undefined
+
+  return (
+    <div className="detail-popover" role="tooltip">
+      <div className="detail-popover-header">
+        <strong className="detail-popover-title">{item.title}</strong>
+        <span className={`commitment-status commitment-status--${item.status}`}>
+          {item.status}
+        </span>
+      </div>
+      <div className="detail-popover-meta">
+        <div>ID: {item.id}</div>
+        <div>
+          Due: {formatDateTime(new Date(item.dueAt))} (
+          {formatCountdown(item.dueAt, now)})
+        </div>
+        {item.createdAt && (
+          <div>Created: {formatDateTime(new Date(item.createdAt))}</div>
+        )}
+        {item.completedAt && (
+          <div>Completed: {formatDateTime(new Date(item.completedAt))}</div>
+        )}
+      </div>
+
+      {scheduleLabel && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label">Recurring Schedule</div>
+          <div className="detail-popover-text">
+            🔄 {scheduleLabel}
+            {sched?.timezone ? ` (${sched.timezone})` : ''}
+          </div>
+        </div>
+      )}
+
+      {spec && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label">
+            Execution: {spec.kind}
+          </div>
+          {spec.kind === 'notify' && spec.message && (
+            <div className="detail-popover-text">{spec.message}</div>
+          )}
+          {spec.kind === 'tool_call' && (
+            <div>
+              <div className="detail-popover-tool-name">
+                Tool: <code>{spec.tool}</code>
+              </div>
+              {spec.args && <pre>{JSON.stringify(spec.args, null, 2)}</pre>}
+            </div>
+          )}
+          {spec.kind === 'objective' && spec.prompt && (
+            <div className="detail-popover-text">Prompt: {spec.prompt}</div>
+          )}
+        </div>
+      )}
+
+      {item.result !== undefined && item.result !== null && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label">Result</div>
+          <pre>{JSON.stringify(item.result, null, 2)}</pre>
+        </div>
+      )}
+
+      {item.error && (
+        <div className="detail-popover-section">
+          <div className="detail-popover-section-label detail-popover-section-label--error">
+            Error
+          </div>
+          <pre className="detail-popover-error">{item.error}</pre>
+        </div>
+      )}
+    </div>
+  )
 }
