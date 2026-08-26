@@ -200,6 +200,84 @@ h1 {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 12px;
 }
+.message--approval {
+  max-width: 88%;
+}
+.message--approval .chat-approval-content {
+  padding: 14px 16px;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  box-shadow: inset 3px 0 0 var(--acid);
+}
+.message--approval .approval-badge {
+  color: var(--warning);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.chat-approval-prompt {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.chat-approval-details {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: #081310;
+  border: 1px dashed #345048;
+}
+.chat-approval-details strong {
+  display: block;
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--acid);
+}
+.chat-approval-details pre {
+  margin: 6px 0 0;
+  max-height: 120px;
+  overflow: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--cyan);
+  white-space: pre-wrap;
+}
+
+.message--typing {
+  margin-bottom: 16px;
+}
+.message--typing .typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 16px;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+}
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--acid);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+.typing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
 .empty-state {
   min-height: 340px;
   display: flex;

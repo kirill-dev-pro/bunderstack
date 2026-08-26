@@ -105,21 +105,25 @@ function AgentDesk({
     }),
   )
 
+  const thread = threads.data?.items[0]
+  const openTasks = tasks.data?.items.filter((task) => !task.done) ?? []
+  const lastRun = runs.data?.items[0]
+  const isWorking =
+    thread?.status === 'running' ||
+    lastRun?.status === 'running' ||
+    send.isPending
+
   useEffect(() => {
     if (messageListRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight
     }
-  }, [messages.data?.items.length])
+  }, [messages.data?.items.length, requests.data?.items.length, isWorking])
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
     if (!content.trim() || send.isPending) return
     send.mutate({ content: content.trim() })
   }
-
-  const thread = threads.data?.items[0]
-  const openTasks = tasks.data?.items.filter((task) => !task.done) ?? []
-  const lastRun = runs.data?.items[0]
 
   return (
     <main className="desk-shell">
@@ -144,26 +148,119 @@ function AgentDesk({
             <span
               className={`status-pill status-pill--${thread?.status ?? 'idle'}`}
             >
-              {thread?.status === 'running' ? 'Agent working' : 'Agent ready'}
+              {isWorking ? 'Agent working' : 'Agent ready'}
             </span>
           </div>
 
           <div className="message-list" aria-live="polite" ref={messageListRef}>
-            {messages.data?.items.length ? (
-              messages.data.items.map((message) => (
-                <article
-                  key={message.id}
-                  className={`message message--${message.role}`}
-                >
-                  <div className="message-meta">
-                    <span>
-                      {message.role === 'user' ? userName : message.role}
-                    </span>
-                    <time>{formatTime(message.createdAt)}</time>
-                  </div>
-                  <p>{message.content}</p>
-                </article>
-              ))
+            {messages.data?.items.length ||
+            requests.data?.items.length ||
+            isWorking ? (
+              <>
+                {messages.data?.items.map((message) => (
+                  <article
+                    key={message.id}
+                    className={`message message--${message.role}`}
+                  >
+                    <div className="message-meta">
+                      <span>
+                        {message.role === 'user' ? userName : message.role}
+                      </span>
+                      <time>{formatTime(message.createdAt)}</time>
+                    </div>
+                    <p>{message.content}</p>
+                  </article>
+                ))}
+
+                {requests.data?.items.map((request) => (
+                  <article
+                    key={request.id}
+                    className="message message--approval"
+                    aria-label="Action requires approval"
+                  >
+                    <div className="message-meta">
+                      <span className="approval-badge">Approval required</span>
+                      <time>{formatTime(request.createdAt)}</time>
+                    </div>
+                    <div className="chat-approval-content">
+                      <p className="chat-approval-prompt">{request.prompt}</p>
+                      <div className="chat-approval-details">
+                        <strong>
+                          {request.tool ?? 'Action'}
+                          {request.toolVersion
+                            ? ` (v${request.toolVersion})`
+                            : ''}
+                        </strong>
+                        {request.args && (
+                          <pre>{JSON.stringify(request.args, null, 2)}</pre>
+                        )}
+                      </div>
+                      <div className="action-row action-row--wrap">
+                        <button
+                          type="button"
+                          disabled={resolveApproval.isPending}
+                          onClick={() =>
+                            resolveApproval
+                              .mutateAsync({
+                                id: request.id,
+                                decision: 'allow_once',
+                              })
+                              .then(() => undefined)
+                          }
+                        >
+                          Allow now
+                        </button>
+                        <button
+                          type="button"
+                          disabled={resolveApproval.isPending}
+                          onClick={() =>
+                            resolveApproval
+                              .mutateAsync({
+                                id: request.id,
+                                decision: 'always_allow',
+                              })
+                              .then(() => undefined)
+                          }
+                        >
+                          Always allow
+                        </button>
+                        <button
+                          type="button"
+                          className="button-danger"
+                          disabled={resolveApproval.isPending}
+                          onClick={() =>
+                            resolveApproval
+                              .mutateAsync({
+                                id: request.id,
+                                decision: 'reject',
+                              })
+                              .then(() => undefined)
+                          }
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+
+                {isWorking && (
+                  <article
+                    className="message message--assistant message--typing"
+                    aria-label="Agent is typing"
+                  >
+                    <div className="message-meta">
+                      <span>Agent</span>
+                      <span>Thinking…</span>
+                    </div>
+                    <div className="typing-bubble">
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                    </div>
+                  </article>
+                )}
+              </>
             ) : (
               <div className="empty-state">
                 <span className="empty-mark">↳</span>

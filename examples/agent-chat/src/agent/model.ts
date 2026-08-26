@@ -134,9 +134,48 @@ export function createAIResponder(
     return createDemoResponder()
   }
 
+  const isDeepSeek =
+    Boolean(options.baseURL?.includes('deepseek')) ||
+    Boolean(options.model?.toLowerCase().includes('deepseek'))
+
+  const customFetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    if (isDeepSeek && init?.body && typeof init.body === 'string') {
+      try {
+        const payload = JSON.parse(init.body)
+        let modified = false
+
+        if (payload.messages && Array.isArray(payload.messages)) {
+          payload.messages = payload.messages.map((msg: any) => {
+            if (msg.role === 'assistant' && msg.reasoning_content === undefined) {
+              modified = true
+              return { ...msg, reasoning_content: '' }
+            }
+            return msg
+          })
+        }
+
+        if (payload.thinking === undefined) {
+          payload.thinking = { type: 'disabled' }
+          modified = true
+        }
+
+        if (modified) {
+          init = { ...init, body: JSON.stringify(payload) }
+        }
+      } catch {
+        // ignore parse error and pass through
+      }
+    }
+    return fetch(input, init)
+  }
+
   const provider = createOpenAI({
     apiKey: options.apiKey,
     baseURL: options.baseURL,
+    fetch: customFetch as typeof fetch,
   })
   const model = provider.chat(options.model ?? 'Qwen3.8-27B')
 
