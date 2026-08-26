@@ -425,19 +425,39 @@ h1 {
 }
 .commitment {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 9px;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 8px;
   padding: 10px 0;
   border-top: 1px solid rgba(35, 52, 49, 0.6);
+  align-items: center;
 }
-.commitment span {
+.commitment-status {
   color: var(--warning);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 8px;
   text-transform: uppercase;
 }
-.commitment time {
-  grid-column: 2;
+.commitment-status--fired {
+  color: var(--muted);
+}
+.commitment-status--pending {
+  color: var(--acid);
+}
+.commitment-countdown {
+  color: var(--acid);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  background: rgba(182, 255, 60, 0.1);
+  border: 1px solid rgba(182, 255, 60, 0.25);
+  padding: 2px 6px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.commitment-time {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
 }
 .quiet {
   color: var(--muted);

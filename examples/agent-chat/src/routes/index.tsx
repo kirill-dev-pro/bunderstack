@@ -45,6 +45,7 @@ function AgentDesk({
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const messageListRef = useRef<HTMLDivElement>(null)
+  const now = useNow(1000)
 
   const threads = useQuery(
     api.agentThreads.list.queryOptions({ input: { limit: 1 } }),
@@ -350,11 +351,22 @@ function AgentDesk({
             <p className="runtime-label">Commitments</p>
             <div className="commitment-list">
               {commitments.data?.items.length ? (
-                commitments.data.items.slice(0, 4).map((item) => (
+                commitments.data.items.slice(0, 6).map((item) => (
                   <div className="commitment" key={item.id}>
-                    <span>{item.status}</span>
+                    <span
+                      className={`commitment-status commitment-status--${item.status}`}
+                    >
+                      {item.status}
+                    </span>
                     <strong>{item.title}</strong>
-                    <time>{formatDateTime(item.dueAt)}</time>
+                    {item.status === 'pending' && (
+                      <span className="commitment-countdown">
+                        {formatCountdown(item.dueAt, now)}
+                      </span>
+                    )}
+                    <time className="commitment-time">
+                      {formatDateTime(item.dueAt)}
+                    </time>
                   </div>
                 ))
               ) : (
@@ -467,4 +479,34 @@ function formatDateTime(date: Date) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(timer)
+  }, [intervalMs])
+  return now
+}
+
+function formatCountdown(dueAt: Date | string | number, now: number) {
+  const target = new Date(dueAt).getTime()
+  const diffMs = target - now
+
+  if (diffMs <= 0) {
+    return 'due now'
+  }
+
+  const sec = Math.floor(diffMs / 1000)
+  if (sec < 60) return `in ${sec}s`
+  const min = Math.floor(sec / 60)
+  const remSec = sec % 60
+  if (min < 60) return remSec > 0 ? `in ${min}m ${remSec}s` : `in ${min}m`
+  const hours = Math.floor(min / 60)
+  const remMin = min % 60
+  if (hours < 24) return remMin > 0 ? `in ${hours}h ${remMin}m` : `in ${hours}h`
+  const days = Math.floor(hours / 24)
+  const remHours = hours % 24
+  return remHours > 0 ? `in ${days}d ${remHours}h` : `in ${days}d`
 }
