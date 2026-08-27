@@ -135,41 +135,6 @@ test('an app without jobs still has a facade; enqueue throws', async () => {
   await app.jobs.tick() // no-op, must not throw
 })
 
-test('introspection mode boots with jobs configured', async () => {
-  const previous = process.env.BUNDERSTACK_INTROSPECT
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-  let runs = 0
-  try {
-    const app = await createBunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-      jobs: (j) =>
-        j.define({
-          noop: j.job({
-            handler: async () => {
-              runs++
-            },
-          }),
-          scheduled: j.cron({
-            schedule: '* * * * *',
-            handler: async () => {
-              runs++
-            },
-          }),
-        }),
-    })
-    expect(app.manifest).toBeDefined()
-    const worker = await app.startWorker()
-    await app.runWorker()
-    expect(runs).toBe(0)
-    await worker.close()
-    await app.close()
-  } finally {
-    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
-    else process.env.BUNDERSTACK_INTROSPECT = previous
-  }
-})
-
 test('runWorker rejects process-local realtime by default', async () => {
   const prevRedis = process.env.REDIS_URL
   delete process.env.REDIS_URL

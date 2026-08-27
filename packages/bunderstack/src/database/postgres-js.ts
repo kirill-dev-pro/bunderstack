@@ -1,11 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 
-import type {
-  DatabaseAdapter,
-  DatabaseConnection,
-  DatabaseConnectOptions,
-} from './adapter'
+import type { DatabaseAdapter, DatabaseConnection } from './adapter'
 
 export function postgresJs(): DatabaseAdapter {
   return {
@@ -14,10 +10,7 @@ export function postgresJs(): DatabaseAdapter {
     async connect<TSchema extends Record<string, unknown>>(
       schema: TSchema,
       { url }: DatabaseConnection,
-      { introspect }: DatabaseConnectOptions,
     ) {
-      if (introspect) return { db: drizzle.mock({ schema }) as never }
-
       if (!url.startsWith('postgres://') && !url.startsWith('postgresql://')) {
         throw new Error(
           '[bunderstack] postgresJs adapter requires a Postgres URL',

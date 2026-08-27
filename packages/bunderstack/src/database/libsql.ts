@@ -7,9 +7,7 @@ export function libsql(): DatabaseAdapter {
   return {
     dialect: 'sqlite',
     driver: 'libsql',
-    async connect(schema, connection, { introspect }) {
-      if (introspect) return { db: drizzle.mock({ schema }) as never }
-
+    async connect(schema, connection) {
       if (
         connection.url.startsWith('postgres://') ||
         connection.url.startsWith('postgresql://')

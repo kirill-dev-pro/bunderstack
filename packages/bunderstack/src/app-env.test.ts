@@ -1,14 +1,12 @@
 // src/app-env.test.ts
 import { test, expect } from 'bun:test'
 import { drizzle } from 'drizzle-orm/libsql'
-import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import type { DatabaseAdapter } from './database/adapter'
 import type { BunderstackJobsBuilder } from './jobs/define'
 
-import { bunSql } from './database/bun-sql'
 import { libsql } from './database/libsql'
 import { BunderstackEnvError } from './env'
 import { createBunderstack } from './index'
@@ -16,10 +14,6 @@ import { createBunderstack } from './index'
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-})
-
-const pgNotes = pgTable('notes', {
-  id: pgText('id').primaryKey(),
 })
 
 test('createBunderstack exposes typed app.env', async () => {
@@ -166,54 +160,6 @@ test('app.manifest describes the declaration', async () => {
   expect(app.manifest.environment).toEqual([
     { key: 'WEBHOOK_SECRET', required: false, scope: 'server' },
   ])
-})
-
-test('server database introspection stays offline', async () => {
-  const previous = process.env.BUNDERSTACK_INTROSPECT
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-
-  try {
-    const app = await createBunderstack({
-      schema: { pgNotes },
-      database: {
-        adapter: bunSql(),
-        url: 'postgres://example.invalid/app',
-      },
-    })
-
-    expect(app.manifest).toBeDefined()
-    expect(typeof (app.db as unknown as { $client: unknown }).$client).toBe(
-      'object',
-    )
-    await app.close()
-  } finally {
-    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
-    else process.env.BUNDERSTACK_INTROSPECT = previous
-  }
-})
-
-test('BUNDERSTACK_INTROSPECT=1 boots offline despite missing env and reports realtime requirements', async () => {
-  const previous = process.env.BUNDERSTACK_INTROSPECT
-  const prevRedis = process.env.REDIS_URL
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-  delete process.env.REDIS_URL
-  try {
-    const app = await createBunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-      env: { server: { STRIPE_KEY: v.string() } },
-      realtime: true,
-    })
-    expect(app.manifest.environment).toEqual([
-      { key: 'STRIPE_KEY', required: true, scope: 'server' },
-    ])
-    expect(app.manifest.realtime).toEqual({ required: true })
-  } finally {
-    if (previous === undefined) delete process.env.BUNDERSTACK_INTROSPECT
-    else process.env.BUNDERSTACK_INTROSPECT = previous
-    if (prevRedis === undefined) delete process.env.REDIS_URL
-    else process.env.REDIS_URL = prevRedis
-  }
 })
 
 test('role=all starts the background loop', async () => {

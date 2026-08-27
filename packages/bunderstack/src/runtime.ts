@@ -206,7 +206,7 @@ export type BunderstackApp<
   readonly backgroundRunning: boolean
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
-  /** Deploy-time introspection: what this app needs provisioned. */
+  /** Deployment metadata for this application declaration. */
   manifest: BunderstackManifest
   /**
    * Type-only carrier for client inference (`createClient<typeof app>()`).
@@ -325,9 +325,6 @@ export async function createBunderstack<
     source: options.processEnv,
   })
   const config = resolveConfig(options, env, options.processEnv)
-  // Adapters use Drizzle mocks during deployment introspection, so the database
-  // and Redis below never touch external services.
-  const introspect = process.env.BUNDERSTACK_INTROSPECT === '1'
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -340,7 +337,6 @@ export async function createBunderstack<
   } = await createDb(mergedSchema, {
     ...config.database,
     dialect,
-    introspect,
   })
   const email = createEmail(options.email, { env, db })
   if (closeDatabase) lifecycle.add(closeDatabase)
@@ -384,7 +380,7 @@ export async function createBunderstack<
             (process.env as Record<string, string | undefined>),
         )
       : undefined
-    const redisUrl = introspect ? undefined : configuredRedisUrl
+    const redisUrl = configuredRedisUrl
     const publisher = config.realtime
       ? redisUrl
         ? (() => {
@@ -516,9 +512,6 @@ export async function createBunderstack<
     const startWorker = async (
       options: AppStartWorkerOptions = {},
     ): Promise<WorkerHandle> => {
-      if (introspect) {
-        return { closed: Promise.resolve(), close: async () => {} }
-      }
       if (!jobRunner) {
         throw new Error('[bunderstack] no queue jobs configured')
       }
@@ -544,7 +537,6 @@ export async function createBunderstack<
     const runWorker = async (
       options: AppRunWorkerOptions = {},
     ): Promise<void> => {
-      if (introspect) return
       if (
         realtime.transport === 'memory' &&
         !options.allowProcessLocalRealtime
@@ -755,7 +747,7 @@ export async function createBunderstack<
       env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
     const autoStart =
       options.background?.autoStart ??
-      (roleWantsWorker && !introspect && resolvedDefs !== undefined)
+      (roleWantsWorker && resolvedDefs !== undefined)
     let backgroundRunning = false
     if (autoStart) {
       await startWorker()
@@ -897,7 +889,6 @@ export {
 export type { TypeId } from './typeid'
 export type {
   DatabaseAdapter,
-  DatabaseConnectOptions,
   DatabaseConnection,
   DatabaseConnectionResult,
 } from './database/adapter'

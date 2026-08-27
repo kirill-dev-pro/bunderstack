@@ -56,7 +56,6 @@ export async function createDb<TSchema extends Record<string, unknown>>(
   cfg: DatabaseConnection & {
     adapter: DatabaseAdapter
     dialect: Dialect
-    introspect?: boolean
   },
 ): Promise<DatabaseConnectionResult<TSchema> & { driver: Driver }> {
   if (cfg.adapter.dialect !== cfg.dialect) {
@@ -64,11 +63,10 @@ export async function createDb<TSchema extends Record<string, unknown>>(
       `[bunderstack] database adapter dialect ${cfg.adapter.dialect} does not match ${cfg.dialect} schema`,
     )
   }
-  if (!cfg.introspect) validateDatabaseUrl(cfg.url, cfg.dialect)
-  const result = await cfg.adapter.connect(
-    schema,
-    { url: cfg.url, authToken: cfg.authToken },
-    { introspect: cfg.introspect ?? false },
-  )
+  validateDatabaseUrl(cfg.url, cfg.dialect)
+  const result = await cfg.adapter.connect(schema, {
+    url: cfg.url,
+    authToken: cfg.authToken,
+  })
   return { ...result, driver: cfg.adapter.driver }
 }
