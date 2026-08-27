@@ -1,47 +1,21 @@
-import { afterAll, expect, spyOn, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 import { eq, getTableName } from 'drizzle-orm'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 
-// Both must be set before importing ./bunderstack — that module builds the app
-// at import time. `web` keeps a background worker from auto-starting, so job
-// execution stays deterministic and driven by app.jobs.tick() below.
-const priorEnv = {
-  DATABASE_URL: process.env.DATABASE_URL,
-  BUNDERSTACK_ROLE: process.env.BUNDERSTACK_ROLE,
-}
-process.env.DATABASE_URL = `file:${join(tmpdir(), `todo-solid-2-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)}`
-process.env.BUNDERSTACK_ROLE = 'web'
+import { backend, todos } from './bunderstack'
 
-// `bun test` at the repo root runs every file in one process, so leaving these
-// set bleeds this example's temp database into unrelated suites — config and
-// app-env both assert on the ':memory:'/default url and would read ours.
-afterAll(() => {
-  for (const [key, value] of Object.entries(priorEnv)) {
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
-  }
-})
+test('summary columns are not writable through the CRUD route', async () => {
+  await using fixture = await backend.test()
+  const { app } = fixture
 
-const { app, todos } = await import('./bunderstack')
-const { provision } = await import('bunderstack/provision')
-await provision(app, { force: true })
-
-async function createTodo(title: string) {
-  const res = await app.handler(
+  const createdRes = await app.handler(
     new Request('http://localhost/api/todos', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title }),
+      body: JSON.stringify({ title: 'locked' }),
     }),
   )
-  // The generated create route answers 201, not 200.
-  expect(res.status).toBe(201)
-  return (await res.json()) as { id: string }
-}
-
-test('summary columns are not writable through the CRUD route', async () => {
-  const created = await createTodo('locked')
+  expect(createdRes.status).toBe(201)
+  const created = (await createdRes.json()) as { id: string }
 
   const res = await app.handler(
     new Request(`http://localhost/api/todos/${created.id}`, {
@@ -73,7 +47,67 @@ type Published = {
   record: Record<string, unknown>
 }
 
-function capturePublishes(): Published[] {
+test('the trigger will not disturb a run already in flight', async () => {
+  await using fixture = await backend.test()
+  const { app } = fixture
+
+  const createRes = await app.handler(
+    new Request('http://localhost/api/todos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'claim me' }),
+    }),
+  )
+  expect(createRes.status).toBe(201)
+
+  const firstRes = await app.handler(
+    new Request('http://localhost/api/enrich', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
+  )
+  expect(firstRes.status).toBe(200)
+  const first = (await firstRes.json()) as { queued: number }
+  expect(first.queued).toBeGreaterThan(0)
+
+  // Everything is `queued` now, so a second click finds nothing claimable and
+  // cannot double-enqueue rows the worker is about to pick up.
+  const secondRes = await app.handler(
+    new Request('http://localhost/api/enrich', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
+  )
+  expect(secondRes.status).toBe(200)
+  const second = (await secondRes.json()) as { queued: number }
+  expect(second.queued).toBe(0)
+})
+
+test('the job streams a growing summary and ends done', async () => {
+  await using fixture = await backend.test()
+  const { app } = fixture
+
+  const createRes = await app.handler(
+    new Request('http://localhost/api/todos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'stream me' }),
+    }),
+  )
+  expect(createRes.status).toBe(201)
+  const created = (await createRes.json()) as { id: string }
+
+  const enrichRes = await app.handler(
+    new Request('http://localhost/api/enrich', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
+  )
+  expect(enrichRes.status).toBe(200)
+
   const events: Published[] = []
   spyOn(app.realtime, 'publish').mockImplementation(
     async (table, action, record) => {
@@ -84,43 +118,8 @@ function capturePublishes(): Published[] {
       })
     },
   )
-  return events
-}
 
-async function enrich() {
-  const res = await app.handler(
-    new Request('http://localhost/api/enrich', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: '{}',
-    }),
-  )
-  expect(res.status).toBe(200)
-  return (await res.json()) as { queued: number }
-}
-
-test('the trigger will not disturb a run already in flight', async () => {
-  await createTodo('claim me')
-
-  const first = await enrich()
-  expect(first.queued).toBeGreaterThan(0)
-
-  // Everything is `queued` now, so a second click finds nothing claimable and
-  // cannot double-enqueue rows the worker is about to pick up.
-  const second = await enrich()
-  expect(second.queued).toBe(0)
-})
-
-test('the job streams a growing summary and ends done', async () => {
-  const created = await createTodo('stream me')
-  await enrich()
-
-  const events = capturePublishes()
-  // One tick claims and runs every pending job, including the one the
-  // previous test enqueued — the tests share a module-level app and
-  // database. Filtering by row id below is what keeps this test's
-  // assertions about its own todo.
-  await app.jobs.tick()
+  await fixture.jobs.runUntilIdle()
 
   const mine = events.filter(
     (e) => e.table === 'todos' && e.record.id === created.id,
