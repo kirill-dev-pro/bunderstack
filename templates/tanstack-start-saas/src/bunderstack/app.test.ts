@@ -6,8 +6,7 @@ import * as schema from './schema'
 type BunderSaaSApp = Awaited<ReturnType<typeof backend.start>>
 type BunderSaaSTest = Awaited<ReturnType<typeof backend.test>>
 
-const createTestApp = () =>
-  backend.test({ database: { schema: 'push' } })
+const createTestApp = () => backend.test({ database: { schema: 'push' } })
 
 async function seedUser(
   app: BunderSaaSApp,

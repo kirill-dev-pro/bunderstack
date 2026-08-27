@@ -17,30 +17,30 @@ export const todos = sqliteTable('todos', {
 })
 
 export const backend = bunderstack({
-    schema: { ...internal, todos },
+  schema: { ...internal, todos },
 
-    access: {
-      todos: {
-        crud: true,
-        list: 'public',
-        get: 'public',
-        create: 'public',
-        update: 'public',
-        delete: 'public',
-        writableColumns: ['title', 'done'],
-        sortableColumns: ['createdAt', 'done'],
-        defaultSort: { column: 'createdAt', order: 'desc' },
-      },
+  access: {
+    todos: {
+      crud: true,
+      list: 'public',
+      get: 'public',
+      create: 'public',
+      update: 'public',
+      delete: 'public',
+      writableColumns: ['title', 'done'],
+      sortableColumns: ['createdAt', 'done'],
+      defaultSort: { column: 'createdAt', order: 'desc' },
     },
+  },
 
-    database: {
-      adapter: libsql(),
-      url: process.env.DATABASE_URL ?? 'file:./data.db',
-    },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
 
-    // Broadcast every CRUD write over SSE. The client consumes the stream
-    // as a plain async iterator — see src/native/sse.ts.
-    realtime: true,
+  // Broadcast every CRUD write over SSE. The client consumes the stream
+  // as a plain async iterator — see src/native/sse.ts.
+  realtime: true,
 })
 
 /**

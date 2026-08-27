@@ -2,6 +2,34 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.22.0-beta.0] - 2026-08-27
+
+### Breaking Changes
+
+- **Pure declaration and explicit runtime separation.** Replaced `createBunderstack()`
+  with synchronous `bunderstack(config)`. The declaration computes static metadata
+  synchronously (`backend.manifest`) without connecting to databases, reading ambient
+  `process.env`, or starting background workers.
+- **Explicit startup environment.** `backend.start({ env })` treats the passed `env`
+  object as the exclusive source of environment configuration and never mixes it with
+  `process.env`.
+- **Pure Blueprint generation.** `bunderstack blueprint` now directly imports
+  `backend` declarations without booting the runtime or relying on
+  `BUNDERSTACK_INTROSPECT`.
+
+### Added
+
+- **First-class testing framework (`bunderstack/testing`).** Exported `createTestApp`,
+  `TestFixture`, and `backend.test()`:
+  - Lexical fixture lifecycle with `AsyncDisposable` (`await using t = await backend.test()`).
+  - Isolated in-memory/temporary databases for libSQL and PGlite.
+  - In-memory email capturing (`t.email.sent`), isolated local storage (`t.storage.read`),
+    and forced memory realtime.
+  - Real Better Auth sign-up (`t.auth.signUpEmail()`), session mocking
+    (`t.auth.mockSession()`), and typed in-process RPC clients (`t.client(identity)`).
+  - Deterministic job execution with `t.jobs.runNext()` and `t.jobs.runUntilIdle()`
+    without network or timing delays.
+
 ## [0.21.0] - 2026-08-25
 
 ### Changed

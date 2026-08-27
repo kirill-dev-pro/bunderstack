@@ -166,9 +166,11 @@ test('terminal failures can be reported without throwing', async () => {
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('broken')
 
-  expect(
-    await t.jobs.runUntilIdle({ failOnJobError: false }),
-  ).toMatchObject({ ticks: 1, claimed: 1, failed: 1 })
+  expect(await t.jobs.runUntilIdle({ failOnJobError: false })).toMatchObject({
+    ticks: 1,
+    claimed: 1,
+    failed: 1,
+  })
 })
 
 test('runUntilIdle bounds recursive enqueue with a convergence error', async () => {
@@ -188,9 +190,7 @@ test('runUntilIdle bounds recursive enqueue with a convergence error', async () 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('again')
 
-  await expect(
-    t.jobs.runUntilIdle({ maxTicks: 3 }),
-  ).rejects.toMatchObject({
+  await expect(t.jobs.runUntilIdle({ maxTicks: 3 })).rejects.toMatchObject({
     name: 'TestJobsConvergenceError',
     report: {
       ticks: 3,

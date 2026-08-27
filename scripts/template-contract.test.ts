@@ -43,10 +43,7 @@ test('SaaS template separates declaration from runtime startup', () => {
     join(root, 'src/bunderstack/backend.ts'),
     'utf-8',
   )
-  const runtime = readFileSync(
-    join(root, 'src/bunderstack/index.ts'),
-    'utf-8',
-  )
+  const runtime = readFileSync(join(root, 'src/bunderstack/index.ts'), 'utf-8')
 
   expect(backend).toContain('bunderstack({')
   expect(backend).not.toContain('.start(')

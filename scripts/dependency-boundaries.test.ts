@@ -131,7 +131,9 @@ describe('published dependency boundaries', () => {
       join(repoRoot, 'packages/bunderstack/src/runtime.ts'),
     ).text()
 
-    expect(testing).not.toMatch(/export \* from ['"]\.\/(?:backend|runtime)['"]/)
+    expect(testing).not.toMatch(
+      /export \* from ['"]\.\/(?:backend|runtime)['"]/,
+    )
     expect(root).not.toMatch(/export .* from ['"]\.\/testing['"]/)
     expect(runtime).not.toMatch(/from ['"]\.\/testing(?:['"/])/)
   })

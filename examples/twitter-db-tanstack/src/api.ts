@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
-import { createSyncClient } from 'bunderstack/sync'
 import { createIsomorphicFetch } from 'bunderstack/start'
+import { createSyncClient } from 'bunderstack/sync'
 
 import type { App } from './bunderstack'
 

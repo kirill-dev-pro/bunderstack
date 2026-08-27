@@ -54,7 +54,7 @@ surviving `/api/auth/$` silently keeps serving the instance you meant to delete.
 | Channel-and-payload realtime publishing                       | `ctx.realtime.publish(schema.tasks, 'update', row)` after the write commits       |
 | AWS or Tigris SDK wrapper                                     | `app.storage` buckets                                                             |
 | Resend SDK wrapper                                            | `app.email.send(...)`                                                             |
-| `createEnv()` beside the app                                  | `env` schema in `bunderstack()` and source in `backend.start()`                    |
+| `createEnv()` beside the app                                  | `env` schema in `bunderstack()` and source in `backend.start()`                   |
 | Implicit database driver                                      | Explicit adapter, `database: { adapter: libsql(), url }`                          |
 | Schema push in production                                     | Committed Drizzle `migrations/`, applied by `provision(app)`                      |
 | Undeclared deployment                                         | `package.json#bunderstack.entry` and a checked blueprint                          |

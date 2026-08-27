@@ -80,11 +80,11 @@ import {
   createMemoryRealtimePublisher,
   createRedisRealtimePublisher,
 } from './realtime/publisher'
-import { deleteFileWithDerivatives } from './storage/delete'
 import {
   STORAGE_SWEEP_JOB_NAME,
   STORAGE_SWEEP_SCHEDULE,
 } from './storage/background'
+import { deleteFileWithDerivatives } from './storage/delete'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
