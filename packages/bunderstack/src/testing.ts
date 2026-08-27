@@ -11,6 +11,13 @@ export type {
 } from './testing/auth'
 export type { CapturedEmail, TestEmail } from './testing/email'
 export type { TestStorage } from './testing/storage'
+export { TestJobsConvergenceError, TestJobsError } from './testing/jobs'
+export type {
+  JobRunReport,
+  RunNextOptions,
+  RunUntilIdleOptions,
+  TestJobs,
+} from './testing/jobs'
 export type {
   TestDatabaseStrategy,
   TestDatabaseTarget,

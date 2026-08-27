@@ -10,6 +10,7 @@ import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 import type { TableAccessInput } from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { RealtimeApiRouter } from './api/realtime-router'
+import type { RuntimeTestingHandle } from './backend-internals'
 import type {
   CrudApiRouterFor,
   MergeApiRouterTypes,
@@ -94,6 +95,8 @@ export type RuntimeOverrides = {
   emailAdapter?: EmailAdapter
   forceMemoryRealtime?: boolean
   backgroundAutoStart?: false
+  /** Private callback used by backend.test(); never exposed on the app. */
+  captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
 
 export const RUNTIME_OVERRIDES: unique symbol = Symbol.for(
@@ -517,6 +520,7 @@ export async function createBunderstack<
           ctx: { db: userDb, env, email, storage, realtime },
         })
       : undefined
+    let enqueueNow: number | undefined
     const jobs = {
       async enqueue(name: string, input?: unknown, opts?: EnqueueOptions) {
         if (!resolvedDefs) {
@@ -524,7 +528,14 @@ export async function createBunderstack<
             '[bunderstack] no jobs configured — add a `jobs` key to createBunderstack',
           )
         }
-        const result = await enqueueJob(db, resolvedDefs, name, input, opts)
+        const result = await enqueueJob(
+          db,
+          resolvedDefs,
+          name,
+          input,
+          opts,
+          enqueueNow,
+        )
         return result
       },
       tick(now?: number) {
@@ -534,6 +545,21 @@ export async function createBunderstack<
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)
+    overrides.captureTestingHandle?.({
+      async tick(now) {
+        const previous = enqueueNow
+        enqueueNow = now
+        try {
+          return await jobs.tick(now)
+        } finally {
+          enqueueNow = previous
+        }
+      },
+      inspect: (now) =>
+        jobRunner
+          ? jobRunner.inspect(now)
+          : Promise.resolve({ runnable: 0, failed: [] }),
+    })
     const startWorker = async (
       options: AppStartWorkerOptions = {},
     ): Promise<WorkerHandle> => {

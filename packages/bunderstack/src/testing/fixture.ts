@@ -10,12 +10,16 @@ import type { TestAuth, TestIdentity } from './auth'
 import type { TestEmail } from './email'
 import type { TestStorage } from './storage'
 
-import { BACKEND_INTERNALS } from '../backend-internals'
+import {
+  BACKEND_INTERNALS,
+  type RuntimeTestingHandle,
+} from '../backend-internals'
 import { provisionForTest } from '../provision'
 import { createTestAuth } from './auth'
 import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
 import { createTestEmail } from './email'
+import { createTestJobs, type TestJobs } from './jobs'
 import { createTestStorage, resolveTestBuckets } from './storage'
 
 export type TestOptions = {
@@ -31,6 +35,7 @@ export type TestFixture<TApp> = AsyncDisposable & {
   readonly app: TApp
   readonly auth: TestAuth
   readonly email: TestEmail
+  readonly jobs: TestJobs
   readonly storage: TestStorage
   client(
     identity?: TestIdentity,
@@ -78,6 +83,7 @@ export async function createTestApp<TApp extends TestableApp>(
   }
 
   let app: TApp | undefined
+  let testingHandle: RuntimeTestingHandle | undefined
   try {
     app = await internals.start(
       { ...defaultTestEnv, ...options.env },
@@ -87,6 +93,9 @@ export async function createTestApp<TApp extends TestableApp>(
         emailAdapter,
         forceMemoryRealtime: true,
         backgroundAutoStart: false,
+        captureTestingHandle: (handle) => {
+          testingHandle = handle
+        },
       },
     )
     await provisionForTest(app as object, options.database?.schema ?? 'auto')
@@ -118,7 +127,15 @@ export async function createTestApp<TApp extends TestableApp>(
     throw cause
   }
 
+  if (!testingHandle) {
+    await app.close()
+    await target[Symbol.asyncDispose]()
+    await rm(storageRoot, { recursive: true, force: true })
+    throw new Error('[bunderstack] runtime did not provide test controls')
+  }
+
   const auth = createTestAuth(app)
+  const jobs = createTestJobs(testingHandle)
   let closePromise: Promise<void> | undefined
   const close = () => {
     closePromise ??= (async () => {
@@ -150,6 +167,7 @@ export async function createTestApp<TApp extends TestableApp>(
     app,
     auth,
     email,
+    jobs,
     storage,
     client: (identity) => testClient(app as never, identity) as never,
     close,
