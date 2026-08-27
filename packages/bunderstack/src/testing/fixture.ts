@@ -3,13 +3,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { BunderstackBackend } from '../backend'
+import type { AnyBunderstackApp, BunderstackClient } from '../client/rpc-client'
 import type { TestDatabaseStrategy } from '../database/adapter'
 import type { TestSchemaMode } from '../provision'
+import type { TestAuth, TestIdentity } from './auth'
 import type { TestEmail } from './email'
 import type { TestStorage } from './storage'
 
 import { BACKEND_INTERNALS } from '../backend-internals'
 import { provisionForTest } from '../provision'
+import { createTestAuth } from './auth'
+import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
 import { createTestEmail } from './email'
 import { createTestStorage, resolveTestBuckets } from './storage'
@@ -25,12 +29,20 @@ export type TestOptions = {
 
 export type TestFixture<TApp> = AsyncDisposable & {
   readonly app: TApp
+  readonly auth: TestAuth
   readonly email: TestEmail
   readonly storage: TestStorage
+  client(
+    identity?: TestIdentity,
+  ): TApp extends AnyBunderstackApp ? BunderstackClient<TApp> : never
   close(): Promise<void>
 }
 
-type ClosableApp = { close(): Promise<void> }
+type TestableApp = {
+  auth: unknown
+  handler(request: Request): Promise<Response>
+  close(): Promise<void>
+}
 
 const defaultTestEnv = {
   NODE_ENV: 'test',
@@ -38,7 +50,7 @@ const defaultTestEnv = {
   BUNDERSTACK_ROLE: 'web',
 } satisfies Record<string, string | undefined>
 
-export async function createTestApp<TApp extends ClosableApp>(
+export async function createTestApp<TApp extends TestableApp>(
   backend: BunderstackBackend<TApp>,
   options: TestOptions = {},
 ): Promise<TestFixture<TApp>> {
@@ -106,6 +118,7 @@ export async function createTestApp<TApp extends ClosableApp>(
     throw cause
   }
 
+  const auth = createTestAuth(app)
   let closePromise: Promise<void> | undefined
   const close = () => {
     closePromise ??= (async () => {
@@ -135,8 +148,10 @@ export async function createTestApp<TApp extends ClosableApp>(
 
   return {
     app,
+    auth,
     email,
     storage,
+    client: (identity) => testClient(app as never, identity) as never,
     close,
     [Symbol.asyncDispose]: close,
   }
