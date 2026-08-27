@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { createApiBuilder, defineApi } from './builder'
 import { buildApiRouter } from './router'
 
@@ -20,7 +20,7 @@ test('builds health into the same graph and rejects duplicate handles', () => {
   ).toThrow(/health/)
 })
 
-test('createBunderstack accepts a router object for the api option', async () => {
+test('bunderstack accepts a router object for the api option', async () => {
   const o = defineApi({ schema: {} })
   const api = {
     ping: o.public
@@ -28,11 +28,11 @@ test('createBunderstack accepts a router object for the api option', async () =>
       .handler(() => ({ pong: true })),
   }
 
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     api,
-  })
+  }).start()
 
   const response = await app.handler(new Request('http://test/api/ping'))
 
@@ -41,8 +41,8 @@ test('createBunderstack accepts a router object for the api option', async () =>
   await app.close()
 })
 
-test('createBunderstack still accepts the api callback', async () => {
-  const app = await createBunderstack({
+test('bunderstack still accepts the api callback', async () => {
+  const app = await bunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     api: (o) => ({
@@ -50,7 +50,7 @@ test('createBunderstack still accepts the api callback', async () => {
         .route({ method: 'GET', path: '/api/ping' })
         .handler(() => ({ pong: 'callback' })),
     }),
-  })
+  }).start()
 
   const response = await app.handler(new Request('http://test/api/ping'))
 

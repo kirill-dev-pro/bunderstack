@@ -45,7 +45,7 @@ export type CreateEmailOptions = {
     BUNDERSTACK_EMAIL_FROM?: string
     BUNDERHOST_ENVIRONMENT_ID?: string
   }
-  /** Internal application db. Present when created through createBunderstack. */
+  /** Internal application db. Present when created through bunderstack. */
   db?: AnyDb
   /** Test seam for the resend adapter. */
   fetchFn?: typeof fetch

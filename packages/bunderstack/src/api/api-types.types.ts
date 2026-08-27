@@ -6,7 +6,7 @@ import * as v from 'valibot'
 import type { ExposedApiTables } from './types'
 
 import { pglite } from '../database/pglite'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
@@ -40,13 +40,10 @@ export type _ImplicitAccessIncludesConventionTable = Expect<
   Equal<'ownedPosts' extends ImplicitTables ? true : false, true>
 >
 
-const typedApp = await createBunderstack({
+const typedApp = await bunderstack({
   schema: { posts, privateNotes },
   database: { adapter: pglite() },
-  processEnv: {
-    DATABASE_URL: 'memory://',
-    BUNDERSTACK_ROLE: 'web',
-  },
+
   access: {
     posts: { crud: true, list: 'public', create: 'public' },
     privateNotes: { crud: false },
@@ -68,6 +65,11 @@ const typedApp = await createBunderstack({
         }
       }),
   }),
+}).start({
+  env: {
+    DATABASE_URL: 'memory://',
+    BUNDERSTACK_ROLE: 'web',
+  },
 })
 
 type Api = NonNullable<typeof typedApp.$inferClient>['api']

@@ -163,12 +163,6 @@ export type BunderstackConfig<
   authResolver?: AuthSessionResolver
   storage?: TStorage
   env?: TEnv
-  /**
-   * Stand-in for `process.env`. Feeds both env validation and platform
-   * overrides, so tests and embedders have one injection point instead of
-   * three.
-   */
-  processEnv?: Record<string, string | undefined>
   background?: { autoStart?: boolean }
   email?: EmailConfigInput
   /**

@@ -3,7 +3,7 @@ import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
 import { pglite } from '../database/pglite'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -18,17 +18,19 @@ async function setupApp(
   auth?: any,
   openapi = true,
 ) {
-  return await createBunderstack({
+  return await bunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+
     access: {
       posts: { crud: true, list: 'public', get: 'public', ...accessOverrides },
     },
     api,
     auth,
     openapi,
-  } as any)
+  } as any).start({
+    env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+  })
 }
 
 test('mounts custom api endpoint, RPC transport, and OpenAPI JSON', async () => {

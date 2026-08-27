@@ -10,12 +10,12 @@ import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 import type { TableAccessInput } from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { RealtimeApiRouter } from './api/realtime-router'
-import type { RuntimeTestingHandle } from './backend-internals'
 import type {
   CrudApiRouterFor,
   MergeApiRouterTypes,
   UnifiedApiRouter,
 } from './api/types'
+import type { RuntimeTestingHandle } from './backend-internals'
 import type { DatabaseConnection } from './database/adapter'
 import type { DbFor } from './db'
 import type {
@@ -67,7 +67,6 @@ import {
   validateJobsDefs,
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
-import { buildManifest, type BunderstackManifest } from './manifest'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
@@ -82,6 +81,10 @@ import {
   createRedisRealtimePublisher,
 } from './realtime/publisher'
 import { deleteFileWithDerivatives } from './storage/delete'
+import {
+  STORAGE_SWEEP_JOB_NAME,
+  STORAGE_SWEEP_SCHEDULE,
+} from './storage/background'
 import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
@@ -98,10 +101,6 @@ export type RuntimeOverrides = {
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
-
-export const RUNTIME_OVERRIDES: unique symbol = Symbol.for(
-  'bunderstack.runtime-overrides',
-)
 
 function waitForWorkerShutdown(
   signal: AbortSignal,
@@ -213,8 +212,6 @@ export type BunderstackApp<
   readonly backgroundRunning: boolean
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
-  /** Deployment metadata for this application declaration. */
-  manifest: BunderstackManifest
   /**
    * Type-only carrier for client inference (`createClient<typeof app>()`).
    * Never assigned at runtime.
@@ -237,7 +234,7 @@ export type BunderstackApp<
   }
 }
 
-export function createBunderstack<
+export function materializeBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
@@ -265,6 +262,8 @@ export function createBunderstack<
       | TJobsDefs
       | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
   },
+  source: Record<string, string | undefined>,
+  overrides?: RuntimeOverrides,
 ): Promise<
   BunderstackApp<
     TSchema,
@@ -276,7 +275,7 @@ export function createBunderstack<
     TRealtime
   >
 >
-export async function createBunderstack<
+export async function materializeBunderstack<
   TSchema extends Record<string, unknown>,
   const TAccess extends Record<string, TableAccessInput> | undefined =
     undefined,
@@ -303,6 +302,8 @@ export async function createBunderstack<
       | JobsDefs
       | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => JobsDefs)
   },
+  source: Record<string, string | undefined>,
+  overrides: RuntimeOverrides = {},
 ): Promise<
   BunderstackApp<
     TSchema,
@@ -314,12 +315,6 @@ export async function createBunderstack<
     TRealtime
   >
 > {
-  const runtimeOverrides = (
-    options as typeof options & {
-      [RUNTIME_OVERRIDES]?: RuntimeOverrides
-    }
-  )[RUNTIME_OVERRIDES]
-  const overrides = runtimeOverrides ?? {}
   const dialect = detectDialect(options.schema)
   const jobsDefs: JobsDefs | undefined = options.jobs
     ? typeof options.jobs === 'function'
@@ -332,14 +327,13 @@ export async function createBunderstack<
   const env = validateEnv(options.env, {
     emailProvider:
       overrides.emailAdapter === undefined
-        ? (options.processEnv?.BUNDERSTACK_EMAIL_PROVIDER ??
-          emailProviderTag(options.email))
+        ? (source.BUNDERSTACK_EMAIL_PROVIDER ?? emailProviderTag(options.email))
         : undefined,
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-    source: options.processEnv,
+    source,
   })
-  const resolvedConfig = resolveConfig(options, env, options.processEnv)
+  const resolvedConfig = resolveConfig(options, env, source)
   const config = {
     ...resolvedConfig,
     database: overrides.database
@@ -399,12 +393,7 @@ export async function createBunderstack<
         ? config.realtime.resumeSeconds
         : undefined
     const configuredRedisUrl = config.realtime
-      ? resolveRealtimeRedisUrl(
-          config.realtime,
-          env,
-          options.processEnv ??
-            (process.env as Record<string, string | undefined>),
-        )
+      ? resolveRealtimeRedisUrl(config.realtime, env, source)
       : undefined
     const redisUrl = overrides.forceMemoryRealtime
       ? undefined
@@ -419,9 +408,7 @@ export async function createBunderstack<
               ;(await subscriber).close()
             })
             return createRedisRealtimePublisher(redis, subscriber, {
-              prefix:
-                (options.processEnv ?? process.env)
-                  .BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
+              prefix: source.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
               maxBufferedEvents: realtimeBufferSize,
               resumeSeconds: realtimeResumeSeconds,
             })
@@ -503,9 +490,9 @@ export async function createBunderstack<
     const resolvedDefs: JobsDefs | undefined = storageConfigured
       ? {
           ...jobsDefs,
-          'bunderstack:storage-sweep': {
+          [STORAGE_SWEEP_JOB_NAME]: {
             kind: 'cron',
-            schedule: '0 4 * * *',
+            schedule: STORAGE_SWEEP_SCHEDULE,
             handler: async () => {
               await storage.sweep()
             },
@@ -525,7 +512,7 @@ export async function createBunderstack<
       async enqueue(name: string, input?: unknown, opts?: EnqueueOptions) {
         if (!resolvedDefs) {
           throw new Error(
-            '[bunderstack] no jobs configured — add a `jobs` key to createBunderstack',
+            '[bunderstack] no jobs configured — add a `jobs` key to bunderstack',
           )
         }
         const result = await enqueueJob(
@@ -836,16 +823,6 @@ export async function createBunderstack<
         return lifecycle.status
       },
       signal: lifecycle.signal,
-      manifest: buildManifest({
-        schema: options.schema,
-        dialect,
-        migrationsDirectory: config.database.migrations,
-        storage: config.storage,
-        envConfig: options.env as EnvConfigInput | undefined,
-        emailProvider: emailProviderTag(options.email),
-        realtime: Boolean(config.realtime),
-        jobs: resolvedDefs,
-      }),
     }
 
     // Hidden handle for the optional `bunderstack/provision` entry. Kept off the

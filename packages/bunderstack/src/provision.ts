@@ -108,7 +108,7 @@ export async function provision(
   const internals = (app as WithProvisionInternals)[PROVISION_INTERNALS]
   if (!internals) {
     throw new Error(
-      '[bunderstack] provision() expects the app returned by createBunderstack().',
+      '[bunderstack] provision() expects the app returned by bunderstack().',
     )
   }
 

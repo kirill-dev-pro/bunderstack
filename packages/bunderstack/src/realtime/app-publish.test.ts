@@ -4,7 +4,7 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { provision } from '../provision'
 
 const avatars = sqliteTable('avatars', {
@@ -20,7 +20,7 @@ type Event = {
 }
 
 test('app, API procedures, and jobs share the application publisher facade', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: { avatars },
     database: { url: ':memory:', adapter: libsql() },
     realtime: true,
@@ -58,7 +58,7 @@ test('app, API procedures, and jobs share the application publisher facade', asy
           },
         }),
       }),
-  })
+  }).start()
   await provision(app, { force: true })
   const events: Event[] = []
   spyOn(app.realtime, 'publish').mockImplementation(
@@ -110,10 +110,10 @@ test('app, API procedures, and jobs share the application publisher facade', asy
 })
 
 test('app exposes an enabled=false no-op when realtime is not configured', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: { avatars },
     database: { url: ':memory:', adapter: libsql() },
-  })
+  }).start()
 
   expect(app.realtime.enabled).toBe(false)
   await expect(

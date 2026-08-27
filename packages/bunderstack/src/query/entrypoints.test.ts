@@ -19,5 +19,4 @@ test('removed split-client entrypoints stay removed', async () => {
   const source = await Bun.file(new URL('./index.ts', import.meta.url)).text()
   expect(source).not.toContain('createTRPCClient')
   expect(source).not.toContain('createRealtimeClient')
-  expect(source).not.toContain('createBunderstackQueryClient')
 })

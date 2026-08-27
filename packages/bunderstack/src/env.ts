@@ -63,7 +63,7 @@ export type ValidateEnvOptions = {
   emailProvider?: string
   /** Value source; defaults to process.env. Tests pass this explicitly. */
   source?: Record<string, string | undefined>
-  /** Dialect-aware DATABASE_URL fallback; createBunderstack passes it. */
+  /** Dialect-aware DATABASE_URL fallback; bunderstack passes it. */
   defaultDatabaseUrl?: string
 }
 

@@ -14,7 +14,11 @@ import { detectDialect } from './dialect'
 import { emailProviderTag } from './email'
 import { createJobsBuilder, validateJobsDefs } from './jobs'
 import { buildManifest } from './manifest'
-import { createBunderstack, RUNTIME_OVERRIDES } from './runtime'
+import { materializeBunderstack } from './runtime'
+import {
+  STORAGE_SWEEP_JOB_NAME,
+  STORAGE_SWEEP_SCHEDULE,
+} from './storage/background'
 import { resolveBuckets } from './storage/buckets'
 
 export type StartOptions = {
@@ -38,7 +42,7 @@ export type BunderstackDefinitionConfig<
   TRealtime = undefined,
 > = Omit<
   BunderstackConfig<TSchema, TAccess, TStorage, TEnv, TCustomApiRouter>,
-  'processEnv' | 'realtime'
+  'realtime'
 > & {
   realtime?: TRealtime
   jobs?:
@@ -108,7 +112,16 @@ export function bunderstack<
     envConfig: config.env,
     emailProvider: emailProviderTag(config.email),
     realtime: Boolean(config.realtime),
-    jobs: jobsDefs,
+    jobs: config.storage
+      ? {
+          ...jobsDefs,
+          [STORAGE_SWEEP_JOB_NAME]: {
+            kind: 'cron',
+            schedule: STORAGE_SWEEP_SCHEDULE,
+            handler: () => {},
+          },
+        }
+      : jobsDefs,
   })
 
   type App = BunderstackApp<
@@ -125,12 +138,11 @@ export function bunderstack<
     source: Record<string, string | undefined>,
     overrides: RuntimeOverrides = {},
   ): Promise<App> =>
-    createBunderstack({
-      ...config,
-      jobs: jobsDefs,
-      processEnv: source,
-      [RUNTIME_OVERRIDES]: overrides,
-    } as never) as Promise<App>
+    materializeBunderstack(
+      { ...config, jobs: jobsDefs } as never,
+      source,
+      overrides,
+    ) as Promise<App>
 
   let backend: BunderstackBackend<App>
   backend = {

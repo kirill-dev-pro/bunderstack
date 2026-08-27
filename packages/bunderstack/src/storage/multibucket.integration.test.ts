@@ -3,7 +3,7 @@ import { test, expect, afterAll } from 'bun:test'
 import { rm } from 'node:fs/promises'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { provision } from '../provision'
 
 const TMP_DIR = './.tmp-uploads-test'
@@ -13,7 +13,7 @@ afterAll(async () => {
 })
 
 async function buildApp() {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     storage: {
@@ -26,7 +26,7 @@ async function buildApp() {
         },
       },
     },
-  })
+  }).start()
   await provision(app, { force: true })
   return app
 }

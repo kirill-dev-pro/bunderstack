@@ -4,7 +4,7 @@ import * as v from 'valibot'
 
 import { defineAccess } from './access'
 import { libsql } from './database/libsql'
-import { createBunderstack, MAX_LIST_LIMIT } from './index'
+import { bunderstack, MAX_LIST_LIMIT } from './index'
 
 // -- type-level assertion helpers -------------------------------------------
 type Equal<A, B> =
@@ -44,8 +44,8 @@ describe('client type inference carriers', () => {
     expect(access.posts.ownerColumn).toBe('userId')
   })
 
-  it('createBunderstack carries schema/access/buckets in $inferClient', async () => {
-    const app = await createBunderstack({
+  it('bunderstack carries schema/access/buckets in $inferClient', async () => {
+    const app = await bunderstack({
       schema,
       access: {
         user: { exposeAuthTable: true, ownerColumn: 'id' },
@@ -69,7 +69,7 @@ describe('client type inference carriers', () => {
           }),
         }),
       realtime: true,
-    })
+    }).start()
     type Carrier = NonNullable<(typeof app)['$inferClient']>
     void (0 as unknown as Expect<Equal<Carrier['schema'], typeof schema>>)
     void (0 as unknown as Expect<Equal<Carrier['buckets'], 'images' | 'docs'>>)
@@ -99,9 +99,9 @@ describe('client type inference carriers', () => {
       database: { url: ':memory:', adapter: libsql() },
     }
     // @ts-expect-error application routes are declared with api procedures
-    void createBunderstack({ ...base, routes: () => ({}) })
+    void bunderstack({ ...base, routes: () => ({}) }).start()
     // @ts-expect-error tRPC is no longer a parallel application transport
-    void createBunderstack({ ...base, trpc: () => ({}) })
+    void bunderstack({ ...base, trpc: () => ({}) }).start()
     expect(true).toBe(true)
   })
 })

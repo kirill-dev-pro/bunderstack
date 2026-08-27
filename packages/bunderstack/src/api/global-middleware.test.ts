@@ -2,7 +2,7 @@ import { beforeAll, expect, test } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { provision } from '../provision'
 import { defineApi } from './builder'
 
@@ -25,7 +25,7 @@ const record = o.middleware(async ({ path, next }) => {
 let app: Awaited<ReturnType<typeof createApp>>
 
 const createApp = () =>
-  createBunderstack({
+  bunderstack({
     schema,
     database: { url: ':memory:', adapter: libsql() },
     access: { notes: { list: 'public', get: 'public' } },
@@ -35,7 +35,7 @@ const createApp = () =>
         .route({ method: 'GET', path: '/api/ping' })
         .handler(() => ({ pong: true })),
     },
-  })
+  }).start()
 
 beforeAll(async () => {
   app = await createApp()
@@ -80,7 +80,7 @@ test('a configured middleware does not resolve the session', async () => {
     return result
   })
 
-  const webhookApp = await createBunderstack({
+  const webhookApp = await bunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     authResolver: {
@@ -99,7 +99,7 @@ test('a configured middleware does not resolve the session', async () => {
           raw: await context.getRawBody(),
         })),
     },
-  })
+  }).start()
 
   const response = await webhookApp.handler(
     new Request('http://test/webhooks/demo', {
