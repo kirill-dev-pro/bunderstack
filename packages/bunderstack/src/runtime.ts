@@ -953,8 +953,6 @@ export type {
 } from './storage/buckets'
 // StorageFacade is declared+exported inline above.
 export type { TransformSpec } from './storage/thumbnails'
-export { mockAuthSession } from './testing'
-
 export type { RealtimeAction } from './realtime/publisher'
 export { createRealtimeFacade } from './realtime/facade'
 export type {

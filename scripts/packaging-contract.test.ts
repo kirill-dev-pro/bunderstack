@@ -44,6 +44,14 @@ describe('published packages', () => {
       }
     })
 
+    test(`${name} publishes its testing entry point`, async () => {
+      const pkg = await readJson(`packages/${name}/package.json`)
+      expect(pkg['exports']['./testing']).toEqual({
+        types: './dist/testing.d.ts',
+        default: './dist/testing.js',
+      })
+    })
+
     test(`${name} builds before it is packed`, async () => {
       const pkg = await readJson(`packages/${name}/package.json`)
       expect(pkg['scripts']['build']).toContain('build-package.ts')

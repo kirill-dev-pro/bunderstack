@@ -72,6 +72,10 @@
       "types": "./dist/provision.d.ts",
       "default": "./dist/provision.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./schema": {
       "types": "./dist/schema-export.d.ts",
       "default": "./dist/schema-export.js"

@@ -120,6 +120,22 @@ describe('published dependency boundaries', () => {
     expect(start).not.toContain('export { createStartAuthClient }')
   })
 
+  test('testing is an explicit subpath instead of a root wildcard', async () => {
+    const testing = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/testing.ts'),
+    ).text()
+    const root = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/index.ts'),
+    ).text()
+    const runtime = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/runtime.ts'),
+    ).text()
+
+    expect(testing).not.toMatch(/export \* from ['"]\.\/(?:backend|runtime)['"]/)
+    expect(root).not.toMatch(/export .* from ['"]\.\/testing['"]/)
+    expect(runtime).not.toMatch(/from ['"]\.\/testing(?:['"/])/)
+  })
+
   test('query client keeps QueryClient type-only and framework-neutral', async () => {
     const source = await Bun.file(
       join(repoRoot, 'packages/bunderstack/src/query/client.ts'),
