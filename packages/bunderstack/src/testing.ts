@@ -2,6 +2,8 @@
 
 export { createTestApp } from './testing/fixture'
 export type { TestFixture, TestOptions } from './testing/fixture'
+export type { CapturedEmail, TestEmail } from './testing/email'
+export type { TestStorage } from './testing/storage'
 export type {
   TestDatabaseStrategy,
   TestDatabaseTarget,

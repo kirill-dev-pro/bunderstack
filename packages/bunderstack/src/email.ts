@@ -49,6 +49,8 @@ export type CreateEmailOptions = {
   db?: AnyDb
   /** Test seam for the resend adapter. */
   fetchFn?: typeof fetch
+  /** Internal runtime substitution used by isolated test fixtures. */
+  adapterOverride?: EmailAdapter
 }
 
 /** Root string provider tag ('resend' | 'console') or undefined. */
@@ -121,6 +123,13 @@ function resolveAdapter(
   config: EmailConfigInput,
   opts: CreateEmailOptions,
 ): { adapter: EmailAdapter; provider: string; capture: boolean } {
+  if (opts.adapterOverride) {
+    return {
+      adapter: opts.adapterOverride,
+      provider: 'capture',
+      capture: true,
+    }
+  }
   const managedProvider = opts.env.BUNDERSTACK_EMAIL_PROVIDER
   const provider = managedProvider === 'resend' ? 'resend' : config.provider
   if (typeof provider === 'function') {

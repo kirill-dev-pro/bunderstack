@@ -14,7 +14,7 @@ import { detectDialect } from './dialect'
 import { emailProviderTag } from './email'
 import { createJobsBuilder, validateJobsDefs } from './jobs'
 import { buildManifest } from './manifest'
-import { createBunderstack } from './runtime'
+import { createBunderstack, RUNTIME_OVERRIDES } from './runtime'
 import { resolveBuckets } from './storage/buckets'
 
 export type StartOptions = {
@@ -127,15 +127,10 @@ export function bunderstack<
   ): Promise<App> =>
     createBunderstack({
       ...config,
-      ...(overrides.database
-        ? { database: { ...config.database, ...overrides.database } }
-        : {}),
       jobs: jobsDefs,
       processEnv: source,
-      ...(overrides.backgroundAutoStart === false
-        ? { background: { ...config.background, autoStart: false } }
-        : {}),
-    }) as Promise<App>
+      [RUNTIME_OVERRIDES]: overrides,
+    } as never) as Promise<App>
 
   let backend: BunderstackBackend<App>
   backend = {

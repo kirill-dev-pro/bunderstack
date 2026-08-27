@@ -96,6 +96,10 @@ export type RuntimeOverrides = {
   backgroundAutoStart?: false
 }
 
+export const RUNTIME_OVERRIDES: unique symbol = Symbol.for(
+  'bunderstack.runtime-overrides',
+)
+
 function waitForWorkerShutdown(
   signal: AbortSignal,
   installProcessListeners: boolean,
@@ -307,6 +311,12 @@ export async function createBunderstack<
     TRealtime
   >
 > {
+  const runtimeOverrides = (
+    options as typeof options & {
+      [RUNTIME_OVERRIDES]?: RuntimeOverrides
+    }
+  )[RUNTIME_OVERRIDES]
+  const overrides = runtimeOverrides ?? {}
   const dialect = detectDialect(options.schema)
   const jobsDefs: JobsDefs | undefined = options.jobs
     ? typeof options.jobs === 'function'
@@ -318,13 +328,22 @@ export async function createBunderstack<
   // and everything downstream consumes the result.
   const env = validateEnv(options.env, {
     emailProvider:
-      options.processEnv?.BUNDERSTACK_EMAIL_PROVIDER ??
-      emailProviderTag(options.email),
+      overrides.emailAdapter === undefined
+        ? (options.processEnv?.BUNDERSTACK_EMAIL_PROVIDER ??
+          emailProviderTag(options.email))
+        : undefined,
     defaultDatabaseUrl:
       dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
     source: options.processEnv,
   })
-  const config = resolveConfig(options, env, options.processEnv)
+  const resolvedConfig = resolveConfig(options, env, options.processEnv)
+  const config = {
+    ...resolvedConfig,
+    database: overrides.database
+      ? { ...resolvedConfig.database, ...overrides.database }
+      : resolvedConfig.database,
+    storage: overrides.resolvedStorage ?? resolvedConfig.storage,
+  }
   // Merge bunderstack's internal tables (file-meta, idempotency) into the
   // schema used for the db client + provisioning. CRUD/access stay on the USER
   // schema so internal tables never get a CRUD route.
@@ -338,7 +357,11 @@ export async function createBunderstack<
     ...config.database,
     dialect,
   })
-  const email = createEmail(options.email, { env, db })
+  const email = createEmail(options.email, {
+    env,
+    db,
+    adapterOverride: overrides.emailAdapter,
+  })
   if (closeDatabase) lifecycle.add(closeDatabase)
   try {
     // `db` is typed with the merged schema (user tables + internal tables) so the
@@ -380,7 +403,9 @@ export async function createBunderstack<
             (process.env as Record<string, string | undefined>),
         )
       : undefined
-    const redisUrl = configuredRedisUrl
+    const redisUrl = overrides.forceMemoryRealtime
+      ? undefined
+      : configuredRedisUrl
     const publisher = config.realtime
       ? redisUrl
         ? (() => {
@@ -746,8 +771,10 @@ export async function createBunderstack<
     const roleWantsWorker =
       env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
     const autoStart =
-      options.background?.autoStart ??
-      (roleWantsWorker && resolvedDefs !== undefined)
+      overrides.backgroundAutoStart === false
+        ? false
+        : (options.background?.autoStart ??
+          (roleWantsWorker && resolvedDefs !== undefined))
     let backgroundRunning = false
     if (autoStart) {
       await startWorker()
