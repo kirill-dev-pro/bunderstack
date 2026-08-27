@@ -124,3 +124,40 @@ export async function provision(
 
   await provisionSchema(db, schema, { force: options?.force, databaseUrl })
 }
+
+export type TestSchemaMode = 'auto' | 'push' | 'migrations'
+
+export async function provisionForTest(
+  app: object,
+  mode: TestSchemaMode,
+): Promise<void> {
+  if (mode === 'auto') {
+    await provision(app, { force: true })
+    return
+  }
+
+  const internals = (app as WithProvisionInternals)[PROVISION_INTERNALS]
+  if (!internals) {
+    throw new Error(
+      '[bunderstack] test provisioning expects a Bunderstack runtime',
+    )
+  }
+
+  if (mode === 'push') {
+    await provisionSchema(internals.db, internals.schema, {
+      force: true,
+      databaseUrl: internals.databaseUrl,
+    })
+    return
+  }
+
+  const journal = join(internals.migrationsFolder, 'meta', '_journal.json')
+  if (!(await exists(journal))) {
+    throw new Error('[bunderstack] committed migrations journal not found')
+  }
+  await ensureLocalDataDir(internals.databaseUrl, internals.dialect)
+  await internals.adapter.migrate(
+    internals.db as never,
+    internals.migrationsFolder,
+  )
+}

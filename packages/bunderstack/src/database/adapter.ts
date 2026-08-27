@@ -6,6 +6,18 @@ export type DatabaseConnection = {
   authToken?: string
 }
 
+export type TestDatabaseTarget = AsyncDisposable & {
+  readonly connection: DatabaseConnection
+}
+
+export type TestDatabaseTargetOptions = {
+  mode: 'memory' | 'temporary'
+}
+
+export type TestDatabaseStrategy = {
+  createTarget(options: TestDatabaseTargetOptions): Promise<TestDatabaseTarget>
+}
+
 export type DatabaseConnectionResult<TSchema extends Record<string, unknown>> =
   {
     db: DbFor<TSchema>
@@ -20,4 +32,5 @@ export type DatabaseAdapter = {
     connection: DatabaseConnection,
   ): Promise<DatabaseConnectionResult<TSchema>>
   migrate(db: AnyDb, migrationsFolder: string): Promise<void>
+  testing?: TestDatabaseStrategy
 }

@@ -1,5 +1,13 @@
 // src/testing.ts — test utilities for Bunderstack applications.
 
+export { createTestApp } from './testing/fixture'
+export type { TestFixture, TestOptions } from './testing/fixture'
+export type {
+  TestDatabaseStrategy,
+  TestDatabaseTarget,
+  TestDatabaseTargetOptions,
+} from './database/adapter'
+
 export type AuthSessionResolverLike = {
   api: {
     getSession: (opts: { headers: Headers }) => Promise<unknown>

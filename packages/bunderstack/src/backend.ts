@@ -7,6 +7,7 @@ import type { BunderstackJobsBuilder, JobsDefs } from './jobs'
 import type { BunderstackManifest } from './manifest'
 import type { BunderstackApp, BucketNamesOf, RuntimeOverrides } from './runtime'
 import type { StorageConfigInput } from './storage/buckets'
+import type { TestFixture, TestOptions } from './testing/fixture'
 
 import { BACKEND_INTERNALS, type BackendInternals } from './backend-internals'
 import { detectDialect } from './dialect'
@@ -18,15 +19,6 @@ import { resolveBuckets } from './storage/buckets'
 
 export type StartOptions = {
   env?: Record<string, string | undefined>
-}
-
-export type TestOptions = {
-  env?: Record<string, string | undefined>
-}
-
-export type TestFixture<TApp> = AsyncDisposable & {
-  readonly app: TApp
-  close(): Promise<void>
 }
 
 export type BunderstackBackend<TApp> = {
@@ -151,13 +143,7 @@ export function bunderstack<
     start: ({ env } = {}) =>
       start(env ?? (process.env as Record<string, string | undefined>)),
     async test(options) {
-      const testing =
-        (await import('./testing')) as typeof import('./testing') & {
-          createTestApp(
-            backend: BunderstackBackend<App>,
-            options?: TestOptions,
-          ): Promise<TestFixture<App>>
-        }
+      const testing = await import('./testing')
       return testing.createTestApp(backend, options)
     },
     [BACKEND_INTERNALS]: { declaration: { config, jobsDefs }, start },
