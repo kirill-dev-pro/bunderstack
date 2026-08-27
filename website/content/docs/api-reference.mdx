@@ -241,8 +241,33 @@ interface EmailFacade {
 `EmailMessage` supports `to`, `subject`, HTML or text bodies, sender override,
 reply-to, CC, and BCC. Configure the console, Resend, SMTP, or a custom adapter.
 
-## Testing
+## Testing (`bunderstack/testing`)
 
-The root package exports `mockAuthSession` for scoped session tests. Disable
-the automatic worker with `background: { autoStart: false }`, then drive
-`app.jobs.tick()` directly for deterministic job tests.
+`backend.test(options)` produces an isolated test fixture with lexical async disposal (`await using`):
+
+```ts
+import { backend } from './bunderstack'
+
+test('posts procedure works', async () => {
+  await using fixture = await backend.test({
+    database: { mode: 'temporary', schema: 'migrations' },
+  })
+
+  const identity = await fixture.auth.signUpEmail({ email: 'alice@example.com' })
+  const client = fixture.client(identity)
+
+  const result = await client.posts.create({ title: 'First post' })
+  expect(result.title).toBe('First post')
+
+  await fixture.jobs.runUntilIdle()
+  expect(fixture.email.sent).toHaveLength(1)
+})
+```
+
+`TestFixture` provides:
+- `fixture.app`: the materialized application runtime;
+- `fixture.auth`: `signUpEmail()` with real Better Auth HTTP handler execution and cookie collection, or `mockSession()`;
+- `fixture.client(identity?)`: inferred typed oRPC client calling `app.handler` directly in-process;
+- `fixture.jobs`: `runNext()` and `runUntilIdle()` deterministic runners without sleeps or polling;
+- `fixture.email`: in-memory capture of sent emails at `fixture.email.sent`;
+- `fixture.storage`: isolated test storage with `fixture.storage.read(key)`.

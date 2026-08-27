@@ -114,17 +114,18 @@ Job names may not begin with `cron:`; the prefix is reserved.
 
 ## Testing jobs deterministically
 
-Fixtures never auto-start background work. `t.jobs.tick()` claims the runnable
-snapshot that existed at the start of the tick and returns what it did:
+Fixtures never auto-start background work. `fixture.jobs.runNext()` claims and runs one tick, while `fixture.jobs.runUntilIdle()` runs ticks until all runnable jobs are processed:
 
 ```ts
-await using t = await backend.test()
-const { claimed, ran, failed } = await t.jobs.tick()
+await using fixture = await backend.test()
+
+await fixture.app.jobs.enqueue('sendWelcomeEmail', { userId: 'user_1' })
+
+const report = await fixture.jobs.runUntilIdle({ failOnJobError: true })
+expect(report.ran).toBe(1)
 ```
 
-Jobs recursively enqueued by handlers wait for the next tick. `settle()` repeats
-snapshots until the queue converges, a terminal job fails, or configured limits
-are reached; delayed jobs are not made runnable by implicit clock advancement.
+Jobs recursively enqueued by handlers are processed until the queue converges or `maxTicks` is reached. Delayed jobs wait for their explicit `now` timestamp without sleeping.
 
 ## Realtime from a separate worker process
 

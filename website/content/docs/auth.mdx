@@ -94,17 +94,23 @@ export async function getAuthSession() {
 
 You can also access `app.auth` directly — it's just a BetterAuth instance.
 
-## Unit testing auth (`mockAuthSession`)
+## Unit testing auth
 
-In unit tests, mock user session resolution cleanly without typecasting:
+In unit tests, use the lexical testing fixture with `signUpEmail` or `mockSession`:
 
 ```ts
-import { mockAuthSession } from 'bunderstack'
+import { backend } from './bunderstack'
 
-// Mock active user session for test assertions
-mockAuthSession(app, async () => ({
-  user: { id: 'test_user', email: 'user@example.com', role: 'admin' },
-}))
+test('authenticated routes', async () => {
+  await using fixture = await backend.test()
+
+  // Real sign-up via Better Auth HTTP handlers
+  const identity = await fixture.auth.signUpEmail({ email: 'alice@example.com' })
+  const client = fixture.client(identity)
+
+  // Or mock session
+  const mockIdentity = fixture.auth.mockSession({ id: 'test_user', email: 'user@example.com' })
+})
 ```
 
 ## Required schema tables
