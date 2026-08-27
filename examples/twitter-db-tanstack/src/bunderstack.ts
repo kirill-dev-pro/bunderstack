@@ -1,10 +1,10 @@
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   access,
   database: {
@@ -47,6 +47,8 @@ export const app = await createBunderstack({
   },
   realtime: true,
 })
+
+export const app = await backend.start()
 
 /** Type-only handle for client inference (`bunderstackStart<App>()`). */
 export type App = typeof app

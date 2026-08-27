@@ -43,7 +43,7 @@ contract automatically.
 
 ```ts
 // bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { count } from 'drizzle-orm'
@@ -52,7 +52,7 @@ import * as v from 'valibot'
 import { posts } from './schema'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: { adapter: libsql(), url: 'file:./data.db' },
   access: {
@@ -72,6 +72,8 @@ export const app = await createBunderstack({
       }),
   }),
 })
+
+export const app = await backend.start()
 
 export type App = typeof app
 

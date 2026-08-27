@@ -1,6 +1,6 @@
 import { type } from 'arktype'
 import { anonymous } from 'better-auth/plugins'
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
@@ -11,7 +11,7 @@ import { api } from './api'
 import { envSchema } from './env'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   access,
   database: {
@@ -52,6 +52,8 @@ export const app = await createBunderstack({
     }),
   api,
 })
+
+export const app = await backend.start()
 
 export type App = typeof app
 

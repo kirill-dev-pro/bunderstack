@@ -182,7 +182,7 @@ carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in
 ## Rate limiting (opt-in)
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   rateLimit: { windowMs: 60_000, max: 100 },
 })
@@ -193,7 +193,7 @@ In-memory per process — use a shared store for multi-instance deployments.
 ## POST idempotency (opt-in)
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   idempotency: true,
 })

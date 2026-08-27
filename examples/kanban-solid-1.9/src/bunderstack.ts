@@ -1,12 +1,12 @@
 import { organization } from 'better-auth/plugins'
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access.ts'
 import * as schema from './schema.ts'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -21,6 +21,8 @@ export const app = await createBunderstack({
   access,
   realtime: true,
 })
+
+export const app = await backend.start()
 
 // No migrations/ folder → dev push; committed migrations → applied on boot.
 await provision(app)

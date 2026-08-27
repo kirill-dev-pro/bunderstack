@@ -12,7 +12,7 @@ import { anonymous } from 'better-auth/plugins'
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
@@ -28,7 +28,7 @@ import * as schema from './schema'
  *  visible in a live demo. A real app would use something like 30 days. */
 const ARCHIVE_DONE_TODOS_AFTER_MS = 2 * 60_000
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   access,
 
@@ -128,6 +128,8 @@ export const app = await createBunderstack({
   // oRPC custom procedures mounted alongside CRUD, declared in api.ts
   api,
 })
+
+export const app = await backend.start()
 
 /** Type handle for client inference — no server code in the bundle. */
 export type App = typeof app

@@ -39,8 +39,11 @@ Declare queue jobs with `jobs: (j) => j.define(...)`, then run them in a
 separate production process:
 
 ```ts
-import { app } from './bunderstack'
+import { backend } from './bunderstack/backend'
 
+const app = await backend.start({
+  env: { ...process.env, BUNDERSTACK_ROLE: 'web' },
+})
 await app.runWorker()
 ```
 

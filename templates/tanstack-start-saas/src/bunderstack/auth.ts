@@ -1,5 +1,5 @@
 /**
- * Better Auth configuration, passed to `createBunderstack({ auth })`.
+ * Better Auth configuration, passed to `bunderstack({ auth })`.
  *
  * This module reads `process.env` at module scope on purpose. Importing the
  * Bunderstack entry from here would create a circular evaluation loop at boot,

@@ -7,12 +7,12 @@ bun add bunderstack better-auth drizzle-orm valibot @libsql/client
 ```
 
 ```ts
-import { createBunderstack, defineApi } from 'bunderstack'
+import { bunderstack, defineApi } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: { adapter: libsql(), url: 'file:./data.db' },
   access: { posts: { crud: true } },
@@ -25,6 +25,7 @@ export const app = await createBunderstack({
   },
 })
 
+export const app = await backend.start()
 Bun.serve({ fetch: app.handler })
 export type App = typeof app
 ```
@@ -46,7 +47,9 @@ replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
 ## Package Subpaths (0.21+)
 
-- `bunderstack` — Backend runtime (`createBunderstack`, `provision`, `defineApi`, `buildApiRegistry`)
+- `bunderstack` — Declarative backend and runtime (`bunderstack`, `defineApi`, `buildApiRegistry`)
+- `bunderstack/testing` — Isolated lexical test fixtures (`backend.test()`)
+- `bunderstack/provision` — Explicit production schema provisioning
 - `bunderstack/client` — Framework-neutral RPC & LiveView client (`createClient`, `createLiveView`)
 - `bunderstack/client/rest` — Type-safe REST client
 - `bunderstack/client/react`, `bunderstack/client/solid`, `bunderstack/client/vue`, `bunderstack/client/svelte` — LiveView UI bindings

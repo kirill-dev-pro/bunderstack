@@ -1,4 +1,4 @@
-import { createBunderstack, defineApi } from 'bunderstack'
+import { bunderstack, defineApi } from 'bunderstack'
 import { generateTypeId, typeid } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 // Bunderstack's own tables — file metadata, idempotency, jobs, email log.
@@ -32,8 +32,7 @@ export const todos = sqliteTable('todos', {
     .default('idle'),
 })
 
-function createApp() {
-  return createBunderstack({
+export const backend = bunderstack({
     schema: { ...internal, todos },
 
     access: {
@@ -158,8 +157,7 @@ function createApp() {
           return { queued: rows.length }
         }),
     }),
-  })
-}
+})
 
 /**
  * One app per process, kept on `globalThis`.
@@ -174,10 +172,10 @@ function createApp() {
  * requests share one boot instead of racing to create two.
  */
 const cache = globalThis as typeof globalThis & {
-  __todoApp?: ReturnType<typeof createApp>
+  __todoApp?: ReturnType<typeof backend.start>
 }
 
-export const app = await (cache.__todoApp ??= createApp())
+export const app = await (cache.__todoApp ??= backend.start())
 
 /** Type handle for client inference — no server code reaches the bundle. */
 export type App = typeof app

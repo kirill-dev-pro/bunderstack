@@ -33,7 +33,9 @@ export type SignUpEmailInput = {
 
 export type TestAuth = {
   signUpEmail(input: SignUpEmailInput): Promise<TestIdentity>
-  mockSession(user: TestUser): TestIdentity
+  mockSession<TUser extends TestUser>(
+    user: TUser,
+  ): TestIdentity & { user: TUser }
 }
 
 export type AuthSessionResolverLike = {

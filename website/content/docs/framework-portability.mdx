@@ -25,13 +25,13 @@ TanStack Start supports top-level `await`, allowing you to export `app` and its 
 
 ```ts
 // src/bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import { access } from './access'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   access,
   database: {
@@ -42,6 +42,7 @@ export const app = await createBunderstack({
   realtime: true,
 })
 
+export const app = await backend.start()
 export type App = typeof app
 await provision(app)
 ```
@@ -103,12 +104,12 @@ bun add -d vite vite-plugin-solid@3.0.0-next.27
 
 ```ts
 // src/bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -118,6 +119,7 @@ export const app = await createBunderstack({
   realtime: true,
 })
 
+export const app = await backend.start()
 export type App = typeof app
 await provision(app)
 ```
@@ -211,12 +213,12 @@ In a Single Page Application (SPA) with Vite and React (or TanStack Router), the
 
 ```ts
 // server.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -226,6 +228,7 @@ export const app = await createBunderstack({
   realtime: true,
 })
 
+export const app = await backend.start()
 export type App = typeof app
 await provision(app)
 
@@ -288,12 +291,12 @@ For server-rendered applications using Bun with template literals, JSX, HTMX, Al
 
 ```ts
 // src/bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -303,6 +306,7 @@ export const app = await createBunderstack({
   realtime: true,
 })
 
+export const app = await backend.start()
 export type App = typeof app
 await provision(app)
 ```
@@ -361,18 +365,20 @@ Running `bunx bunderstack blueprint` detects a generic Bun project and assigns `
 
 ```ts
 // lib/bunderstack.ts
-import { createBunderstack, type BunderstackApp } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-let _app: BunderstackApp<typeof schema> | null = null
+const backend = bunderstack({
+  schema,
+  auth: { emailAndPassword: { enabled: true } },
+})
+
+let _app: Awaited<ReturnType<typeof backend.start>> | null = null
 
 export async function getApp() {
   if (!_app) {
-    _app = await createBunderstack({
-      schema,
-      auth: { emailAndPassword: { enabled: true } },
-    })
+    _app = await backend.start()
     await provision(_app)
   }
   return _app

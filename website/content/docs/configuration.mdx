@@ -1,12 +1,12 @@
 ---
 title: Configuration
-description: createBunderstack options, transports, adapters, and lifecycle
+description: bunderstack declarations, runtime options, transports, adapters, and lifecycle
 ---
 
 ## Application options
 
 ```ts
-await createBunderstack({
+const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -29,6 +29,8 @@ await createBunderstack({
   realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
   openapi: true,
 })
+
+const app = await backend.start()
 ```
 
 `schema` and `database.adapter` are required. All validation slots accept
@@ -89,14 +91,16 @@ Storage may use a local directory or S3-compatible infrastructure. Buckets
 carry their own upload, access, and image-transform rules; see
 [Storage](/docs/storage).
 
-## Lifecycle and introspection
+## Declaration and lifecycle
 
 `await app.close()` stops background work and closes application-owned database
 and Publisher resources. `app.status`, `app.signal`, and
 `app.backgroundRunning` expose lifecycle state.
 
-Set `BUNDERSTACK_INTROSPECT=1` when deployment tooling needs
-`app.manifest` without opening database or Redis connections.
+`bunderstack()` is synchronous and side-effect-free. Deployment tooling imports
+the exported backend and reads `backend.manifest` without opening database or
+Redis connections. `backend.start({ env })` owns production runtime resources;
+`backend.test()` creates an isolated, lexically owned test fixture.
 
 ## Common environment variables
 

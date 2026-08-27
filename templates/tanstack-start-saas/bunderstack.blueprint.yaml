@@ -1,7 +1,7 @@
 version: 1
 generator:
   name: bunderstack
-  version: 0.15.1
+  version: 0.21.1
 application:
   framework: tanstack-start
   scripts:
@@ -9,16 +9,19 @@ application:
     start: start
     worker: worker
 bunderstack:
-  entry: src/bunderstack/index.ts
+  entry: src/bunderstack/backend.ts
   manifestVersion: 3
 resources:
   database:
     dialect: sqlite
     migrationsDirectory: ./migrations
-    migrationMode: push
+    migrationMode: migrations
     tables:
-      - exportName: _system.scheduledRuns
-        physicalName: _bunderstack_cron_runs
+      - exportName: _system.emailEvents
+        physicalName: _bunderstack_email_events
+        system: true
+      - exportName: _system.emails
+        physicalName: _bunderstack_emails
         system: true
       - exportName: _system.idempotency
         physicalName: _bunderstack_idempotency
@@ -74,9 +77,12 @@ background:
     - name: sendProjectDigest
   cron:
     - name: archiveCompletedTasks
-      schedule: '0 3 * * *'
+      schedule: "0 3 * * *"
+      timezone: UTC
+    - name: bunderstack:storage-sweep
+      schedule: "0 4 * * *"
       timezone: UTC
   maintenance:
     - name: storage-sweep
-      schedule: '0 4 * * *'
+      schedule: "0 4 * * *"
       timezone: UTC

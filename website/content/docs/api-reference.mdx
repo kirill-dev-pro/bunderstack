@@ -6,17 +6,17 @@ description: Current public surface of Bunderstack and its client packages
 This page summarizes the stable public concepts. TypeScript remains the exact
 reference for generic details and adapter-specific types.
 
-## `createBunderstack(options)`
+## `bunderstack(options)`
 
 ```ts
-function createBunderstack<
+function bunderstack<
   TSchema,
   TAccess,
   TStorage,
   TEnv,
   TJobs,
   TApi,
->(options: BunderstackConfig<...>): Promise<BunderstackApp<...>>
+>(options: BunderstackConfig<...>): BunderstackBackend<BunderstackApp<...>>
 ```
 
 Required options:
@@ -36,6 +36,11 @@ Major optional groups:
 
 See [Configuration](/docs/configuration) for examples and defaults.
 
+`bunderstack()` only declares the backend. `backend.manifest` is available
+synchronously for Blueprint generation. Call `await backend.start({ env })` to
+materialize a production runtime, or `await backend.test()` to create an
+isolated test fixture owned by the current lexical scope.
+
 ## `BunderstackApp`
 
 ```ts
@@ -54,7 +59,6 @@ type BunderstackApp = {
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
   readonly backgroundRunning: boolean
-  readonly manifest: BunderstackManifest
   readonly $inferClient?: ClientTypeCarrier
 }
 ```

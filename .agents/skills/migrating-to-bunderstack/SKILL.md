@@ -16,7 +16,7 @@ infrastructure, use `creating-bunderstack-apps` instead.
    capability today and which call sites depend on it.
 2. Add a migration contract test before removing legacy paths, so every
    deletion has a gate that fails when behaviour is lost.
-3. Establish one Bunderstack app and one schema aggregate.
+3. Establish one Bunderstack backend declaration, one runtime, and one schema aggregate.
 4. Move auth and access without creating duplicate instances.
 5. Replace infrastructure capability by capability.
 6. Mount one handler and separate the production worker.
@@ -31,8 +31,9 @@ database client sits outside provisioning, migration state, and request
 transactions. A second env schema drifts from the validated one and passes
 locally while failing at boot.
 
-Pass `authConfig` into `createBunderstack()`, re-export `app.auth` and `app.db`
-from the entry, and let the `env` passed to `createBunderstack()` be the only
+Pass `authConfig` into `bunderstack()`, start that declaration once in the web
+entry, and re-export `app.auth` and `app.db` from the runtime entry. Let the
+declared `env` schema plus the source passed to `backend.start()` be the only
 validated source. A more specific file route also shadows the catch-all, so a
 surviving `/api/auth/$` silently keeps serving the instance you meant to delete.
 
@@ -53,7 +54,7 @@ surviving `/api/auth/$` silently keeps serving the instance you meant to delete.
 | Channel-and-payload realtime publishing                       | `ctx.realtime.publish(schema.tasks, 'update', row)` after the write commits       |
 | AWS or Tigris SDK wrapper                                     | `app.storage` buckets                                                             |
 | Resend SDK wrapper                                            | `app.email.send(...)`                                                             |
-| `createEnv()` beside the app                                  | `env` passed to `createBunderstack()`                                             |
+| `createEnv()` beside the app                                  | `env` schema in `bunderstack()` and source in `backend.start()`                    |
 | Implicit database driver                                      | Explicit adapter, `database: { adapter: libsql(), url }`                          |
 | Schema push in production                                     | Committed Drizzle `migrations/`, applied by `provision(app)`                      |
 | Undeclared deployment                                         | `package.json#bunderstack.entry` and a checked blueprint                          |
@@ -73,8 +74,8 @@ shim is acceptable when call sites are numerous; the shim is deleted under this
 same gate. Uninstall the replaced SDK package in the commit that removes its
 last importer, so a stale wrapper cannot be reintroduced silently.
 
-Tests and scripts that construct their own app instance must call
-`app.close()`.
+Tests should use lexically scoped `await using` fixtures from `backend.test()`;
+scripts that explicitly start a runtime must close the runtime they own.
 
 ## Production gate
 

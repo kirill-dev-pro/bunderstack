@@ -1,4 +1,4 @@
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { generateTypeId, typeid } from 'bunderstack'
 import { libsql } from 'bunderstack/database/libsql'
 // Bunderstack's own tables — file metadata, idempotency, jobs, email log.
@@ -16,8 +16,7 @@ export const todos = sqliteTable('todos', {
     .$defaultFn(() => new Date()),
 })
 
-function createApp() {
-  return createBunderstack({
+export const backend = bunderstack({
     schema: { ...internal, todos },
 
     access: {
@@ -42,8 +41,7 @@ function createApp() {
     // Broadcast every CRUD write over SSE. The client consumes the stream
     // as a plain async iterator — see src/native/sse.ts.
     realtime: true,
-  })
-}
+})
 
 /**
  * One app per process, kept on `globalThis` so Vite's dev server cannot boot
@@ -51,10 +49,10 @@ function createApp() {
  * module twice.
  */
 const cache = globalThis as typeof globalThis & {
-  __todoApp?: ReturnType<typeof createApp>
+  __todoApp?: ReturnType<typeof backend.start>
 }
 
-export const app = await (cache.__todoApp ??= createApp())
+export const app = await (cache.__todoApp ??= backend.start())
 
 /** Type handle for client inference — no server code reaches the bundle. */
 export type App = typeof app

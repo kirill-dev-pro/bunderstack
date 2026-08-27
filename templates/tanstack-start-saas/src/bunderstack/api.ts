@@ -44,7 +44,7 @@ const taskOutput = v.object({
 })
 
 /**
- * Registered in `createBunderstack({ middleware })`, so it covers the
+ * Registered in `bunderstack({ middleware })`, so it covers the
  * generated CRUD, storage, and realtime procedures too — a middleware placed
  * on a base above would only see the procedures declared in this file.
  *

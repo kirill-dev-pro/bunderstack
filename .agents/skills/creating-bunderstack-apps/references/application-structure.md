@@ -1,23 +1,27 @@
 # Application structure
 
-## Keep the entry declarative
+## Separate declaration from runtime
 
-The Bunderstack entry constructs and exports `app` (and usually `type App =
-typeof app`), configures the declared capabilities, and calls `provision(app)`
-when the application owns provisioning. Keep unrelated external side effects
-out of its import graph: the blueprint command imports this entry with
-`BUNDERSTACK_INTROSPECT=1`.
+`src/bunderstack/backend.ts` synchronously constructs and exports `backend =
+bunderstack({...})`. It is pure: it validates the declaration and exposes
+`backend.manifest`, but it does not connect to infrastructure. The blueprint
+imports this declaration without starting the application.
+
+`src/bunderstack/index.ts` owns the production runtime: it imports `backend`,
+calls `await backend.start()`, exports `app`, and calls `provision(app)` when the
+application owns provisioning. Keep unrelated external side effects out of the
+backend import graph.
 
 Start a small API in `src/bunderstack.ts`. Split a meaningful configuration
-into `src/bunderstack/` with `index.ts`, `schema/`, `access.ts`, `auth.ts`,
+into `src/bunderstack/` with `backend.ts`, `index.ts`, `schema/`, `access.ts`, `auth.ts`,
 `env.ts`, `jobs/`, and `api/` as needed. The entry remains the one place that
-assembles those modules into `createBunderstack()`; do not create parallel app,
+starts the declared backend; do not create parallel app,
 database, or auth instances.
 
 ## Aggregate the schema
 
 Export every domain, Better Auth, plugin, and Bunderstack internal table from
-the schema object passed to `createBunderstack()`. Include
+the schema object passed to `bunderstack()`. Include
 `export * from 'bunderstack/schema'` so migrations include the internal tables.
 Define Better Auth tables required by the selected auth flows and plugins; do
 not assume a minimal auth configuration needs every optional provider table.
@@ -61,8 +65,8 @@ export const projectsRouter = {
 // src/bunderstack/api/index.ts
 export const api = { projects: projectsRouter }
 
-// entry
-createBunderstack({ schema, database, api })
+// backend.ts
+bunderstack({ schema, database, api })
 ```
 
 Do not write a router factory that receives a bag of procedures. That shape
@@ -118,7 +122,7 @@ const instrumentation = o.middleware(async ({ context, next, path }) => {
   }
 })
 
-createBunderstack({ schema, database, middleware: [instrumentation], api })
+bunderstack({ schema, database, middleware: [instrumentation], api })
 ```
 
 Three rules apply to a graph-wide middleware. It runs before authentication, so

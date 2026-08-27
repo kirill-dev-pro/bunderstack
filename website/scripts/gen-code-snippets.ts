@@ -31,7 +31,7 @@ const queryCoreDir = dirname(
 )
 
 const APP_FILE = `// @filename: bunderstack.ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { bunSql } from 'bunderstack/database/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
@@ -42,7 +42,7 @@ export const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema: { posts },
   database: { adapter: bunSql() },
   auth: { secret: process.env.AUTH_SECRET! },
@@ -56,7 +56,7 @@ export const app = await createBunderstack({
   }),
 })
 
-export type App = typeof app
+export type App = Awaited<ReturnType<typeof backend.start>>
 `
 
 const CLIENT_FILE = `// @filename: api-client.ts
@@ -73,7 +73,7 @@ export const authClient = createAuthClient()
 const snippets: Record<string, string> = {
   declaration: `// @filename: bunderstack.ts
 // ---cut---
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { bunSql } from 'bunderstack/database/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
@@ -84,7 +84,7 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema: { posts },
   database: { adapter: bunSql() },
   auth: { secret: process.env.AUTH_SECRET! },
@@ -114,11 +114,11 @@ export const app = await createBunderstack({
   }),
 })
 
-export type App = typeof app`,
+export type App = Awaited<ReturnType<typeof backend.start>>`,
 
   procedure: `// @filename: bunderstack.ts
 // ---cut---
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { bunSql } from 'bunderstack/database/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 
@@ -128,7 +128,7 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema: { posts },
   database: { adapter: bunSql() },
   realtime: true,
@@ -140,7 +140,7 @@ export const app = await createBunderstack({
   }),
 })
 
-export type App = typeof app`,
+export type App = Awaited<ReturnType<typeof backend.start>>`,
 
   client: `${APP_FILE}// @filename: client.ts
 // ---cut---
