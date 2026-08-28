@@ -203,7 +203,7 @@ export const creditBalances = sqliteTable('credit_balances', {
 await writeFile(
   join(app, 'src/app.ts'),
   `import { bunderstack, type ApiContext } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { generate } from 'bunderstack/typeid'
 import { os } from '@orpc/server'
 import * as v from 'valibot'
@@ -248,15 +248,15 @@ await writeFile(
   createClient as createCoreClient,
   createLiveView,
 } from 'bunderstack/client'
-import { createRestClient, type RouteOperation } from 'bunderstack/client/rest'
-import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
-import { createLiveStore } from 'bunderstack/client/solid'
-import { liveStore } from 'bunderstack/client/svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+import { createRestClient, type RouteOperation } from 'bunderstack/client-rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
+import { createLiveStore } from 'bunderstack/client-solid'
+import { liveStore } from 'bunderstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
 import { createClient } from 'bunderstack/query'
 import { createSyncClient } from 'bunderstack/sync'
 import { bunderstackStart } from 'bunderstack/start'
-import { createStartAuthClient } from 'bunderstack/start/auth'
+import { createStartAuthClient } from 'bunderstack/start-auth'
 import type { TestFixture } from 'bunderstack/testing'
 import { QueryClient } from '@tanstack/react-query'
 

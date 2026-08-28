@@ -44,7 +44,7 @@ contract automatically.
 ```ts
 // bunderstack.ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import { count } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -129,10 +129,10 @@ Import exactly one adapter. Its dialect must match your Drizzle tables.
 
 | Database          | Adapter                            | Optional peer          |
 | ----------------- | ---------------------------------- | ---------------------- |
-| SQLite / Turso    | `bunderstack/database/libsql`      | `@libsql/client`       |
-| Embedded Postgres | `bunderstack/database/pglite`      | `@electric-sql/pglite` |
-| Postgres on Bun   | `bunderstack/database/bun-sql`     | none                   |
-| Postgres on Node  | `bunderstack/database/postgres-js` | `postgres`             |
+| SQLite / Turso    | `bunderstack/libsql`      | `@libsql/client`       |
+| Embedded Postgres | `bunderstack/pglite`      | `@electric-sql/pglite` |
+| Postgres on Bun   | `bunderstack/bun-sql`     | none                   |
+| Postgres on Node  | `bunderstack/postgres-js` | `postgres`             |
 
 Continue with [Auto CRUD](/docs/crud), then add application behavior in
 [API Procedures](/docs/api-procedures).

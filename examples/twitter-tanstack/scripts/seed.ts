@@ -215,3 +215,5 @@ console.log('Done. Demo accounts (password: password123):')
 for (const u of SEED_USERS) console.log(`  ${u.email}`)
 console.log('')
 console.log('Try search: drizzle, thumbnail, access control, bunderstack/query')
+
+await app.close()

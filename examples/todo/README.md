@@ -36,7 +36,7 @@ at all.
   no `migrations/` folder. Generate migrations with drizzle-kit and commit
   them, and the same call applies them instead (no drizzle-kit at runtime).
 - **Database ownership**: [`src/bunderstack.ts`](src/bunderstack.ts) selects
-  `libsql()` explicitly from `bunderstack/database/libsql`. The app owns that
+  `libsql()` explicitly from `bunderstack/libsql`. The app owns that
   real client, so a standalone script or test that stops the app should call
   `await app.close()`.
 - **Anonymous emails**: anonymous users get a generated `temp-…` address, so

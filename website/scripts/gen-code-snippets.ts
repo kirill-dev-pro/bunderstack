@@ -32,7 +32,7 @@ const queryCoreDir = dirname(
 
 const APP_FILE = `// @filename: bunderstack.ts
 import { bunderstack } from 'bunderstack'
-import { bunSql } from 'bunderstack/database/bun-sql'
+import { bunSql } from 'bunderstack/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
@@ -74,7 +74,7 @@ const snippets: Record<string, string> = {
   declaration: `// @filename: bunderstack.ts
 // ---cut---
 import { bunderstack } from 'bunderstack'
-import { bunSql } from 'bunderstack/database/bun-sql'
+import { bunSql } from 'bunderstack/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
@@ -119,7 +119,7 @@ export type App = Awaited<ReturnType<typeof backend.start>>`,
   procedure: `// @filename: bunderstack.ts
 // ---cut---
 import { bunderstack } from 'bunderstack'
-import { bunSql } from 'bunderstack/database/bun-sql'
+import { bunSql } from 'bunderstack/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 
 const posts = pgTable('posts', {
@@ -235,6 +235,25 @@ export function Feed() {
 }`,
 }
 
+// Snippets typecheck against our sources, not our `dist`, so every subpath here
+// must mirror `exports`. Deriving it keeps the two from drifting when a subpath
+// is added or renamed: `./dist/x/y.d.ts` is emitted from `src/x/y.ts`.
+const bunderstackPkg = (await Bun.file(
+  join(root, '../packages/bunderstack/package.json'),
+).json()) as { exports: Record<string, { types: string }> }
+
+const bunderstackPaths = Object.fromEntries(
+  Object.entries(bunderstackPkg.exports).map(([subpath, entry]) => [
+    subpath === '.' ? 'bunderstack' : `bunderstack/${subpath.slice(2)}`,
+    [
+      entry.types.replace(
+        /^\.\/dist\/(.*)\.d\.ts$/,
+        '../packages/bunderstack/src/$1.ts',
+      ),
+    ],
+  ]),
+)
+
 const highlighter = await createHighlighter({
   themes: ['min-dark', 'min-light'],
   langs: ['ts', 'tsx'],
@@ -253,16 +272,7 @@ const compilerOptions: ts.CompilerOptions = {
   types: ['bun'],
   baseUrl: root,
   paths: {
-    bunderstack: ['../packages/bunderstack/src/index.ts'],
-    'bunderstack/client': ['../packages/bunderstack/src/client/index.ts'],
-    'bunderstack/client/*': ['../packages/bunderstack/src/client/*.ts'],
-    'bunderstack/query': ['../packages/bunderstack/src/query/index.ts'],
-    'bunderstack/query/*': ['../packages/bunderstack/src/query/*.ts'],
-    'bunderstack/sync': ['../packages/bunderstack/src/sync/index.ts'],
-    'bunderstack/sync/*': ['../packages/bunderstack/src/sync/*.ts'],
-    'bunderstack/start': ['../packages/bunderstack/src/start/index.ts'],
-    'bunderstack/start/*': ['../packages/bunderstack/src/start/*.ts'],
-    'bunderstack/*': ['../packages/bunderstack/src/*.ts'],
+    ...bunderstackPaths,
     'drizzle-orm': [drizzleOrmDir],
     'drizzle-orm/*': [join(drizzleOrmDir, '*')],
     'better-auth': [betterAuthDir],

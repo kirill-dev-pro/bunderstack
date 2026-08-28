@@ -8,7 +8,12 @@ import type {
 } from './database/adapter'
 import type { Dialect } from './dialect'
 
-export type Driver = 'libsql' | 'pglite' | 'bun-sql' | 'postgres-js'
+export type Driver =
+  | 'libsql'
+  | 'bun-sqlite'
+  | 'pglite'
+  | 'bun-sql'
+  | 'postgres-js'
 
 /** Per-dialect public db type, computed from the schema's table brands. */
 export type DbFor<TSchema extends Record<string, unknown>> = [

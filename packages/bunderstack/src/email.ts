@@ -1,5 +1,5 @@
 // src/email.ts — email sending: console / resend / custom adapters.
-// SMTP is provided by the static `bunderstack/email/smtp` factory subpath.
+// SMTP is provided by the static `bunderstack/email-smtp` factory subpath.
 
 import { and, eq } from 'drizzle-orm'
 
@@ -165,7 +165,7 @@ function resolveAdapter(
     default:
       if (provider === 'smtp') {
         throw new Error(
-          "email provider 'smtp' was removed. Import `smtp` from 'bunderstack/email/smtp' instead.",
+          "email provider 'smtp' was removed. Import `smtp` from 'bunderstack/email-smtp' instead.",
         )
       }
       return {

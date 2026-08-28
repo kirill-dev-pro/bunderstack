@@ -13,7 +13,7 @@ import { anonymous } from 'better-auth/plugins'
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
 import { and, desc, eq, lt } from 'drizzle-orm'

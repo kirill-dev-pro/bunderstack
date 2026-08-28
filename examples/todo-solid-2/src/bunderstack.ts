@@ -1,5 +1,5 @@
 import { bunderstack, generateTypeId, typeid } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 // Bunderstack's own tables — file metadata, idempotency, jobs, email log.
 // They belong in the schema map, not just in the database: the runtime reads
 // them from here.
@@ -37,6 +37,9 @@ export const backend = bunderstack({
   access: {
     todos: {
       crud: true,
+      list: 'public',
+      get: 'public',
+      create: 'public',
       update: 'public',
       delete: 'public',
       // An explicit allowlist: everything else on the table is server-owned.

@@ -43,6 +43,7 @@ import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
 import {
   createAuth,
+  missingAuthModels,
   toAuthSessionResolver,
   withEmailAuthDefaults,
 } from './auth'
@@ -378,8 +379,25 @@ export async function materializeBunderstack<
       options.schema as Record<string, unknown>,
     )
     // Internal routers consume the narrow AuthSessionResolver contract, not the
-    // raw better-auth instance. app.auth still exposes `auth` unchanged.
-    const authResolver = options.authResolver ?? toAuthSessionResolver(auth)
+    // raw better-auth instance. app.auth still exposes `auth` unchanged. An app
+    // whose schema declares no better-auth models gets no resolver at all, so
+    // every session resolves to null instead of hitting the drizzle adapter.
+    const missingModels = missingAuthModels(
+      options.schema as Record<string, unknown>,
+      authConfig,
+    )
+    if (missingModels.length > 0 && options.auth !== undefined) {
+      console.warn(
+        `[bunderstack] auth is configured, but the schema is ` +
+          `missing better-auth tables: ${missingModels
+            .map((model) => `\`${model}\``)
+            .join(', ')}. Every session resolves to null until they are ` +
+          `part of the schema.`,
+      )
+    }
+    const authResolver =
+      options.authResolver ??
+      (missingModels.length === 0 ? toAuthSessionResolver(auth) : undefined)
     const resolvedAccess = validateAndResolveAccess(
       options.schema,
       options.access,

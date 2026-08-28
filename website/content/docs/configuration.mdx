@@ -65,10 +65,11 @@ publishing events that cannot reach another process.
 
 | Import                             | Dialect  | Optional peer          | Typical URL                       |
 | ---------------------------------- | -------- | ---------------------- | --------------------------------- |
-| `bunderstack/database/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
-| `bunderstack/database/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
-| `bunderstack/database/bun-sql`     | Postgres | none                   | `postgres://…`                    |
-| `bunderstack/database/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
+| `bunderstack/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
+| `bunderstack/bun-sqlite`  | SQLite   | none                   | `file:./data.db`, `:memory:`      |
+| `bunderstack/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
+| `bunderstack/bun-sql`     | Postgres | none                   | `postgres://…`                    |
+| `bunderstack/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
 
 The adapter dialect must match the Drizzle schema. Import only the adapter you
 use so optional drivers stay outside the application dependency graph.
@@ -79,7 +80,7 @@ Email defaults to the console provider in development. Use Resend directly or
 the optional SMTP adapter:
 
 ```ts
-import { smtp } from 'bunderstack/email/smtp'
+import { smtp } from 'bunderstack/email-smtp'
 
 email: {
   from: 'My app <hello@example.com>',

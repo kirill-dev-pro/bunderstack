@@ -128,7 +128,7 @@ authentication. Use it for observability only, never for authorization — see
 ## Database and provisioning
 
 Import one of `libsql()`, `pglite()`, `bunSql()`, or `postgresJs()` from its
-`bunderstack/database/*` subpath. The schema dialect and adapter dialect must
+`bunderstack/*` subpath. The schema dialect and adapter dialect must
 match.
 
 ```ts
@@ -144,11 +144,11 @@ With committed migrations, it applies pending migrations.
 
 ```ts
 import { createClient, createLiveView } from 'bunderstack/client'
-import { createRestClient } from 'bunderstack/client/rest'
-import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
-import { createLiveStore } from 'bunderstack/client/solid'
-import { liveStore } from 'bunderstack/client/svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+import { createRestClient } from 'bunderstack/client-rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
+import { createLiveStore } from 'bunderstack/client-solid'
+import { liveStore } from 'bunderstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
 ```
 
 A zero-dependency typed RPC client and confirmed realtime `LiveView` with reactive store adapters for Solid, React, Svelte, and Vue. Use it for lightweight clients, mobile/native applications, or when you don't need TanStack Query.

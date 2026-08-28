@@ -6,7 +6,7 @@
 Bunderstack CRUD + realtime
   -> createClient<App>() (typed oRPC, no codegen)
        -> bunderstack/client LiveView (confirmed state)
-       -> bunderstack/client/solid (keyed Solid store)
+       -> bunderstack/client-solid (keyed Solid store)
             -> createOptimisticStore (action-local speculation)
                  -> UI
 ```

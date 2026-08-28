@@ -10,7 +10,7 @@ key to your config and use `app.email.send()` anywhere on the server.
 
 ```ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import * as schema from './schema'
 
 export const backend = bunderstack({
@@ -54,7 +54,7 @@ SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
 ```
 
 ```ts
-import { smtp } from 'bunderstack/email/smtp'
+import { smtp } from 'bunderstack/email-smtp'
 
 email: {
   from: 'noreply@example.com',

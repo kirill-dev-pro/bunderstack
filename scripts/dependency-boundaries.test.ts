@@ -57,7 +57,7 @@ describe('published dependency boundaries', () => {
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
       expect(source, path).toContain('adapter: libsql()')
-      expect(source, path).toContain('bunderstack/database/libsql')
+      expect(source, path).toContain('bunderstack/libsql')
     }
   })
 
@@ -68,7 +68,7 @@ describe('published dependency boundaries', () => {
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
 
-      expect(source, path).toContain('bunderstack/email/smtp')
+      expect(source, path).toContain('bunderstack/email-smtp')
       expect(source, path).toContain('provider: smtp(')
       expect(source, path).not.toContain("email: 'smtp'")
       expect(source, path).not.toContain("provider: 'smtp'")

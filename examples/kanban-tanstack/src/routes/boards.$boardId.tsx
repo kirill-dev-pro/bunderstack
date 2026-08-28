@@ -16,7 +16,7 @@ import {
   notFound,
   redirect,
 } from '@tanstack/react-router'
-import { asTypeId } from 'bunderstack'
+import { asTypeId } from 'bunderstack/typeid'
 import { useEffect, useMemo, useState } from 'react'
 
 import type * as schema from '~/schema'

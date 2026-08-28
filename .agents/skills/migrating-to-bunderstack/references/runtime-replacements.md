@@ -11,7 +11,7 @@ with `backend.ts`, `index.ts`, `schema/`, `access.ts`, `auth.ts`, `env.ts`,
 
 ```ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { access } from './access'
 import { authConfig } from './auth'
 import { envSchema } from './env'

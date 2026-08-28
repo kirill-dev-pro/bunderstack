@@ -1,6 +1,6 @@
 import { organization } from 'better-auth/plugins'
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access.ts'
@@ -28,3 +28,6 @@ export const app = await backend.start()
 await provision(app)
 
 export const { db, auth } = app
+
+/** Type handle for client inference — no server code in the bundle. */
+export type App = typeof app

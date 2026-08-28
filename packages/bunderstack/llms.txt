@@ -25,7 +25,7 @@ integration).
 MINIMAL APP
 
   import { bunderstack } from 'bunderstack'
-  import { libsql } from 'bunderstack/database/libsql'
+  import { libsql } from 'bunderstack/libsql'
   import * as schema from './schema'
 
   export const backend = bunderstack({

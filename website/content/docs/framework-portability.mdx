@@ -26,7 +26,7 @@ TanStack Start supports top-level `await`, allowing you to export `app` and its 
 ```ts
 // src/bunderstack.ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import { access } from './access'
 import * as schema from './schema'
@@ -105,7 +105,7 @@ bun add -d vite vite-plugin-solid@3.0.0-next.27
 ```ts
 // src/bunderstack.ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
@@ -214,7 +214,7 @@ In a Single Page Application (SPA) with Vite and React (or TanStack Router), the
 ```ts
 // server.ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
@@ -292,7 +292,7 @@ For server-rendered applications using Bun with template literals, JSX, HTMX, Al
 ```ts
 // src/bunderstack.ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
