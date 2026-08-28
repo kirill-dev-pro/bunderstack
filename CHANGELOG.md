@@ -2,6 +2,23 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.22.1] - 2026-08-28
+
+### Added
+
+- **Configured test factories.** `backend.test.configure({ env, database, logs, setup })`
+  creates a reusable fixture factory. Per-test options deep-merge `env` and
+  `database`, and the setup result is available as `fixture.context`.
+- **Fixture-owned cleanup and logs.** `fixture.defer()` runs async cleanup in LIFO
+  order before runtime shutdown. Internal runtime logs are captured by default in
+  `fixture.logs`; use `logs: 'inherit'` to forward them or `logs: 'silent'` to discard
+  them.
+- **Complete auth test lifecycle.** Added `signInEmail()`, `getSession()`, `signOut()`,
+  and `verifyEmail()`. Mock identities are header-scoped, so multiple users can safely
+  coexist in one fixture.
+- **Queue inspection.** `fixture.jobs.inspect()`, `.pending()`, and `.failed()` expose
+  normalized queue rows and accept `name` and `dedupeKey` filters.
+
 ## [0.22.0] - 2026-08-28
 
 ### Breaking Changes

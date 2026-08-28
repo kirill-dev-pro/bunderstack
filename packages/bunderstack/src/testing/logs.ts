@@ -1,7 +1,4 @@
-import type {
-  BunderstackLogger,
-  BunderstackLogLevel,
-} from '../logging'
+import type { BunderstackLogger, BunderstackLogLevel } from '../logging'
 
 export type TestLogMode = 'capture' | 'inherit' | 'silent'
 

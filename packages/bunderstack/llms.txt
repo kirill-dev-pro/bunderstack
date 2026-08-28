@@ -1,6 +1,6 @@
 BUNDERSTACK
 
-A batteries-included backend framework for Bun. Version 0.17 (beta).
+A batteries-included backend framework for Bun. Version 0.22.1.
 Docs: https://bunderstack.kcrz.dev/docs
 This file is written for coding agents. It is dense on purpose.
 
@@ -88,25 +88,32 @@ TESTING
 Use lexical fixture ownership; do not use a process-wide app registry or a
 global afterEach hook:
 
+  export const createFixture = backend.test.configure({
+    database: { schema: 'push' },
+    setup: async (t) => {
+      const identity = t.auth.mockSession({
+        id: 'user-1', email: 'dev@example.com', name: 'Developer',
+      })
+      return { identity, client: t.client(identity) }
+    },
+  })
+
   import { backend } from './backend'
 
   test('creates a post', async () => {
-    await using t = await backend.test({ database: { schema: 'push' } })
-    const identity = t.auth.mockSession({
-      id: 'user-1',
-      email: 'dev@example.com',
-      name: 'Developer',
-    })
-    const client = t.client(identity)
+    await using t = await createFixture()
+    const { client, identity } = t.context
     await client.posts.create({ title: 'Hello', userId: identity.user.id })
   })
 
 The fixture owns isolated database, email, storage, realtime, and job state.
-Its auth helper creates user/session identities only; application-specific
-organization setup belongs in a typed application helper. t.jobs.tick() claims
-one snapshot of runnable jobs. t.jobs.settle() repeats snapshots until the
-queue converges, a terminal job fails, or its limits are reached; it does not
-advance the clock to delayed jobs automatically.
+fixture.defer() registers LIFO async cleanup. fixture.logs captures internal
+runtime logs by default. Auth supports sign-up, sign-in, session lookup, sign-out,
+email verification, and multiple header-scoped mock identities. t.jobs.runNext()
+claims one snapshot of runnable jobs. t.jobs.runUntilIdle() repeats snapshots
+until the queue converges, a terminal job fails, or its limits are reached; it
+does not advance the clock to delayed jobs automatically. inspect(), pending(),
+and failed() expose queue rows for assertions.
 
 BASES
 

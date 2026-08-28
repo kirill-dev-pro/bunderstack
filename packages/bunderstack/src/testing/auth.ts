@@ -132,10 +132,14 @@ function cookieHeaders(response: Response): Headers {
   return new Headers(cookie ? { cookie } : undefined)
 }
 
-export function createTestAuth(app: {
-  handler(request: Request): Promise<Response>
-  auth: unknown
-}, email: TestEmail, sessions: TestSessionRegistry): TestAuth {
+export function createTestAuth(
+  app: {
+    handler(request: Request): Promise<Response>
+    auth: unknown
+  },
+  email: TestEmail,
+  sessions: TestSessionRegistry,
+): TestAuth {
   const request = async (
     path: string,
     init: RequestInit = {},
@@ -175,7 +179,10 @@ export function createTestAuth(app: {
     if (!result || typeof result !== 'object' || !('user' in result)) {
       return null
     }
-    const value = result as { user?: TestUser; session?: TestSession['session'] }
+    const value = result as {
+      user?: TestUser
+      session?: TestSession['session']
+    }
     return value.user
       ? { user: value.user, session: value.session ?? null }
       : null
@@ -226,7 +233,9 @@ export function createTestAuth(app: {
         .reverse()
         .find((candidate) => candidate.to.includes(identity.user.email))
       const content = `${message?.text ?? ''}\n${message?.html ?? ''}`
-      const url = content.match(/https?:\/\/[^\s<>"']+\/api\/auth\/verify-email\?[^\s<>"']+/)?.[0]
+      const url = content.match(
+        /https?:\/\/[^\s<>"']+\/api\/auth\/verify-email\?[^\s<>"']+/,
+      )?.[0]
       if (!url) {
         throw new Error(
           `[bunderstack] no verification link captured for ${identity.user.email}`,

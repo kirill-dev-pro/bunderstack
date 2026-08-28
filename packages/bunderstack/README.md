@@ -48,7 +48,8 @@ replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 ## Package Subpaths (0.21+)
 
 - `bunderstack` — Declarative backend and runtime (`bunderstack`, `defineApi`, `buildApiRegistry`)
-- `bunderstack/testing` — Isolated lexical test fixtures (`backend.test()`)
+- `bunderstack/testing` — Isolated lexical fixtures and reusable test factories
+  (`backend.test()` / `backend.test.configure()`)
 - `bunderstack/provision` — Explicit production schema provisioning
 - `bunderstack/client` — Framework-neutral RPC & LiveView client (`createClient`, `createLiveView`)
 - `bunderstack/client-rest` — Type-safe REST client

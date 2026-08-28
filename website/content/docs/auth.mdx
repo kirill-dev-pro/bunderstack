@@ -96,7 +96,8 @@ You can also access `app.auth` directly — it's just a BetterAuth instance.
 
 ## Unit testing auth
 
-In unit tests, use the lexical testing fixture with `signUpEmail` or `mockSession`:
+In unit tests, use the lexical testing fixture with the real email auth lifecycle or
+header-scoped mocked identities:
 
 ```ts
 import { backend } from './bunderstack'
@@ -105,13 +106,30 @@ test('authenticated routes', async () => {
   await using fixture = await backend.test()
 
   // Real sign-up via Better Auth HTTP handlers
-  const identity = await fixture.auth.signUpEmail({ email: 'alice@example.com' })
+  const identity = await fixture.auth.signUpEmail({
+    email: 'alice@example.com',
+    name: 'Alice',
+  })
+  await fixture.auth.verifyEmail(identity)
+  expect(await fixture.auth.getSession(identity)).not.toBeNull()
   const client = fixture.client(identity)
 
-  // Or mock session
-  const mockIdentity = fixture.auth.mockSession({ id: 'test_user', email: 'user@example.com' })
+  // Multiple mocked users safely coexist in the same fixture.
+  const admin = fixture.auth.mockSession(
+    { id: 'admin', email: 'admin@example.com', name: 'Admin' },
+    { activeOrganizationId: 'org_1' },
+  )
+  const member = fixture.auth.mockSession({
+    id: 'member',
+    email: 'member@example.com',
+    name: 'Member',
+  })
 })
 ```
+
+`signInEmail()` uses the real Better Auth handler and collects its cookies.
+`signOut(identity)` invalidates a real session. `verifyEmail(identity)` follows the
+latest captured verification link for that user's email.
 
 ## Required schema tables
 

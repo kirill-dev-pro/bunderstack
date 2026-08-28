@@ -16,9 +16,7 @@ const backend = bunderstack({
 })
 
 async function explode(fixture: Awaited<ReturnType<typeof backend.test>>) {
-  return fixture.app.handler(
-    new Request('http://bunderstack.test/api/explode'),
-  )
+  return fixture.app.handler(new Request('http://bunderstack.test/api/explode'))
 }
 
 test('fixtures capture internal errors without writing to the console', async () => {
@@ -30,7 +28,11 @@ test('fixtures capture internal errors without writing to the console', async ()
       database: { schema: 'push' },
     })
     expect((await explode(fixture)).status).toBe(500)
-    expect(fixture.logs.errors.some((entry) => entry.message.includes('fixture boom'))).toBe(true)
+    expect(
+      fixture.logs.errors.some((entry) =>
+        entry.message.includes('fixture boom'),
+      ),
+    ).toBe(true)
     expect(forwarded).toEqual([])
 
     fixture.logs.clear()

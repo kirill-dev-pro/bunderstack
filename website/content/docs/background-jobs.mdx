@@ -123,9 +123,17 @@ await fixture.app.jobs.enqueue('sendWelcomeEmail', { userId: 'user_1' })
 
 const report = await fixture.jobs.runUntilIdle({ failOnJobError: true })
 expect(report.ran).toBe(1)
+
+expect(await fixture.jobs.pending({ name: 'sendWelcomeEmail' })).toEqual([])
+expect(await fixture.jobs.failed()).toEqual([])
 ```
 
 Jobs recursively enqueued by handlers are processed until the queue converges or `maxTicks` is reached. Delayed jobs wait for their explicit `now` timestamp without sleeping.
+
+Use `fixture.jobs.inspect(filter?)` for every retained queue row, or
+`pending(filter?)` and `failed(filter?)` for status-specific assertions. Filters
+accept `name` and `dedupeKey`; rows expose `id`, normalized `name`, `kind`, `status`,
+`attempts`, `runAt`, `dedupeKey`, and `lastError`.
 
 ## Realtime from a separate worker process
 

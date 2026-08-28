@@ -18,22 +18,22 @@ Every subpath export is now a single segment. Nothing moved inside the package �
 
 ### Import Subpaths Mapping
 
-| Previous Import (0.21) | New Import (0.22) | Purpose |
-|---|---|---|
-| `bunderstack/database/libsql` | `bunderstack/libsql` | libSQL / SQLite adapter |
-| `bunderstack/database/bun-sql` | `bunderstack/bun-sql` | `Bun.sql` Postgres adapter |
-| `bunderstack/database/pglite` | `bunderstack/pglite` | PGlite adapter |
-| `bunderstack/database/postgres-js` | `bunderstack/postgres-js` | postgres.js adapter |
-| `bunderstack/client/rest` | `bunderstack/client-rest` | Type-safe REST client |
-| `bunderstack/client/react` | `bunderstack/client-react` | React LiveView hook |
-| `bunderstack/client/solid` | `bunderstack/client-solid` | Solid LiveView primitive |
-| `bunderstack/client/svelte` | `bunderstack/client-svelte` | Svelte LiveView store |
-| `bunderstack/client/vue` | `bunderstack/client-vue` | Vue LiveView composable |
-| `bunderstack/query/react` | `bunderstack/query-react` | React query helpers |
-| `bunderstack/start/auth` | `bunderstack/start-auth` | Better Auth client for TanStack Start |
-| `bunderstack/schema/pg` | `bunderstack/schema-pg` | Internal tables, Postgres dialect |
-| `bunderstack/typeid/pg` | `bunderstack/typeid-pg` | TypeID column, Postgres dialect |
-| `bunderstack/email/smtp` | `bunderstack/email-smtp` | SMTP email adapter |
+| Previous Import (0.21)             | New Import (0.22)           | Purpose                               |
+| ---------------------------------- | --------------------------- | ------------------------------------- |
+| `bunderstack/database/libsql`      | `bunderstack/libsql`        | libSQL / SQLite adapter               |
+| `bunderstack/database/bun-sql`     | `bunderstack/bun-sql`       | `Bun.sql` Postgres adapter            |
+| `bunderstack/database/pglite`      | `bunderstack/pglite`        | PGlite adapter                        |
+| `bunderstack/database/postgres-js` | `bunderstack/postgres-js`   | postgres.js adapter                   |
+| `bunderstack/client/rest`          | `bunderstack/client-rest`   | Type-safe REST client                 |
+| `bunderstack/client/react`         | `bunderstack/client-react`  | React LiveView hook                   |
+| `bunderstack/client/solid`         | `bunderstack/client-solid`  | Solid LiveView primitive              |
+| `bunderstack/client/svelte`        | `bunderstack/client-svelte` | Svelte LiveView store                 |
+| `bunderstack/client/vue`           | `bunderstack/client-vue`    | Vue LiveView composable               |
+| `bunderstack/query/react`          | `bunderstack/query-react`   | React query helpers                   |
+| `bunderstack/start/auth`           | `bunderstack/start-auth`    | Better Auth client for TanStack Start |
+| `bunderstack/schema/pg`            | `bunderstack/schema-pg`     | Internal tables, Postgres dialect     |
+| `bunderstack/typeid/pg`            | `bunderstack/typeid-pg`     | TypeID column, Postgres dialect       |
+| `bunderstack/email/smtp`           | `bunderstack/email-smtp`    | SMTP email adapter                    |
 
 Single-segment roots are unchanged: `bunderstack`, `bunderstack/client`, `bunderstack/query`, `bunderstack/sync`, `bunderstack/start`, `bunderstack/schema`, `bunderstack/typeid`, `bunderstack/testing`, `bunderstack/provision`, `bunderstack/access`, `bunderstack/env`, `bunderstack/blueprint`, `bunderstack/cron`, `bunderstack/live`, `bunderstack/api`, `bunderstack/codegen`.
 
@@ -78,7 +78,10 @@ import { libsql } from 'bunderstack/database/libsql'
 export const app = await createBunderstack({
   schema,
   access,
-  database: { adapter: libsql(), url: process.env.DATABASE_URL ?? 'file:./data.db' },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
   auth: { secret: process.env.AUTH_SECRET! },
   realtime: true,
   api,
@@ -156,7 +159,10 @@ test('posts procedure works', async () => {
     database: { mode: 'temporary', schema: 'migrations' },
   })
 
-  const identity = await fixture.auth.signUpEmail({ email: 'alice@example.com' })
+  const identity = await fixture.auth.signUpEmail({
+    email: 'alice@example.com',
+    name: 'Alice',
+  })
   const client = fixture.client(identity)
 
   const result = await client.posts.create({ title: 'First post' })
@@ -169,13 +175,46 @@ test('posts procedure works', async () => {
 
 The fixture gives you `fixture.app` (the runtime), `fixture.auth` (`signUpEmail()` through the real Better Auth handler, or `mockSession()`), `fixture.client(identity?)` (a typed in-process oRPC client), `fixture.jobs` (`runNext()`, `runUntilIdle()`), `fixture.email.sent`, and `fixture.storage.read(key)`.
 
+### 0.22.1: reusable fixture configuration
+
+If many tests repeat the same environment, database mode, and seed setup, define
+them once. Overrides are deep-merged for `env` and `database`:
+
+```ts
+export const createFixture = backend.test.configure({
+  env: { FEATURE_FLAG: 'enabled' },
+  database: { mode: 'temporary', schema: 'migrations' },
+  setup: async (fixture) => {
+    const identity = fixture.auth.mockSession({
+      id: 'test-user',
+      email: 'test@example.com',
+      name: 'Test User',
+    })
+    return { identity, client: fixture.client(identity) }
+  },
+})
+
+test('uses the shared setup', async () => {
+  await using fixture = await createFixture()
+  await fixture.context.client.posts.list({})
+})
+```
+
+Use `fixture.defer(cleanup)` for resources created by setup. It runs in LIFO order
+before the application closes. Fixtures capture Bunderstack runtime logs by default
+in `fixture.logs`; select `logs: 'inherit'` or `logs: 'silent'` when configuring the
+factory. Auth tests can use `signInEmail()`, `getSession()`, `signOut()`, and
+`verifyEmail()`. Queue assertions can inspect normalized rows with
+`fixture.jobs.inspect()`, `.pending()`, and `.failed()`, filtered by job `name` or
+`dedupeKey`.
+
 Nothing here is required to upgrade. It replaces hand-rolled harnesses that spun up a second app against a scratch database file.
 
 ---
 
 ## 5. Migration Checklist
 
-1. **Update `package.json`**: set `"bunderstack": "^0.22.0"`, then `bun install`.
+1. **Update `package.json`**: set `"bunderstack": "^0.22.1"`, then `bun install`.
 2. **Rewrite subpath imports** with the `sed` command in section 1, or accept the new names from your editor's auto-import — it now inserts them correctly.
 3. **Split the declaration from the runtime**:
    - `createBunderstack({...})` → `bunderstack({...})`, assigned to `backend`.

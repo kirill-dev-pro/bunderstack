@@ -243,18 +243,28 @@ reply-to, CC, and BCC. Configure the console, Resend, SMTP, or a custom adapter.
 
 ## Testing (`bunderstack/testing`)
 
-`backend.test(options)` produces an isolated test fixture with lexical async disposal (`await using`):
+`backend.test(options)` produces an isolated test fixture with lexical async disposal
+(`await using`). For a suite, `backend.test.configure()` removes repeated environment,
+database, and seed boilerplate:
 
 ```ts
 import { backend } from './bunderstack'
 
-test('posts procedure works', async () => {
-  await using fixture = await backend.test({
-    database: { mode: 'temporary', schema: 'migrations' },
-  })
+const createFixture = backend.test.configure({
+  database: { mode: 'temporary', schema: 'migrations' },
+  setup: async (fixture) => {
+    const identity = fixture.auth.mockSession({
+      id: 'alice',
+      email: 'alice@example.com',
+      name: 'Alice',
+    })
+    return { identity, client: fixture.client(identity) }
+  },
+})
 
-  const identity = await fixture.auth.signUpEmail({ email: 'alice@example.com' })
-  const client = fixture.client(identity)
+test('posts procedure works', async () => {
+  await using fixture = await createFixture()
+  const { client } = fixture.context
 
   const result = await client.posts.create({ title: 'First post' })
   expect(result.title).toBe('First post')
@@ -265,9 +275,19 @@ test('posts procedure works', async () => {
 ```
 
 `TestFixture` provides:
+
 - `fixture.app`: the materialized application runtime;
-- `fixture.auth`: `signUpEmail()` with real Better Auth HTTP handler execution and cookie collection, or `mockSession()`;
+- `fixture.context`: the typed value returned by configured `setup`;
+- `fixture.defer(cleanup)`: LIFO async cleanup before application shutdown;
+- `fixture.auth`: real `signUpEmail()`, `signInEmail()`, `getSession()`, `signOut()`,
+  and `verifyEmail()` flows, plus header-scoped `mockSession()` identities;
 - `fixture.client(identity?)`: inferred typed oRPC client calling `app.handler` directly in-process;
-- `fixture.jobs`: `runNext()` and `runUntilIdle()` deterministic runners without sleeps or polling;
+- `fixture.jobs`: deterministic `runNext()` / `runUntilIdle()` execution and
+  `inspect()` / `pending()` / `failed()` queue assertions;
+- `fixture.logs`: captured internal `entries`, `errors`, and `warnings` with `clear()`;
 - `fixture.email`: in-memory capture of sent emails at `fixture.email.sent`;
 - `fixture.storage`: isolated test storage with `fixture.storage.read(key)`.
+
+`configure()` defaults and per-test options deep-merge `env` and `database`. Runtime
+logs are captured by default; configure `logs: 'inherit'` to capture and forward to
+the console, or `logs: 'silent'` to discard them.

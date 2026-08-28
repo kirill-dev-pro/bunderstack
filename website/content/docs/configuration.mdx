@@ -63,8 +63,8 @@ publishing events that cannot reach another process.
 
 ## Database adapters
 
-| Import                             | Dialect  | Optional peer          | Typical URL                       |
-| ---------------------------------- | -------- | ---------------------- | --------------------------------- |
+| Import                    | Dialect  | Optional peer          | Typical URL                       |
+| ------------------------- | -------- | ---------------------- | --------------------------------- |
 | `bunderstack/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
 | `bunderstack/bun-sqlite`  | SQLite   | none                   | `file:./data.db`, `:memory:`      |
 | `bunderstack/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
@@ -102,6 +102,12 @@ and Publisher resources. `app.status`, `app.signal`, and
 the exported backend and reads `backend.manifest` without opening database or
 Redis connections. `backend.start({ env })` owns production runtime resources;
 `backend.test()` creates an isolated, lexically owned test fixture.
+
+For test suites, declare reusable defaults and setup with
+`backend.test.configure({ env, database, logs, setup })`. A call to the returned
+factory may override its defaults; `env` and `database` are deep-merged. The value
+returned from `setup` is exposed as `fixture.context`, and
+`fixture.defer(cleanup)` attaches additional resources to the fixture lifecycle.
 
 ## Common environment variables
 

@@ -117,9 +117,7 @@ export function configureTestApp<
       mergeTestOptions(defaults, overrides),
     )
     try {
-      const context = setup
-        ? await setup(fixture)
-        : (undefined as TContext)
+      const context = setup ? await setup(fixture) : (undefined as TContext)
       return Object.assign(fixture, { context })
     } catch (cause) {
       try {

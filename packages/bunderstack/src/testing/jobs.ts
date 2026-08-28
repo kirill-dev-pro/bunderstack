@@ -62,7 +62,10 @@ function timestamp(value: Date | number | undefined): number {
 }
 
 export function createTestJobs(handle: RuntimeTestingHandle): TestJobs {
-  const list = async (filter: TestJobFilter = {}, status?: TestJob['status']) => {
+  const list = async (
+    filter: TestJobFilter = {},
+    status?: TestJob['status'],
+  ) => {
     const { jobs } = await handle.inspect(Date.now())
     return Object.freeze(
       jobs.filter(
