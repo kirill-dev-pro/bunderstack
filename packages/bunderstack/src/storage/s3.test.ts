@@ -107,44 +107,28 @@ test('publicUrlFor without trailing slash works correctly', () => {
 // therefore read the stored Content-Type off the object itself, or every
 // server-side reader gets an empty MIME type.
 test('get() serves the Content-Type stored on the object', async () => {
-  const server = Bun.serve({
-    port: 0,
-    fetch: (req) =>
-      new Response(req.method === 'GET' ? 'fakebytes' : null, {
-        headers: { 'Content-Type': 'image/png', 'Content-Length': '9' },
-      }),
+  const adapter = fakeAdapter()
+  Reflect.set(adapter, 'client', {
+    async stat() {
+      return { size: 9, type: 'image/png' }
+    },
+    file() {
+      return new Blob(['fakebytes'])
+    },
   })
-  try {
-    const adapter = new S3StorageAdapter({
-      bucket: 'test-bucket',
-      region: 'auto',
-      accessKeyId: 'fake-key',
-      secretAccessKey: 'fake-secret',
-      endpoint: `http://localhost:${server.port}`,
-    })
-    const res = await adapter.get('selfies/a.jpg')
-    expect(res.status).toBe(200)
-    expect(res.headers.get('content-type')).toBe('image/png')
-  } finally {
-    await server.stop(true)
-  }
+
+  const res = await adapter.get('selfies/a.jpg')
+  expect(res.status).toBe(200)
+  expect(res.headers.get('content-type')).toBe('image/png')
 })
 
 test('get() returns 404 when the object is missing', async () => {
-  const server = Bun.serve({
-    port: 0,
-    fetch: () => new Response('nope', { status: 404 }),
+  const adapter = fakeAdapter()
+  Reflect.set(adapter, 'client', {
+    async stat() {
+      throw new Error('missing')
+    },
   })
-  try {
-    const adapter = new S3StorageAdapter({
-      bucket: 'test-bucket',
-      region: 'auto',
-      accessKeyId: 'fake-key',
-      secretAccessKey: 'fake-secret',
-      endpoint: `http://localhost:${server.port}`,
-    })
-    expect((await adapter.get('selfies/missing.jpg')).status).toBe(404)
-  } finally {
-    await server.stop(true)
-  }
+
+  expect((await adapter.get('selfies/missing.jpg')).status).toBe(404)
 })

@@ -15,6 +15,7 @@ export async function enqueueJob(
   name: string,
   input: unknown,
   opts: EnqueueOptions = {},
+  now: number = Date.now(),
 ): Promise<{ id: string }> {
   const def = defs[name]
   if (!def) {
@@ -29,7 +30,6 @@ export async function enqueueJob(
       ? validateStandardSchema(def.input, input, `job "${name}" input`)
       : null
   const t = jobsTableFor(db)
-  const now = Date.now()
   const runAt =
     opts.runAt !== undefined
       ? new Date(opts.runAt).getTime()

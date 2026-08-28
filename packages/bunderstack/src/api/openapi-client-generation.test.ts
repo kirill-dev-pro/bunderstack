@@ -8,7 +8,7 @@ import ts from 'typescript'
 import * as v from 'valibot'
 
 import { pglite } from '../database/pglite'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -23,13 +23,10 @@ const privateNotes = pgTable('private_notes', {
 const schema = { posts, privateNotes }
 
 async function setupApp() {
-  return await createBunderstack({
+  return await bunderstack({
     schema,
     database: { adapter: pglite() },
-    processEnv: {
-      DATABASE_URL: 'memory://',
-      BUNDERSTACK_ROLE: 'web',
-    },
+
     openapi: true,
     storage: {
       local: true,
@@ -52,6 +49,11 @@ async function setupApp() {
         .output(v.object({ totalPosts: v.number() }))
         .handler(async () => ({ totalPosts: 42 })),
     }),
+  }).start({
+    env: {
+      DATABASE_URL: 'memory://',
+      BUNDERSTACK_ROLE: 'web',
+    },
   })
 }
 

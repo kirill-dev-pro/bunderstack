@@ -1,12 +1,12 @@
 ---
 title: Configuration
-description: createBunderstack options, transports, adapters, and lifecycle
+description: bunderstack declarations, runtime options, transports, adapters, and lifecycle
 ---
 
 ## Application options
 
 ```ts
-await createBunderstack({
+const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -29,6 +29,8 @@ await createBunderstack({
   realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
   openapi: true,
 })
+
+const app = await backend.start()
 ```
 
 `schema` and `database.adapter` are required. All validation slots accept
@@ -63,10 +65,11 @@ publishing events that cannot reach another process.
 
 | Import                             | Dialect  | Optional peer          | Typical URL                       |
 | ---------------------------------- | -------- | ---------------------- | --------------------------------- |
-| `bunderstack/database/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
-| `bunderstack/database/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
-| `bunderstack/database/bun-sql`     | Postgres | none                   | `postgres://…`                    |
-| `bunderstack/database/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
+| `bunderstack/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
+| `bunderstack/bun-sqlite`  | SQLite   | none                   | `file:./data.db`, `:memory:`      |
+| `bunderstack/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
+| `bunderstack/bun-sql`     | Postgres | none                   | `postgres://…`                    |
+| `bunderstack/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
 
 The adapter dialect must match the Drizzle schema. Import only the adapter you
 use so optional drivers stay outside the application dependency graph.
@@ -77,7 +80,7 @@ Email defaults to the console provider in development. Use Resend directly or
 the optional SMTP adapter:
 
 ```ts
-import { smtp } from 'bunderstack/email/smtp'
+import { smtp } from 'bunderstack/email-smtp'
 
 email: {
   from: 'My app <hello@example.com>',
@@ -89,14 +92,16 @@ Storage may use a local directory or S3-compatible infrastructure. Buckets
 carry their own upload, access, and image-transform rules; see
 [Storage](/docs/storage).
 
-## Lifecycle and introspection
+## Declaration and lifecycle
 
 `await app.close()` stops background work and closes application-owned database
 and Publisher resources. `app.status`, `app.signal`, and
 `app.backgroundRunning` expose lifecycle state.
 
-Set `BUNDERSTACK_INTROSPECT=1` when deployment tooling needs
-`app.manifest` without opening database or Redis connections.
+`bunderstack()` is synchronous and side-effect-free. Deployment tooling imports
+the exported backend and reads `backend.manifest` without opening database or
+Redis connections. `backend.start({ env })` owns production runtime resources;
+`backend.test()` creates an isolated, lexically owned test fixture.
 
 ## Common environment variables
 

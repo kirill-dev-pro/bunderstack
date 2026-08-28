@@ -1,4 +1,6 @@
-import { bunderstackStart } from 'bunderstack/start'
+import { QueryClient } from '@tanstack/react-query'
+import { createIsomorphicFetch } from 'bunderstack/start'
+import { createSyncClient } from 'bunderstack/sync'
 
 import type { App } from './bunderstack'
 
@@ -8,6 +10,13 @@ import type { App } from './bunderstack'
 // NOTE: don't name this file `client.ts` — that's a reserved TanStack Start
 // entry-point name; it would silently replace the framework's hydration
 // entry and render the app inert in the browser.
-export const { createQueryClient, createApi } = bunderstackStart<App>()
+export const createQueryClient = () =>
+  new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } })
+
+export const createApi = (queryClient: QueryClient) =>
+  createSyncClient<App>({
+    queryClient,
+    fetch: createIsomorphicFetch(),
+  })
 
 export type SyncApi = ReturnType<typeof createApi>

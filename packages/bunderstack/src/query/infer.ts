@@ -2,7 +2,7 @@ import type { AnyRouter } from '@orpc/server'
 
 import type { ExposedApiTables } from '../api/types'
 
-/** Shape of the `$inferClient` phantom `createBunderstack` puts on the app. */
+/** Shape of the `$inferClient` phantom `bunderstack` puts on the app. */
 export type ClientCarrier = {
   schema: Record<string, unknown>
   access: unknown

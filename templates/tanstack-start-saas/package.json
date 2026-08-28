@@ -7,6 +7,7 @@
     "dev": "bun --bun vite dev",
     "build": "vite build",
     "start": "bun dist/server/server.js",
+    "worker": "bun src/worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
@@ -45,6 +46,6 @@
     "vite": "^8.0.14"
   },
   "bunderstack": {
-    "entry": "src/bunderstack/index.ts"
+    "entry": "src/bunderstack/backend.ts"
   }
 }

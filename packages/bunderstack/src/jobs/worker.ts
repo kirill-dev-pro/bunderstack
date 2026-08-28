@@ -323,7 +323,11 @@ export function createJobRunner(deps: {
   }
 
   async function runClaimable(now: number): Promise<TickResult> {
-    const work: Promise<'ran' | 'failed' | 'lost'>[] = []
+    const claimedWork: Array<{
+      row: JobRow
+      def: AnyBackgroundDefinition
+      leaseUntil: number
+    }> = []
     let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
@@ -340,9 +344,16 @@ export function createJobRunner(deps: {
       const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
       const claimed = await claim(type, limit, now, leaseUntil)
       totalClaimed += claimed.length
-      for (const row of claimed) work.push(runJob(row, def, now, leaseUntil))
+      for (const row of claimed) claimedWork.push({ row, def, leaseUntil })
     }
-    const outcomes = await Promise.all(work)
+    // Claim the whole tick snapshot before starting any handler. Work enqueued
+    // by a handler therefore belongs to the next tick, regardless of the
+    // declaration order of its target job type.
+    const outcomes = await Promise.all(
+      claimedWork.map(({ row, def, leaseUntil }) =>
+        runJob(row, def, now, leaseUntil),
+      ),
+    )
     let ran = 0
     let failed = 0
     for (const outcome of outcomes) {
@@ -361,6 +372,37 @@ export function createJobRunner(deps: {
         await reapSucceeded(now)
       }
       return runClaimable(now)
+    },
+    async inspect(now: number) {
+      const runnableRows = await db
+        .select({ id: t.id })
+        .from(t)
+        .where(and(eq(t.status, 'pending'), lte(t.runAt, now)))
+      const failed: Array<{
+        id: string
+        type: string
+        attempts: number
+        lastError: string | null
+      }> = await db
+        .select({
+          id: t.id,
+          type: t.type,
+          attempts: t.attempts,
+          lastError: t.lastError,
+        })
+        .from(t)
+        .where(eq(t.status, 'failed'))
+      return {
+        runnable: runnableRows.length,
+        failed: failed.map((row) => ({
+          id: String(row.id),
+          name: row.type.startsWith(CRON_PREFIX)
+            ? row.type.slice(CRON_PREFIX.length)
+            : row.type,
+          attempts: Number(row.attempts),
+          lastError: row.lastError,
+        })),
+      }
     },
     setJobsFacade(f: JobsRuntimeFacade) {
       ctx.jobs = f

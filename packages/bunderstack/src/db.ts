@@ -8,7 +8,12 @@ import type {
 } from './database/adapter'
 import type { Dialect } from './dialect'
 
-export type Driver = 'libsql' | 'pglite' | 'bun-sql' | 'postgres-js'
+export type Driver =
+  | 'libsql'
+  | 'bun-sqlite'
+  | 'pglite'
+  | 'bun-sql'
+  | 'postgres-js'
 
 /** Per-dialect public db type, computed from the schema's table brands. */
 export type DbFor<TSchema extends Record<string, unknown>> = [
@@ -56,7 +61,6 @@ export async function createDb<TSchema extends Record<string, unknown>>(
   cfg: DatabaseConnection & {
     adapter: DatabaseAdapter
     dialect: Dialect
-    introspect?: boolean
   },
 ): Promise<DatabaseConnectionResult<TSchema> & { driver: Driver }> {
   if (cfg.adapter.dialect !== cfg.dialect) {
@@ -64,11 +68,10 @@ export async function createDb<TSchema extends Record<string, unknown>>(
       `[bunderstack] database adapter dialect ${cfg.adapter.dialect} does not match ${cfg.dialect} schema`,
     )
   }
-  if (!cfg.introspect) validateDatabaseUrl(cfg.url, cfg.dialect)
-  const result = await cfg.adapter.connect(
-    schema,
-    { url: cfg.url, authToken: cfg.authToken },
-    { introspect: cfg.introspect ?? false },
-  )
+  validateDatabaseUrl(cfg.url, cfg.dialect)
+  const result = await cfg.adapter.connect(schema, {
+    url: cfg.url,
+    authToken: cfg.authToken,
+  })
   return { ...result, driver: cfg.adapter.driver }
 }

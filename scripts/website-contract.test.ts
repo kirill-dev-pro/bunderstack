@@ -29,7 +29,7 @@ describe('public website contract', () => {
     // The builder is a module value, so router modules are plain objects.
     expect(procedures).toContain('defineApi({ schema, env: envSchema })')
     expect(procedures).toContain('export const boardsRouter = {')
-    expect(procedures).toContain('createBunderstack({ schema, database, api })')
+    expect(procedures).toContain('bunderstack({ schema, database, api })')
 
     // The callback stays supported, but only as the exception.
     expect(procedures).toContain('api: (o) => ({ … })')

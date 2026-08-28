@@ -202,8 +202,8 @@ export const creditBalances = sqliteTable('credit_balances', {
 
 await writeFile(
   join(app, 'src/app.ts'),
-  `import { createBunderstack, type ApiContext } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+  `import { bunderstack, type ApiContext } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import { generate } from 'bunderstack/typeid'
 import { os } from '@orpc/server'
 import * as v from 'valibot'
@@ -215,9 +215,9 @@ const timing = os
   .$context<ApiContext<typeof schema>>()
   .middleware(async ({ next }) => next())
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
-  database: { adapter: libsql(), url: ':memory:' },
+  database: { adapter: libsql() },
   auth: {},
   realtime: true,
   access: {
@@ -238,7 +238,7 @@ export const app = await createBunderstack({
   }),
 })
 
-export type App = typeof app
+export type App = Awaited<ReturnType<typeof backend.start>>
 `,
 )
 
@@ -248,18 +248,21 @@ await writeFile(
   createClient as createCoreClient,
   createLiveView,
 } from 'bunderstack/client'
-import { createRestClient, type RouteOperation } from 'bunderstack/client/rest'
-import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
-import { createLiveStore } from 'bunderstack/client/solid'
-import { liveStore } from 'bunderstack/client/svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+import { createRestClient, type RouteOperation } from 'bunderstack/client-rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
+import { createLiveStore } from 'bunderstack/client-solid'
+import { liveStore } from 'bunderstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
 import { createClient } from 'bunderstack/query'
 import { createSyncClient } from 'bunderstack/sync'
 import { bunderstackStart } from 'bunderstack/start'
-import { createStartAuthClient } from 'bunderstack/start/auth'
+import { createStartAuthClient } from 'bunderstack/start-auth'
+import type { TestFixture } from 'bunderstack/testing'
 import { QueryClient } from '@tanstack/react-query'
 
 import type { App } from './app'
+
+export type AppFixture = TestFixture<App>
 
 const queryClient = new QueryClient()
 export const api = createClient<App>({ queryClient })
@@ -336,7 +339,7 @@ const smoke = await run(
   [
     'bun',
     '-e',
-    "const m = await import('./src/app.ts'); console.log('handler:' + typeof m.app.handler)",
+    "const m = await import('./src/app.ts'); const app = await m.backend.start({ env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' } }); console.log('handler:' + typeof app.handler); await app.close()",
   ],
   app,
 )

@@ -6,7 +6,17 @@ export type DatabaseConnection = {
   authToken?: string
 }
 
-export type DatabaseConnectOptions = { introspect: boolean }
+export type TestDatabaseTarget = AsyncDisposable & {
+  readonly connection: DatabaseConnection
+}
+
+export type TestDatabaseTargetOptions = {
+  mode: 'memory' | 'temporary'
+}
+
+export type TestDatabaseStrategy = {
+  createTarget(options: TestDatabaseTargetOptions): Promise<TestDatabaseTarget>
+}
 
 export type DatabaseConnectionResult<TSchema extends Record<string, unknown>> =
   {
@@ -20,7 +30,7 @@ export type DatabaseAdapter = {
   connect<TSchema extends Record<string, unknown>>(
     schema: TSchema,
     connection: DatabaseConnection,
-    options: DatabaseConnectOptions,
   ): Promise<DatabaseConnectionResult<TSchema>>
   migrate(db: AnyDb, migrationsFolder: string): Promise<void>
+  testing?: TestDatabaseStrategy
 }

@@ -9,11 +9,11 @@ key to your config and use `app.email.send()` anywhere on the server.
 ## Configuration
 
 ```ts
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -25,6 +25,8 @@ export const app = await createBunderstack({
     provider: 'resend', // or 'console' or a custom adapter
   },
 })
+
+export const app = await backend.start()
 ```
 
 ## Providers
@@ -52,7 +54,7 @@ SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
 ```
 
 ```ts
-import { smtp } from 'bunderstack/email/smtp'
+import { smtp } from 'bunderstack/email-smtp'
 
 email: {
   from: 'noreply@example.com',
@@ -146,7 +148,7 @@ Returns `{ id?: string }` — the provider-specific message ID when available.
 
 When you configure an `email` key, Bunderstack automatically wires it into
 BetterAuth for email verification and password reset flows. No extra config
-needed — just add `email` to `createBunderstack`.
+needed — just add `email` to `bunderstack`.
 
 ## Without email
 

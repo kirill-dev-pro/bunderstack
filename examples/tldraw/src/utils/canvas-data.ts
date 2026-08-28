@@ -19,7 +19,9 @@ const TYPE_ID_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz'
 
 export const canvasListParams = (ownerId: TypeId<'user'>) =>
   ({
-    ownerId,
+    // Column filters belong under `filters`; the list input is a strict object
+    // and rejects a bare column name at the top level.
+    filters: { ownerId },
     sort: 'updatedAt',
     order: 'desc',
     limit: 50,
@@ -27,7 +29,7 @@ export const canvasListParams = (ownerId: TypeId<'user'>) =>
 
 export const shapeListParams = (canvasId: TypeId<'canvas'> | string) =>
   ({
-    canvasId,
+    filters: { canvasId },
     sort: 'createdAt',
     order: 'asc',
     limit: 200,

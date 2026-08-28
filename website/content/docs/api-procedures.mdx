@@ -52,7 +52,7 @@ export const boardsRouter = {
 }
 ```
 
-Collect the modules and pass the object to `createBunderstack`:
+Collect the modules and pass the object to `bunderstack`:
 
 ```ts
 // src/api/index.ts
@@ -63,7 +63,8 @@ export const api = { boards: boardsRouter, projects: projectsRouter }
 ```
 
 ```ts
-const app = await createBunderstack({ schema, database, api })
+const backend = bunderstack({ schema, database, api })
+const app = await backend.start()
 ```
 
 The client receives `api.boards.stats.call()`,

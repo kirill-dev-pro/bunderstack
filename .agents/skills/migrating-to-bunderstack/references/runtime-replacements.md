@@ -6,13 +6,12 @@ names; do not change the contracts.
 ## Modular entry
 
 A migrated application has enough configuration to justify `src/bunderstack/`
-with `index.ts`, `schema/`, `access.ts`, `auth.ts`, `env.ts`, `jobs/`, and
-`api/`. The entry is the only place that assembles them:
+with `backend.ts`, `index.ts`, `schema/`, `access.ts`, `auth.ts`, `env.ts`,
+`jobs/`, and `api/`. The declaration is the only place that assembles them:
 
 ```ts
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { provision } from 'bunderstack/provision'
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import { access } from './access'
 import { authConfig } from './auth'
 import { envSchema } from './env'
@@ -20,33 +19,31 @@ import { defineJobs } from './jobs'
 import { schema } from './schema'
 import * as v from 'valibot'
 
-export async function createApp(options: { databaseUrl?: string } = {}) {
-  return createBunderstack({
-    schema,
-    access,
-    env: envSchema,
-    database: {
-      adapter: libsql(),
-      url: options.databaseUrl ?? process.env.DATABASE_URL ?? 'file:./data.db',
-    },
-    auth: authConfig,
-    email: { from: process.env.EMAIL_FROM ?? 'App <no-reply@example.com>' },
-    storage: {
-      local: './uploads',
-      defaultBucket: 'files',
-      buckets: {
-        files: {
-          visibility: 'private',
-          access: { create: 'authenticated', get: 'owner', delete: 'owner' },
-        },
+export const backend = bunderstack({
+  schema,
+  access,
+  env: envSchema,
+  database: {
+    adapter: libsql(),
+    url: 'file:./data.db',
+  },
+  auth: authConfig,
+  email: { from: 'App <no-reply@example.com>' },
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        visibility: 'private',
+        access: { create: 'authenticated', get: 'owner', delete: 'owner' },
       },
     },
-    realtime: process.env.REDIS_URL ? { redis: process.env.REDIS_URL } : true,
-    jobs: defineJobs,
-    middleware: [instrumentation],
-    api,
-  })
-}
+  },
+  realtime: true,
+  jobs: defineJobs,
+  middleware: [instrumentation],
+  api,
+})
 
 // api/base.ts — the builder is a module value, so router modules import the
 // bases they need instead of receiving them through the config callback.
@@ -59,7 +56,11 @@ export async function createApp(options: { databaseUrl?: string } = {}) {
 //
 //   export const api = { projects: projectsRouter }
 
-export const app = await createApp()
+// index.ts
+import { provision } from 'bunderstack/provision'
+import { backend } from './backend'
+
+export const app = await backend.start()
 export const { db, auth, env } = app
 export type App = typeof app
 
@@ -67,12 +68,9 @@ await provision(app)
 ```
 
 The database adapter is imported explicitly; there is no implicit driver. Keep
-the factory for tests that need an isolated `file::memory:` database.
-
-Keep unrelated external side effects out of this import graph. The blueprint
-command imports the entry with `BUNDERSTACK_INTROSPECT=1`, so a module that
-connects to a queue or calls a third-party API at import time breaks
-introspection.
+unrelated external side effects out of the backend import graph. The blueprint
+imports the declaration and reads `backend.manifest`; it never starts the app,
+connects to a queue, or needs a special environment flag.
 
 Aggregate every domain, Better Auth, plugin, and internal table in the schema
 object, including `export * from 'bunderstack/schema'`, so migrations cover the
@@ -116,8 +114,11 @@ Production queue work is its own process:
 
 ```ts
 // src/worker.ts
-import { app } from './bunderstack'
+import { backend } from './bunderstack/backend'
 
+const app = await backend.start({
+  env: { ...process.env, BUNDERSTACK_ROLE: 'web' },
+})
 await app.runWorker()
 ```
 
@@ -224,7 +225,7 @@ const url = await app.storage.getUrl(key, { expiresIn: 3600 })
 await app.storage.delete(fileId)
 ```
 
-Buckets are declared in `createBunderstack()` with their own visibility and
+Buckets are declared in `bunderstack()` with their own visibility and
 access rules. Delete the AWS or Tigris wrapper and uninstall the SDK. A custom
 multipart upload route is replaced by the bucket's own upload route unless it
 performs domain work that cannot move into a job.
@@ -241,7 +242,7 @@ Standard `fetch`, so the `resend` package is uninstalled.
 
 ## Env
 
-Pass `envSchema` to `createBunderstack({ env: envSchema })` and read `app.env`
+Pass `envSchema` to `bunderstack({ env: envSchema })` and read `app.env`
 or `ctx.env`. Remove `@t3-oss/env-core` `createEnv()` calls and `dotenv`; Bun
 loads `.env` itself. Server variables must not use the `PUBLIC_` prefix, and
 browser-safe variables must. Declared env appears in the deployment blueprint,
@@ -256,7 +257,7 @@ commit migrations before production:
 
 ```json
 {
-  "bunderstack": { "entry": "src/bunderstack/index.ts" },
+  "bunderstack": { "entry": "src/bunderstack/backend.ts" },
   "scripts": {
     "worker": "bun src/worker.ts",
     "db:generate": "drizzle-kit generate",
@@ -273,14 +274,19 @@ or build output.
 
 ## Test and script ownership
 
-A test or script that constructs its own app owns its lifetime:
+A test or script owns its fixture lexically:
 
 ```ts
-const app = await createApp({ databaseUrl: 'file::memory:' })
-try {
-  await provision(app, { force: true })
-  // ...
-} finally {
-  await app.close()
-}
+await using t = await backend.test({ database: { schema: 'push' } })
+const identity = t.auth.mockSession({
+  id: 'user-1',
+  email: 'dev@example.com',
+  name: 'Developer',
+})
+const client = t.client(identity)
+// ...
 ```
+
+The fixture isolates database, email, storage, realtime, and queue state and is
+disposed at the end of the block. Keep application-specific organization setup
+in a typed helper layered on top of the base user/session auth helper.

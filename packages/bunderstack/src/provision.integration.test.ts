@@ -4,7 +4,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { libsql } from './database/libsql'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 import { provision } from './provision'
 
 const widgets = sqliteTable('provision_widgets', {
@@ -13,14 +13,14 @@ const widgets = sqliteTable('provision_widgets', {
 })
 
 test('provision pushes schema when no migrations folder exists', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: { widgets },
     database: {
       url: ':memory:',
       migrations: './does-not-exist-migrations',
       adapter: libsql(),
     },
-  })
+  }).start()
 
   await provision(app, { force: true })
 
@@ -56,10 +56,10 @@ test('provision applies committed migrations instead of pushing', async () => {
   )
 
   try {
-    const app = await createBunderstack({
+    const app = await bunderstack({
       schema: { widgets },
       database: { url: ':memory:', migrations: dir, adapter: libsql() },
-    })
+    }).start()
 
     await provision(app)
 
@@ -77,6 +77,6 @@ test('provision applies committed migrations instead of pushing', async () => {
   }
 })
 
-test('provision rejects objects not created by createBunderstack', async () => {
-  await expect(provision({})).rejects.toThrow(/createBunderstack/)
+test('provision rejects objects not created by bunderstack', async () => {
+  await expect(provision({})).rejects.toThrow(/bunderstack/)
 })

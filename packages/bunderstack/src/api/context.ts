@@ -1,9 +1,9 @@
 import type { AccessUser, AuthSessionResolver } from '../access'
 import type { DbFor } from '../db'
 import type { EmailFacade } from '../email'
-import type { AuthInstance, StorageFacade } from '../index'
 import type { JobsRuntimeFacade } from '../jobs/define'
 import type { RealtimeFacade } from '../realtime/facade'
+import type { AuthInstance, StorageFacade } from '../runtime'
 
 import { resolveSession } from '../access'
 

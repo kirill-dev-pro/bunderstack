@@ -8,7 +8,7 @@ Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth 
 ## Email/password
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: {
     emailAndPassword: { enabled: true },
@@ -30,7 +30,7 @@ curl -X POST /api/auth/sign-in/email \
 ## OAuth
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: {
     socialProviders: {
@@ -54,7 +54,7 @@ Pass `auth` as a builder to get the app's own database instead of opening a
 second connection:
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: ({ db, env }) => ({
     emailAndPassword: { enabled: true },

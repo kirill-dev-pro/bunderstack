@@ -7,12 +7,12 @@ bun add bunderstack better-auth drizzle-orm valibot @libsql/client
 ```
 
 ```ts
-import { createBunderstack, defineApi } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { bunderstack, defineApi } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: { adapter: libsql(), url: 'file:./data.db' },
   access: { posts: { crud: true } },
@@ -25,6 +25,7 @@ export const app = await createBunderstack({
   },
 })
 
+export const app = await backend.start()
 Bun.serve({ fetch: app.handler })
 export type App = typeof app
 ```
@@ -46,16 +47,18 @@ replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
 ## Package Subpaths (0.21+)
 
-- `bunderstack` — Backend runtime (`createBunderstack`, `provision`, `defineApi`, `buildApiRegistry`)
+- `bunderstack` — Declarative backend and runtime (`bunderstack`, `defineApi`, `buildApiRegistry`)
+- `bunderstack/testing` — Isolated lexical test fixtures (`backend.test()`)
+- `bunderstack/provision` — Explicit production schema provisioning
 - `bunderstack/client` — Framework-neutral RPC & LiveView client (`createClient`, `createLiveView`)
-- `bunderstack/client/rest` — Type-safe REST client
-- `bunderstack/client/react`, `bunderstack/client/solid`, `bunderstack/client/vue`, `bunderstack/client/svelte` — LiveView UI bindings
-- `bunderstack/query` & `bunderstack/query/react` — TanStack Query client (`createClient`, `syncRealtime`)
+- `bunderstack/client-rest` — Type-safe REST client
+- `bunderstack/client-react`, `bunderstack/client-solid`, `bunderstack/client-vue`, `bunderstack/client-svelte` — LiveView UI bindings
+- `bunderstack/query` & `bunderstack/query-react` — TanStack Query client (`createClient`, `syncRealtime`)
 - `bunderstack/sync` — TanStack DB collections (`createSyncClient`)
-- `bunderstack/start` & `bunderstack/start/auth` — TanStack Start full-stack integration
-- `bunderstack/database/*` — Database adapters (`libsql`, `postgres-js`, `bun-sql`, `pglite`)
+- `bunderstack/start` & `bunderstack/start-auth` — TanStack Start full-stack integration
+- `bunderstack/libsql`, `bunderstack/postgres-js`, `bunderstack/bun-sql`, `bunderstack/bun-sqlite`, `bunderstack/pglite` — Database adapters
 - `bunderstack/storage/*` — Storage adapters (`s3`, `disk`)
-- `bunderstack/email/*` — Email adapters (`smtp`, `resend`, `console`)
+- `bunderstack/email-smtp` — SMTP email adapter
 - `bunderstack/jobs/*` — Job queue adapters (`memory`, `redis`)
 
 See the [workspace documentation](https://github.com/kirill-dev-pro/bunderstack#readme) for webhooks, clients,
@@ -65,6 +68,7 @@ storage, collections, lifecycle, and complete examples.
 
 Every change is listed with before/after code in the migration guides, which live in full at:
 
+- [Migrating to 0.22](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.22.md)
 - [Migrating to 0.21](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.21.md)
 - [Migrating to 0.17](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.17.md)
 - [Migrating to 0.16](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.16.md)

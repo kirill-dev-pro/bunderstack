@@ -7,7 +7,7 @@ import templatePackage from '../templates/tanstack-start-saas/package.json'
 const root = join(import.meta.dir, '../templates/tanstack-start-saas')
 
 test('SaaS template exposes the Bunderstack deployment contract', () => {
-  expect(templatePackage.bunderstack.entry).toBe('src/bunderstack/index.ts')
+  expect(templatePackage.bunderstack.entry).toBe('src/bunderstack/backend.ts')
   expect(templatePackage.scripts).toMatchObject({
     dev: 'bun --bun vite dev',
     typecheck: 'tsc --noEmit',
@@ -19,6 +19,7 @@ test('SaaS template exposes the Bunderstack deployment contract', () => {
 
 test('SaaS template contains all required routes and deployment files', () => {
   const files = [
+    'src/bunderstack/backend.ts',
     'src/bunderstack/index.ts',
     'src/server.ts',
     'src/routes/api/$.tsx',
@@ -35,6 +36,18 @@ test('SaaS template contains all required routes and deployment files', () => {
   for (const file of files) {
     expect(existsSync(join(root, file))).toBe(true)
   }
+})
+
+test('SaaS template separates declaration from runtime startup', () => {
+  const backend = readFileSync(
+    join(root, 'src/bunderstack/backend.ts'),
+    'utf-8',
+  )
+  const runtime = readFileSync(join(root, 'src/bunderstack/index.ts'), 'utf-8')
+
+  expect(backend).toContain('bunderstack({')
+  expect(backend).not.toContain('.start(')
+  expect(runtime).toContain('backend.start(')
 })
 
 test('SaaS template README documents setup commands', () => {

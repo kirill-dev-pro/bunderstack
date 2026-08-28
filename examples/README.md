@@ -14,15 +14,16 @@ bun install
 Each example calls `provision(app)` on boot. With no `migrations/` folder it pushes the schema (including Bunderstack internal tables) — that's the dev loop. Once migrations are generated and committed, the same line applies them instead, without drizzle-kit:
 
 ```ts
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: { adapter: libsql(), url: 'file:./data.db' },
 })
+export const app = await backend.start()
 await provision(app)
 ```
 

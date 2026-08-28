@@ -17,11 +17,11 @@ describe('Task 3 integration contract', () => {
     expect(content).toContain('createIsomorphicFetch()')
   })
 
-  it('auth client imports from bunderstack/start/auth', () => {
+  it('auth client imports from bunderstack/start-auth', () => {
     const content = readFileSync(
       join(import.meta.dir, 'lib/auth-client.ts'),
       'utf-8',
     )
-    expect(content).toContain('bunderstack/start/auth')
+    expect(content).toContain('bunderstack/start-auth')
   })
 })

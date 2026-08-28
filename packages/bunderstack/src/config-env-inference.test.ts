@@ -4,7 +4,7 @@ import * as v from 'valibot'
 
 import { defineAuth } from './config'
 import { libsql } from './database/libsql'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 
 const user = sqliteTable('user', {
   id: text('id').primaryKey(),
@@ -42,12 +42,12 @@ test('env stays inferred when auth is a defineAuth factory', async () => {
     database: db ? undefined : undefined,
   }))
 
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema,
     env: envSchema,
     database,
     auth: authConfig,
-  })
+  }).start()
 
   // Compiles only when TEnv is inferred from `envSchema`.
   const key: string = app.env.STRIPE_KEY
@@ -59,12 +59,12 @@ test('env stays inferred when auth is a defineAuth factory', async () => {
 })
 
 test('env stays inferred when auth is a plain object', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema,
     env: envSchema,
     database,
     auth: { secret: 'test-secret' },
-  })
+  }).start()
 
   const key: string = app.env.STRIPE_KEY
 

@@ -2,7 +2,7 @@ import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { provision } from '../provision'
 
 /**
@@ -49,7 +49,7 @@ const verification = sqliteTable('verification', {
 const schema = { user, session, account, verification, creditBalances }
 
 const createApp = () =>
-  createBunderstack({
+  bunderstack({
     schema,
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
@@ -57,7 +57,7 @@ const createApp = () =>
     access: {
       creditBalances: { crud: true, list: 'public', get: 'public' },
     },
-  })
+  }).start()
 
 let app: Awaited<ReturnType<typeof createApp>>
 

@@ -45,12 +45,14 @@ export const instrumentation = o.middleware(async ({ context, next, path }) => {
 ```
 
 ```ts
-const app = await createBunderstack({
+const backend = bunderstack({
   schema,
   database,
   middleware: [instrumentation],
   api,
 })
+
+const app = await backend.start()
 ```
 
 `o.middleware(...)` types the function over the request context, so you never

@@ -5,7 +5,9 @@ export * from 'bunderstack/schema'
 
 // --- BetterAuth core ---
 export const user = sqliteTable('user', {
-  id: text('id').primaryKey(),
+  id: typeid('user')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('user')),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' })
@@ -16,23 +18,30 @@ export const user = sqliteTable('user', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 })
 export const session = sqliteTable('session', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('sess')),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
   token: text('token').notNull().unique(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   activeOrganizationId: text('active_organization_id'),
 })
 export const account = sqliteTable('account', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('acct')),
+  // Better Auth 1.7 scopes account identity by issuer: `local:<providerId>`
+  // for password accounts, the provider's own issuer for OAuth.
+  issuer: text('issuer').notNull().default('local:credential'),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
@@ -50,7 +59,9 @@ export const account = sqliteTable('account', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 })
 export const verification = sqliteTable('verification', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('vrf')),
   identifier: text('identifier').notNull(),
   value: text('value').notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
@@ -60,7 +71,9 @@ export const verification = sqliteTable('verification', {
 
 // --- BetterAuth organization plugin ---
 export const organization = sqliteTable('organization', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('org')),
   name: text('name').notNull(),
   slug: text('slug').unique(),
   logo: text('logo'),
@@ -68,18 +81,22 @@ export const organization = sqliteTable('organization', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 export const member = sqliteTable('member', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('mbr')),
   organizationId: text('organization_id')
     .notNull()
     .references(() => organization.id, { onDelete: 'cascade' }),
-  userId: text('user_id')
+  userId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   role: text('role').notNull().default('member'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 export const invitation = sqliteTable('invitation', {
-  id: text('id').primaryKey(),
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('inv')),
   organizationId: text('organization_id')
     .notNull()
     .references(() => organization.id, { onDelete: 'cascade' }),
@@ -87,7 +104,7 @@ export const invitation = sqliteTable('invitation', {
   role: text('role'),
   status: text('status').notNull().default('pending'),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  inviterId: text('inviter_id')
+  inviterId: typeid('user')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
 })

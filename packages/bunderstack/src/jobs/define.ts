@@ -5,7 +5,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import type { DbFor } from '../db'
 import type { EmailFacade } from '../email'
-import type { StorageFacade } from '../index'
+import type { StorageFacade } from '../runtime'
 
 import { parseCron } from './cron'
 import { CRON_PREFIX, type CatchUp } from './slots'
