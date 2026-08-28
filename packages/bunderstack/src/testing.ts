@@ -13,9 +13,11 @@ export type {
 } from './testing/fixture'
 export { mockAuthSession, TestAuthError } from './testing/auth'
 export type {
+  SignInEmailInput,
   SignUpEmailInput,
   TestAuth,
   TestIdentity,
+  TestSession,
   TestUser,
 } from './testing/auth'
 export type { CapturedEmail, TestEmail } from './testing/email'

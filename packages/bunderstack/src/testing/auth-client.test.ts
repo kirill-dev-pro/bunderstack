@@ -58,7 +58,11 @@ test('real sign-up returns an identity accepted by the typed client', async () =
   const backend = bunderstack({
     schema,
     database: { adapter: libsql() },
-    auth: { emailAndPassword: { enabled: true } },
+    email: { from: 'Test <test@example.com>', provider: 'resend' },
+    auth: {
+      emailAndPassword: { enabled: true },
+      emailVerification: { sendOnSignUp: true },
+    },
     api: (o) => ({
       account: {
         me: o.protected.handler(({ context }) => ({ id: context.user.id })),
@@ -89,4 +93,44 @@ test('real sign-up returns an identity accepted by the typed client', async () =
     name: 'Mock',
   })
   expect(await t.client(mocked).account.me()).toEqual({ id: 'mock-user' })
+
+  const other = t.auth.mockSession({
+    id: 'other-user',
+    email: 'other@test.local',
+    name: 'Other',
+  })
+  expect(await t.client(mocked).account.me()).toEqual({ id: 'mock-user' })
+  expect(await t.client(other).account.me()).toEqual({ id: 'other-user' })
+})
+
+test('email auth helpers verify, sign out, and sign in through the real handler', async () => {
+  const backend = bunderstack({
+    schema,
+    database: { adapter: libsql() },
+    email: { from: 'Test <test@example.com>', provider: 'resend' },
+    auth: {
+      emailAndPassword: { enabled: true },
+      emailVerification: { sendOnSignUp: true },
+    },
+  })
+
+  await using fixture = await backend.test({ database: { schema: 'push' } })
+  const signedUp = await fixture.auth.signUpEmail({
+    email: 'verify@test.local',
+    name: 'Verify Me',
+  })
+
+  const verified = await fixture.auth.verifyEmail(signedUp)
+  expect(verified.user.emailVerified).toBe(true)
+  expect((await fixture.auth.getSession(verified))?.user.id).toBe(
+    signedUp.user.id,
+  )
+
+  await fixture.auth.signOut(verified)
+  expect(await fixture.auth.getSession(verified)).toBeNull()
+
+  const signedIn = await fixture.auth.signInEmail({
+    email: 'verify@test.local',
+  })
+  expect(signedIn.user.id).toBe(signedUp.user.id)
 })

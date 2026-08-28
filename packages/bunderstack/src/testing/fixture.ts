@@ -15,7 +15,7 @@ import {
   type RuntimeTestingHandle,
 } from '../backend-internals'
 import { provisionForTest } from '../provision'
-import { createTestAuth } from './auth'
+import { createTestAuth, createTestSessionRegistry } from './auth'
 import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
 import { createTestEmail } from './email'
@@ -143,6 +143,7 @@ export async function createTestApp<TApp extends TestableApp>(
   )
   const { adapter: emailAdapter, email } = createTestEmail()
   const storage = createTestStorage(resolvedStorage)
+  const sessions = createTestSessionRegistry()
 
   let target
   try {
@@ -167,6 +168,7 @@ export async function createTestApp<TApp extends TestableApp>(
         database: target.connection,
         resolvedStorage,
         emailAdapter,
+        authResolver: sessions.resolver,
         forceMemoryRealtime: true,
         backgroundAutoStart: false,
         captureTestingHandle: (handle) => {
@@ -210,7 +212,8 @@ export async function createTestApp<TApp extends TestableApp>(
     throw new Error('[bunderstack] runtime did not provide test controls')
   }
 
-  const auth = createTestAuth(app)
+  sessions.attach(app)
+  const auth = createTestAuth(app, email, sessions)
   const jobs = createTestJobs(testingHandle)
   const deferred: TestCleanup[] = []
   let closePromise: Promise<void> | undefined

@@ -8,6 +8,7 @@ import { RPCHandler } from '@orpc/server/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 
 import type { TableAccessInput } from './access'
+import type { AuthSessionResolver } from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { RealtimeApiRouter } from './api/realtime-router'
 import type {
@@ -99,6 +100,7 @@ export type RuntimeOverrides = {
   emailAdapter?: EmailAdapter
   forceMemoryRealtime?: boolean
   backgroundAutoStart?: false
+  authResolver?: AuthSessionResolver
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
@@ -396,6 +398,7 @@ export async function materializeBunderstack<
       )
     }
     const authResolver =
+      overrides.authResolver ??
       options.authResolver ??
       (missingModels.length === 0 ? toAuthSessionResolver(auth) : undefined)
     const resolvedAccess = validateAndResolveAccess(
