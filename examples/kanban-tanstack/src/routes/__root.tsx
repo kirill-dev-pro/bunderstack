@@ -7,7 +7,7 @@ import {
   ClientOnly,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { asTypeId } from 'bunderstack'
+import { asTypeId } from 'bunderstack/typeid'
 import * as React from 'react'
 
 import { queryClient } from '~/api-client'

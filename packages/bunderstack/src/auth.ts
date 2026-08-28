@@ -38,6 +38,24 @@ export function createAuth(
 }
 
 /**
+ * better-auth resolves its models out of the app's own schema, so an app that
+ * declares none has no auth at all. Session resolution must then short-circuit
+ * to null: the drizzle adapter throws on a missing model, and any session
+ * cookie for the host — a browser keeps those per host, not per port, so one
+ * minted by another local app arrives here too — would break every request.
+ */
+export function missingAuthModels(
+  schema: Record<string, unknown>,
+  cfg: BetterAuthConfig,
+): string[] {
+  const models = [
+    cfg.user?.modelName ?? 'user',
+    cfg.session?.modelName ?? 'session',
+  ]
+  return models.filter((model) => !schema[model])
+}
+
+/**
  * Adapt the raw better-auth instance to our internal {@link AuthSessionResolver}
  * contract. better-auth's `getSession` has a union return (a bare session, or a
  * `{ headers, response }` wrapper when `returnHeaders` is set); we only ever

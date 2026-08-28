@@ -15,7 +15,7 @@ Each example calls `provision(app)` on boot. With no `migrations/` folder it pus
 
 ```ts
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as schema from './schema'
 

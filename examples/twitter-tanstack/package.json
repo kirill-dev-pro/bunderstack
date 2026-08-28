@@ -8,7 +8,7 @@
     "src/components/OatInit.tsx"
   ],
   "scripts": {
-    "dev": "bun --bun vite dev",
+    "dev": "bun run migrate && bun --bun vite dev",
     "build": "bun --bun vite build",
     "start": "bun dist/server/server.js",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",

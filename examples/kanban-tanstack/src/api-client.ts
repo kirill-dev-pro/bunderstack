@@ -29,5 +29,5 @@ export const listParams = { limit: 100, offset: 0 } as const
 
 export const api = createClient<App>({
   queryClient,
-  fetch: (request) => isomorphicFetch(request),
+  fetch: (request, init) => isomorphicFetch(request, init),
 })

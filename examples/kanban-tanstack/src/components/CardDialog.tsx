@@ -1,7 +1,7 @@
 import type { InferSelect } from 'bunderstack/query'
 
 import { useQuery } from '@tanstack/react-query'
-import { asTypeId } from 'bunderstack'
+import { asTypeId } from 'bunderstack/typeid'
 import { marked } from 'marked'
 import { useEffect, useRef, useState } from 'react'
 

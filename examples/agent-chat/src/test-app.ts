@@ -1,5 +1,5 @@
 import { bunderstack, generateTypeId } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 

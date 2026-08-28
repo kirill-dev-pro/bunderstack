@@ -1,6 +1,6 @@
 import { organization } from 'better-auth/plugins'
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
@@ -23,6 +23,8 @@ export const backend = bunderstack({
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
     emailAndPassword: { enabled: true },
     plugins: [organization()],
+    // Ids come from the schema's `typeid()` defaults, not from Better Auth.
+    advanced: { database: { generateId: () => false } },
   },
   access,
   realtime: true,

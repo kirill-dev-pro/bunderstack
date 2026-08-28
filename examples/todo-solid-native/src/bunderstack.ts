@@ -1,6 +1,5 @@
-import { bunderstack } from 'bunderstack'
-import { generateTypeId, typeid } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { bunderstack, generateTypeId, typeid } from 'bunderstack'
+import { bunSqlite } from 'bunderstack/bun-sqlite'
 // Bunderstack's own tables — file metadata, idempotency, jobs, email log.
 import * as internal from 'bunderstack/schema'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
@@ -34,7 +33,7 @@ export const backend = bunderstack({
   },
 
   database: {
-    adapter: libsql(),
+    adapter: bunSqlite(),
     url: process.env.DATABASE_URL ?? 'file:./data.db',
   },
 

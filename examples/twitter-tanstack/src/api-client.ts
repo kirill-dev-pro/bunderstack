@@ -35,7 +35,7 @@ export function createQueryClient() {
 export function createApi(queryClient: QueryClient) {
   return createClient<App>({
     queryClient,
-    fetch: (request) => isomorphicFetch(request),
+    fetch: (request, init) => isomorphicFetch(request, init),
   })
 }
 
@@ -88,5 +88,5 @@ export function byColumnIn(column: string, ids: readonly string[]) {
 
 /** File uploads/URLs only — safe outside React hooks (no QueryClient needed). */
 export const filesApi = createClient<App>({
-  fetch: (request) => isomorphicFetch(request),
+  fetch: (request, init) => isomorphicFetch(request, init),
 })

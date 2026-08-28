@@ -17,16 +17,16 @@ must match the Drizzle schema, and only its optional peer needs to be installed.
 
 | Import                             | Factory        | Optional peer                 | Compatible schema      |
 | ---------------------------------- | -------------- | ----------------------------- | ---------------------- |
-| `bunderstack/database/libsql`      | `libsql()`     | `@libsql/client`              | SQLite (`sqliteTable`) |
-| `bunderstack/database/pglite`      | `pglite()`     | `@electric-sql/pglite`        | Postgres (`pgTable`)   |
-| `bunderstack/database/bun-sql`     | `bunSql()`     | none — Bun provides `Bun.sql` | Postgres (`pgTable`)   |
-| `bunderstack/database/postgres-js` | `postgresJs()` | `postgres`                    | Postgres (`pgTable`)   |
+| `bunderstack/libsql`      | `libsql()`     | `@libsql/client`              | SQLite (`sqliteTable`) |
+| `bunderstack/pglite`      | `pglite()`     | `@electric-sql/pglite`        | Postgres (`pgTable`)   |
+| `bunderstack/bun-sql`     | `bunSql()`     | none — Bun provides `Bun.sql` | Postgres (`pgTable`)   |
+| `bunderstack/postgres-js` | `postgresJs()` | `postgres`                    | Postgres (`pgTable`)   |
 
 For example, a SQLite application selects libSQL directly:
 
 ```ts
 import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 
 const app = await createBunderstack({
   schema,
@@ -46,11 +46,11 @@ clients. Introspection mocks own no real client.
 ## Email
 
 Resend and the console provider are available through the root configuration.
-SMTP is deliberately isolated behind `bunderstack/email/smtp`; install the
+SMTP is deliberately isolated behind `bunderstack/email-smtp`; install the
 optional `nodemailer` peer and pass `smtp({ url })` as `email.provider`.
 
 ```ts
-import { smtp } from 'bunderstack/email/smtp'
+import { smtp } from 'bunderstack/email-smtp'
 
 const email = {
   from: 'My app <hello@example.com>',

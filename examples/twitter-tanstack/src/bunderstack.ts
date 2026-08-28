@@ -1,5 +1,5 @@
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 
 import { access } from './access'
 import { api } from './api'

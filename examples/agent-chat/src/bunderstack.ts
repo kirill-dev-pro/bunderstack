@@ -1,7 +1,7 @@
 import { type } from 'arktype'
 import { anonymous } from 'better-auth/plugins'
 import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
