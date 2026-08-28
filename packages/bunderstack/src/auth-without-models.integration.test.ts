@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from 'bun:test'
+import { expect, test } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from './database/libsql'
@@ -60,17 +60,11 @@ test('declaring auth without its models warns at startup', async () => {
     database: { adapter: libsql() },
     auth: { emailAndPassword: { enabled: true } },
   })
-  const warn = spyOn(console, 'warn').mockImplementation(() => {})
-  let warnings = ''
-
-  try {
-    await using fixture = await backend.test({ database: { schema: 'push' } })
-    expect(fixture.app).toBeDefined()
-    // `mockRestore` also clears the recorded calls, so read them first.
-    warnings = warn.mock.calls.map((call) => call.join(' ')).join('\n')
-  } finally {
-    warn.mockRestore()
-  }
+  await using fixture = await backend.test({ database: { schema: 'push' } })
+  expect(fixture.app).toBeDefined()
+  const warnings = fixture.logs.warnings
+    .map((entry) => entry.message)
+    .join('\n')
 
   expect(warnings).toContain('missing better-auth tables: `user`, `session`')
 })

@@ -216,7 +216,6 @@ export async function createTestApp<TApp extends TestableApp>(
     throw new Error('[bunderstack] runtime did not provide test controls')
   }
 
-  sessions.attach(app)
   const auth = createTestAuth(app, email, sessions)
   const jobs = createTestJobs(testingHandle)
   const deferred: TestCleanup[] = []

@@ -400,10 +400,22 @@ export async function materializeBunderstack<
           `part of the schema.`,
       )
     }
-    const authResolver =
-      overrides.authResolver ??
+    const declaredAuthResolver =
       options.authResolver ??
       (missingModels.length === 0 ? toAuthSessionResolver(auth) : undefined)
+    const authResolver = overrides.authResolver
+      ? {
+          api: {
+            async getSession({ headers }: { headers: Headers }) {
+              return (
+                (await overrides.authResolver!.api.getSession({ headers })) ??
+                (await declaredAuthResolver?.api.getSession({ headers })) ??
+                null
+              )
+            },
+          },
+        }
+      : declaredAuthResolver
     const resolvedAccess = validateAndResolveAccess(
       options.schema,
       options.access,

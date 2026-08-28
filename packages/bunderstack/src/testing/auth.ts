@@ -67,7 +67,6 @@ const TEST_SESSION_HEADER = 'x-bunderstack-test-session'
 
 export type TestSessionRegistry = {
   readonly resolver: AuthSessionResolver
-  attach(app: BunderstackAppLike): void
   mocked(headers: Headers): TestSession | undefined
   mock<TUser extends TestUser>(
     user: TUser,
@@ -77,19 +76,15 @@ export type TestSessionRegistry = {
 
 export function createTestSessionRegistry(): TestSessionRegistry {
   const sessions = new Map<string, TestSession>()
-  let fallback: AuthSessionResolver | undefined
   return {
     resolver: {
       api: {
         async getSession({ headers }) {
           const token = headers.get(TEST_SESSION_HEADER)
           if (token) return sessions.get(token) ?? null
-          return fallback?.api.getSession({ headers }) ?? null
+          return null
         },
       },
-    },
-    attach(app) {
-      fallback = toAuthSessionResolver(app.auth as never)
     },
     mocked(headers) {
       const token = headers.get(TEST_SESSION_HEADER)
@@ -258,5 +253,3 @@ export function createTestAuth(
 }
 import type { AuthSessionResolver } from '../access'
 import type { TestEmail } from './email'
-
-import { toAuthSessionResolver } from '../auth'
