@@ -12,7 +12,7 @@ test('canvasListParams sorts the current user canvases by recent updates', () =>
   const ownerId = generateTypeId('user')
 
   expect(canvasListParams(ownerId)).toEqual({
-    ownerId,
+    filters: { ownerId },
     sort: 'updatedAt',
     order: 'desc',
     limit: 50,
@@ -23,7 +23,7 @@ test('shapeListParams scopes whiteboard shapes to one canvas', () => {
   const canvasId = generateTypeId('canvas')
 
   expect(shapeListParams(canvasId)).toEqual({
-    canvasId,
+    filters: { canvasId },
     sort: 'createdAt',
     order: 'asc',
     limit: 200,
