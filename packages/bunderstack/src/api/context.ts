@@ -2,10 +2,12 @@ import type { AccessUser, AuthSessionResolver } from '../access'
 import type { DbFor } from '../db'
 import type { EmailFacade } from '../email'
 import type { JobsRuntimeFacade } from '../jobs/define'
+import type { BunderstackLogger } from '../logging'
 import type { RealtimeFacade } from '../realtime/facade'
 import type { AuthInstance, StorageFacade } from '../runtime'
 
 import { resolveSession } from '../access'
+import { consoleLogger } from '../logging'
 
 export interface ApiContextDeps<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -19,6 +21,7 @@ export interface ApiContextDeps<
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
   authResolver?: AuthSessionResolver
+  logger?: BunderstackLogger
 }
 
 export interface ApiContext<
@@ -32,6 +35,7 @@ export interface ApiContext<
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
+  logger: BunderstackLogger
   request: Request
   resHeaders: Headers
   getRawBody: () => Promise<string>
@@ -95,6 +99,7 @@ export function createApiContext<
     jobs: deps.jobs,
     realtime: deps.realtime,
     auth: deps.auth,
+    logger: deps.logger ?? consoleLogger,
     request,
     resHeaders: new Headers(),
     getRawBody,

@@ -4,6 +4,7 @@ import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
+import type { BunderstackLogger } from '../logging'
 import type {
   AnyBackgroundDefinition,
   JobsDefs,
@@ -12,6 +13,7 @@ import type {
 } from './define'
 
 import { jobsTableFor } from '../internal-tables'
+import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
@@ -62,8 +64,10 @@ export function createJobRunner(deps: {
   defs: JobsDefs
   /** Handler ctx WITHOUT `jobs`; the facade is injected via setJobsFacade. */
   ctx: Record<string, unknown>
+  logger?: BunderstackLogger
 }) {
   const { db, defs } = deps
+  const logger = deps.logger ?? consoleLogger
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
@@ -129,7 +133,7 @@ export function createJobRunner(deps: {
         ctx,
       )
     } catch (hookErr) {
-      console.error('[bunderstack] onFailed hook threw:', hookErr)
+      logger.error('[bunderstack] onFailed hook threw:', hookErr)
     }
   }
 

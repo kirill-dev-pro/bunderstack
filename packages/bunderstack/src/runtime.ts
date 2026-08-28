@@ -69,6 +69,7 @@ import {
   validateJobsDefs,
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
+import { consoleLogger, type BunderstackLogger } from './logging'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
@@ -101,6 +102,7 @@ export type RuntimeOverrides = {
   forceMemoryRealtime?: boolean
   backgroundAutoStart?: false
   authResolver?: AuthSessionResolver
+  logger?: BunderstackLogger
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
@@ -318,6 +320,7 @@ export async function materializeBunderstack<
     TRealtime
   >
 > {
+  const logger = overrides.logger ?? consoleLogger
   const dialect = detectDialect(options.schema)
   const jobsDefs: JobsDefs | undefined = options.jobs
     ? typeof options.jobs === 'function'
@@ -389,7 +392,7 @@ export async function materializeBunderstack<
       authConfig,
     )
     if (missingModels.length > 0 && options.auth !== undefined) {
-      console.warn(
+      logger.warn(
         `[bunderstack] auth is configured, but the schema is ` +
           `missing better-auth tables: ${missingModels
             .map((model) => `\`${model}\``)
@@ -526,6 +529,7 @@ export async function materializeBunderstack<
           db,
           defs: resolvedDefs,
           ctx: { db: userDb, env, email, storage, realtime },
+          logger,
         })
       : undefined
     let enqueueNow: number | undefined
@@ -718,7 +722,7 @@ export async function materializeBunderstack<
           !error?.status ||
           error.status >= 500
         ) {
-          console.error(
+          logger.error(
             '[bunderstack-api] 500 Internal Server Error:',
             error?.cause ?? error,
           )
@@ -776,6 +780,7 @@ export async function materializeBunderstack<
           realtime,
           auth,
           authResolver,
+          logger,
         },
         req,
       )

@@ -8,6 +8,7 @@ import type { TestDatabaseStrategy } from '../database/adapter'
 import type { TestSchemaMode } from '../provision'
 import type { TestAuth, TestIdentity } from './auth'
 import type { TestEmail } from './email'
+import type { TestLogs, TestLogMode } from './logs'
 import type { TestStorage } from './storage'
 
 import {
@@ -20,6 +21,7 @@ import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
 import { createTestEmail } from './email'
 import { createTestJobs, type TestJobs } from './jobs'
+import { createTestLogs } from './logs'
 import { createTestStorage, resolveTestBuckets } from './storage'
 
 export type TestOptions = {
@@ -29,6 +31,7 @@ export type TestOptions = {
     schema?: TestSchemaMode
     strategy?: TestDatabaseStrategy
   }
+  logs?: TestLogMode
 }
 
 export type TestCleanup = () => unknown | Promise<unknown>
@@ -46,6 +49,7 @@ export type TestFixture<TApp> = AsyncDisposable & {
   readonly auth: TestAuth
   readonly email: TestEmail
   readonly jobs: TestJobs
+  readonly logs: TestLogs
   readonly storage: TestStorage
   defer(cleanup: TestCleanup): void
   client(
@@ -144,6 +148,7 @@ export async function createTestApp<TApp extends TestableApp>(
   const { adapter: emailAdapter, email } = createTestEmail()
   const storage = createTestStorage(resolvedStorage)
   const sessions = createTestSessionRegistry()
+  const { logger, logs } = createTestLogs(options.logs)
 
   let target
   try {
@@ -169,6 +174,7 @@ export async function createTestApp<TApp extends TestableApp>(
         resolvedStorage,
         emailAdapter,
         authResolver: sessions.resolver,
+        logger,
         forceMemoryRealtime: true,
         backgroundAutoStart: false,
         captureTestingHandle: (handle) => {
@@ -261,6 +267,7 @@ export async function createTestApp<TApp extends TestableApp>(
     auth,
     email,
     jobs,
+    logs,
     storage,
     defer,
     client: (identity) => testClient(app as never, identity) as never,
