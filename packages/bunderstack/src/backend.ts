@@ -7,7 +7,7 @@ import type { BunderstackJobsBuilder, JobsDefs } from './jobs'
 import type { BunderstackManifest } from './manifest'
 import type { BunderstackApp, BucketNamesOf, RuntimeOverrides } from './runtime'
 import type { StorageConfigInput } from './storage/buckets'
-import type { TestFixture, TestOptions } from './testing/fixture'
+import type { TestMethod, TestOptions } from './testing/fixture'
 
 import { BACKEND_INTERNALS, type BackendInternals } from './backend-internals'
 import { detectDialect } from './dialect'
@@ -28,7 +28,7 @@ export type StartOptions = {
 export type BunderstackBackend<TApp> = {
   readonly manifest: BunderstackManifest
   start(options?: StartOptions): Promise<TApp>
-  test(options?: TestOptions): Promise<TestFixture<TApp>>
+  test: TestMethod<TApp>
   readonly [BACKEND_INTERNALS]: BackendInternals<TApp>
 }
 
@@ -145,14 +145,20 @@ export function bunderstack<
     ) as Promise<App>
 
   let backend: BunderstackBackend<App>
+  const test = (async (options) => {
+    const testing = await import('./testing')
+    return testing.createTestApp(backend, options)
+  }) as TestMethod<App>
+  test.configure = (options) =>
+    (async (overrides: TestOptions = {}) => {
+      const testing = await import('./testing')
+      return testing.configureTestApp(backend, options)(overrides)
+    }) as never
   backend = {
     manifest,
     start: ({ env } = {}) =>
       start(env ?? (process.env as Record<string, string | undefined>)),
-    async test(options) {
-      const testing = await import('./testing')
-      return testing.createTestApp(backend, options)
-    },
+    test,
     [BACKEND_INTERNALS]: { declaration: { config, jobsDefs }, start },
   }
   return backend

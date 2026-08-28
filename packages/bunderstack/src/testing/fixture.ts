@@ -31,16 +31,42 @@ export type TestOptions = {
   }
 }
 
+export type TestCleanup = () => unknown | Promise<unknown>
+
+export type TestSetup<TApp, TContext> = (
+  fixture: TestFixture<TApp>,
+) => TContext | Promise<TContext>
+
+export type TestConfigureOptions<TApp, TContext> = TestOptions & {
+  setup?: TestSetup<TApp, TContext>
+}
+
 export type TestFixture<TApp> = AsyncDisposable & {
   readonly app: TApp
   readonly auth: TestAuth
   readonly email: TestEmail
   readonly jobs: TestJobs
   readonly storage: TestStorage
+  defer(cleanup: TestCleanup): void
   client(
     identity?: TestIdentity,
   ): TApp extends AnyBunderstackApp ? BunderstackClient<TApp> : never
   close(): Promise<void>
+}
+
+export type ConfiguredTestFixture<TApp, TContext> = TestFixture<TApp> & {
+  readonly context: TContext
+}
+
+export type TestFactory<TApp, TContext> = (
+  options?: TestOptions,
+) => Promise<ConfiguredTestFixture<TApp, TContext>>
+
+export type TestMethod<TApp> = {
+  (options?: TestOptions): Promise<TestFixture<TApp>>
+  configure<TContext = undefined>(
+    options: TestConfigureOptions<TApp, TContext>,
+  ): TestFactory<TApp, TContext>
 }
 
 type TestableApp = {
@@ -54,6 +80,56 @@ const defaultTestEnv = {
   AUTH_SECRET: 'bunderstack-test-secret',
   BUNDERSTACK_ROLE: 'web',
 } satisfies Record<string, string | undefined>
+
+function mergeTestOptions(
+  defaults: TestOptions,
+  overrides: TestOptions,
+): TestOptions {
+  return {
+    ...defaults,
+    ...overrides,
+    env:
+      defaults.env || overrides.env
+        ? { ...defaults.env, ...overrides.env }
+        : undefined,
+    database:
+      defaults.database || overrides.database
+        ? { ...defaults.database, ...overrides.database }
+        : undefined,
+  }
+}
+
+export function configureTestApp<
+  TApp extends TestableApp,
+  TContext = undefined,
+>(
+  backend: BunderstackBackend<TApp>,
+  options: TestConfigureOptions<TApp, TContext>,
+): TestFactory<TApp, TContext> {
+  const { setup, ...defaults } = options
+  return async (overrides = {}) => {
+    const fixture = await createTestApp(
+      backend,
+      mergeTestOptions(defaults, overrides),
+    )
+    try {
+      const context = setup
+        ? await setup(fixture)
+        : (undefined as TContext)
+      return Object.assign(fixture, { context })
+    } catch (cause) {
+      try {
+        await fixture.close()
+      } catch (cleanupCause) {
+        throw new AggregateError(
+          [cause, cleanupCause],
+          '[bunderstack] test fixture setup and cleanup failed',
+        )
+      }
+      throw cause
+    }
+  }
+}
 
 export async function createTestApp<TApp extends TestableApp>(
   backend: BunderstackBackend<TApp>,
@@ -136,10 +212,24 @@ export async function createTestApp<TApp extends TestableApp>(
 
   const auth = createTestAuth(app)
   const jobs = createTestJobs(testingHandle)
+  const deferred: TestCleanup[] = []
   let closePromise: Promise<void> | undefined
+  const defer = (cleanup: TestCleanup) => {
+    if (closePromise) {
+      throw new Error('[bunderstack] cannot defer cleanup after fixture close')
+    }
+    deferred.push(cleanup)
+  }
   const close = () => {
     closePromise ??= (async () => {
       const errors: unknown[] = []
+      for (const cleanup of deferred.reverse()) {
+        try {
+          await cleanup()
+        } catch (error) {
+          errors.push(error)
+        }
+      }
       try {
         await app.close()
       } catch (error) {
@@ -169,6 +259,7 @@ export async function createTestApp<TApp extends TestableApp>(
     email,
     jobs,
     storage,
+    defer,
     client: (identity) => testClient(app as never, identity) as never,
     close,
     [Symbol.asyncDispose]: close,

@@ -1,7 +1,16 @@
 // src/testing.ts — test utilities for Bunderstack applications.
 
-export { createTestApp } from './testing/fixture'
-export type { TestFixture, TestOptions } from './testing/fixture'
+export { configureTestApp, createTestApp } from './testing/fixture'
+export type {
+  ConfiguredTestFixture,
+  TestCleanup,
+  TestConfigureOptions,
+  TestFactory,
+  TestFixture,
+  TestMethod,
+  TestOptions,
+  TestSetup,
+} from './testing/fixture'
 export { mockAuthSession, TestAuthError } from './testing/auth'
 export type {
   SignUpEmailInput,
