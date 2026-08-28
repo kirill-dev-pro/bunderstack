@@ -201,3 +201,53 @@ test('runUntilIdle bounds recursive enqueue with a convergence error', async () 
     },
   } satisfies Partial<TestJobsConvergenceError>)
 })
+
+test('inspect, pending, and failed expose normalized queue rows with filters', async () => {
+  const backend = bunderstack({
+    schema: {},
+    database,
+    jobs: (j) =>
+      j.define({
+        deliver: j.job({ handler: () => {} }),
+        broken: j.job({
+          retries: 0,
+          handler: () => {
+            throw new Error('inspection failure')
+          },
+        }),
+      }),
+  })
+
+  await using t = await backend.test(testOptions)
+  const deliver = await t.app.jobs.enqueue('deliver', undefined, {
+    dedupeKey: 'email:42',
+    runAt: 2_000,
+  })
+  const broken = await t.app.jobs.enqueue('broken', undefined, { runAt: 1_000 })
+
+  expect(await t.jobs.pending({ name: 'deliver' })).toEqual([
+    expect.objectContaining({
+      id: deliver.id,
+      name: 'deliver',
+      kind: 'job',
+      status: 'pending',
+      attempts: 0,
+      runAt: 2_000,
+      dedupeKey: 'email:42',
+      lastError: null,
+    }),
+  ])
+  expect(await t.jobs.inspect({ dedupeKey: 'email:42' })).toHaveLength(1)
+
+  await t.jobs.runNext({ now: 1_000 })
+  expect(await t.jobs.failed({ name: 'broken' })).toEqual([
+    expect.objectContaining({
+      id: broken.id,
+      name: 'broken',
+      kind: 'job',
+      status: 'failed',
+      attempts: 1,
+      lastError: 'inspection failure',
+    }),
+  ])
+})

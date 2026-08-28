@@ -28,6 +28,8 @@ export type {
   JobRunReport,
   RunNextOptions,
   RunUntilIdleOptions,
+  TestJob,
+  TestJobFilter,
   TestJobs,
 } from './testing/jobs'
 export type {

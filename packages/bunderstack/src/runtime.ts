@@ -570,7 +570,7 @@ export async function materializeBunderstack<
       inspect: (now) =>
         jobRunner
           ? jobRunner.inspect(now)
-          : Promise.resolve({ runnable: 0, failed: [] }),
+          : Promise.resolve({ runnable: 0, failed: [], jobs: [] }),
     })
     const startWorker = async (
       options: AppStartWorkerOptions = {},

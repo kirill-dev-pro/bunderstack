@@ -22,11 +22,23 @@ export type RuntimeJobFailure = {
   lastError: string | null
 }
 
+export type RuntimeTestJob = {
+  id: string
+  name: string
+  kind: 'job' | 'cron'
+  status: 'pending' | 'running' | 'succeeded' | 'failed'
+  attempts: number
+  runAt: number
+  dedupeKey: string | null
+  lastError: string | null
+}
+
 export type RuntimeTestingHandle = {
   tick(now: number): Promise<TickResult>
   inspect(now: number): Promise<{
     runnable: number
     failed: RuntimeJobFailure[]
+    jobs: RuntimeTestJob[]
   }>
 }
 

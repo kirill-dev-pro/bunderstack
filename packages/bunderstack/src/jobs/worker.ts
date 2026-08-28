@@ -396,6 +396,27 @@ export function createJobRunner(deps: {
         })
         .from(t)
         .where(eq(t.status, 'failed'))
+      const rows: Array<{
+        id: string
+        type: string
+        status: string
+        attempts: number
+        runAt: number
+        dedupeKey: string | null
+        lastError: string | null
+        createdAt: number
+      }> = await db
+        .select({
+          id: t.id,
+          type: t.type,
+          status: t.status,
+          attempts: t.attempts,
+          runAt: t.runAt,
+          dedupeKey: t.dedupeKey,
+          lastError: t.lastError,
+          createdAt: t.createdAt,
+        })
+        .from(t)
       return {
         runnable: runnableRows.length,
         failed: failed.map((row) => ({
@@ -406,6 +427,30 @@ export function createJobRunner(deps: {
           attempts: Number(row.attempts),
           lastError: row.lastError,
         })),
+        jobs: rows
+          .sort(
+            (left, right) =>
+              Number(left.createdAt) - Number(right.createdAt) ||
+              String(left.id).localeCompare(String(right.id)),
+          )
+          .map((row) => ({
+            id: String(row.id),
+            name: row.type.startsWith(CRON_PREFIX)
+              ? row.type.slice(CRON_PREFIX.length)
+              : row.type,
+            kind: row.type.startsWith(CRON_PREFIX)
+              ? ('cron' as const)
+              : ('job' as const),
+            status: row.status as
+              | 'pending'
+              | 'running'
+              | 'succeeded'
+              | 'failed',
+            attempts: Number(row.attempts),
+            runAt: Number(row.runAt),
+            dedupeKey: row.dedupeKey,
+            lastError: row.lastError,
+          })),
       }
     },
     setJobsFacade(f: JobsRuntimeFacade) {

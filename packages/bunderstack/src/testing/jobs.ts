@@ -1,5 +1,6 @@
 import type {
   RuntimeJobFailure,
+  RuntimeTestJob,
   RuntimeTestingHandle,
 } from '../backend-internals'
 
@@ -16,6 +17,13 @@ export type RunNextOptions = { now?: Date | number }
 export type RunUntilIdleOptions = RunNextOptions & {
   maxTicks?: number
   failOnJobError?: boolean
+}
+
+export type TestJob = Readonly<RuntimeTestJob>
+
+export type TestJobFilter = {
+  name?: string
+  dedupeKey?: string
 }
 
 export class TestJobsError extends Error {
@@ -44,6 +52,9 @@ export class TestJobsConvergenceError extends Error {
 export type TestJobs = {
   runNext(options?: RunNextOptions): Promise<JobRunReport>
   runUntilIdle(options?: RunUntilIdleOptions): Promise<JobRunReport>
+  inspect(filter?: TestJobFilter): Promise<readonly TestJob[]>
+  pending(filter?: TestJobFilter): Promise<readonly TestJob[]>
+  failed(filter?: TestJobFilter): Promise<readonly TestJob[]>
 }
 
 function timestamp(value: Date | number | undefined): number {
@@ -51,7 +62,23 @@ function timestamp(value: Date | number | undefined): number {
 }
 
 export function createTestJobs(handle: RuntimeTestingHandle): TestJobs {
+  const list = async (filter: TestJobFilter = {}, status?: TestJob['status']) => {
+    const { jobs } = await handle.inspect(Date.now())
+    return Object.freeze(
+      jobs.filter(
+        (job) =>
+          (!status || job.status === status) &&
+          (!filter.name || job.name === filter.name) &&
+          (!filter.dedupeKey || job.dedupeKey === filter.dedupeKey),
+      ),
+    )
+  }
+
   return {
+    inspect: (filter) => list(filter),
+    pending: (filter) => list(filter, 'pending'),
+    failed: (filter) => list(filter, 'failed'),
+
     async runNext(options = {}) {
       const now = timestamp(options.now)
       const tick = await handle.tick(now)
