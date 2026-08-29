@@ -103,6 +103,48 @@ environment:
     required: false
     scope: client
     sensitive: false
+api:
+  operations:
+    - handle: cancelCommitment
+      operationId: cancelCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/cancel
+    - handle: deleteMemory
+      operationId: deleteMemory
+      effect: mutation
+      method: DELETE
+      path: /api/agent/memory/{id}
+    - handle: pauseCommitment
+      operationId: pauseCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/pause
+    - handle: resolveApproval
+      operationId: resolveApproval
+      effect: mutation
+      method: POST
+      path: /api/agent/approvals/{id}
+    - handle: resumeCommitment
+      operationId: resumeCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/resume
+    - handle: revokeGrant
+      operationId: revokeGrant
+      effect: mutation
+      method: POST
+      path: /api/agent/grants/{id}/revoke
+    - handle: sendMessage
+      operationId: sendMessage
+      effect: mutation
+      method: POST
+      path: /api/agent/messages
+    - handle: updateMemory
+      operationId: updateMemory
+      effect: mutation
+      method: PATCH
+      path: /api/agent/memory/{id}
 background:
   worker:
     required: true

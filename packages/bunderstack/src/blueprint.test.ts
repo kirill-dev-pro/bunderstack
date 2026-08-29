@@ -43,6 +43,7 @@ const manifest: BunderstackManifest = {
       sensitive: true,
     },
   ],
+  api: { operations: [] },
   background: {
     jobs: [{ name: 'celebrateBoardComplete' }],
     cron: [
@@ -229,4 +230,32 @@ test('a blueprint written before the flag falls back to scope', () => {
       scope: 'client',
     }),
   ).toBe(false)
+})
+
+test('the blueprint carries application operations and survives their absence', () => {
+  const withApi = blueprintFromManifest({
+    manifest: {
+      ...manifest,
+      api: {
+        operations: [
+          {
+            handle: 'billing.refund',
+            operationId: 'billing.refund',
+            effect: 'mutation',
+            method: 'POST',
+            path: '/api/billing/refund',
+          },
+        ],
+      },
+    },
+    generatorVersion: '0.23.0',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+  })
+
+  expect(withApi.api?.operations[0]?.effect).toBe('mutation')
+  expect(parseBlueprintYaml(serializeBlueprint(withApi))).toEqual(withApi)
+
+  const { api: _api, ...legacy } = withApi
+  expect(parseBlueprint(legacy).api).toBeUndefined()
 })

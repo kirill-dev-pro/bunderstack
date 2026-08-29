@@ -87,7 +87,9 @@ test('initialization failure closes the database and preserves the cause', async
     await bunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter },
-      api: () => {
+      // The auth factory runs inside runtime init, after the database is
+      // connected, so a throw here exercises the cleanup path.
+      auth: () => {
         throw initializationError
       },
     }).start()
@@ -123,7 +125,9 @@ test('initialization and cleanup failures are preserved in an AggregateError', a
     await bunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter },
-      api: () => {
+      // The auth factory runs inside runtime init, after the database is
+      // connected, so a throw here exercises the cleanup path.
+      auth: () => {
         throw initializationError
       },
     }).start()

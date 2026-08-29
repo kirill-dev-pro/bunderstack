@@ -29,6 +29,22 @@ export type ManifestEnvVar = {
   description?: string
 }
 
+export type ApiOperationEffect = 'read' | 'mutation' | 'unknown'
+
+/**
+ * One application-declared procedure. `effect` is derived from the declared
+ * HTTP method; `unknown` means the application declared no route, and a host
+ * must treat it as at least as dangerous as a mutation.
+ */
+export type ApiOperation = {
+  handle: string
+  operationId: string
+  effect: ApiOperationEffect
+  method?: string
+  path?: string
+  summary?: string
+}
+
 export type BunderstackManifest = {
   version: 3
   database: {
@@ -42,6 +58,7 @@ export type BunderstackManifest = {
   }
   realtime: { required: boolean }
   environment: ManifestEnvVar[]
+  api: { operations: ApiOperation[] }
   background: {
     jobs: { name: string }[]
     cron: { name: string; schedule: string; timezone: 'UTC' }[]
@@ -112,6 +129,18 @@ const manifestSchema = v.strictObject({
       ),
     }),
   ),
+  api: v.strictObject({
+    operations: v.array(
+      v.strictObject({
+        handle: nonEmpty,
+        operationId: nonEmpty,
+        effect: v.picklist(['read', 'mutation', 'unknown']),
+        method: v.optional(nonEmpty),
+        path: v.optional(nonEmpty),
+        summary: v.optional(v.pipe(nonEmpty, v.maxLength(200))),
+      }),
+    ),
+  }),
   background: v.strictObject({
     jobs: v.array(v.strictObject({ name: nonEmpty })),
     cron: v.array(
@@ -256,6 +285,10 @@ export function parseManifest(value: unknown): BunderstackManifest {
     manifest.environment.map((entry) => entry.key),
   )
   rejectDuplicates(
+    'api operation',
+    manifest.api.operations.map((entry) => entry.handle),
+  )
+  rejectDuplicates(
     'background job',
     manifest.background.jobs.map((entry) => entry.name),
   )
@@ -279,6 +312,7 @@ export function buildManifest(args: {
   emailProvider: string | undefined
   realtime: boolean
   jobs: JobsDefs | undefined
+  api: ApiOperation[]
 }): BunderstackManifest {
   const declaredKeys = new Set([
     ...Object.keys(args.envConfig?.server ?? {}),
@@ -343,6 +377,11 @@ export function buildManifest(args: {
     },
     realtime: { required: args.realtime },
     environment: sortBy(environment, (entry) => entry.key),
+    api: {
+      operations: [...args.api].sort((left, right) =>
+        left.handle.localeCompare(right.handle),
+      ),
+    },
     background: {
       jobs: sortBy(
         Object.entries(args.jobs ?? {})

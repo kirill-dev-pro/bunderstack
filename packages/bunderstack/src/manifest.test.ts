@@ -47,6 +47,7 @@ function makeManifest() {
         handler: async () => {},
       },
     },
+    api: [],
   })
 }
 
@@ -123,6 +124,7 @@ test('buildManifest describes deployment requirements deterministically', () => 
         description: 'Secret key from the Stripe dashboard',
       },
     ],
+    api: { operations: [] },
     background: {
       jobs: [{ name: 'generateLook' }],
       cron: [{ name: 'nightly', schedule: '0 3 * * *', timezone: 'UTC' }],
@@ -161,6 +163,7 @@ test('buildManifest handles zero-config apps', () => {
     emailProvider: undefined,
     realtime: false,
     jobs: undefined,
+    api: [],
   })
   expect(manifest.storage).toEqual({
     defaultBucket: 'default',
@@ -186,6 +189,7 @@ test('buildManifest does not duplicate system tables re-exported by an app schem
     emailProvider: undefined,
     realtime: false,
     jobs: undefined,
+    api: [],
   })
   expect(
     manifest.database.tables.filter(
@@ -240,6 +244,7 @@ test('a client var cannot be declared sensitive', () => {
       emailProvider: undefined,
       realtime: false,
       jobs: undefined,
+      api: [],
     }),
   ).toThrow(/PUBLIC_APP_NAME/)
 })
@@ -261,6 +266,7 @@ test('env.meta cannot describe an undeclared key', () => {
       emailProvider: undefined,
       realtime: false,
       jobs: undefined,
+      api: [],
     }),
   ).toThrow(/STRIPE_KEYY/)
 })
@@ -282,6 +288,59 @@ test('a description longer than 200 characters is rejected', () => {
       emailProvider: undefined,
       realtime: false,
       jobs: undefined,
+      api: [],
     }),
   ).toThrow(/at most 200/)
+})
+
+test('the manifest carries application-declared operations sorted by handle', () => {
+  const manifest = buildManifest({
+    schema,
+    dialect: 'sqlite',
+    migrationsDirectory: './migrations',
+    storage: resolveBuckets(
+      { defaultBucket: 'files', buckets: { files: {} } },
+      {},
+    ),
+    envConfig: undefined,
+    emailProvider: undefined,
+    realtime: false,
+    jobs: undefined,
+    api: [
+      { handle: 'ping', operationId: 'ping', effect: 'read', method: 'GET' },
+      {
+        handle: 'billing.refund',
+        operationId: 'billing.refund',
+        effect: 'mutation',
+        method: 'POST',
+      },
+    ],
+  })
+
+  expect(manifest.api.operations.map((entry) => entry.handle)).toEqual([
+    'billing.refund',
+    'ping',
+  ])
+})
+
+test('duplicate operation handles are rejected', () => {
+  expect(() =>
+    buildManifest({
+      schema,
+      dialect: 'sqlite',
+      migrationsDirectory: './migrations',
+      storage: resolveBuckets(
+        { defaultBucket: 'files', buckets: { files: {} } },
+        {},
+      ),
+      envConfig: undefined,
+      emailProvider: undefined,
+      realtime: false,
+      jobs: undefined,
+      api: [
+        { handle: 'ping', operationId: 'ping', effect: 'read' },
+        { handle: 'ping', operationId: 'ping2', effect: 'read' },
+      ],
+    }),
+  ).toThrow(/duplicate api operation/)
 })

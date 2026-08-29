@@ -1,6 +1,7 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 
 import type { TableAccessInput } from './access'
+import type { BunderstackApiBuilder } from './api/builder'
 import type { BunderstackConfig } from './config'
 import type { EnvConfigInput, ValidatedEnv } from './env'
 import type { BunderstackJobsBuilder, JobsDefs } from './jobs'
@@ -9,6 +10,8 @@ import type { BunderstackApp, BucketNamesOf, RuntimeOverrides } from './runtime'
 import type { StorageConfigInput } from './storage/buckets'
 import type { TestMethod, TestOptions } from './testing/fixture'
 
+import { createApiBuilder } from './api/builder'
+import { describeApiOperations } from './api/catalog'
 import { BACKEND_INTERNALS, type BackendInternals } from './backend-internals'
 import { detectDialect } from './dialect'
 import { emailProviderTag } from './email'
@@ -104,6 +107,17 @@ export function bunderstack<
     : undefined
   if (jobsDefs) validateJobsDefs(jobsDefs)
 
+  // Resolved here rather than at start: the manifest has to describe the same
+  // router the runtime will serve, and `bunderstack blueprint` never starts.
+  const customApiRouter =
+    typeof config.api === 'function'
+      ? (
+          config.api as (
+            builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+          ) => TCustomApiRouter
+        )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
+      : config.api
+
   const manifest = buildManifest({
     schema: config.schema,
     dialect,
@@ -112,6 +126,7 @@ export function bunderstack<
     envConfig: config.env,
     emailProvider: emailProviderTag(config.email),
     realtime: Boolean(config.realtime),
+    api: describeApiOperations(customApiRouter),
     jobs: config.storage
       ? {
           ...jobsDefs,
@@ -139,7 +154,7 @@ export function bunderstack<
     overrides: RuntimeOverrides = {},
   ): Promise<App> =>
     materializeBunderstack(
-      { ...config, jobs: jobsDefs } as never,
+      { ...config, jobs: jobsDefs, api: customApiRouter } as never,
       source,
       overrides,
     ) as Promise<App>

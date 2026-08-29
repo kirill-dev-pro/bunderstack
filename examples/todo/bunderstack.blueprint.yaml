@@ -60,6 +60,33 @@ environment:
     required: false
     scope: client
     sensitive: false
+api:
+  operations:
+    - handle: complete
+      operationId: complete
+      effect: mutation
+      method: POST
+      path: /api/complete-todo
+    - handle: createBoard
+      operationId: createBoard
+      effect: mutation
+      method: POST
+      path: /api/create-board
+    - handle: exampleWebhook
+      operationId: exampleWebhook
+      effect: mutation
+      method: POST
+      path: /webhooks/example
+    - handle: myBoards
+      operationId: myBoards
+      effect: read
+      method: GET
+      path: /api/my-boards
+    - handle: stats
+      operationId: stats
+      effect: read
+      method: GET
+      path: /api/board-stats
 background:
   worker:
     required: true

@@ -74,6 +74,28 @@ environment:
     required: false
     scope: server
     sensitive: true
+api:
+  operations:
+    - handle: addTask
+      operationId: addTask
+      effect: mutation
+      method: POST
+      path: /api/add-task
+    - handle: adminOverview
+      operationId: adminOverview
+      effect: read
+      method: GET
+      path: /api/admin/overview
+    - handle: completeTask
+      operationId: completeTask
+      effect: mutation
+      method: POST
+      path: /api/tasks/{taskId}/complete
+    - handle: createProject
+      operationId: createProject
+      effect: mutation
+      method: POST
+      path: /api/create-project
 background:
   worker:
     required: true

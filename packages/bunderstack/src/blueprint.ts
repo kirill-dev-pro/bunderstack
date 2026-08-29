@@ -39,6 +39,8 @@ export type BunderstackBlueprint = {
     realtime?: { required: true }
   }
   environment: BlueprintEnvVar[]
+  /** Application-declared procedures. Absent in blueprints written before 0.23.0. */
+  api?: { operations: BunderstackManifest['api']['operations'] }
   background: BunderstackManifest['background'] & {
     worker: { required: boolean }
   }
@@ -125,6 +127,20 @@ const blueprintSchema = open({
       description: v.optional(v.pipe(nonEmpty, v.maxLength(200))),
     }),
   ),
+  api: v.optional(
+    open({
+      operations: v.array(
+        open({
+          handle: nonEmpty,
+          operationId: nonEmpty,
+          effect: v.picklist(['read', 'mutation', 'unknown']),
+          method: v.optional(nonEmpty),
+          path: v.optional(nonEmpty),
+          summary: v.optional(v.pipe(nonEmpty, v.maxLength(200))),
+        }),
+      ),
+    }),
+  ),
   background: open({
     worker: open({ required: v.boolean() }),
     jobs: v.array(open({ name: nonEmpty })),
@@ -180,6 +196,11 @@ export function parseBlueprint(value: unknown): BunderstackBlueprint {
     'environment key',
     blueprint.environment.map((entry) => entry.key),
   )
+  if (blueprint.api)
+    rejectDuplicates(
+      'api operation',
+      blueprint.api.operations.map((entry) => entry.handle),
+    )
   rejectDuplicates(
     'background job',
     blueprint.background.jobs.map((entry) => entry.name),
@@ -261,6 +282,7 @@ export function blueprintFromManifest(args: {
         : {}),
     },
     environment: sortBy(args.manifest.environment, (entry) => entry.key),
+    api: { operations: args.manifest.api.operations },
     background: {
       worker: { required: workerRequired },
       jobs: sortBy(args.manifest.background.jobs, (entry) => entry.name),
