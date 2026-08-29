@@ -55,67 +55,74 @@ const cronSchedule = v.pipe(
   }, 'invalid cron schedule'),
 )
 
-const blueprintSchema = v.strictObject({
+// Hosts parse blueprints committed by applications that upgrade bunderstack on
+// their own schedule, so a section written by a newer generator has to survive
+// an older parser instead of failing the whole file.
+function open<TEntries extends v.ObjectEntries>(entries: TEntries) {
+  return v.objectWithRest(entries, v.unknown())
+}
+
+const blueprintSchema = open({
   version: v.literal(1),
-  generator: v.strictObject({
+  generator: open({
     name: v.literal('bunderstack'),
     version: nonEmpty,
   }),
-  application: v.strictObject({
+  application: open({
     framework: v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom']),
-    scripts: v.strictObject({
+    scripts: open({
       build: v.literal('build'),
       start: v.literal('start'),
       worker: v.optional(v.literal('worker')),
     }),
   }),
-  bunderstack: v.strictObject({
+  bunderstack: open({
     entry: relativePath,
     manifestVersion: v.literal(3),
   }),
-  resources: v.strictObject({
-    database: v.strictObject({
+  resources: open({
+    database: open({
       dialect: v.picklist(['sqlite', 'pg']),
       migrationsDirectory: relativePath,
       migrationMode: v.picklist(['migrations', 'push']),
       tables: v.array(
-        v.strictObject({
+        open({
           exportName: nonEmpty,
           physicalName: nonEmpty,
           system: v.boolean(),
         }),
       ),
     }),
-    storage: v.strictObject({
+    storage: open({
       defaultBucket: nonEmpty,
       buckets: v.array(
-        v.strictObject({
+        open({
           name: nonEmpty,
           visibility: v.picklist(['public', 'private']),
         }),
       ),
     }),
-    realtime: v.optional(v.strictObject({ required: v.literal(true) })),
+    realtime: v.optional(open({ required: v.literal(true) })),
   }),
   environment: v.array(
-    v.strictObject({
+    open({
       key: nonEmpty,
       required: v.boolean(),
       scope: v.picklist(['server', 'client']),
     }),
   ),
-  background: v.strictObject({
-    worker: v.strictObject({ required: v.boolean() }),
-    jobs: v.array(v.strictObject({ name: nonEmpty })),
+  background: open({
+    worker: open({ required: v.boolean() }),
+    jobs: v.array(open({ name: nonEmpty })),
     cron: v.array(
-      v.strictObject({
+      open({
         name: nonEmpty,
         schedule: cronSchedule,
         timezone: v.literal('UTC'),
       }),
     ),
     maintenance: v.array(
-      v.strictObject({
+      open({
         name: v.literal('storage-sweep'),
         schedule: cronSchedule,
         timezone: v.literal('UTC'),

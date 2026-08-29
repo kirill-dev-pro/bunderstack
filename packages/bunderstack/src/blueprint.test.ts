@@ -114,3 +114,58 @@ test('blueprint accepts solid and bun-ssr framework declarations', () => {
   expect(yaml).toContain('framework: solid')
   expect(parseBlueprintYaml(yaml).application.framework).toBe('solid')
 })
+
+test('parseBlueprint keeps sections a newer generator added', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '0.13.0',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+  })
+  const forward = {
+    ...blueprint,
+    telemetry: { operations: [{ handle: 'billing.refund' }] },
+    environment: blueprint.environment.map((entry) => ({
+      ...entry,
+      futureFlag: true,
+    })),
+  }
+
+  const parsed = parseBlueprint(forward) as unknown as Record<string, unknown>
+
+  expect(parsed.telemetry).toEqual({
+    operations: [{ handle: 'billing.refund' }],
+  })
+  expect((parsed.environment as Record<string, unknown>[])[0]!.futureFlag).toBe(
+    true,
+  )
+})
+
+test('an unknown section survives a serialize round-trip', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '0.13.0',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+  })
+  const forward = { ...blueprint, telemetry: { sampleRate: 1 } }
+
+  const yaml = serializeBlueprint(forward as never)
+
+  expect(parseBlueprintYaml(yaml)).toEqual(parseBlueprint(forward))
+})
+
+test('open objects still require declared keys', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '0.13.0',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+  })
+  const broken = {
+    ...blueprint,
+    resources: { database: blueprint.resources.database },
+  }
+
+  expect(() => parseBlueprint(broken)).toThrow(/storage/)
+})
