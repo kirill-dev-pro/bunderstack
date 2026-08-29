@@ -83,6 +83,7 @@ export interface AgentResponderInput {
 
 export interface AgentCheckpoint {
   messages: ModelMessage[]
+  toolSequence?: number
 }
 
 export type AgentResponderResult =

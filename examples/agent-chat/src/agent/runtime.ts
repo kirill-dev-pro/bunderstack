@@ -212,7 +212,8 @@ export async function runAgentTurn(
       reason: input.reason,
       now: new Date(),
     })
-    let invocationSequence = 0
+    let invocationSequence =
+      (run.checkpoint as AgentCheckpoint | null)?.toolSequence ?? 0
     const invoke = async (toolId: string, rawArgs: unknown) => {
       invocationSequence += 1
       const result = await invokeAgentTool(ctx, {
@@ -226,7 +227,7 @@ export async function runAgentTurn(
           trusted: true,
         },
         capabilities,
-        executionId: `${run.id}:tool:${invocationSequence}`,
+        executionId: `${thread.id}:wake:${lockedWakeSeq}:tool:${invocationSequence}`,
       })
       if (
         result.status === 'done' &&
@@ -325,7 +326,10 @@ export async function runAgentTurn(
         .update(agentRuns)
         .set({
           status: 'waiting_for_approval',
-          checkpoint: response.checkpoint,
+          checkpoint: {
+            ...response.checkpoint,
+            toolSequence: invocationSequence,
+          },
         })
         .where(eq(agentRuns.id, run.id))
         .returning()

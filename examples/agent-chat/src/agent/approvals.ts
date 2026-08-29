@@ -1,5 +1,6 @@
 import { generateTypeId } from 'bunderstack'
 import { and, eq } from 'drizzle-orm'
+import { isDeepStrictEqual } from 'node:util'
 
 import type { ToolDefinition, ToolExecutionContext } from './declaration'
 import type { AgentRuntimeContext } from './runtime'
@@ -119,11 +120,25 @@ async function recordExecution(
     .from(agentToolCalls)
     .where(eq(agentToolCalls.executionId, details.executionId))
     .get()
+  if (
+    existing &&
+    (existing.threadId !== details.threadId ||
+      existing.userId !== details.userId ||
+      existing.tool !== definition.id ||
+      !isDeepStrictEqual(existing.args, args))
+  ) {
+    throw new Error(`Tool execution identity collision: ${details.executionId}`)
+  }
   if (existing?.status === 'done') return existing.result
-  if (existing) {
+  if (existing?.status === 'running') {
     throw new Error(
       `Tool execution ${details.executionId} has an indeterminate prior outcome`,
     )
+  }
+  if (existing?.status === 'failed') {
+    await ctx.db
+      .delete(agentToolCalls)
+      .where(eq(agentToolCalls.id, existing.id))
   }
 
   try {

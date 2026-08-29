@@ -200,6 +200,35 @@ describe('tool approvals', () => {
     ).toHaveLength(1)
   })
 
+  test('an execution id cannot be replayed for different arguments', async () => {
+    const setupState = await setup()
+    const base = {
+      toolId: 'createTask',
+      userId: setupState.userId,
+      threadId: setupState.thread.id,
+      runId: setupState.run.id,
+      trigger: { type: 'system' as const, trusted: true },
+      executionId: 'stable-execution-collision',
+    }
+    await invokeAgentTool(setupState.ctx, {
+      ...base,
+      rawArgs: { title: 'Original effect' },
+    })
+
+    await expect(
+      invokeAgentTool(setupState.ctx, {
+        ...base,
+        rawArgs: { title: 'Different effect' },
+      }),
+    ).rejects.toThrow('Tool execution identity collision')
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.title, 'Different effect')),
+    ).toHaveLength(0)
+  })
+
   test('revoking a grant requires approval again', async () => {
     const setupState = await setup()
     const pending = await invokeDelete(setupState)

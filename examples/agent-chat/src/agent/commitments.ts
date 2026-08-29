@@ -1,9 +1,14 @@
 import { generateTypeId } from 'bunderstack'
 import { cronMatches, parseCron } from 'bunderstack/cron'
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, lt } from 'drizzle-orm'
 
 import type { AgentRuntimeContext } from './runtime'
-import type { AgentResponder, AgentTask, AgentTools } from './types'
+import type {
+  AgentCheckpoint,
+  AgentResponder,
+  AgentTask,
+  AgentTools,
+} from './types'
 
 import {
   agentCommitmentDependencies,
@@ -435,13 +440,14 @@ async function executeCommitmentUnlocked(
     if (!input.runId || !input.requestId) {
       throw new Error('Commitment resume requires runId and requestId')
     }
+    const resumeRunId = input.runId
     resumeRequest = await ctx.db
       .select()
       .from(agentRequests)
       .where(
         and(
           eq(agentRequests.id, input.requestId),
-          eq(agentRequests.runId, input.runId),
+          eq(agentRequests.runId, resumeRunId),
           eq(agentRequests.userId, existing.userId),
         ),
       )
@@ -458,28 +464,35 @@ async function executeCommitmentUnlocked(
     ) {
       throw new Error('Resolved commitment approval request not found')
     }
-    ;[claimed] = await ctx.db
-      .update(agentCommitments)
-      .set({ status: 'running', error: null })
-      .where(
-        and(
-          eq(agentCommitments.id, input.commitmentId),
-          eq(agentCommitments.currentRunId, input.runId),
-          eq(agentCommitments.status, 'waiting_for_approval'),
-        ),
-      )
-      .returning()
-    ;[run] = await ctx.db
-      .update(agentRuns)
-      .set({ status: 'running', error: null })
-      .where(
-        and(
-          eq(agentRuns.id, input.runId),
-          eq(agentRuns.commitmentId, input.commitmentId),
-          eq(agentRuns.status, 'waiting_for_approval'),
-        ),
-      )
-      .returning()
+    const resumed = await ctx.db.transaction(async (tx: any) => {
+      const [nextCommitment] = await tx
+        .update(agentCommitments)
+        .set({ status: 'running', error: null })
+        .where(
+          and(
+            eq(agentCommitments.id, input.commitmentId),
+            eq(agentCommitments.currentRunId, resumeRunId),
+            eq(agentCommitments.status, 'waiting_for_approval'),
+          ),
+        )
+        .returning()
+      if (!nextCommitment) return undefined
+      const [nextRun] = await tx
+        .update(agentRuns)
+        .set({ status: 'running', error: null })
+        .where(
+          and(
+            eq(agentRuns.id, resumeRunId),
+            eq(agentRuns.commitmentId, input.commitmentId),
+            eq(agentRuns.status, 'waiting_for_approval'),
+          ),
+        )
+        .returning()
+      if (!nextRun) throw new Error('Approval run is no longer resumable')
+      return { commitment: nextCommitment, run: nextRun }
+    })
+    claimed = resumed?.commitment
+    run = resumed?.run
     if (resumeRequest.status === 'approved') {
       capabilities = [
         approvedToolCapability({
@@ -492,36 +505,61 @@ async function executeCommitmentUnlocked(
     }
   } else {
     const startedAt = new Date()
-    ;[claimed] = await ctx.db
-      .update(agentCommitments)
-      .set({ status: 'running', startedAt, error: null })
-      .where(
-        and(
-          eq(agentCommitments.id, input.commitmentId),
-          eq(agentCommitments.status, 'pending'),
-        ),
-      )
-      .returning()
-    if (claimed) {
-      ;[run] = await ctx.db
-        .insert(agentRuns)
-        .values({
-          threadId: claimed.threadId,
-          userId: claimed.userId,
-          commitmentId: claimed.id,
-          triggerType: 'commitment',
-          reason: 'commitment.due',
-          status: 'running',
-        })
-        .returning()
-      await ctx.realtime.publish(agentRuns, 'create', run)
-      const [runningCommitment] = await ctx.db
+    const staleBefore = new Date(Date.now() - 10 * 60_000)
+    const started = await ctx.db.transaction(async (tx: any) => {
+      let [nextCommitment] = await tx
         .update(agentCommitments)
-        .set({ currentRunId: run!.id })
-        .where(eq(agentCommitments.id, claimed.id))
+        .set({ status: 'running', startedAt, error: null })
+        .where(
+          and(
+            eq(agentCommitments.id, input.commitmentId),
+            eq(agentCommitments.status, 'pending'),
+          ),
+        )
         .returning()
-      claimed = runningCommitment
-    }
+      if (nextCommitment) {
+        const [nextRun] = await tx
+          .insert(agentRuns)
+          .values({
+            threadId: nextCommitment.threadId,
+            userId: nextCommitment.userId,
+            commitmentId: nextCommitment.id,
+            triggerType: 'commitment',
+            reason: 'commitment.due',
+            status: 'running',
+          })
+          .returning()
+        ;[nextCommitment] = await tx
+          .update(agentCommitments)
+          .set({ currentRunId: nextRun!.id })
+          .where(eq(agentCommitments.id, nextCommitment.id))
+          .returning()
+        return { commitment: nextCommitment, run: nextRun, created: true }
+      }
+
+      ;[nextCommitment] = await tx
+        .update(agentCommitments)
+        .set({ startedAt, error: null })
+        .where(
+          and(
+            eq(agentCommitments.id, input.commitmentId),
+            eq(agentCommitments.status, 'running'),
+            lt(agentCommitments.startedAt, staleBefore),
+          ),
+        )
+        .returning()
+      if (!nextCommitment?.currentRunId) return undefined
+      const nextRun = await tx
+        .select()
+        .from(agentRuns)
+        .where(eq(agentRuns.id, nextCommitment.currentRunId))
+        .get()
+      if (!nextRun) throw new Error('Running commitment has no execution run')
+      return { commitment: nextCommitment, run: nextRun, created: false }
+    })
+    claimed = started?.commitment
+    run = started?.run
+    if (started?.created) await ctx.realtime.publish(agentRuns, 'create', run)
   }
   if (!claimed || !run) return { status: 'already_terminal' as const }
   if (!claimed.executionSpec) {
@@ -612,7 +650,8 @@ async function executeCommitmentUnlocked(
       }
     } else {
       if (!responder) throw new Error('Objective commitment needs a responder')
-      let invocationSequence = 0
+      let invocationSequence =
+        (run.checkpoint as AgentCheckpoint | null)?.toolSequence ?? 0
       const invoke = async (toolId: string, rawArgs: unknown) => {
         invocationSequence += 1
         const invocation = await invokeAgentTool(ctx, {
@@ -731,7 +770,10 @@ async function executeCommitmentUnlocked(
           .update(agentRuns)
           .set({
             status: 'waiting_for_approval',
-            checkpoint: response.checkpoint,
+            checkpoint: {
+              ...response.checkpoint,
+              toolSequence: invocationSequence,
+            },
           })
           .where(eq(agentRuns.id, run!.id))
           .returning()
