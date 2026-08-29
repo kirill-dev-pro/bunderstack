@@ -1,11 +1,12 @@
-import { afterEach, expect, test } from 'bun:test'
-import { mockAuthSession } from 'bunderstack'
-import { provision } from 'bunderstack/provision'
+import { expect, test } from 'bun:test'
 
-import { createBunderSaaSApp } from './index'
+import { backend } from './backend'
 import * as schema from './schema'
 
-type BunderSaaSApp = Awaited<ReturnType<typeof createBunderSaaSApp>>
+type BunderSaaSApp = Awaited<ReturnType<typeof backend.start>>
+type BunderSaaSTest = Awaited<ReturnType<typeof backend.test>>
+
+const createTestApp = () => backend.test({ database: { schema: 'push' } })
 
 async function seedUser(
   app: BunderSaaSApp,
@@ -27,26 +28,24 @@ async function seedUser(
 }
 
 function signIn(
-  app: BunderSaaSApp,
+  testApp: BunderSaaSTest,
   id: string,
   role: 'user' | 'admin' = 'user',
 ) {
-  mockAuthSession(app, async () => ({
-    user: { id, email: `${id}@bunderstack.test`, name: id, role },
-  }))
+  return testApp.auth.mockSession({
+    id,
+    email: `${id}@bunderstack.test`,
+    name: id,
+    role,
+  })
 }
 
-const apps: Awaited<ReturnType<typeof createBunderSaaSApp>>[] = []
-afterEach(async () => {
-  await Promise.all(apps.splice(0).map((app) => app.close()))
-})
-
-test('declares the full SaaS runtime', async () => {
-  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
-  apps.push(app)
-  expect(app.manifest.realtime.required).toBe(true)
-  expect(app.manifest.background.jobs).toEqual([{ name: 'sendProjectDigest' }])
-  expect(app.manifest.background.cron).toEqual([
+test('declares the full SaaS runtime', () => {
+  expect(backend.manifest.realtime.required).toBe(true)
+  expect(backend.manifest.background.jobs).toEqual([
+    { name: 'sendProjectDigest' },
+  ])
+  expect(backend.manifest.background.cron).toEqual([
     { name: 'archiveCompletedTasks', schedule: '0 3 * * *', timezone: 'UTC' },
     {
       name: 'bunderstack:storage-sweep',
@@ -57,9 +56,8 @@ test('declares the full SaaS runtime', async () => {
 })
 
 test('does not expose projects without a session', async () => {
-  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
-  apps.push(app)
-  await provision(app, { force: true })
+  await using t = await createTestApp()
+  const { app } = t
   const response = await app.handler(
     new Request('http://bunderstack.test/api/projects'),
   )
@@ -67,9 +65,8 @@ test('does not expose projects without a session', async () => {
 })
 
 test('scopes the project list to the signed-in owner', async () => {
-  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
-  apps.push(app)
-  await provision(app, { force: true })
+  await using t = await createTestApp()
+  const { app } = t
 
   await seedUser(app, 'user_alice')
   await seedUser(app, 'user_bob')
@@ -78,7 +75,7 @@ test('scopes the project list to the signed-in owner', async () => {
     { id: 'project_b', ownerId: 'user_bob', name: 'Bob rebrand' },
   ])
 
-  signIn(app, 'user_alice')
+  signIn(t, 'user_alice')
   const response = await app.handler(
     new Request('http://bunderstack.test/api/projects'),
   )
@@ -89,12 +86,11 @@ test('scopes the project list to the signed-in owner', async () => {
 })
 
 test('keeps custom creation procedures reachable at unique REST paths', async () => {
-  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
-  apps.push(app)
-  await provision(app, { force: true })
+  await using t = await createTestApp()
+  const { app } = t
 
   await seedUser(app, 'user_alice')
-  signIn(app, 'user_alice')
+  signIn(t, 'user_alice')
 
   const projectResponse = await app.handler(
     new Request('http://bunderstack.test/api/create-project', {
@@ -117,9 +113,8 @@ test('keeps custom creation procedures reachable at unique REST paths', async ()
 })
 
 test('refuses a cross-owner project read', async () => {
-  const app = await createBunderSaaSApp({ databaseUrl: 'file::memory:' })
-  apps.push(app)
-  await provision(app, { force: true })
+  await using t = await createTestApp()
+  const { app } = t
 
   await seedUser(app, 'user_alice')
   await seedUser(app, 'user_bob')
@@ -127,7 +122,7 @@ test('refuses a cross-owner project read', async () => {
     .insert(schema.projects)
     .values({ id: 'project_b', ownerId: 'user_bob', name: 'Bob rebrand' })
 
-  signIn(app, 'user_alice')
+  signIn(t, 'user_alice')
   const response = await app.handler(
     new Request('http://bunderstack.test/api/projects/project_b'),
   )

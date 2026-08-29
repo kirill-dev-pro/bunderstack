@@ -16,9 +16,16 @@ type ProbeResult = {
 // resolution for every later-loaded file in the built file's own package,
 // which is what made `bun test` at the repo root fail to import
 // '@tanstack/query-core' & co. from bunderstack-query. See scripts/bundle-probe.ts.
-async function bundle(entrypoint: string, external: string[] = []) {
+async function bundle(
+  entrypoint: string,
+  external: string[] = [],
+  target: 'browser' | 'bun' = 'browser',
+  splitting = false,
+) {
   const proc = Bun.spawn(['bun', join(repoRoot, 'scripts/bundle-probe.ts')], {
-    stdin: new TextEncoder().encode(JSON.stringify({ entrypoint, external })),
+    stdin: new TextEncoder().encode(
+      JSON.stringify({ entrypoint, external, target, splitting }),
+    ),
     stdout: 'pipe',
     stderr: 'pipe',
   })
@@ -31,7 +38,8 @@ async function bundle(entrypoint: string, external: string[] = []) {
 
   const result = JSON.parse(stdout) as ProbeResult
   expect(result.success, result.logs).toBe(true)
-  expect(result.outputCount).toBe(1)
+  if (splitting) expect(result.outputCount).toBeGreaterThan(1)
+  else expect(result.outputCount).toBe(1)
   return result
 }
 
@@ -101,5 +109,51 @@ describe('browser bundle boundaries', () => {
       'packages/bunderstack/src/index.ts',
     ])
     expect(output.text).not.toContain('@orpc/')
+  })
+})
+
+describe('server bundle boundaries', () => {
+  const serverExternal = [
+    '@electric-sql/pglite',
+    '@libsql/client',
+    '@orpc/*',
+    '@standard-schema/spec',
+    '@standardserver/core',
+    'better-auth',
+    'better-auth/*',
+    'drizzle-kit',
+    'drizzle-orm',
+    'drizzle-orm/*',
+    'nodemailer',
+    'postgres',
+    'valibot',
+    'yaml',
+  ]
+
+  test('root runtime does not eagerly bundle test fixtures', async () => {
+    const output = await bundle(
+      'packages/bunderstack/src/index.ts',
+      serverExternal,
+      'bun',
+      true,
+    )
+    expect(output.text).not.toContain('bunderstack-storage-')
+    expect(output.text).not.toContain('node:fs')
+    expect(output.text).not.toContain('node:os')
+    expect(output.text).not.toContain('bun:test')
+  })
+
+  test('testing entry includes fixtures without importing bun:test', async () => {
+    const output = await bundle(
+      'packages/bunderstack/src/testing.ts',
+      serverExternal,
+      'bun',
+    )
+    expect(
+      output.inputs.some((input) =>
+        input.includes('packages/bunderstack/src/testing/fixture.'),
+      ),
+    ).toBe(true)
+    expect(output.text).not.toContain('bun:test')
   })
 })

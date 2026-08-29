@@ -43,19 +43,19 @@ All satellite packages (`bunderstack-client`, `bunderstack-query`, `bunderstack-
 |---|---|---|
 | `bunderstack` | `bunderstack` | Backend runtime (`createBunderstack`, `provision`, `defineApi`, `buildApiRegistry`) |
 | `bunderstack-client` | `bunderstack/client` | Framework-neutral typed RPC client & `createLiveView` |
-| `bunderstack-client/rest` | `bunderstack/client/rest` | Type-safe REST client |
-| `bunderstack-client/react` | `bunderstack/client/react` | React LiveView hook (`useLiveView`) |
-| `bunderstack-client/solid` | `bunderstack/client/solid` | Solid LiveView primitive (`createLiveView`) |
-| `bunderstack-client/vue` | `bunderstack/client/vue` | Vue LiveView composable (`useLiveView`) |
-| `bunderstack-client/svelte` | `bunderstack/client/svelte` | Svelte LiveView store (`createLiveView`) |
+| `bunderstack-client/rest` | `bunderstack/client-rest` | Type-safe REST client |
+| `bunderstack-client/react` | `bunderstack/client-react` | React LiveView hook (`useLiveView`) |
+| `bunderstack-client/solid` | `bunderstack/client-solid` | Solid LiveView primitive (`createLiveView`) |
+| `bunderstack-client/vue` | `bunderstack/client-vue` | Vue LiveView composable (`useLiveView`) |
+| `bunderstack-client/svelte` | `bunderstack/client-svelte` | Svelte LiveView store (`createLiveView`) |
 | `bunderstack-query` | `bunderstack/query` | TanStack Query integration (`createClient`, `syncRealtime`) |
-| `bunderstack-query/react` | `bunderstack/query/react` | React-specific query helpers |
+| `bunderstack-query/react` | `bunderstack/query-react` | React-specific query helpers |
 | `bunderstack-sync` | `bunderstack/sync` | TanStack DB client with realtime collections (`createSyncClient`) |
 | `bunderstack-start` | `bunderstack/start` | TanStack Start SSR helpers (`bunderstackStart`, `createApiHandlers`, `getSessionUser`) |
-| `bunderstack-start/auth` | `bunderstack/start/auth` | Better Auth client wrapper for TanStack Start |
-| `bunderstack/database/*` | `bunderstack/database/*` | Database adapters (`libsql`, `postgres-js`, `bun-sql`, `pglite`) |
+| `bunderstack-start/auth` | `bunderstack/start-auth` | Better Auth client wrapper for TanStack Start |
+| `bunderstack/database/*` | `bunderstack/libsql`, `bunderstack/postgres-js`, `bunderstack/bun-sql`, `bunderstack/pglite` | Database adapters |
 | `bunderstack/storage/*` | `bunderstack/storage/*` | Storage adapters (`s3`, `disk`) |
-| `bunderstack/email/*` | `bunderstack/email/*` | Email adapters (`smtp`, `resend`, `console`) |
+| `bunderstack/email/*` | `bunderstack/email-smtp` | SMTP email adapter |
 | `bunderstack/jobs/*` | `bunderstack/jobs/*` | Job queue adapters (`memory`, `redis`) |
 | `bunderstack/blueprint` | `bunderstack/blueprint` | Blueprint contract validation & parsing |
 | `bunderstack/typeid` | `bunderstack/typeid` | TypeID prefix and ID generation utilities |
@@ -107,7 +107,7 @@ view.close()
 ### React Hook Example
 
 ```tsx
-import { useLiveView } from 'bunderstack/client/react'
+import { useLiveView } from 'bunderstack/client-react'
 
 function TodoList() {
   const { rows, status } = useLiveView<Todo>('/api/live/todos', {

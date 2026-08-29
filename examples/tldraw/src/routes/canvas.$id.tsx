@@ -109,7 +109,7 @@ function WhiteboardClient() {
       })
       .catch((error: Error) => toast.error(error.message))
     void api.presence.table
-      .list({ canvasId: params.canvasId, limit: 100 })
+      .list({ filters: { canvasId: params.filters.canvasId }, limit: 100 })
       .then((page) => {
         for (const row of page.items) {
           api.presence.collection.utils.writeUpsert(row)
@@ -130,7 +130,7 @@ function WhiteboardClient() {
       .from({
         shape: api.shape.collection,
       })
-      .where(({ shape }) => eq(shape.canvasId, params.canvasId))
+      .where(({ shape }) => eq(shape.canvasId, params.filters.canvasId))
       .orderBy(({ shape }) => shape.createdAt, params.order)
       .limit(params.limit),
   )
@@ -141,7 +141,7 @@ function WhiteboardClient() {
       .from({
         presence: api.presence.collection,
       })
-      .where(({ presence }) => eq(presence.canvasId, params.canvasId)),
+      .where(({ presence }) => eq(presence.canvasId, params.filters.canvasId)),
   )
   const presenceRows = presenceLiveRows
 

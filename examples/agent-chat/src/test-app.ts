@@ -1,10 +1,6 @@
 import { type } from 'arktype'
-import { createBunderstack, generateTypeId } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
-import { provision } from 'bunderstack/provision'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { bunderstack, generateTypeId } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
@@ -24,14 +20,10 @@ export interface TestApp {
 }
 
 export async function createTestApp(): Promise<TestApp> {
-  const databaseDir = await mkdtemp(join(tmpdir(), 'bunderstack-agent-chat-'))
-  const app = await createBunderstack({
+  const backend = bunderstack({
     schema,
     access,
-    database: {
-      adapter: libsql(),
-      url: `file:${join(databaseDir, 'test.db')}`,
-    },
+    database: { adapter: libsql() },
     auth: {
       baseURL: 'http://localhost:3007',
       secret: 'test-secret-test-secret-test-secret',
@@ -64,7 +56,8 @@ export async function createTestApp(): Promise<TestApp> {
       }),
     api,
   })
-  await provision(app)
+  const fixture = await backend.test({ database: { schema: 'push' } })
+  const { app } = fixture
 
   const enqueued: EnqueuedJob[] = []
   const ctx: AgentRuntimeContext = {
@@ -95,9 +88,6 @@ export async function createTestApp(): Promise<TestApp> {
       })
       return id
     },
-    async close() {
-      await app.close()
-      await rm(databaseDir, { recursive: true, force: true })
-    },
+    close: () => fixture.close(),
   }
 }

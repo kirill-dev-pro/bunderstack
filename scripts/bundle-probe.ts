@@ -10,16 +10,26 @@
  */
 import { join } from 'node:path'
 
-type Request = { entrypoint: string; external: string[] }
+type Request = {
+  entrypoint: string
+  external: string[]
+  target?: 'browser' | 'bun'
+  splitting?: boolean
+}
 
 const repoRoot = join(import.meta.dir, '..')
-const { entrypoint, external } = JSON.parse(await Bun.stdin.text()) as Request
+const {
+  entrypoint,
+  external,
+  target = 'browser',
+  splitting = false,
+} = JSON.parse(await Bun.stdin.text()) as Request
 
 const result = await Bun.build({
   entrypoints: [join(repoRoot, entrypoint)],
-  target: 'browser',
+  target,
   format: 'esm',
-  splitting: false,
+  splitting,
   minify: true,
   sourcemap: 'none',
   metafile: true,
@@ -27,7 +37,7 @@ const result = await Bun.build({
   write: false,
 })
 
-if (!result.success || result.outputs.length !== 1) {
+if (!result.success || result.outputs.length === 0) {
   console.log(
     JSON.stringify({
       success: false,
@@ -38,12 +48,14 @@ if (!result.success || result.outputs.length !== 1) {
   process.exit(0)
 }
 
-const output = result.outputs[0]!
+const output =
+  result.outputs.find((candidate) => candidate.kind === 'entry-point') ??
+  result.outputs[0]!
 console.log(
   JSON.stringify({
     success: true,
     logs: '',
-    outputCount: 1,
+    outputCount: result.outputs.length,
     text: await output.text(),
     size: output.size,
     inputs: Object.keys(result.metafile!.inputs),

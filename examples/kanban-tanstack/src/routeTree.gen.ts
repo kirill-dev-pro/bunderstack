@@ -17,9 +17,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as OrgSettingsRouteImport } from './routes/org.settings'
 
-const LogoutRoute = LogoutRouteImport.update({
-  id: '/logout',
-  path: '/logout',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -27,19 +27,14 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LogoutRoute = LogoutRouteImport.update({
+  id: '/logout',
+  path: '/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrgSettingsRoute = OrgSettingsRouteImport.update({
-  id: '/org/settings',
-  path: '/org/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
-  id: '/invite/$invitationId',
-  path: '/invite/$invitationId',
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BoardsBoardIdRoute = BoardsBoardIdRouteImport.update({
@@ -47,9 +42,14 @@ const BoardsBoardIdRoute = BoardsBoardIdRouteImport.update({
   path: '/boards/$boardId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSplatRoute = ApiSplatRouteImport.update({
-  id: '/api/$',
-  path: '/api/$',
+const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
+  id: '/invite/$invitationId',
+  path: '/invite/$invitationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrgSettingsRoute = OrgSettingsRouteImport.update({
+  id: '/org/settings',
+  path: '/org/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -123,11 +123,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/logout': {
-      id: '/logout'
-      path: '/logout'
-      fullPath: '/logout'
-      preLoaderRoute: typeof LogoutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -137,25 +137,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/org/settings': {
-      id: '/org/settings'
-      path: '/org/settings'
-      fullPath: '/org/settings'
-      preLoaderRoute: typeof OrgSettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/invite/$invitationId': {
-      id: '/invite/$invitationId'
-      path: '/invite/$invitationId'
-      fullPath: '/invite/$invitationId'
-      preLoaderRoute: typeof InviteInvitationIdRouteImport
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/boards/$boardId': {
@@ -165,11 +158,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BoardsBoardIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/$': {
-      id: '/api/$'
-      path: '/api/$'
-      fullPath: '/api/$'
-      preLoaderRoute: typeof ApiSplatRouteImport
+    '/invite/$invitationId': {
+      id: '/invite/$invitationId'
+      path: '/invite/$invitationId'
+      fullPath: '/invite/$invitationId'
+      preLoaderRoute: typeof InviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/org/settings': {
+      id: '/org/settings'
+      path: '/org/settings'
+      fullPath: '/org/settings'
+      preLoaderRoute: typeof OrgSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

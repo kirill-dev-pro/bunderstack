@@ -96,7 +96,6 @@ test('createDb returns the adapter cleanup', async () => {
       adapter,
       dialect: 'sqlite',
       url: ':memory:',
-      introspect: false,
     },
   )
   await connection.close?.()

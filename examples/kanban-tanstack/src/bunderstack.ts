@@ -1,6 +1,6 @@
 import { organization } from 'better-auth/plugins'
-import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
@@ -12,7 +12,7 @@ const orgScope = (ctx: {
   organizationId: ctx.session?.activeOrganizationId ?? '__none__',
 })
 
-export const app = await createBunderstack({
+export const backend = bunderstack({
   schema,
   database: {
     adapter: libsql(),
@@ -23,6 +23,8 @@ export const app = await createBunderstack({
     secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
     emailAndPassword: { enabled: true },
     plugins: [organization()],
+    // Ids come from the schema's `typeid()` defaults, not from Better Auth.
+    advanced: { database: { generateId: () => false } },
   },
   access,
   realtime: true,
@@ -63,6 +65,8 @@ export const app = await createBunderstack({
     },
   },
 })
+
+export const app = await backend.start()
 
 // No migrations/ folder → dev push; committed migrations → applied on boot.
 await provision(app)

@@ -3,7 +3,7 @@ import * as v from 'valibot'
 
 import { libsql } from './database/libsql'
 import { buildHandler } from './handler'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 
 test('dispatches rate limit, auth, API, then 404', async () => {
   const calls: string[] = []
@@ -42,7 +42,7 @@ test('dispatches rate limit, auth, API, then 404', async () => {
 test('webhook receives exact raw bytes and does not resolve auth', async () => {
   let authCalls = 0
   const raw = '{ "event" : "created", "escaped": "h\\u00e9" }'
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: {},
     database: { url: ':memory:', adapter: libsql() },
     authResolver: {
@@ -72,7 +72,7 @@ test('webhook receives exact raw bytes and does not resolve auth', async () => {
           valid: input.headers['x-signature'] === (await context.getRawBody()),
         })),
     }),
-  })
+  }).start()
 
   const response = await app.handler(
     new Request('http://test/webhooks/example', {

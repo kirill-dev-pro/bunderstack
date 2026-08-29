@@ -11,7 +11,7 @@ import * as schema from './schema'
 const o = defineApi({ schema, env: envSchema })
 
 /**
- * Passed to `createBunderstack({ middleware })`, which applies it to every
+ * Passed to `bunderstack({ middleware })`, which applies it to every
  * procedure in the graph — the generated CRUD and file endpoints included. The
  * same function attached to `o.protected` would only cover the procedures
  * declared below, which is the usual way observability ends up with a blind

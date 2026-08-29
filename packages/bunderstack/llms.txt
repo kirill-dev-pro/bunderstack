@@ -1,16 +1,18 @@
 BUNDERSTACK
 
-A batteries-included backend framework for Bun. Version 0.17 (beta).
+A batteries-included backend framework for Bun. Version 0.22.1.
 Docs: https://bunderstack.kcrz.dev/docs
 This file is written for coding agents. It is dense on purpose.
 
 WHAT IT IS
 
-createBunderstack() takes a Drizzle schema and returns an app whose handler is
-a single Web-Standard Request -> Response function. From the schema it
-generates secured CRUD procedures. Your own procedures, file storage, realtime
-subscriptions, and a health check live in the same oRPC graph, reachable both
-as typed RPC and as ordinary HTTP.
+bunderstack() takes a Drizzle schema and returns a synchronous, side-effect-free
+backend declaration. backend.start() materializes the production runtime whose
+handler is a single Web-Standard Request -> Response function. backend.test()
+materializes an isolated, lexically owned test fixture. From the schema the
+runtime generates secured CRUD procedures. Your own procedures, file storage,
+realtime subscriptions, and a health check live in the same oRPC graph,
+reachable both as typed RPC and as ordinary HTTP.
 
 Stack: Bun, Drizzle (+ drizzle-kit), Better Auth, oRPC v2, libSQL or Postgres,
 Bun.Image. Validation accepts any Standard Schema library; generated schemas use
@@ -22,19 +24,22 @@ integration).
 
 MINIMAL APP
 
-  import { createBunderstack } from 'bunderstack'
-  import { libsql } from 'bunderstack/database/libsql'
+  import { bunderstack } from 'bunderstack'
+  import { libsql } from 'bunderstack/libsql'
   import * as schema from './schema'
 
-  export const app = await createBunderstack({
+  export const backend = bunderstack({
     schema,
     database: { adapter: libsql(), url: 'file:./data.db' },
     access: { posts: { list: 'public', get: 'public' } },
   })
 
-  export type App = typeof app
+  export type App = Awaited<ReturnType<typeof backend.start>>
+  export const app = await backend.start()
+
   Bun.serve({ fetch: app.handler })
 
+The blueprint imports the backend declaration and never starts the runtime.
 Database adapters are imported from their own entry points: libsql(),
 pglite(), bunSql(), postgresJs(). Provisioning: `await provision(app)` pushes
 the schema in development and applies committed migrations once a migrations/
@@ -71,12 +76,44 @@ Router modules are plain objects that import the base they need:
   export const api = { boards: boardsRouter }
 
   // config
-  createBunderstack({ schema, database, api })
+  bunderstack({ schema, database, api })
 
 Do NOT write a factory that receives a bag of procedures. That pattern exists
 only because the api option used to be a callback. The callback form still
 works — api: (o) => ({ ... }) — for a router that must be built from the
 framework builder at configuration time, but the object form is the default.
+
+TESTING
+
+Use lexical fixture ownership; do not use a process-wide app registry or a
+global afterEach hook:
+
+  export const createFixture = backend.test.configure({
+    database: { schema: 'push' },
+    setup: async (t) => {
+      const identity = t.auth.mockSession({
+        id: 'user-1', email: 'dev@example.com', name: 'Developer',
+      })
+      return { identity, client: t.client(identity) }
+    },
+  })
+
+  import { backend } from './backend'
+
+  test('creates a post', async () => {
+    await using t = await createFixture()
+    const { client, identity } = t.context
+    await client.posts.create({ title: 'Hello', userId: identity.user.id })
+  })
+
+The fixture owns isolated database, email, storage, realtime, and job state.
+fixture.defer() registers LIFO async cleanup. fixture.logs captures internal
+runtime logs by default. Auth supports sign-up, sign-in, session lookup, sign-out,
+email verification, and multiple header-scoped mock identities. t.jobs.runNext()
+claims one snapshot of runnable jobs. t.jobs.runUntilIdle() repeats snapshots
+until the queue converges, a terminal job fails, or its limits are reached; it
+does not advance the clock to delayed jobs automatically. inspect(), pending(),
+and failed() expose queue rows for assertions.
 
 BASES
 
@@ -118,7 +155,7 @@ Two placements, and the difference is the thing people get wrong.
 .use() on a base reaches only procedures built from that base. Use it for
 rules about a group of procedures: role checks, organization scope, quotas.
 
-middleware: [...] in createBunderstack reaches EVERY procedure, including the
+middleware: [...] in bunderstack reaches EVERY procedure, including the
 generated CRUD, storage, realtime, and health. Use it for observability. A
 tracing middleware attached to a base leaves generated CRUD unmeasured,
 because the framework builds those procedures itself and they never pass
@@ -137,7 +174,7 @@ through an application base.
     }
   })
 
-  createBunderstack({ schema, database, middleware: [instrumentation], api })
+  bunderstack({ schema, database, middleware: [instrumentation], api })
 
 Rules for graph-wide middleware:
 - It runs before authentication. context.user does not exist there.
@@ -262,7 +299,7 @@ ENV
 
 Server variables must not start with PUBLIC_; client variables must. Validated
 at boot; app.env and context.env are typed from the schema. Declare the schema
-in its own module so both createBunderstack and defineApi can use it.
+in its own module so both bunderstack and defineApi can use it.
 
 AUTH
 

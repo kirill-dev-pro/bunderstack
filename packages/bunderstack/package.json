@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.21.1",
+  "version": "0.22.1",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, and validated env from one config.",
   "keywords": [
     "backend",
@@ -48,19 +48,23 @@
       "types": "./dist/codegen.d.ts",
       "default": "./dist/codegen.js"
     },
-    "./database/bun-sql": {
+    "./bun-sql": {
       "types": "./dist/database/bun-sql.d.ts",
       "default": "./dist/database/bun-sql.js"
     },
-    "./database/libsql": {
+    "./bun-sqlite": {
+      "types": "./dist/database/bun-sqlite.d.ts",
+      "default": "./dist/database/bun-sqlite.js"
+    },
+    "./libsql": {
       "types": "./dist/database/libsql.d.ts",
       "default": "./dist/database/libsql.js"
     },
-    "./database/pglite": {
+    "./pglite": {
       "types": "./dist/database/pglite.d.ts",
       "default": "./dist/database/pglite.js"
     },
-    "./database/postgres-js": {
+    "./postgres-js": {
       "types": "./dist/database/postgres-js.d.ts",
       "default": "./dist/database/postgres-js.js"
     },
@@ -72,11 +76,15 @@
       "types": "./dist/provision.d.ts",
       "default": "./dist/provision.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./schema": {
       "types": "./dist/schema-export.d.ts",
       "default": "./dist/schema-export.js"
     },
-    "./schema/pg": {
+    "./schema-pg": {
       "types": "./dist/schema-export-pg.d.ts",
       "default": "./dist/schema-export-pg.js"
     },
@@ -84,7 +92,7 @@
       "types": "./dist/typeid.d.ts",
       "default": "./dist/typeid.js"
     },
-    "./typeid/pg": {
+    "./typeid-pg": {
       "types": "./dist/typeid-pg.d.ts",
       "default": "./dist/typeid-pg.js"
     },
@@ -100,7 +108,7 @@
       "types": "./dist/cron.d.ts",
       "default": "./dist/cron.js"
     },
-    "./email/smtp": {
+    "./email-smtp": {
       "types": "./dist/email/smtp.d.ts",
       "default": "./dist/email/smtp.js"
     },
@@ -112,23 +120,23 @@
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
     },
-    "./client/rest": {
+    "./client-rest": {
       "types": "./dist/client/rest.d.ts",
       "default": "./dist/client/rest.js"
     },
-    "./client/react": {
+    "./client-react": {
       "types": "./dist/client/react.d.ts",
       "default": "./dist/client/react.js"
     },
-    "./client/solid": {
+    "./client-solid": {
       "types": "./dist/client/solid.d.ts",
       "default": "./dist/client/solid.js"
     },
-    "./client/svelte": {
+    "./client-svelte": {
       "types": "./dist/client/svelte.d.ts",
       "default": "./dist/client/svelte.js"
     },
-    "./client/vue": {
+    "./client-vue": {
       "types": "./dist/client/vue.d.ts",
       "default": "./dist/client/vue.js"
     },
@@ -136,7 +144,7 @@
       "types": "./dist/query/index.d.ts",
       "default": "./dist/query/index.js"
     },
-    "./query/react": {
+    "./query-react": {
       "types": "./dist/query/react.d.ts",
       "default": "./dist/query/react.js"
     },
@@ -148,7 +156,7 @@
       "types": "./dist/start/index.d.ts",
       "default": "./dist/start/index.js"
     },
-    "./start/auth": {
+    "./start-auth": {
       "types": "./dist/start/auth-client.d.ts",
       "default": "./dist/start/auth-client.js"
     }

@@ -57,7 +57,7 @@ describe('published dependency boundaries', () => {
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
       expect(source, path).toContain('adapter: libsql()')
-      expect(source, path).toContain('bunderstack/database/libsql')
+      expect(source, path).toContain('bunderstack/libsql')
     }
   })
 
@@ -68,7 +68,7 @@ describe('published dependency boundaries', () => {
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
 
-      expect(source, path).toContain('bunderstack/email/smtp')
+      expect(source, path).toContain('bunderstack/email-smtp')
       expect(source, path).toContain('provider: smtp(')
       expect(source, path).not.toContain("email: 'smtp'")
       expect(source, path).not.toContain("provider: 'smtp'")
@@ -118,6 +118,24 @@ describe('published dependency boundaries', () => {
     ).text()
     expect(start).not.toMatch(/from ['"]better-auth/)
     expect(start).not.toContain('export { createStartAuthClient }')
+  })
+
+  test('testing is an explicit subpath instead of a root wildcard', async () => {
+    const testing = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/testing.ts'),
+    ).text()
+    const root = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/index.ts'),
+    ).text()
+    const runtime = await Bun.file(
+      join(repoRoot, 'packages/bunderstack/src/runtime.ts'),
+    ).text()
+
+    expect(testing).not.toMatch(
+      /export \* from ['"]\.\/(?:backend|runtime)['"]/,
+    )
+    expect(root).not.toMatch(/export .* from ['"]\.\/testing['"]/)
+    expect(runtime).not.toMatch(/from ['"]\.\/testing(?:['"/])/)
   })
 
   test('query client keeps QueryClient type-only and framework-neutral', async () => {

@@ -36,6 +36,13 @@
       "when": 1783027050636,
       "tag": "0004_reflective_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787927758720,
+      "tag": "0005_fluffy_king_cobra",
+      "breakpoints": true
     }
   ]
 }

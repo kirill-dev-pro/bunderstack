@@ -3,7 +3,7 @@ import { integer, pgTable, text } from 'drizzle-orm/pg-core'
 
 import { generateRouteMap, operationName, schemaToType } from './codegen'
 import { pglite } from './database/pglite'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -51,10 +51,10 @@ test('schema mapper covers the shapes bunderstack emits', () => {
 })
 
 test('generated route map carries literals plus typed phantoms', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: { posts },
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+
     access: {
       posts: {
         crud: true,
@@ -69,7 +69,7 @@ test('generated route map carries literals plus typed phantoms', async () => {
     },
     realtime: true,
     openapi: true,
-  })
+  }).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
   const response = await app.handler(
     new Request('http://test/api/openapi.json'),
   )

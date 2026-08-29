@@ -1,4 +1,4 @@
-// src/jobs/index.ts — module surface consumed by createBunderstack.
+// src/jobs/index.ts — module surface consumed by bunderstack.
 export {
   createJobsBuilder,
   validateBackgroundDefs,

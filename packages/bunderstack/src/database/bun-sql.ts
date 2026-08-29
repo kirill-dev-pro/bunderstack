@@ -7,9 +7,7 @@ export function bunSql(): DatabaseAdapter {
   return {
     dialect: 'pg',
     driver: 'bun-sql',
-    async connect(schema, { url }, { introspect }) {
-      if (introspect) return { db: drizzle.mock({ schema }) as never }
-
+    async connect(schema, { url }) {
       if (!url.startsWith('postgres://') && !url.startsWith('postgresql://')) {
         throw new Error('[bunderstack] bunSql adapter requires a Postgres URL')
       }

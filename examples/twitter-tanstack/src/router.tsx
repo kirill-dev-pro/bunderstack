@@ -1,6 +1,6 @@
 import type { TypeId } from 'bunderstack/typeid'
 
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, dehydrate, hydrate } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 
 import { createApi, createQueryClient, type AppApi } from './api-client'
@@ -34,6 +34,17 @@ export function getRouter() {
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: () => <NotFound />,
     scrollRestoration: true,
+
+    // The loaders fill the query cache on the server. Without handing that
+    // cache to the client, hydration starts from an empty one: the client
+    // renders the empty state over server-rendered content, React reports a
+    // mismatch, and every list refetches on first paint. The state travels as
+    // a JSON string because the router's serializability check rejects the
+    // `unknown[]` query keys inside DehydratedState.
+    dehydrate: () => ({ queryState: JSON.stringify(dehydrate(queryClient)) }),
+    hydrate: (dehydrated: { queryState: string }) => {
+      hydrate(queryClient, JSON.parse(dehydrated.queryState))
+    },
   })
 
   return router

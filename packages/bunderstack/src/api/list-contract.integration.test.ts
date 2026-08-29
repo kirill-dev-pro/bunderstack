@@ -2,7 +2,7 @@ import { test, expect, beforeAll } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from '../database/libsql'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { provision } from '../provision'
 
 const posts = sqliteTable('posts', {
@@ -59,7 +59,7 @@ type ListBody = {
 }
 
 const createApp = () =>
-  createBunderstack({
+  bunderstack({
     schema,
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
@@ -74,7 +74,7 @@ const createApp = () =>
       },
       tags: { crud: true, list: 'public' },
     },
-  })
+  }).start()
 
 let app: Awaited<ReturnType<typeof createApp>>
 
@@ -214,7 +214,7 @@ test('a column named like a list parameter can still be filtered and sorted', as
     limit: integer('limit').notNull(),
   })
   const planSchema = { user, session, account, verification, plans }
-  const planApp = await createBunderstack({
+  const planApp = await bunderstack({
     schema: planSchema,
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
@@ -226,7 +226,7 @@ test('a column named like a list parameter can still be filtered and sorted', as
         sortableColumns: ['id', 'limit'],
       },
     },
-  })
+  }).start()
   await provision(planApp, { force: true })
   await planApp.db.insert(plans).values([{ limit: 10 }, { limit: 20 }])
 

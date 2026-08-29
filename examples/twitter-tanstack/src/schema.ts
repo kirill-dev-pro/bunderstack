@@ -38,6 +38,9 @@ export const account = sqliteTable('account', {
   id: typeid('account')
     .primaryKey()
     .$defaultFn(() => generateTypeId('account')),
+  // Better Auth 1.7 scopes account identity by issuer: `local:<providerId>`
+  // for password accounts, the provider's own issuer for OAuth.
+  issuer: text('issuer').notNull().default('local:credential'),
   accountId: text('accountId').notNull(),
   providerId: text('providerId').notNull(),
   userId: typeid('user')

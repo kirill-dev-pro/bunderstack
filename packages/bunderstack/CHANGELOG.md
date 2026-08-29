@@ -2,6 +2,61 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.22.1] - 2026-08-28
+
+### Added
+
+- **Configured test factories.** `backend.test.configure({ env, database, logs, setup })`
+  creates a reusable fixture factory. Per-test options deep-merge `env` and
+  `database`, and the setup result is available as `fixture.context`.
+- **Fixture-owned cleanup and logs.** `fixture.defer()` runs async cleanup in LIFO
+  order before runtime shutdown. Internal runtime logs are captured by default in
+  `fixture.logs`; use `logs: 'inherit'` to forward them or `logs: 'silent'` to discard
+  them.
+- **Complete auth test lifecycle.** Added `signInEmail()`, `getSession()`, `signOut()`,
+  and `verifyEmail()`. Mock identities are header-scoped, so multiple users can safely
+  coexist in one fixture.
+- **Queue inspection.** `fixture.jobs.inspect()`, `.pending()`, and `.failed()` expose
+  normalized queue rows and accept `name` and `dedupeKey` filters.
+
+## [0.22.0] - 2026-08-28
+
+### Breaking Changes
+
+- **Flat subpath exports.** Every nested subpath is now a single segment:
+  `bunderstack/database/libsql` → `bunderstack/libsql` (same for `bun-sql`, `pglite`,
+  `postgres-js`), `bunderstack/client/react` → `bunderstack/client-react` (same for
+  `rest`, `solid`, `svelte`, `vue`), `bunderstack/query/react` → `bunderstack/query-react`,
+  `bunderstack/start/auth` → `bunderstack/start-auth`, `bunderstack/schema/pg` →
+  `bunderstack/schema-pg`, `bunderstack/typeid/pg` → `bunderstack/typeid-pg`,
+  `bunderstack/email/smtp` → `bunderstack/email-smtp`. TypeScript's auto-import
+  completion returns a replacement span covering the whole specifier for any
+  multi-segment subpath, so accepting the suggestion dropped the package name and
+  produced a broken import. Single-segment names get the correct span.
+- **Pure declaration and explicit runtime separation.** Replaced `createBunderstack()`
+  with synchronous `bunderstack(config)`. The declaration computes static metadata
+  synchronously (`backend.manifest`) without connecting to databases, reading ambient
+  `process.env`, or starting background workers.
+- **Explicit startup environment.** `backend.start({ env })` treats the passed `env`
+  object as the exclusive source of environment configuration and never mixes it with
+  `process.env`.
+- **Pure Blueprint generation.** `bunderstack blueprint` now directly imports
+  `backend` declarations without booting the runtime or relying on
+  `BUNDERSTACK_INTROSPECT`.
+
+### Added
+
+- **First-class testing framework (`bunderstack/testing`).** Exported `createTestApp`,
+  `TestFixture`, and `backend.test()`:
+  - Lexical fixture lifecycle with `AsyncDisposable` (`await using t = await backend.test()`).
+  - Isolated in-memory/temporary databases for libSQL and PGlite.
+  - In-memory email capturing (`t.email.sent`), isolated local storage (`t.storage.read`),
+    and forced memory realtime.
+  - Real Better Auth sign-up (`t.auth.signUpEmail()`), session mocking
+    (`t.auth.mockSession()`), and typed in-process RPC clients (`t.client(identity)`).
+  - Deterministic job execution with `t.jobs.runNext()` and `t.jobs.runUntilIdle()`
+    without network or timing delays.
+
 ## [0.21.0] - 2026-08-25
 
 ### Changed

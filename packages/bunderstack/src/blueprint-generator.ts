@@ -9,6 +9,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { isBunderstackBackend } from './backend'
 import {
   blueprintFromManifest,
   serializeBlueprint,
@@ -143,66 +144,56 @@ export async function generateBlueprint(
   )
   const outputPath = resolveWithin(directory, output, 'output')
 
-  const previousIntrospection = process.env.BUNDERSTACK_INTROSPECT
-  process.env.BUNDERSTACK_INTROSPECT = '1'
-  let app: { manifest?: unknown; close?: () => Promise<void> } | undefined
-  try {
-    const module = (await import(
-      `${pathToFileURL(entryPath).href}?blueprint=${Date.now()}`
-    )) as {
-      app?: typeof app
-    }
-    app = module.app
-    if (!app) throw new Error(`[bunderstack] ${entry} must export app`)
-    const manifest = parseManifest(app.manifest)
-    const workerRequired = manifest.background.jobs.length > 0
-    requireScript(pkg, 'worker', workerRequired)
-    const migrationsDirectory = normalizeProjectPath(
-      directory,
-      manifest.database.migrationsDirectory,
-      'migrationsDirectory',
-    )
-    const migrationJournal = join(
-      resolveWithin(directory, migrationsDirectory, 'migrationsDirectory'),
-      'meta',
-      '_journal.json',
-    )
-    const migrationMode = (await Bun.file(migrationJournal).exists())
-      ? 'migrations'
-      : 'push'
-    const blueprint = blueprintFromManifest({
-      manifest: {
-        ...manifest,
-        database: { ...manifest.database, migrationsDirectory },
-      },
-      generatorVersion: await packageVersion(),
-      entry,
-      migrationMode,
-      framework,
-    })
-    const source = serializeBlueprint(blueprint)
-    const existing = (await Bun.file(outputPath).exists())
-      ? await Bun.file(outputPath).text()
-      : undefined
-    if (options.check) {
-      if (existing !== source) throw new BlueprintCheckError()
-      return { path: outputPath, blueprint, source, changed: false }
-    }
-    if (existing === source)
-      return { path: outputPath, blueprint, source, changed: false }
-    await mkdir(dirname(outputPath), { recursive: true })
-    const temporary = `${outputPath}.${process.pid}.${Date.now()}.tmp`
-    try {
-      await writeFile(temporary, source, { mode: 0o600 })
-      await rename(temporary, outputPath)
-    } finally {
-      await rm(temporary, { force: true })
-    }
-    return { path: outputPath, blueprint, source, changed: true }
-  } finally {
-    await app?.close?.()
-    if (previousIntrospection === undefined)
-      delete process.env.BUNDERSTACK_INTROSPECT
-    else process.env.BUNDERSTACK_INTROSPECT = previousIntrospection
+  const module = (await import(
+    `${pathToFileURL(entryPath).href}?blueprint=${Date.now()}`
+  )) as { backend?: unknown }
+  const backend = module.backend
+  if (!isBunderstackBackend(backend)) {
+    throw new Error(`[bunderstack] ${entry} must export backend`)
   }
+  const manifest = parseManifest(backend.manifest)
+  const workerRequired = manifest.background.jobs.length > 0
+  requireScript(pkg, 'worker', workerRequired)
+  const migrationsDirectory = normalizeProjectPath(
+    directory,
+    manifest.database.migrationsDirectory,
+    'migrationsDirectory',
+  )
+  const migrationJournal = join(
+    resolveWithin(directory, migrationsDirectory, 'migrationsDirectory'),
+    'meta',
+    '_journal.json',
+  )
+  const migrationMode = (await Bun.file(migrationJournal).exists())
+    ? 'migrations'
+    : 'push'
+  const blueprint = blueprintFromManifest({
+    manifest: {
+      ...manifest,
+      database: { ...manifest.database, migrationsDirectory },
+    },
+    generatorVersion: await packageVersion(),
+    entry,
+    migrationMode,
+    framework,
+  })
+  const source = serializeBlueprint(blueprint)
+  const existing = (await Bun.file(outputPath).exists())
+    ? await Bun.file(outputPath).text()
+    : undefined
+  if (options.check) {
+    if (existing !== source) throw new BlueprintCheckError()
+    return { path: outputPath, blueprint, source, changed: false }
+  }
+  if (existing === source)
+    return { path: outputPath, blueprint, source, changed: false }
+  await mkdir(dirname(outputPath), { recursive: true })
+  const temporary = `${outputPath}.${process.pid}.${Date.now()}.tmp`
+  try {
+    await writeFile(temporary, source, { mode: 0o600 })
+    await rename(temporary, outputPath)
+  } finally {
+    await rm(temporary, { force: true })
+  }
+  return { path: outputPath, blueprint, source, changed: true }
 }

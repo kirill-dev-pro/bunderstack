@@ -22,7 +22,7 @@ curl -X DELETE /api/files/abc123.jpg  # 204 — owner only by default
 ## Access rules
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   storage: {
     local: './uploads',
@@ -43,19 +43,19 @@ await createBunderstack({
 ## Local storage
 
 ```ts
-await createBunderstack({ schema, storage: { local: './uploads' } })
+bunderstack({ schema, storage: { local: './uploads' } })
 ```
 
 ## S3 / R2 / MinIO
 
 ```ts
-await createBunderstack({ schema, storage: { s3: true } })
+bunderstack({ schema, storage: { s3: true } })
 # Set S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY in .env
 # For R2/MinIO also set S3_ENDPOINT
 ```
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   storage: {
     local: './uploads',

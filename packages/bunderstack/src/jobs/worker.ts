@@ -4,6 +4,7 @@ import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
+import type { BunderstackLogger } from '../logging'
 import type {
   AnyBackgroundDefinition,
   JobsDefs,
@@ -12,6 +13,7 @@ import type {
 } from './define'
 
 import { jobsTableFor } from '../internal-tables'
+import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
@@ -62,8 +64,10 @@ export function createJobRunner(deps: {
   defs: JobsDefs
   /** Handler ctx WITHOUT `jobs`; the facade is injected via setJobsFacade. */
   ctx: Record<string, unknown>
+  logger?: BunderstackLogger
 }) {
   const { db, defs } = deps
+  const logger = deps.logger ?? consoleLogger
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
@@ -129,7 +133,7 @@ export function createJobRunner(deps: {
         ctx,
       )
     } catch (hookErr) {
-      console.error('[bunderstack] onFailed hook threw:', hookErr)
+      logger.error('[bunderstack] onFailed hook threw:', hookErr)
     }
   }
 
@@ -323,7 +327,11 @@ export function createJobRunner(deps: {
   }
 
   async function runClaimable(now: number): Promise<TickResult> {
-    const work: Promise<'ran' | 'failed' | 'lost'>[] = []
+    const claimedWork: Array<{
+      row: JobRow
+      def: AnyBackgroundDefinition
+      leaseUntil: number
+    }> = []
     let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
@@ -340,9 +348,16 @@ export function createJobRunner(deps: {
       const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
       const claimed = await claim(type, limit, now, leaseUntil)
       totalClaimed += claimed.length
-      for (const row of claimed) work.push(runJob(row, def, now, leaseUntil))
+      for (const row of claimed) claimedWork.push({ row, def, leaseUntil })
     }
-    const outcomes = await Promise.all(work)
+    // Claim the whole tick snapshot before starting any handler. Work enqueued
+    // by a handler therefore belongs to the next tick, regardless of the
+    // declaration order of its target job type.
+    const outcomes = await Promise.all(
+      claimedWork.map(({ row, def, leaseUntil }) =>
+        runJob(row, def, now, leaseUntil),
+      ),
+    )
     let ran = 0
     let failed = 0
     for (const outcome of outcomes) {
@@ -361,6 +376,82 @@ export function createJobRunner(deps: {
         await reapSucceeded(now)
       }
       return runClaimable(now)
+    },
+    async inspect(now: number) {
+      const runnableRows = await db
+        .select({ id: t.id })
+        .from(t)
+        .where(and(eq(t.status, 'pending'), lte(t.runAt, now)))
+      const failed: Array<{
+        id: string
+        type: string
+        attempts: number
+        lastError: string | null
+      }> = await db
+        .select({
+          id: t.id,
+          type: t.type,
+          attempts: t.attempts,
+          lastError: t.lastError,
+        })
+        .from(t)
+        .where(eq(t.status, 'failed'))
+      const rows: Array<{
+        id: string
+        type: string
+        status: string
+        attempts: number
+        runAt: number
+        dedupeKey: string | null
+        lastError: string | null
+        createdAt: number
+      }> = await db
+        .select({
+          id: t.id,
+          type: t.type,
+          status: t.status,
+          attempts: t.attempts,
+          runAt: t.runAt,
+          dedupeKey: t.dedupeKey,
+          lastError: t.lastError,
+          createdAt: t.createdAt,
+        })
+        .from(t)
+      return {
+        runnable: runnableRows.length,
+        failed: failed.map((row) => ({
+          id: String(row.id),
+          name: row.type.startsWith(CRON_PREFIX)
+            ? row.type.slice(CRON_PREFIX.length)
+            : row.type,
+          attempts: Number(row.attempts),
+          lastError: row.lastError,
+        })),
+        jobs: rows
+          .sort(
+            (left, right) =>
+              Number(left.createdAt) - Number(right.createdAt) ||
+              String(left.id).localeCompare(String(right.id)),
+          )
+          .map((row) => ({
+            id: String(row.id),
+            name: row.type.startsWith(CRON_PREFIX)
+              ? row.type.slice(CRON_PREFIX.length)
+              : row.type,
+            kind: row.type.startsWith(CRON_PREFIX)
+              ? ('cron' as const)
+              : ('job' as const),
+            status: row.status as
+              | 'pending'
+              | 'running'
+              | 'succeeded'
+              | 'failed',
+            attempts: Number(row.attempts),
+            runAt: Number(row.runAt),
+            dedupeKey: row.dedupeKey,
+            lastError: row.lastError,
+          })),
+      }
     },
     setJobsFacade(f: JobsRuntimeFacade) {
       ctx.jobs = f

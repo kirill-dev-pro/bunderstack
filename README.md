@@ -35,7 +35,7 @@ bun add bunderstack better-auth drizzle-orm valibot @libsql/client
 
 ```ts
 import { createBunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/database/libsql'
+import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as v from 'valibot'
 import * as schema from './schema'
@@ -213,7 +213,7 @@ view.patch((rows) => {
 view.close()
 ```
 
-`bunderstack/client` has no dependencies and no framework binding. Native UI bindings are available for React (`bunderstack/client/react`), Solid (`bunderstack/client/solid`), Vue (`bunderstack/client/vue`), and Svelte (`bunderstack/client/svelte`).
+`bunderstack/client` has no dependencies and no framework binding. Native UI bindings are available for React (`bunderstack/client-react`), Solid (`bunderstack/client-solid`), Vue (`bunderstack/client-vue`), and Svelte (`bunderstack/client-svelte`).
 
 ## Files
 
@@ -301,6 +301,7 @@ TanStack DB, and tldraw applications.
 
 ## Migration Guides
 
+- [Migrating to 0.22](docs/MIGRATION-0.22.md) — Declaration/runtime split, flat subpath exports, and testing fixtures.
 - [Migrating to 0.21](docs/MIGRATION-0.21.md) — Single-package consolidation, subpath exports, direct CRUD inputs, and production server entry.
 - [Migrating to 0.17](docs/MIGRATION-0.17.md) — Unified oRPC procedure graph, Standard Schema, and typed filters.
 - [Migrating to 0.16](docs/MIGRATION-0.16.md) — Initial module-scope API builders and runtime contracts.

@@ -4,7 +4,7 @@ import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
 
 import { pglite } from '../database/pglite'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 import { createClient } from './rpc-client'
 
 const marker = pgTable('client_test_marker', {
@@ -12,10 +12,10 @@ const marker = pgTable('client_test_marker', {
 })
 
 async function setupApp() {
-  return createBunderstack({
+  return bunderstack({
     schema: { marker },
     database: { adapter: pglite() },
-    processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+
     api: (o) => ({
       test: {
         echo: o.public
@@ -42,7 +42,7 @@ async function setupApp() {
           ),
       },
     }),
-  })
+  }).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
 }
 
 test('App-inferred client calls oRPC and forwards operation metadata', async () => {

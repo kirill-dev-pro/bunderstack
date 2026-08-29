@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "bun --bun vite dev",
+    "dev": "bun run migrate && bun --bun vite dev",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
     "start": "bun dist/server/server.js",

@@ -1,31 +1,39 @@
 // src/testing.ts — test utilities for Bunderstack applications.
 
-export type AuthSessionResolverLike = {
-  api: {
-    getSession: (opts: { headers: Headers }) => Promise<unknown>
-  }
-}
-
-export type BunderstackAppLike = {
-  auth: unknown
-}
-
-/**
- * Mock the auth session resolver on a Bunderstack app instance for unit testing.
- */
-export function mockAuthSession<
-  TUser extends { id: string; email: string; name?: string; role?: string },
->(
-  app: BunderstackAppLike,
-  resolver: (opts: { headers: Headers }) => Promise<{
-    user: TUser
-    session?: { activeOrganizationId?: string | null } | null
-  } | null>,
-): void {
-  const auth = app.auth as unknown as AuthSessionResolverLike
-  if (auth?.api) {
-    auth.api.getSession = resolver as unknown as (opts: {
-      headers: Headers
-    }) => Promise<unknown>
-  }
-}
+export { configureTestApp, createTestApp } from './testing/fixture'
+export type {
+  ConfiguredTestFixture,
+  TestCleanup,
+  TestConfigureOptions,
+  TestFactory,
+  TestFixture,
+  TestMethod,
+  TestOptions,
+  TestSetup,
+} from './testing/fixture'
+export { mockAuthSession, TestAuthError } from './testing/auth'
+export type {
+  SignInEmailInput,
+  SignUpEmailInput,
+  TestAuth,
+  TestIdentity,
+  TestSession,
+  TestUser,
+} from './testing/auth'
+export type { CapturedEmail, TestEmail } from './testing/email'
+export type { TestStorage } from './testing/storage'
+export type { TestLogEntry, TestLogMode, TestLogs } from './testing/logs'
+export { TestJobsConvergenceError, TestJobsError } from './testing/jobs'
+export type {
+  JobRunReport,
+  RunNextOptions,
+  RunUntilIdleOptions,
+  TestJob,
+  TestJobFilter,
+  TestJobs,
+} from './testing/jobs'
+export type {
+  TestDatabaseStrategy,
+  TestDatabaseTarget,
+  TestDatabaseTargetOptions,
+} from './database/adapter'

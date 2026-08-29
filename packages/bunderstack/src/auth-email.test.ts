@@ -6,7 +6,7 @@ import type { EmailFacade } from './email'
 
 import { withEmailAuthDefaults } from './auth'
 import { libsql } from './database/libsql'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
@@ -77,10 +77,10 @@ test('default reset template sends through the facade', async () => {
 })
 
 test('app.email is exposed and unconfigured send throws', async () => {
-  const app = await createBunderstack({
+  const app = await bunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
-  })
+  }).start()
   expect(
     app.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
   ).rejects.toThrow(/email is not configured/)
@@ -90,11 +90,11 @@ test('email provider resend requires RESEND_API_KEY at boot', async () => {
   const hadKey = process.env.RESEND_API_KEY
   delete process.env.RESEND_API_KEY
   await expect(
-    createBunderstack({
+    bunderstack({
       schema: { notes },
       database: { url: ':memory:', adapter: libsql() },
       email: { from: 'app@example.com', provider: 'resend' },
-    }),
+    }).start(),
   ).rejects.toThrow(/RESEND_API_KEY/)
   if (hadKey) process.env.RESEND_API_KEY = hadKey
 })

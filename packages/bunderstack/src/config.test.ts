@@ -21,7 +21,7 @@ const fakeAdapter = (dialect: 'sqlite' | 'pg' = 'sqlite'): DatabaseAdapter => ({
 })
 
 // `auth` resolves to an object or a builder; these cases all use the object
-// form, so collapse the union the same way createBunderstack does.
+// form, so collapse the union the same way bunderstack does.
 const authOf = (cfg: ReturnType<typeof resolveConfig>) =>
   resolveAuthConfig(cfg.auth, { db: {} as never, env: {} as never })
 

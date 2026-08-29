@@ -70,7 +70,7 @@ function CanvasesClient() {
       .from({
         canvas: api.canvas.collection,
       })
-      .where(({ canvas }) => eq(canvas.ownerId, params.ownerId))
+      .where(({ canvas }) => eq(canvas.ownerId, params.filters.ownerId))
       .orderBy(({ canvas }) => canvas.updatedAt, params.order)
       .limit(params.limit),
   )

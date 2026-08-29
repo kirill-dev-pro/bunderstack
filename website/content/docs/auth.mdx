@@ -8,7 +8,7 @@ Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth 
 ## Email/password
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: {
     emailAndPassword: { enabled: true },
@@ -30,7 +30,7 @@ curl -X POST /api/auth/sign-in/email \
 ## OAuth
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: {
     socialProviders: {
@@ -54,7 +54,7 @@ Pass `auth` as a builder to get the app's own database instead of opening a
 second connection:
 
 ```ts
-await createBunderstack({
+bunderstack({
   schema,
   auth: ({ db, env }) => ({
     emailAndPassword: { enabled: true },
@@ -94,18 +94,42 @@ export async function getAuthSession() {
 
 You can also access `app.auth` directly — it's just a BetterAuth instance.
 
-## Unit testing auth (`mockAuthSession`)
+## Unit testing auth
 
-In unit tests, mock user session resolution cleanly without typecasting:
+In unit tests, use the lexical testing fixture with the real email auth lifecycle or
+header-scoped mocked identities:
 
 ```ts
-import { mockAuthSession } from 'bunderstack'
+import { backend } from './bunderstack'
 
-// Mock active user session for test assertions
-mockAuthSession(app, async () => ({
-  user: { id: 'test_user', email: 'user@example.com', role: 'admin' },
-}))
+test('authenticated routes', async () => {
+  await using fixture = await backend.test()
+
+  // Real sign-up via Better Auth HTTP handlers
+  const identity = await fixture.auth.signUpEmail({
+    email: 'alice@example.com',
+    name: 'Alice',
+  })
+  await fixture.auth.verifyEmail(identity)
+  expect(await fixture.auth.getSession(identity)).not.toBeNull()
+  const client = fixture.client(identity)
+
+  // Multiple mocked users safely coexist in the same fixture.
+  const admin = fixture.auth.mockSession(
+    { id: 'admin', email: 'admin@example.com', name: 'Admin' },
+    { activeOrganizationId: 'org_1' },
+  )
+  const member = fixture.auth.mockSession({
+    id: 'member',
+    email: 'member@example.com',
+    name: 'Member',
+  })
+})
 ```
+
+`signInEmail()` uses the real Better Auth handler and collects its cookies.
+`signOut(identity)` invalidates a real session. `verifyEmail(identity)` follows the
+latest captured verification link for that user's email.
 
 ## Required schema tables
 

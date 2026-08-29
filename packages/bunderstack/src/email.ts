@@ -1,5 +1,5 @@
 // src/email.ts — email sending: console / resend / custom adapters.
-// SMTP is provided by the static `bunderstack/email/smtp` factory subpath.
+// SMTP is provided by the static `bunderstack/email-smtp` factory subpath.
 
 import { and, eq } from 'drizzle-orm'
 
@@ -45,10 +45,12 @@ export type CreateEmailOptions = {
     BUNDERSTACK_EMAIL_FROM?: string
     BUNDERHOST_ENVIRONMENT_ID?: string
   }
-  /** Internal application db. Present when created through createBunderstack. */
+  /** Internal application db. Present when created through bunderstack. */
   db?: AnyDb
   /** Test seam for the resend adapter. */
   fetchFn?: typeof fetch
+  /** Internal runtime substitution used by isolated test fixtures. */
+  adapterOverride?: EmailAdapter
 }
 
 /** Root string provider tag ('resend' | 'console') or undefined. */
@@ -121,6 +123,13 @@ function resolveAdapter(
   config: EmailConfigInput,
   opts: CreateEmailOptions,
 ): { adapter: EmailAdapter; provider: string; capture: boolean } {
+  if (opts.adapterOverride) {
+    return {
+      adapter: opts.adapterOverride,
+      provider: 'capture',
+      capture: true,
+    }
+  }
   const managedProvider = opts.env.BUNDERSTACK_EMAIL_PROVIDER
   const provider = managedProvider === 'resend' ? 'resend' : config.provider
   if (typeof provider === 'function') {
@@ -156,7 +165,7 @@ function resolveAdapter(
     default:
       if (provider === 'smtp') {
         throw new Error(
-          "email provider 'smtp' was removed. Import `smtp` from 'bunderstack/email/smtp' instead.",
+          "email provider 'smtp' was removed. Import `smtp` from 'bunderstack/email-smtp' instead.",
         )
       }
       return {

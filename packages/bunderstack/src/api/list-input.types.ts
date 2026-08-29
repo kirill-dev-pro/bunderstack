@@ -10,7 +10,7 @@ import type { InferRouterInputs } from '@orpc/server'
 import { pgTable, integer, text } from 'drizzle-orm/pg-core'
 
 import { pglite } from '../database/pglite'
-import { createBunderstack } from '../index'
+import { bunderstack } from '../index'
 
 const posts = pgTable('posts', {
   id: text('id').primaryKey(),
@@ -19,10 +19,10 @@ const posts = pgTable('posts', {
   likes: integer('likes').notNull(),
 })
 
-const app = await createBunderstack({
+const app = await bunderstack({
   schema: { posts },
   database: { adapter: pglite() },
-  processEnv: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+
   access: {
     posts: {
       crud: true,
@@ -31,7 +31,7 @@ const app = await createBunderstack({
       sortableColumns: ['id', 'likes'],
     },
   },
-})
+}).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
 
 type Api = NonNullable<(typeof app)['$inferClient']>['api']
 type ListInput = InferRouterInputs<Api>['posts']['list']

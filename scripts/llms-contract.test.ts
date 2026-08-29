@@ -35,7 +35,7 @@ describe('llms.txt contract', () => {
 
   test('teaches the current way to declare an API', () => {
     expect(llms).toContain('defineApi({ schema, env: envSchema })')
-    expect(llms).toContain('createBunderstack({ schema, database, api })')
+    expect(llms).toContain('bunderstack({ schema, database, api })')
     expect(llms).toContain('o.middleware(')
     expect(llms).toContain('middleware: [instrumentation]')
     expect(llms).toContain('peekSession()')

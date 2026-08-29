@@ -4,7 +4,7 @@ import {
   type CallOptions,
   type LiveViewFrame,
 } from 'bunderstack/client'
-import { createLiveStore } from 'bunderstack/client/solid'
+import { createLiveStore } from 'bunderstack/client-solid'
 import { action, createOptimisticStore, onCleanup } from 'solid-js'
 
 import type { App } from '../bunderstack'

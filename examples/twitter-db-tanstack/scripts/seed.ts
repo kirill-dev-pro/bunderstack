@@ -91,7 +91,7 @@ const EDUCATIONAL_POSTS: Array<{
   {
     author: 'bob@example.com',
     title: 'Progressive disclosure',
-    body: 'Level 0: createBunderstack({ schema }). Level 2: reach for app.db, app.router, app.auth when auto-CRUD is not enough.',
+    body: 'Level 0: bunderstack({ schema }). Level 2: reach for app.db, app.router, app.auth when auto-CRUD is not enough.',
   },
   {
     author: 'carol@example.com',
@@ -215,3 +215,5 @@ console.log('Done. Demo accounts (password: password123):')
 for (const u of SEED_USERS) console.log(`  ${u.email}`)
 console.log('')
 console.log('Try search: drizzle, thumbnail, access control, bunderstack/query')
+
+await app.close()

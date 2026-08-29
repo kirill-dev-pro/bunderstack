@@ -15,7 +15,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { bunSql } from './database/bun-sql'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 import { provision } from './provision'
 
 const url = process.env.TEST_POSTGRES_URL
@@ -26,7 +26,7 @@ const widgets = pgTable('bunsql_it_widgets', {
 })
 
 test.skipIf(!url)(
-  'createBunderstack + provision (migrate) work against real Postgres via Bun.sql',
+  'bunderstack + provision (migrate) work against real Postgres via Bun.sql',
   async () => {
     const dir = join(
       process.cwd(),
@@ -54,10 +54,10 @@ test.skipIf(!url)(
       }),
     )
 
-    const app = await createBunderstack({
+    const app = await bunderstack({
       schema: { widgets },
       database: { url: url!, migrations: dir, adapter: bunSql() },
-    })
+    }).start()
 
     try {
       // Clean slate: drop leftovers from previous runs before migrating.

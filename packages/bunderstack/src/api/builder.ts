@@ -46,7 +46,7 @@ export function createApiBuilder<
     webhook: base,
     /**
      * Declares a standalone middleware over the base context. Use it for
-     * `createBunderstack({ middleware })`, which reaches every procedure in
+     * `bunderstack({ middleware })`, which reaches every procedure in
      * the graph, and for `.use(...)` on any base declared here.
      *
      * The annotation is explicit because the inferred `DecoratedMiddleware`

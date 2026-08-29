@@ -35,7 +35,7 @@
           "$id": "configuration.mdx",
           "type": "page",
           "name": "Configuration",
-          "description": "createBunderstack options, transports, adapters, and lifecycle",
+          "description": "bunderstack declarations, runtime options, transports, adapters, and lifecycle",
           "url": "/docs/configuration",
           "$ref": "configuration.mdx"
         },
@@ -221,7 +221,7 @@
     },
     "configuration": {
       "title": "Configuration",
-      "description": "createBunderstack options, transports, adapters, and lifecycle"
+      "description": "bunderstack declarations, runtime options, transports, adapters, and lifecycle"
     },
     "crud": {
       "title": "Auto CRUD",

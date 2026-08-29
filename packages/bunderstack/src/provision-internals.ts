@@ -3,7 +3,7 @@ import type { Driver } from './db'
 import type { AnyDb, Dialect } from './dialect'
 
 /**
- * Hidden handle connecting `createBunderstack()` to the optional
+ * Hidden handle connecting `bunderstack()` to the optional
  * `bunderstack/provision` entry. Lives in its own module so the main entry
  * never imports provision code (and its drizzle-kit reference).
  */

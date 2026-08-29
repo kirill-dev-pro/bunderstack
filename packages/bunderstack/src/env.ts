@@ -63,7 +63,7 @@ export type ValidateEnvOptions = {
   emailProvider?: string
   /** Value source; defaults to process.env. Tests pass this explicitly. */
   source?: Record<string, string | undefined>
-  /** Dialect-aware DATABASE_URL fallback; createBunderstack passes it. */
+  /** Dialect-aware DATABASE_URL fallback; bunderstack passes it. */
   defaultDatabaseUrl?: string
 }
 
@@ -147,10 +147,7 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
   validateSection(envConfig?.server, 'server', source, issues, userVars)
   validateSection(envConfig?.client, 'client', source, issues, userVars)
 
-  // Introspection (Bunderhost builder) imports the app declaration to read
-  // its manifest; missing user env must not kill the boot there.
-  const lenient = source.BUNDERSTACK_INTROSPECT === '1'
-  if (issues.length > 0 && !lenient) throw new BunderstackEnvError(issues)
+  if (issues.length > 0) throw new BunderstackEnvError(issues)
   return { ...base, ...userVars } as ValidatedEnv<TEnv>
 }
 

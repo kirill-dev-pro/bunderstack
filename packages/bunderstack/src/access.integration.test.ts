@@ -2,7 +2,7 @@ import { test, expect, beforeAll } from 'bun:test'
 import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from './database/libsql'
-import { createBunderstack } from './index'
+import { bunderstack } from './index'
 import { provision } from './provision'
 
 const posts = sqliteTable('posts', {
@@ -43,14 +43,16 @@ const verification = sqliteTable('verification', {
 
 const schema = { user, session, account, verification, posts }
 
-let app: Awaited<ReturnType<typeof createBunderstack<typeof schema>>>
+const backend = bunderstack({
+  schema,
+  database: { url: ':memory:', adapter: libsql() },
+  auth: {},
+})
+type App = Awaited<ReturnType<typeof backend.start>>
+let app: App
 
 beforeAll(async () => {
-  app = await createBunderstack({
-    schema,
-    database: { url: ':memory:', adapter: libsql() },
-    auth: {},
-  })
+  app = await backend.start()
   await provision(app, { force: true })
 })
 
@@ -71,7 +73,7 @@ test('posts CRUD is available with userId convention', async () => {
 })
 
 test('uses an application-provided session resolver for CRUD access', async () => {
-  const appWithApplicationAuth = await createBunderstack({
+  const appWithApplicationAuth = await bunderstack({
     schema,
     database: { url: ':memory:', adapter: libsql() },
     access: { posts: { list: 'authenticated' } },
@@ -88,7 +90,7 @@ test('uses an application-provided session resolver for CRUD access', async () =
             : null,
       },
     },
-  })
+  }).start()
   await provision(appWithApplicationAuth, { force: true })
 
   const response = await appWithApplicationAuth.handler(

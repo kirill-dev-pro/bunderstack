@@ -6,17 +6,17 @@ description: Current public surface of Bunderstack and its client packages
 This page summarizes the stable public concepts. TypeScript remains the exact
 reference for generic details and adapter-specific types.
 
-## `createBunderstack(options)`
+## `bunderstack(options)`
 
 ```ts
-function createBunderstack<
+function bunderstack<
   TSchema,
   TAccess,
   TStorage,
   TEnv,
   TJobs,
   TApi,
->(options: BunderstackConfig<...>): Promise<BunderstackApp<...>>
+>(options: BunderstackConfig<...>): BunderstackBackend<BunderstackApp<...>>
 ```
 
 Required options:
@@ -36,6 +36,11 @@ Major optional groups:
 
 See [Configuration](/docs/configuration) for examples and defaults.
 
+`bunderstack()` only declares the backend. `backend.manifest` is available
+synchronously for Blueprint generation. Call `await backend.start({ env })` to
+materialize a production runtime, or `await backend.test()` to create an
+isolated test fixture owned by the current lexical scope.
+
 ## `BunderstackApp`
 
 ```ts
@@ -54,7 +59,6 @@ type BunderstackApp = {
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
   readonly backgroundRunning: boolean
-  readonly manifest: BunderstackManifest
   readonly $inferClient?: ClientTypeCarrier
 }
 ```
@@ -124,7 +128,7 @@ authentication. Use it for observability only, never for authorization — see
 ## Database and provisioning
 
 Import one of `libsql()`, `pglite()`, `bunSql()`, or `postgresJs()` from its
-`bunderstack/database/*` subpath. The schema dialect and adapter dialect must
+`bunderstack/*` subpath. The schema dialect and adapter dialect must
 match.
 
 ```ts
@@ -140,11 +144,11 @@ With committed migrations, it applies pending migrations.
 
 ```ts
 import { createClient, createLiveView } from 'bunderstack/client'
-import { createRestClient } from 'bunderstack/client/rest'
-import { useLiveView as useReactLiveView } from 'bunderstack/client/react'
-import { createLiveStore } from 'bunderstack/client/solid'
-import { liveStore } from 'bunderstack/client/svelte'
-import { useLiveView as useVueLiveView } from 'bunderstack/client/vue'
+import { createRestClient } from 'bunderstack/client-rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
+import { createLiveStore } from 'bunderstack/client-solid'
+import { liveStore } from 'bunderstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
 ```
 
 A zero-dependency typed RPC client and confirmed realtime `LiveView` with reactive store adapters for Solid, React, Svelte, and Vue. Use it for lightweight clients, mobile/native applications, or when you don't need TanStack Query.
@@ -237,8 +241,53 @@ interface EmailFacade {
 `EmailMessage` supports `to`, `subject`, HTML or text bodies, sender override,
 reply-to, CC, and BCC. Configure the console, Resend, SMTP, or a custom adapter.
 
-## Testing
+## Testing (`bunderstack/testing`)
 
-The root package exports `mockAuthSession` for scoped session tests. Disable
-the automatic worker with `background: { autoStart: false }`, then drive
-`app.jobs.tick()` directly for deterministic job tests.
+`backend.test(options)` produces an isolated test fixture with lexical async disposal
+(`await using`). For a suite, `backend.test.configure()` removes repeated environment,
+database, and seed boilerplate:
+
+```ts
+import { backend } from './bunderstack'
+
+const createFixture = backend.test.configure({
+  database: { mode: 'temporary', schema: 'migrations' },
+  setup: async (fixture) => {
+    const identity = fixture.auth.mockSession({
+      id: 'alice',
+      email: 'alice@example.com',
+      name: 'Alice',
+    })
+    return { identity, client: fixture.client(identity) }
+  },
+})
+
+test('posts procedure works', async () => {
+  await using fixture = await createFixture()
+  const { client } = fixture.context
+
+  const result = await client.posts.create({ title: 'First post' })
+  expect(result.title).toBe('First post')
+
+  await fixture.jobs.runUntilIdle()
+  expect(fixture.email.sent).toHaveLength(1)
+})
+```
+
+`TestFixture` provides:
+
+- `fixture.app`: the materialized application runtime;
+- `fixture.context`: the typed value returned by configured `setup`;
+- `fixture.defer(cleanup)`: LIFO async cleanup before application shutdown;
+- `fixture.auth`: real `signUpEmail()`, `signInEmail()`, `getSession()`, `signOut()`,
+  and `verifyEmail()` flows, plus header-scoped `mockSession()` identities;
+- `fixture.client(identity?)`: inferred typed oRPC client calling `app.handler` directly in-process;
+- `fixture.jobs`: deterministic `runNext()` / `runUntilIdle()` execution and
+  `inspect()` / `pending()` / `failed()` queue assertions;
+- `fixture.logs`: captured internal `entries`, `errors`, and `warnings` with `clear()`;
+- `fixture.email`: in-memory capture of sent emails at `fixture.email.sent`;
+- `fixture.storage`: isolated test storage with `fixture.storage.read(key)`.
+
+`configure()` defaults and per-test options deep-merge `env` and `database`. Runtime
+logs are captured by default; configure `logs: 'inherit'` to capture and forward to
+the console, or `logs: 'silent'` to discard them.
