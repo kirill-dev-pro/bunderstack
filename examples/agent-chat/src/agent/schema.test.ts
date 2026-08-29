@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { generateTypeId, mockAuthSession } from 'bunderstack'
+import { generateTypeId } from 'bunderstack'
+import { mockAuthSession } from 'bunderstack/testing'
 import { eq } from 'drizzle-orm'
 
 import {

@@ -56,7 +56,9 @@ export async function createTestApp(): Promise<TestApp> {
       }),
     api,
   })
-  const fixture = await backend.test({ database: { schema: 'push' } })
+  const fixture = await backend.test({
+    database: { mode: 'temporary', schema: 'push' },
+  })
   const { app } = fixture
 
   const enqueued: EnqueuedJob[] = []
