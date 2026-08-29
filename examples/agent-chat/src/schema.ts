@@ -175,6 +175,7 @@ export const agentRuns = sqliteTable('agent_runs', {
   checkpoint: text('checkpoint', { mode: 'json' }).$type<{
     messages: Array<Record<string, unknown>>
     toolSequence?: number
+    executionKey?: string
   }>(),
   error: text('error'),
   startedAt: integer('started_at', { mode: 'timestamp' })

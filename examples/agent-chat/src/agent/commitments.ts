@@ -16,6 +16,7 @@ import {
   agentMessages,
   agentRequests,
   agentRuns,
+  agentToolCalls,
   type CommitmentExecutionSpec,
   type CommitmentSchedule,
 } from '../schema'
@@ -560,6 +561,25 @@ async function executeCommitmentUnlocked(
     claimed = started?.commitment
     run = started?.run
     if (started?.created) await ctx.realtime.publish(agentRuns, 'create', run)
+    if (!started) {
+      const running = await ctx.db
+        .select()
+        .from(agentCommitments)
+        .where(eq(agentCommitments.id, input.commitmentId))
+        .get()
+      if (running?.status === 'running' && running.startedAt) {
+        const recoverAt = new Date(running.startedAt.getTime() + 10 * 60_000)
+        await ctx.jobs.enqueue(
+          'agentCommitment',
+          { commitmentId: running.id },
+          {
+            dedupeKey: `agent-commitment:${running.id}:recover:${recoverAt.getTime()}`,
+            runAt: recoverAt,
+          },
+        )
+        return { status: 'busy' as const }
+      }
+    }
   }
   if (!claimed || !run) return { status: 'already_terminal' as const }
   if (!claimed.executionSpec) {
@@ -590,17 +610,50 @@ async function executeCommitmentUnlocked(
   try {
     let result: unknown
     if (claimed.executionSpec.kind === 'notify') {
-      const [message] = await ctx.db
-        .insert(agentMessages)
-        .values({
-          threadId: claimed.threadId,
-          userId: claimed.userId,
-          role: 'assistant',
-          content: claimed.executionSpec.message,
+      const notificationMessage = claimed.executionSpec.message
+      const executionId = `${claimed.id}:${claimed.dueAt.getTime()}:notify`
+      const previous = await ctx.db
+        .select()
+        .from(agentToolCalls)
+        .where(eq(agentToolCalls.executionId, executionId))
+        .get()
+      if (previous?.status === 'done') {
+        result = previous.result
+      } else {
+        const committed = await ctx.db.transaction(async (tx: any) => {
+          const [call] = await tx
+            .insert(agentToolCalls)
+            .values({
+              runId: run!.id,
+              threadId: claimed!.threadId,
+              userId: claimed!.userId,
+              executionId,
+              tool: 'notify',
+              args: { message: notificationMessage },
+              status: 'running',
+            })
+            .returning()
+          const [message] = await tx
+            .insert(agentMessages)
+            .values({
+              threadId: claimed!.threadId,
+              userId: claimed!.userId,
+              role: 'assistant',
+              content: notificationMessage,
+            })
+            .returning()
+          const nextResult = { messageId: message!.id }
+          const [finishedCall] = await tx
+            .update(agentToolCalls)
+            .set({ status: 'done', result: nextResult })
+            .where(eq(agentToolCalls.id, call!.id))
+            .returning()
+          return { message, call: finishedCall, result: nextResult }
         })
-        .returning()
-      await ctx.realtime.publish(agentMessages, 'create', message)
-      result = { messageId: message!.id }
+        await ctx.realtime.publish(agentMessages, 'create', committed.message)
+        await ctx.realtime.publish(agentToolCalls, 'create', committed.call)
+        result = committed.result
+      }
     } else if (claimed.executionSpec.kind === 'tool_call') {
       const invocation = await invokeAgentTool(ctx, {
         toolId: claimed.executionSpec.tool,

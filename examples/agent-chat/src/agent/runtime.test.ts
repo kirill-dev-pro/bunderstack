@@ -201,7 +201,11 @@ describe('agent runtime', () => {
     expect(saved?.wakeSeq).toBe(1)
     expect(enqueued.at(-1)).toEqual({
       name: 'agentTurn',
-      input: { threadId: thread.id, reason: 'message' },
+      input: {
+        threadId: thread.id,
+        reason: 'message',
+        executionKey: expect.any(String),
+      },
       options: { dedupeKey: `agent-turn:${thread.id}` },
     })
   })
@@ -220,9 +224,41 @@ describe('agent runtime', () => {
 
     expect(enqueued.at(-1)).toEqual({
       name: 'agentTurn',
-      input: { threadId: thread.id, reason: 'wake.during_turn' },
+      input: {
+        threadId: thread.id,
+        reason: 'wake.during_turn',
+        executionKey: expect.any(String),
+      },
       options: { dedupeKey: `agent-turn:${thread.id}:wake:1` },
     })
+  })
+
+  test('a job retry keeps its execution identity across a concurrent wake', async () => {
+    const { ctx, thread } = await setup()
+    const input = {
+      threadId: thread.id,
+      reason: 'message',
+      executionKey: 'durable-turn-1',
+    }
+
+    await expect(
+      runAgentTurn(ctx, input, async (agent) => {
+        await agent.tools.createTask({ title: 'Do not duplicate' })
+        await wakeAgent(ctx, thread.id, 'message.during_turn')
+        throw new Error('model failed after tool success')
+      }),
+    ).rejects.toThrow('model failed after tool success')
+
+    await runAgentTurn(ctx, input, async (agent) => {
+      await agent.tools.createTask({ title: 'Do not duplicate' })
+      return completed('Recovered.')
+    })
+    expect(
+      await ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.title, 'Do not duplicate')),
+    ).toHaveLength(1)
   })
 
   test('a successful turn consumes selected inbox but a failed turn leaves it pending', async () => {

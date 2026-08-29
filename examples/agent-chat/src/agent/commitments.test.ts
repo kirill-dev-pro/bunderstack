@@ -163,6 +163,49 @@ describe('durable commitment execution', () => {
     ).toHaveLength(1)
   })
 
+  test('a non-stale running commitment schedules its recovery deadline', async () => {
+    const state = await setup()
+    const commitment = await createCommitment(state.ctx, {
+      threadId: state.thread.id,
+      userId: state.userId,
+      title: 'Recover later',
+      dueAt: '2026-08-26T17:06:30.000Z',
+      execution: {
+        kind: 'tool_call',
+        tool: 'createTask',
+        args: { title: 'Only after lease expiry' },
+      },
+    })
+    const [run] = await state.ctx.db
+      .insert(agentRuns)
+      .values({
+        threadId: state.thread.id,
+        userId: state.userId,
+        commitmentId: commitment.id,
+        triggerType: 'commitment',
+        reason: 'commitment.due',
+        status: 'running',
+      })
+      .returning()
+    const startedAt = new Date(Math.floor(Date.now() / 1000) * 1000)
+    await state.ctx.db
+      .update(agentCommitments)
+      .set({ status: 'running', currentRunId: run!.id, startedAt })
+      .where(eq(agentCommitments.id, commitment.id))
+
+    expect(
+      await executeCommitment(state.ctx, { commitmentId: commitment.id }),
+    ).toEqual({ status: 'busy' })
+    expect(state.enqueued.at(-1)).toEqual({
+      name: 'agentCommitment',
+      input: { commitmentId: commitment.id },
+      options: {
+        dedupeKey: `agent-commitment:${commitment.id}:recover:${startedAt.getTime() + 10 * 60_000}`,
+        runAt: new Date(startedAt.getTime() + 10 * 60_000),
+      },
+    })
+  })
+
   test('an objective executes its trusted goal instead of the latest chat message', async () => {
     const state = await setup()
     await state.ctx.db.insert(agentMessages).values({

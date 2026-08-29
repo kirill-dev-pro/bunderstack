@@ -1,3 +1,4 @@
+import { generateTypeId } from 'bunderstack'
 import { and, eq, lt, or, sql } from 'drizzle-orm'
 
 import type { AgentResponder, AgentTask, AgentTools } from './types'
@@ -60,8 +61,13 @@ async function enqueueTurn(
   threadId: string,
   reason: string,
   dedupeKey = `agent-turn:${threadId}`,
+  executionKey = generateTypeId('arun'),
 ) {
-  await ctx.jobs.enqueue('agentTurn', { threadId, reason }, { dedupeKey })
+  await ctx.jobs.enqueue(
+    'agentTurn',
+    { threadId, reason, executionKey },
+    { dedupeKey },
+  )
 }
 
 export async function wakeAgent(
@@ -125,6 +131,7 @@ export async function runAgentTurn(
     reason: string
     runId?: string
     requestId?: string
+    executionKey?: string
   },
   responder: AgentResponder,
 ) {
@@ -214,6 +221,10 @@ export async function runAgentTurn(
     })
     let invocationSequence =
       (run.checkpoint as AgentCheckpoint | null)?.toolSequence ?? 0
+    const executionKey =
+      (run.checkpoint as AgentCheckpoint | null)?.executionKey ??
+      input.executionKey ??
+      run.id
     const invoke = async (toolId: string, rawArgs: unknown) => {
       invocationSequence += 1
       const result = await invokeAgentTool(ctx, {
@@ -227,7 +238,7 @@ export async function runAgentTurn(
           trusted: true,
         },
         capabilities,
-        executionId: `${thread.id}:wake:${lockedWakeSeq}:tool:${invocationSequence}`,
+        executionId: `${executionKey}:tool:${invocationSequence}`,
       })
       if (
         result.status === 'done' &&
@@ -329,6 +340,7 @@ export async function runAgentTurn(
           checkpoint: {
             ...response.checkpoint,
             toolSequence: invocationSequence,
+            executionKey,
           },
         })
         .where(eq(agentRuns.id, run.id))
