@@ -8,6 +8,9 @@ const healthy = {
   countOverdueJobs: async () => 0,
 }
 
+// This one compares the whole report on purpose: it is the shape every other
+// test relies on. The rest assert only the check they are about, so adding a
+// new check breaks this test alone and does so deliberately.
 test('a healthy application reports ok with every check green', async () => {
   expect(
     await buildReadinessReport({ ...healthy, revision: 'abc123' }),
@@ -31,11 +34,16 @@ test('an unreachable database is an error and skips the later checks', async () 
   })
 
   expect(report.status).toBe('error')
-  expect(report.checks).toEqual([
-    { name: 'database', status: 'error', code: 'unreachable' },
-    { name: 'schema', status: 'skipped' },
-    { name: 'background', status: 'skipped' },
-  ])
+  expect(report.checks).toContainEqual({
+    name: 'database',
+    status: 'error',
+    code: 'unreachable',
+  })
+  expect(report.checks).toContainEqual({ name: 'schema', status: 'skipped' })
+  expect(report.checks).toContainEqual({
+    name: 'background',
+    status: 'skipped',
+  })
 })
 
 test('a missing internal table means the schema was never provisioned', async () => {
@@ -47,11 +55,16 @@ test('a missing internal table means the schema was never provisioned', async ()
   })
 
   expect(report.status).toBe('error')
-  expect(report.checks).toEqual([
-    { name: 'database', status: 'ok' },
-    { name: 'schema', status: 'error', code: 'not_provisioned' },
-    { name: 'background', status: 'skipped' },
-  ])
+  expect(report.checks).toContainEqual({ name: 'database', status: 'ok' })
+  expect(report.checks).toContainEqual({
+    name: 'schema',
+    status: 'error',
+    code: 'not_provisioned',
+  })
+  expect(report.checks).toContainEqual({
+    name: 'background',
+    status: 'skipped',
+  })
 })
 
 test('an overdue queue backlog degrades without failing the deployment', async () => {

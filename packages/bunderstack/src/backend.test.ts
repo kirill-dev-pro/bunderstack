@@ -47,3 +47,20 @@ test('explicit start env does not inherit process.env', async () => {
     else process.env.ADMIN_TOKEN = previous
   }
 })
+
+test('a throwing api callback fails at declaration, not at start', () => {
+  const failure = new Error('router construction failed')
+
+  // The callback is resolved inside bunderstack(), so the manifest describes
+  // the same router the runtime serves. That moves this failure earlier than
+  // it used to be, and nothing else covers the new timing.
+  expect(() =>
+    bunderstack({
+      schema: { notes },
+      database: { adapter: libsql() },
+      api: () => {
+        throw failure
+      },
+    }),
+  ).toThrow(failure)
+})

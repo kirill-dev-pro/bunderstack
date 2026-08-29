@@ -51,7 +51,11 @@ function makeManifest() {
   })
 }
 
-test('buildManifest describes deployment requirements deterministically', () => {
+// Compares the whole manifest on purpose. The manifest is committed to the
+// application's repository, and its defining property is that no value ever
+// reaches it — only a whole-object comparison catches something extra
+// appearing. Expect to update this test whenever a field is added.
+test('the manifest contains exactly these fields and nothing more', () => {
   expect(makeManifest()).toEqual({
     version: 3,
     database: {
