@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bunderstack.kcrz.dev/</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -20,25 +20,25 @@
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/api-reference</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/auth</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/background-jobs</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/configuration</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -49,26 +49,32 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://bunderstack.kcrz.dev/docs/deployment-contract</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://bunderstack.kcrz.dev/docs/email</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/env</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/framework-portability</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/getting-started</loc>
-    <lastmod>2026-08-27</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>

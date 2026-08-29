@@ -164,6 +164,14 @@
           "$ref": "framework-portability.mdx"
         },
         {
+          "$id": "deployment-contract.mdx",
+          "type": "page",
+          "name": "Deployment Contract",
+          "description": "What a hosting platform can read from a Bunderstack application without running it, and what it can ask a running one",
+          "url": "/docs/deployment-contract",
+          "$ref": "deployment-contract.mdx"
+        },
+        {
           "$id": "templates-and-skills.mdx",
           "type": "page",
           "name": "Templates &amp; Agent Skills",
@@ -189,6 +197,7 @@
     "background-jobs": "background-jobs.mdx",
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
+    "deployment-contract": "deployment-contract.mdx",
     "email": "email.mdx",
     "env": "env.mdx",
     "framework-portability": "framework-portability.mdx",
@@ -226,6 +235,10 @@
     "crud": {
       "title": "Auto CRUD",
       "description": "Generated oRPC procedures with row-level access control"
+    },
+    "deployment-contract": {
+      "title": "Deployment Contract",
+      "description": "What a hosting platform can read from a Bunderstack application without running it, and what it can ask a running one"
     },
     "email": {
       "title": "Email",

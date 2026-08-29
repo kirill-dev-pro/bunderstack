@@ -1,0 +1,107 @@
+---
+title: Deployment Contract
+description: What a hosting platform can read from a Bunderstack application without running it, and what it can ask a running one
+---
+
+A Bunderstack application tells a platform what it needs in two places: the
+committed `bunderstack.blueprint.yaml`, read before anything is deployed, and
+`GET /api/readiness`, asked after a release is live.
+
+## Reading the blueprint
+
+```ts
+import { parseBlueprintYaml, isSensitiveEnvVar } from 'bunderstack/blueprint'
+
+const blueprint = parseBlueprintYaml(source)
+```
+
+Unknown sections are preserved, not rejected. An application upgrades
+Bunderstack on its own schedule, so a blueprint may carry sections your parser
+predates — read what you know and ignore the rest.
+
+The blueprint never contains values. No environment values, no credentials, no
+connection strings.
+
+### Environment
+
+```yaml
+environment:
+  - key: STRIPE_SECRET_KEY
+    required: true
+    scope: server
+    sensitive: true
+    description: Secret key from the Stripe dashboard
+  - key: PUBLIC_APP_NAME
+    required: true
+    scope: client
+    sensitive: false
+```
+
+`sensitive` is optional: blueprints generated before 0.23.0 do not carry it. Use
+`isSensitiveEnvVar(entry)`, which falls back to the scope — server keys are
+secrets, client keys are not. A sensitive key belongs in whatever protected
+input your platform offers a human; a non-sensitive one is safe to set from
+automation.
+
+### Application operations
+
+```yaml
+api:
+  operations:
+    - handle: billing.refund
+      operationId: billing.refund
+      effect: mutation
+      method: POST
+      path: /api/billing/refund
+```
+
+These are the procedures the application declared itself. Generated CRUD,
+storage, and realtime routes are not listed — derive them from
+`resources.database.tables` and `resources.storage.buckets`.
+
+`effect` is `read`, `mutation`, or `unknown`. `unknown` means the procedure
+declared no HTTP route, so its effect could not be established: treat it as at
+least as dangerous as a mutation.
+
+## Asking a running application
+
+`GET /api/health` is the liveness probe and always returns `{ "status": "ok" }`
+from a handler that does no work. Keep using it for restart policies.
+
+`GET /api/readiness` answers whether the release actually came up:
+
+```json
+{
+  "status": "degraded",
+  "revision": "0a8dc9f",
+  "checks": [
+    { "name": "database", "status": "ok" },
+    { "name": "schema", "status": "ok" },
+    {
+      "name": "background",
+      "status": "degraded",
+      "code": "backlog",
+      "overdue": 12
+    }
+  ]
+}
+```
+
+The response is always HTTP 200; read `status`, which is `ok`, `degraded`, or
+`error`.
+
+| Check        | Meaning                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `database`   | `error` with `unreachable` — the app cannot reach its database                                                           |
+| `schema`     | `error` with `not_provisioned` — the database is reachable but has no Bunderstack tables                                 |
+| `background` | `degraded` with `backlog` and `overdue` — pending jobs are more than a minute past due, so nothing is draining the queue |
+
+`skipped` means the check did not apply: the application declares no queue jobs,
+or an earlier check already failed.
+
+Set `BUNDERSTACK_REVISION` in the deployed environment and readiness echoes it as
+`revision`, so a deployer can confirm the running release is the commit it asked
+for.
+
+The endpoint is public, so results carry a fixed set of codes and never a driver
+message, a connection string, or a stack trace.

@@ -2,6 +2,34 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.23.0] - 2026-08-29
+
+### Added
+
+- **Environment metadata.** `env.meta` declares `sensitive` and `description` per
+  key. Server keys default to sensitive and client keys can never be — `PUBLIC_*`
+  values ship to the browser. Both reach the manifest and the blueprint; values
+  never do.
+- **Application operation catalog.** The blueprint gains `api.operations`, listing
+  the procedures an application declared itself with an `effect` of `read`,
+  `mutation`, or `unknown`. Generated CRUD, storage, and realtime routes stay
+  derivable from `resources`.
+- **Readiness endpoint.** `GET /api/readiness` reports database reachability,
+  schema provisioning, and background-queue backlog, and echoes
+  `BUNDERSTACK_REVISION` as `revision`. `GET /api/health` is unchanged.
+- **`isSensitiveEnvVar(entry)`** exported from `bunderstack/blueprint`, encoding
+  the scope-based default for blueprints written before this release.
+
+### Changed
+
+- **Forward-compatible blueprint parsing.** Every object in the blueprint schema
+  now preserves unknown keys instead of rejecting the file, so a host can read a
+  blueprint written by a newer generator. Run `bunderstack blueprint` to
+  regenerate; the new sections only appear after you do.
+- The application router passed as a callback is now resolved once when
+  `bunderstack(config)` is called rather than at `start()`, so the manifest and
+  the running app describe the same router.
+
 ## [0.22.1] - 2026-08-28
 
 ### Added
