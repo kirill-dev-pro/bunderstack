@@ -112,6 +112,33 @@ describe('tool approvals', () => {
     })
   })
 
+  test('an expired approval cannot be granted', async () => {
+    const setupState = await setup()
+    const pending = await invokeDelete(setupState)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+    await setupState.ctx.db
+      .update(agentRequests)
+      .set({ expiresAt: new Date(Date.now() - 1) })
+      .where(eq(agentRequests.id, pending.requestId))
+
+    expect(
+      await resolveApproval(setupState.ctx, {
+        requestId: pending.requestId,
+        userId: setupState.userId,
+        decision: 'allow_once',
+      }),
+    ).toEqual({ status: 'already_resolved' })
+    expect(
+      await setupState.ctx.db
+        .select({ status: agentRequests.status })
+        .from(agentRequests)
+        .where(eq(agentRequests.id, pending.requestId))
+        .get(),
+    ).toEqual({ status: 'expired' })
+    expect(setupState.enqueued).toHaveLength(0)
+  })
+
   test('always_allow creates a reusable grant and later calls update its usage', async () => {
     const setupState = await setup()
     const pending = await invokeDelete(setupState)
@@ -143,6 +170,34 @@ describe('tool approvals', () => {
       .where(eq(agentToolGrants.id, grant!.id))
       .get()
     expect(usedGrant?.lastUsedAt).toBeInstanceOf(Date)
+  })
+
+  test('a repeated execution id returns the journaled local effect', async () => {
+    const setupState = await setup()
+    const input = {
+      toolId: 'createTask',
+      rawArgs: { title: 'Exactly once locally' },
+      userId: setupState.userId,
+      threadId: setupState.thread.id,
+      runId: setupState.run.id,
+      trigger: { type: 'system' as const, trusted: true },
+      executionId: 'stable-execution-1',
+    }
+
+    expect((await invokeAgentTool(setupState.ctx, input)).status).toBe('done')
+    expect((await invokeAgentTool(setupState.ctx, input)).status).toBe('done')
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.title, 'Exactly once locally')),
+    ).toHaveLength(1)
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(agentToolCalls)
+        .where(eq(agentToolCalls.executionId, input.executionId)),
+    ).toHaveLength(1)
   })
 
   test('revoking a grant requires approval again', async () => {

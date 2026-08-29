@@ -23,6 +23,7 @@ export type ToolInvocationResult<T = unknown> =
   | { status: 'approval_required'; requestId: string }
 
 type AnyToolDefinition = ToolDefinition<string, any, any>
+const APPROVAL_TTL_MS = 15 * 60_000
 
 export function getAgentTool(toolId: string): AnyToolDefinition {
   const definition = agentDefinition.tools[
@@ -84,31 +85,77 @@ export async function agentToolApprovalRequired(
   return permission.decision === 'approval_required'
 }
 
-export function approvedToolCapability(toolId: string, args: unknown) {
-  const definition = getAgentTool(toolId)
-  const parsed = definition.inputSchema.parse(args) as Record<string, unknown>
-  return allowTool(definition, parsed)
+export function approvedToolCapability(input: {
+  toolId: string
+  toolVersion: number
+  toolCallId: string
+  args: unknown
+}) {
+  const definition = getAgentTool(input.toolId)
+  if (definition.version !== input.toolVersion) {
+    throw new Error('Approved tool version is no longer available')
+  }
+  const parsed = definition.inputSchema.parse(input.args) as Record<
+    string,
+    unknown
+  >
+  return allowTool(definition, parsed, input.toolCallId)
 }
 
 async function recordExecution(
   ctx: AgentRuntimeContext,
-  details: { runId: string; threadId: string; userId: string },
+  details: {
+    runId: string
+    threadId: string
+    userId: string
+    executionId: string
+    trigger: ToolExecutionContext['trigger']
+  },
   definition: AnyToolDefinition,
   args: Record<string, unknown>,
-  execute: () => Promise<unknown>,
 ) {
+  const existing = await ctx.db
+    .select()
+    .from(agentToolCalls)
+    .where(eq(agentToolCalls.executionId, details.executionId))
+    .get()
+  if (existing?.status === 'done') return existing.result
+  if (existing) {
+    throw new Error(
+      `Tool execution ${details.executionId} has an indeterminate prior outcome`,
+    )
+  }
+
   try {
-    const result = await execute()
-    const [call] = await ctx.db
-      .insert(agentToolCalls)
-      .values({
-        ...details,
-        tool: definition.id,
-        args,
-        result,
-        status: 'done',
+    const { call, result } = await ctx.db.transaction(async (tx: any) => {
+      const [started] = await tx
+        .insert(agentToolCalls)
+        .values({
+          runId: details.runId,
+          threadId: details.threadId,
+          userId: details.userId,
+          executionId: details.executionId,
+          tool: definition.id,
+          args,
+          status: 'running',
+        })
+        .returning()
+      const result = await definition.execute(args, {
+        runtime: { ...ctx, db: tx },
+        userId: details.userId,
+        threadId: details.threadId,
+        runId: details.runId,
+        executionId: details.executionId,
+        idempotencyKey: details.executionId,
+        trigger: details.trigger,
       })
-      .returning()
+      const [call] = await tx
+        .update(agentToolCalls)
+        .set({ result, status: 'done' })
+        .where(eq(agentToolCalls.id, started!.id))
+        .returning()
+      return { call, result }
+    })
     await ctx.realtime.publish(agentToolCalls, 'create', call)
     return result
   } catch (error) {
@@ -116,7 +163,10 @@ async function recordExecution(
     const [call] = await ctx.db
       .insert(agentToolCalls)
       .values({
-        ...details,
+        runId: details.runId,
+        threadId: details.threadId,
+        userId: details.userId,
+        executionId: details.executionId,
         tool: definition.id,
         args,
         status: 'failed',
@@ -138,6 +188,7 @@ export async function invokeAgentTool(
     runId: string
     trigger: ToolExecutionContext['trigger']
     capabilities?: ToolCapability[]
+    executionId?: string
   },
 ): Promise<ToolInvocationResult> {
   const { definition, parsed, permission } = await evaluateInvocation(
@@ -164,6 +215,7 @@ export async function invokeAgentTool(
         args: parsed,
         approvalId: `local:${requestId}`,
         toolCallId: `local:${requestId}`,
+        expiresAt: new Date(Date.now() + APPROVAL_TTL_MS),
       })
       .returning()
     await ctx.realtime.publish(agentRequests, 'create', request)
@@ -176,6 +228,12 @@ export async function invokeAgentTool(
       .set({ lastUsedAt: new Date() })
       .where(eq(agentToolGrants.id, permission.grantId))
   }
+  if (permission.authorizedBy === 'capability') {
+    // Capabilities represent one frozen approval, not a reusable permission.
+    // Consume before executing so even a responder that repeats an identical
+    // call during the same resumed loop must ask again.
+    permission.capability.consumed = true
+  }
 
   const result = await recordExecution(
     ctx,
@@ -183,17 +241,14 @@ export async function invokeAgentTool(
       runId: input.runId,
       threadId: input.threadId,
       userId: input.userId,
+      executionId:
+        permission.authorizedBy === 'capability'
+          ? permission.capability.toolCallId
+          : (input.executionId ?? generateTypeId('acall')),
+      trigger: input.trigger,
     },
     definition,
     parsed,
-    () =>
-      definition.execute(parsed, {
-        runtime: ctx,
-        userId: input.userId,
-        threadId: input.threadId,
-        runId: input.runId,
-        trigger: input.trigger,
-      }),
   )
   return { status: 'done', result }
 }
@@ -223,6 +278,25 @@ export async function resolveApproval(
     .get()
   if (!request) throw new Error('Approval request not found')
   if (request.status !== 'pending') return { status: 'already_resolved' }
+
+  if (
+    input.decision !== 'reject' &&
+    (!request.expiresAt || request.expiresAt <= new Date())
+  ) {
+    const [expired] = await ctx.db
+      .update(agentRequests)
+      .set({ status: 'expired', resolvedAt: new Date() })
+      .where(
+        and(
+          eq(agentRequests.id, request.id),
+          eq(agentRequests.userId, input.userId),
+          eq(agentRequests.status, 'pending'),
+        ),
+      )
+      .returning()
+    if (expired) await ctx.realtime.publish(agentRequests, 'update', expired)
+    return { status: 'already_resolved' }
+  }
 
   if (
     !request.tool ||

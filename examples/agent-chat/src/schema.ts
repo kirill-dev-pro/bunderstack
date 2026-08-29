@@ -182,30 +182,39 @@ export const agentRuns = sqliteTable('agent_runs', {
   completedAt: integer('completed_at', { mode: 'timestamp' }),
 })
 
-export const agentToolCalls = sqliteTable('agent_tool_calls', {
-  id: typeid('acall')
-    .primaryKey()
-    .$defaultFn(() => generateTypeId('acall')),
-  runId: typeid('arun')
-    .notNull()
-    .references(() => agentRuns.id, { onDelete: 'cascade' }),
-  threadId: typeid('athread')
-    .notNull()
-    .references(() => agentThreads.id, { onDelete: 'cascade' }),
-  userId: typeid('user')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  tool: text('tool').notNull(),
-  args: text('args', { mode: 'json' })
-    .$type<Record<string, unknown>>()
-    .notNull(),
-  result: text('result', { mode: 'json' }).$type<unknown>(),
-  status: text('status', { enum: ['done', 'failed'] }).notNull(),
-  error: text('error'),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const agentToolCalls = sqliteTable(
+  'agent_tool_calls',
+  {
+    id: typeid('acall')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('acall')),
+    runId: typeid('arun')
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: 'cascade' }),
+    threadId: typeid('athread')
+      .notNull()
+      .references(() => agentThreads.id, { onDelete: 'cascade' }),
+    userId: typeid('user')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // Legacy demo rows predate execution identities; every new runtime write
+    // supplies one, while the nullable column keeps the migration additive.
+    executionId: text('execution_id'),
+    tool: text('tool').notNull(),
+    args: text('args', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    result: text('result', { mode: 'json' }).$type<unknown>(),
+    status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
+    error: text('error'),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('agent_tool_calls_execution_unique').on(table.executionId),
+  ],
+)
 
 export const tasks = sqliteTable('tasks', {
   id: typeid('task')

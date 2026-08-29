@@ -11,6 +11,9 @@ export interface ToolExecutionContext {
   userId: string
   threadId: string
   runId: string
+  /** Stable across retries; external adapters should pass this as their idempotency key. */
+  executionId: string
+  idempotencyKey: string
   trigger: { type: 'user' | 'system'; trusted: boolean; sourceId?: string }
 }
 
@@ -48,11 +51,7 @@ export interface AgentDefinition<
   }
 }
 
-export function defineTool<
-  const TId extends string,
-  TInput,
-  TOutput,
->(
+export function defineTool<const TId extends string, TInput, TOutput>(
   config: ToolDefinition<TId, TInput, TOutput>,
 ): ToolDefinition<TId, TInput, TOutput> {
   return config

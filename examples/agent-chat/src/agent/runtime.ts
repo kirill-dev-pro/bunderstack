@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, lt, or, sql } from 'drizzle-orm'
 
 import type { AgentResponder, AgentTask, AgentTools } from './types'
 import type { AgentCheckpoint } from './types'
@@ -76,6 +76,48 @@ export async function wakeAgent(
   await enqueueTurn(ctx, threadId, reason)
 }
 
+export async function acquireAgentThreadLock(
+  ctx: AgentRuntimeContext,
+  threadId: string,
+) {
+  const staleBefore = new Date(Date.now() - 10 * 60_000)
+  const [thread] = await ctx.db
+    .update(agentThreads)
+    .set({ status: 'running', lockedAt: new Date() })
+    .where(
+      and(
+        eq(agentThreads.id, threadId),
+        or(
+          eq(agentThreads.status, 'idle'),
+          lt(agentThreads.lockedAt, staleBefore),
+        ),
+      ),
+    )
+    .returning()
+  return thread
+}
+
+export async function releaseAgentThreadLock(
+  ctx: AgentRuntimeContext,
+  thread: typeof agentThreads.$inferSelect,
+  lockedWakeSeq: number,
+) {
+  const [released] = await ctx.db
+    .update(agentThreads)
+    .set({ status: 'idle', lockedAt: null })
+    .where(eq(agentThreads.id, thread.id))
+    .returning()
+  await ctx.realtime.publish(agentThreads, 'update', released)
+  if (released.wakeSeq !== lockedWakeSeq) {
+    await enqueueTurn(
+      ctx,
+      thread.id,
+      'wake.during_turn',
+      `agent-turn:${thread.id}:wake:${released.wakeSeq}`,
+    )
+  }
+}
+
 export async function runAgentTurn(
   ctx: AgentRuntimeContext,
   input: {
@@ -86,17 +128,7 @@ export async function runAgentTurn(
   },
   responder: AgentResponder,
 ) {
-  const staleBefore = new Date(Date.now() - 10 * 60_000)
-  const [thread] = await ctx.db
-    .update(agentThreads)
-    .set({ status: 'running', lockedAt: new Date() })
-    .where(
-      and(
-        eq(agentThreads.id, input.threadId),
-        sql`(${agentThreads.status} = 'idle' or ${agentThreads.lockedAt} < ${staleBefore})`,
-      ),
-    )
-    .returning()
+  const thread = await acquireAgentThreadLock(ctx, input.threadId)
   if (!thread) return { status: 'busy' as const }
 
   const lockedWakeSeq = thread.wakeSeq
@@ -156,20 +188,33 @@ export async function runAgentTurn(
     }
     if (
       resumeRequest &&
-      (!resumeRequest.approvalId || !resumeRequest.tool || !resumeRequest.args)
+      (!resumeRequest.approvalId ||
+        !resumeRequest.tool ||
+        !resumeRequest.toolVersion ||
+        !resumeRequest.toolCallId ||
+        !resumeRequest.args)
     ) {
       throw new Error('Resolved approval request is incomplete')
     }
     const capabilities =
       resumeRequest?.status === 'approved'
-        ? [approvedToolCapability(resumeRequest.tool!, resumeRequest.args)]
+        ? [
+            approvedToolCapability({
+              toolId: resumeRequest.tool!,
+              toolVersion: resumeRequest.toolVersion!,
+              toolCallId: resumeRequest.toolCallId!,
+              args: resumeRequest.args,
+            }),
+          ]
         : []
     const context = await assembleAgentContext(ctx, {
       thread,
       reason: input.reason,
       now: new Date(),
     })
+    let invocationSequence = 0
     const invoke = async (toolId: string, rawArgs: unknown) => {
+      invocationSequence += 1
       const result = await invokeAgentTool(ctx, {
         toolId,
         rawArgs,
@@ -181,6 +226,7 @@ export async function runAgentTurn(
           trusted: true,
         },
         capabilities,
+        executionId: `${run.id}:tool:${invocationSequence}`,
       })
       if (
         result.status === 'done' &&
@@ -271,6 +317,7 @@ export async function runAgentTurn(
           args: definition.inputSchema.parse(response.request.args),
           approvalId: response.request.approvalId,
           toolCallId: response.request.toolCallId,
+          expiresAt: new Date(Date.now() + 15 * 60_000),
         })
         .returning()
       await ctx.realtime.publish(agentRequests, 'create', request)
@@ -330,23 +377,7 @@ export async function runAgentTurn(
     await ctx.realtime.publish(agentRuns, 'update', failed)
     throw error
   } finally {
-    const [released] = await ctx.db
-      .update(agentThreads)
-      .set({ status: 'idle', lockedAt: null })
-      .where(eq(agentThreads.id, thread.id))
-      .returning()
-    await ctx.realtime.publish(agentThreads, 'update', released)
-    if (released.wakeSeq !== lockedWakeSeq) {
-      // The normal stable key still belongs to the currently running job until
-      // its handler returns. A sequence-specific recovery key therefore makes
-      // the post-turn enqueue a distinct durable row instead of a dedupe no-op.
-      await enqueueTurn(
-        ctx,
-        thread.id,
-        'wake.during_turn',
-        `agent-turn:${thread.id}:wake:${released.wakeSeq}`,
-      )
-    }
+    await releaseAgentThreadLock(ctx, thread, lockedWakeSeq)
   }
 }
 

@@ -19,13 +19,20 @@ export interface ToolGrant {
 }
 
 export interface ToolCapability {
+  toolCallId: string
   tool: string
   toolVersion: number
   args: unknown
+  consumed: boolean
 }
 
 export type ToolPermissionDecision =
-  | { decision: 'allow'; authorizedBy: 'policy' | 'capability' }
+  | { decision: 'allow'; authorizedBy: 'policy' }
+  | {
+      decision: 'allow'
+      authorizedBy: 'capability'
+      capability: ToolCapability
+    }
   | { decision: 'allow'; authorizedBy: 'grant'; grantId: string }
   | { decision: 'approval_required' }
   | { decision: 'deny'; reason: string }
@@ -33,8 +40,15 @@ export type ToolPermissionDecision =
 export function allowTool(
   tool: Pick<ToolPolicyTarget, 'id' | 'version'>,
   args: unknown,
+  toolCallId: string,
 ): ToolCapability {
-  return { tool: tool.id, toolVersion: tool.version, args }
+  return {
+    toolCallId,
+    tool: tool.id,
+    toolVersion: tool.version,
+    args,
+    consumed: false,
+  }
 }
 
 export function evaluateToolPermission(input: {
@@ -70,12 +84,23 @@ export function evaluateToolPermission(input: {
 
   const capability = input.capabilities.some(
     (candidate) =>
+      !candidate.consumed &&
       candidate.tool === input.tool.id &&
       candidate.toolVersion === input.tool.version &&
       isDeepStrictEqual(candidate.args, input.args),
   )
   if (capability) {
-    return { decision: 'allow', authorizedBy: 'capability' }
+    return {
+      decision: 'allow',
+      authorizedBy: 'capability',
+      capability: input.capabilities.find(
+        (candidate) =>
+          !candidate.consumed &&
+          candidate.tool === input.tool.id &&
+          candidate.toolVersion === input.tool.version &&
+          isDeepStrictEqual(candidate.args, input.args),
+      )!,
+    }
   }
 
   return { decision: 'approval_required' }

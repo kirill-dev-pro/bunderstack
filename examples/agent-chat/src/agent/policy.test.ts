@@ -48,9 +48,7 @@ describe('tool policy', () => {
       status: 'active' as const,
       expiresAt: new Date('2026-08-27T10:00:00.000Z'),
     }
-    expect(
-      evaluateToolPermission({ ...base, grants: [matching] }),
-    ).toEqual({
+    expect(evaluateToolPermission({ ...base, grants: [matching] })).toEqual({
       decision: 'allow',
       authorizedBy: 'grant',
       grantId: matching.id,
@@ -71,10 +69,14 @@ describe('tool policy', () => {
   })
 
   test('an exact event capability cannot be widened by changing nested arguments', () => {
-    const capability = allowTool(requiredTool, base.args)
+    const capability = allowTool(requiredTool, base.args, 'tool-call-1')
     expect(
       evaluateToolPermission({ ...base, capabilities: [capability] }),
-    ).toEqual({ decision: 'allow', authorizedBy: 'capability' })
+    ).toEqual({
+      decision: 'allow',
+      authorizedBy: 'capability',
+      capability,
+    })
 
     for (const args of [
       { ...base.args, taskId: 'task_two' },
@@ -89,5 +91,14 @@ describe('tool policy', () => {
         }).decision,
       ).toBe('approval_required')
     }
+  })
+
+  test('a consumed exact capability cannot authorize the same call again', () => {
+    const capability = allowTool(requiredTool, base.args, 'tool-call-1')
+    capability.consumed = true
+
+    expect(
+      evaluateToolPermission({ ...base, capabilities: [capability] }),
+    ).toEqual({ decision: 'approval_required' })
   })
 })

@@ -8,6 +8,7 @@ import {
   agentRuns,
   agentRequests,
   agentToolCalls,
+  agentThreads,
   tasks,
 } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
@@ -167,6 +168,42 @@ describe('durable commitment execution', () => {
         value: 'Store that commitments execute their saved objective.',
       },
     ])
+  })
+
+  test('an objective waits while another computation owns the thread lock', async () => {
+    const state = await setup()
+    const commitment = await createCommitment(state.ctx, {
+      threadId: state.thread.id,
+      userId: state.userId,
+      title: 'Serialized objective',
+      dueAt: '2026-08-26T17:08:00.000Z',
+      execution: {
+        kind: 'objective',
+        prompt: 'Run only after the thread is free.',
+      },
+    })
+    await state.ctx.db
+      .update(agentThreads)
+      .set({ status: 'running', lockedAt: new Date() })
+      .where(eq(agentThreads.id, state.thread.id))
+    let called = false
+
+    const result = await executeCommitment(
+      state.ctx,
+      { commitmentId: commitment.id },
+      async () => {
+        called = true
+        return { status: 'completed', text: '', checkpoint: { messages: [] } }
+      },
+    )
+
+    expect(result).toEqual({ status: 'busy' })
+    expect(called).toBe(false)
+    expect(state.enqueued.at(-1)).toMatchObject({
+      name: 'agentCommitment',
+      input: { commitmentId: commitment.id },
+      options: { runAt: expect.any(Date) },
+    })
   })
 
   test('cancellation prevents execution and listing reports persisted state', async () => {

@@ -21,6 +21,7 @@ import {
   invokeAgentTool,
 } from './approvals'
 import { assembleAgentContext } from './context'
+import { acquireAgentThreadLock, releaseAgentThreadLock } from './runtime'
 
 const explicitTimezone = /(Z|[+-]\d{2}:\d{2})$/i
 
@@ -372,7 +373,7 @@ async function releaseCompletedDependents(
   }
 }
 
-export async function executeCommitment(
+async function executeCommitmentUnlocked(
   ctx: AgentRuntimeContext,
   input: { commitmentId: string; runId?: string; requestId?: string },
   responder?: AgentResponder,
@@ -450,6 +451,8 @@ export async function executeCommitment(
       (resumeRequest.status !== 'approved' &&
         resumeRequest.status !== 'rejected') ||
       !resumeRequest.tool ||
+      !resumeRequest.toolVersion ||
+      !resumeRequest.toolCallId ||
       !resumeRequest.args ||
       !resumeRequest.approvalId
     ) {
@@ -479,7 +482,12 @@ export async function executeCommitment(
       .returning()
     if (resumeRequest.status === 'approved') {
       capabilities = [
-        approvedToolCapability(resumeRequest.tool, resumeRequest.args),
+        approvedToolCapability({
+          toolId: resumeRequest.tool,
+          toolVersion: resumeRequest.toolVersion!,
+          toolCallId: resumeRequest.toolCallId!,
+          args: resumeRequest.args,
+        }),
       ]
     }
   } else {
@@ -568,6 +576,7 @@ export async function executeCommitment(
           sourceId: claimed.id,
         },
         capabilities,
+        executionId: `${claimed.id}:${claimed.dueAt.getTime()}:tool`,
       })
       if (invocation.status === 'approval_required') {
         const [waitingRun] = await ctx.db
@@ -603,7 +612,9 @@ export async function executeCommitment(
       }
     } else {
       if (!responder) throw new Error('Objective commitment needs a responder')
+      let invocationSequence = 0
       const invoke = async (toolId: string, rawArgs: unknown) => {
+        invocationSequence += 1
         const invocation = await invokeAgentTool(ctx, {
           toolId,
           rawArgs,
@@ -616,6 +627,7 @@ export async function executeCommitment(
             sourceId: claimed.id,
           },
           capabilities,
+          executionId: `${claimed.id}:${claimed.dueAt.getTime()}:objective:${invocationSequence}`,
         })
         if (
           invocation.status === 'done' &&
@@ -712,6 +724,7 @@ export async function executeCommitment(
             args: definition.inputSchema.parse(response.request.args),
             approvalId: response.request.approvalId,
             toolCallId: response.request.toolCallId,
+            expiresAt: new Date(Date.now() + 15 * 60_000),
           })
           .returning()
         const [waitingRun] = await ctx.db
@@ -882,5 +895,36 @@ export async function executeCommitment(
       await ctx.realtime.publish(agentCommitments, 'update', failedCommitment)
     }
     throw error
+  }
+}
+
+export async function executeCommitment(
+  ctx: AgentRuntimeContext,
+  input: { commitmentId: string; runId?: string; requestId?: string },
+  responder?: AgentResponder,
+) {
+  const commitment = await ctx.db
+    .select()
+    .from(agentCommitments)
+    .where(eq(agentCommitments.id, input.commitmentId))
+    .get()
+  if (!commitment || commitment.executionSpec?.kind !== 'objective') {
+    return executeCommitmentUnlocked(ctx, input, responder)
+  }
+
+  const thread = await acquireAgentThreadLock(ctx, commitment.threadId)
+  if (!thread) {
+    const retryAt = new Date(Date.now() + 1_000)
+    await ctx.jobs.enqueue('agentCommitment', input, {
+      dedupeKey: `agent-commitment:${input.commitmentId}:thread-busy:${retryAt.getTime()}`,
+      runAt: retryAt,
+    })
+    return { status: 'busy' as const }
+  }
+
+  try {
+    return await executeCommitmentUnlocked(ctx, input, responder)
+  } finally {
+    await releaseAgentThreadLock(ctx, thread, thread.wakeSeq)
   }
 }
