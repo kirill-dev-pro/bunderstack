@@ -3,12 +3,8 @@ import { eq } from 'drizzle-orm'
 
 import { agentInbox } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
+import { acknowledgeInbox, selectInboxContext, sendAgentEvent } from './inbox'
 import { getOrCreateThread } from './runtime'
-import {
-  acknowledgeInbox,
-  selectInboxContext,
-  sendAgentEvent,
-} from './inbox'
 
 describe('agent inbox', () => {
   const apps: TestApp[] = []
@@ -131,12 +127,18 @@ describe('agent inbox', () => {
       now: new Date(),
     })
     expect(selected.items).toHaveLength(3)
-    expect(selected.items.find((item) => item.type === 'subscription.limit_near'))
-      .toMatchObject({ payload: { remaining: 1 }, aggregate: 'latest' })
-    expect(selected.items.find((item) => item.type === 'activity.digest'))
-      .toMatchObject({ payload: [{ title: 'A' }, { title: 'B' }], aggregate: 'collect' })
-    expect(selected.items.find((item) => item.type === 'notification.count'))
-      .toMatchObject({ payload: { count: 4 }, aggregate: 'count' })
+    expect(
+      selected.items.find((item) => item.type === 'subscription.limit_near'),
+    ).toMatchObject({ payload: { remaining: 1 }, aggregate: 'latest' })
+    expect(
+      selected.items.find((item) => item.type === 'activity.digest'),
+    ).toMatchObject({
+      payload: [{ title: 'A' }, { title: 'B' }],
+      aggregate: 'collect',
+    })
+    expect(
+      selected.items.find((item) => item.type === 'notification.count'),
+    ).toMatchObject({ payload: { count: 4 }, aggregate: 'count' })
 
     await acknowledgeInbox(state.ctx, {
       threadId: state.thread.id,

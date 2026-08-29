@@ -15,8 +15,8 @@ separate TypeScript dependency by the optional peer metadata.
 Choose one database adapter and import it from its public subpath. Its dialect
 must match the Drizzle schema, and only its optional peer needs to be installed.
 
-| Import                             | Factory        | Optional peer                 | Compatible schema      |
-| ---------------------------------- | -------------- | ----------------------------- | ---------------------- |
+| Import                    | Factory        | Optional peer                 | Compatible schema      |
+| ------------------------- | -------------- | ----------------------------- | ---------------------- |
 | `bunderstack/libsql`      | `libsql()`     | `@libsql/client`              | SQLite (`sqliteTable`) |
 | `bunderstack/pglite`      | `pglite()`     | `@electric-sql/pglite`        | Postgres (`pgTable`)   |
 | `bunderstack/bun-sql`     | `bunSql()`     | none — Bun provides `Bun.sql` | Postgres (`pgTable`)   |

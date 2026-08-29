@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 
-import { agentMemory } from '../schema'
 import type { AgentRuntimeContext } from './runtime'
+
+import { agentMemory } from '../schema'
 
 export interface MemorySource {
   type: 'user' | 'system' | 'derived'

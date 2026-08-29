@@ -74,10 +74,13 @@ export type App = typeof app
 All capabilities are unified in the single `bunderstack` package. Import client, query, sync, and start tools via subpaths:
 
 ```ts
-import { createClient } from 'bunderstack/client'          // Framework-neutral RPC & LiveView
-import { createClient as createQueryClient, syncRealtime } from 'bunderstack/query' // TanStack Query
-import { createSyncClient } from 'bunderstack/sync'           // TanStack DB collections
-import { bunderstackStart } from 'bunderstack/start'          // TanStack Start full-stack helpers
+import { createClient } from 'bunderstack/client' // Framework-neutral RPC & LiveView
+import {
+  createClient as createQueryClient,
+  syncRealtime,
+} from 'bunderstack/query' // TanStack Query
+import { createSyncClient } from 'bunderstack/sync' // TanStack DB collections
+import { bunderstackStart } from 'bunderstack/start' // TanStack Start full-stack helpers
 ```
 
 ## One API graph
@@ -181,7 +184,7 @@ const realtime = syncRealtime({
   queryClient,
   tables: ['posts', 'comments'],
   notifyScheduler: 'frame', // batches cache flushes via requestAnimationFrame
-  apply: 'patch',           // patches cached list queries in-place
+  apply: 'patch', // patches cached list queries in-place
 })
 
 realtime.close()

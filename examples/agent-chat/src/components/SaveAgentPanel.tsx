@@ -33,7 +33,10 @@ export function SaveAgentPanel({
   }
 
   return (
-    <section className="control-block save-agent" aria-labelledby="save-agent-title">
+    <section
+      className="control-block save-agent"
+      aria-labelledby="save-agent-title"
+    >
       <div className="control-heading">
         <div>
           <span className="control-mark">S</span>
@@ -64,7 +67,10 @@ export function SaveAgentPanel({
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <button disabled={pending || !email.trim() || password.length < 8} type="submit">
+        <button
+          disabled={pending || !email.trim() || password.length < 8}
+          type="submit"
+        >
           {pending ? 'Saving…' : 'Save your agent'}
         </button>
         {error && <p className="form-error">{error}</p>}

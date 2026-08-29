@@ -78,12 +78,8 @@
           "name": "agent_commitments_threadId_agent_threads_id_fk",
           "tableFrom": "agent_commitments",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -91,12 +87,8 @@
           "name": "agent_commitments_userId_user_id_fk",
           "tableFrom": "agent_commitments",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -197,22 +189,12 @@
       "indexes": {
         "agent_inbox_pending": {
           "name": "agent_inbox_pending",
-          "columns": [
-            "userId",
-            "threadId",
-            "status",
-            "created_at"
-          ],
+          "columns": ["userId", "threadId", "status", "created_at"],
           "isUnique": false
         },
         "agent_inbox_pending_dedupe": {
           "name": "agent_inbox_pending_dedupe",
-          "columns": [
-            "userId",
-            "threadId",
-            "dedupe_key",
-            "status"
-          ],
+          "columns": ["userId", "threadId", "dedupe_key", "status"],
           "isUnique": true
         }
       },
@@ -221,12 +203,8 @@
           "name": "agent_inbox_threadId_agent_threads_id_fk",
           "tableFrom": "agent_inbox",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -234,12 +212,8 @@
           "name": "agent_inbox_userId_user_id_fk",
           "tableFrom": "agent_inbox",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -318,10 +292,7 @@
       "indexes": {
         "agent_memory_user_key_unique": {
           "name": "agent_memory_user_key_unique",
-          "columns": [
-            "userId",
-            "key"
-          ],
+          "columns": ["userId", "key"],
           "isUnique": true
         }
       },
@@ -330,12 +301,8 @@
           "name": "agent_memory_userId_user_id_fk",
           "tableFrom": "agent_memory",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -396,12 +363,8 @@
           "name": "agent_messages_threadId_agent_threads_id_fk",
           "tableFrom": "agent_messages",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -409,12 +372,8 @@
           "name": "agent_messages_userId_user_id_fk",
           "tableFrom": "agent_messages",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -529,12 +488,7 @@
       "indexes": {
         "agent_requests_pending": {
           "name": "agent_requests_pending",
-          "columns": [
-            "userId",
-            "threadId",
-            "status",
-            "created_at"
-          ],
+          "columns": ["userId", "threadId", "status", "created_at"],
           "isUnique": false
         }
       },
@@ -543,12 +497,8 @@
           "name": "agent_requests_threadId_agent_threads_id_fk",
           "tableFrom": "agent_requests",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -556,12 +506,8 @@
           "name": "agent_requests_userId_user_id_fk",
           "tableFrom": "agent_requests",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -569,12 +515,8 @@
           "name": "agent_requests_runId_agent_runs_id_fk",
           "tableFrom": "agent_requests",
           "tableTo": "agent_runs",
-          "columnsFrom": [
-            "runId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["runId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -649,12 +591,8 @@
           "name": "agent_runs_threadId_agent_threads_id_fk",
           "tableFrom": "agent_runs",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -662,12 +600,8 @@
           "name": "agent_runs_userId_user_id_fk",
           "tableFrom": "agent_runs",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -727,9 +661,7 @@
       "indexes": {
         "agent_threads_userId_unique": {
           "name": "agent_threads_userId_unique",
-          "columns": [
-            "userId"
-          ],
+          "columns": ["userId"],
           "isUnique": true
         }
       },
@@ -738,12 +670,8 @@
           "name": "agent_threads_userId_user_id_fk",
           "tableFrom": "agent_threads",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -832,12 +760,8 @@
           "name": "agent_tool_calls_runId_agent_runs_id_fk",
           "tableFrom": "agent_tool_calls",
           "tableTo": "agent_runs",
-          "columnsFrom": [
-            "runId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["runId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -845,12 +769,8 @@
           "name": "agent_tool_calls_threadId_agent_threads_id_fk",
           "tableFrom": "agent_tool_calls",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -858,12 +778,8 @@
           "name": "agent_tool_calls_userId_user_id_fk",
           "tableFrom": "agent_tool_calls",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -957,13 +873,7 @@
       "indexes": {
         "agent_tool_grants_active": {
           "name": "agent_tool_grants_active",
-          "columns": [
-            "userId",
-            "threadId",
-            "tool",
-            "tool_version",
-            "status"
-          ],
+          "columns": ["userId", "threadId", "tool", "tool_version", "status"],
           "isUnique": false
         }
       },
@@ -972,12 +882,8 @@
           "name": "agent_tool_grants_threadId_agent_threads_id_fk",
           "tableFrom": "agent_tool_grants",
           "tableTo": "agent_threads",
-          "columnsFrom": [
-            "threadId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["threadId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -985,12 +891,8 @@
           "name": "agent_tool_grants_userId_user_id_fk",
           "tableFrom": "agent_tool_grants",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1062,9 +964,7 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         }
       },
@@ -1073,12 +973,8 @@
           "name": "session_userId_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1140,12 +1036,8 @@
           "name": "tasks_userId_user_id_fk",
           "tableFrom": "tasks",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1218,9 +1110,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -1285,17 +1175,12 @@
       "indexes": {
         "beev_external": {
           "name": "beev_external",
-          "columns": [
-            "external_id"
-          ],
+          "columns": ["external_id"],
           "isUnique": true
         },
         "beev_email_time": {
           "name": "beev_email_time",
-          "columns": [
-            "email_id",
-            "occurred_at"
-          ],
+          "columns": ["email_id", "occurred_at"],
           "isUnique": false
         }
       },
@@ -1304,12 +1189,8 @@
           "name": "_bunderstack_email_events_email_id__bunderstack_emails_id_fk",
           "tableFrom": "_bunderstack_email_events",
           "tableTo": "_bunderstack_emails",
-          "columnsFrom": [
-            "email_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1430,25 +1311,17 @@
       "indexes": {
         "bem_created": {
           "name": "bem_created",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "bem_status": {
           "name": "bem_status",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         },
         "bem_provider_id": {
           "name": "bem_provider_id",
-          "columns": [
-            "provider",
-            "provider_id"
-          ],
+          "columns": ["provider", "provider_id"],
           "isUnique": true
         }
       },
@@ -1534,25 +1407,17 @@
       "indexes": {
         "bfm_owner": {
           "name": "bfm_owner",
-          "columns": [
-            "owner_id"
-          ],
+          "columns": ["owner_id"],
           "isUnique": false
         },
         "bfm_scope": {
           "name": "bfm_scope",
-          "columns": [
-            "bucket",
-            "scope_json"
-          ],
+          "columns": ["bucket", "scope_json"],
           "isUnique": false
         },
         "bfm_sweep": {
           "name": "bfm_sweep",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -1611,10 +1476,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "_bunderstack_idempotency_key_table_name_pk": {
-          "columns": [
-            "key",
-            "table_name"
-          ],
+          "columns": ["key", "table_name"],
           "name": "_bunderstack_idempotency_key_table_name_pk"
         }
       },
@@ -1706,26 +1568,17 @@
       "indexes": {
         "bjq_claim": {
           "name": "bjq_claim",
-          "columns": [
-            "status",
-            "run_at"
-          ],
+          "columns": ["status", "run_at"],
           "isUnique": false
         },
         "bjq_type_status": {
           "name": "bjq_type_status",
-          "columns": [
-            "type",
-            "status"
-          ],
+          "columns": ["type", "status"],
           "isUnique": false
         },
         "bjq_dedupe": {
           "name": "bjq_dedupe",
-          "columns": [
-            "type",
-            "dedupe_key"
-          ],
+          "columns": ["type", "dedupe_key"],
           "isUnique": true
         }
       },

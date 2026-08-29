@@ -258,9 +258,7 @@ describe('durable agent state schema', () => {
     })
     expect(
       await testApp.ctx.db.select().from(agentCommitmentDependencies).all(),
-    ).toEqual([
-      { commitmentId: secondId, dependsOnCommitmentId: firstId },
-    ])
+    ).toEqual([{ commitmentId: secondId, dependsOnCommitmentId: firstId }])
     expect(
       await testApp.ctx.db
         .select()

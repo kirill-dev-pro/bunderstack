@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from 'bun:test'
 
 import { agentInbox, agentMemory, agentMessages, tasks } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
-import { agentDefinition } from './definition'
 import { assembleAgentContext } from './context'
+import { agentDefinition } from './definition'
 import { getOrCreateThread } from './runtime'
 
 describe('turn context assembly', () => {

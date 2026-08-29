@@ -116,11 +116,7 @@ export interface ToolExecutionContext {
   trigger: { type: 'user' | 'system'; trusted: boolean; sourceId?: string }
 }
 
-export function defineTool<
-  const TId extends string,
-  TInput,
-  TOutput,
->(config: {
+export function defineTool<const TId extends string, TInput, TOutput>(config: {
   id: TId
   version: number
   description: string

@@ -27,6 +27,7 @@
 ### Task 1: Split the declaration from runtime materialization
 
 **Files:**
+
 - Create: `packages/bunderstack/src/backend.ts`
 - Create: `packages/bunderstack/src/backend-internals.ts`
 - Create: `packages/bunderstack/src/runtime.ts`
@@ -37,6 +38,7 @@
 - Modify: `packages/bunderstack/src/api/context.ts:1-8`
 
 **Interfaces:**
+
 - Produces: `bunderstack(config): BunderstackBackend<TApp>`.
 - Produces: `BunderstackBackend<TApp> = { readonly manifest; start(options?); test(options?) }`.
 - Produces: `StartOptions = { env?: Record<string, string | undefined> }`.
@@ -132,15 +134,17 @@ export async function materializeRuntime<
   >,
   source: Record<string, string | undefined>,
   overrides: RuntimeOverrides = {},
-): Promise<BunderstackApp<
-  TSchema,
-  TAccess,
-  BucketNamesOf<TStorage>,
-  TEnv,
-  TJobsDefs,
-  TCustomApiRouter,
-  TRealtime
->>
+): Promise<
+  BunderstackApp<
+    TSchema,
+    TAccess,
+    BucketNamesOf<TStorage>,
+    TEnv,
+    TJobsDefs,
+    TCustomApiRouter,
+    TRealtime
+  >
+>
 ```
 
 Use `source` for `validateEnv`, `resolveConfig`, Redis prefix, and every platform override. Remove reads of `options.processEnv` from the materializer. Keep the existing `AggregateError` cleanup path.
@@ -173,15 +177,16 @@ export type StartOptions = {
 export type BunderstackBackend<TApp> = {
   readonly manifest: BunderstackManifest
   start(options?: StartOptions): Promise<TApp>
-  test(options?: import('./testing').TestOptions): Promise<
-    import('./testing').TestFixture<TApp>
-  >
+  test(
+    options?: import('./testing').TestOptions,
+  ): Promise<import('./testing').TestFixture<TApp>>
   readonly [BACKEND_INTERNALS]: BackendInternals<TApp>
 }
 
 export function bunderstack<
   TSchema extends Record<string, unknown>,
-  const TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  const TAccess extends Record<string, TableAccessInput> | undefined =
+    undefined,
   const TStorage extends StorageConfigInput | undefined = undefined,
   const TEnv extends EnvConfigInput | undefined = undefined,
   const TJobsDefs extends JobsDefs | undefined = undefined,
@@ -262,6 +267,7 @@ git commit -m "feat: separate bunderstack declarations from runtimes"
 ### Task 2: Make Blueprint generation consume the pure backend
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/blueprint-generator.ts:109-207`
 - Modify: `packages/bunderstack/src/blueprint-generator.test.ts`
 - Modify: `packages/bunderstack/src/env.ts:150-154`
@@ -270,6 +276,7 @@ git commit -m "feat: separate bunderstack declarations from runtimes"
 - Modify: `packages/bunderstack/src/provision.test.ts:1-45`
 
 **Interfaces:**
+
 - Consumes: branded `BunderstackBackend` and `backend.manifest` from Task 1.
 - Produces: Blueprint entry contract “module must export backend”.
 - Removes: `BUNDERSTACK_INTROSPECT` behavior from generation, env validation, adapters, and provision.
@@ -282,7 +289,8 @@ Add a generator test fixture whose adapter `connect()` throws and whose module e
 export const backend = bunderstack({
   schema,
   database: { adapter: throwingAdapter },
-  jobs: (j) => j.define({ nightly: j.cron({ schedule: '0 3 * * *', handler() {} }) }),
+  jobs: (j) =>
+    j.define({ nightly: j.cron({ schedule: '0 3 * * *', handler() {} }) }),
 })
 ```
 
@@ -333,6 +341,7 @@ git commit -m "feat: generate blueprints from backend declarations"
 ### Task 3: Add isolated database targets and the base fixture lifecycle
 
 **Files:**
+
 - Create: `packages/bunderstack/src/testing/database.ts`
 - Create: `packages/bunderstack/src/testing/fixture.ts`
 - Create: `packages/bunderstack/src/testing/fixture.test.ts`
@@ -346,6 +355,7 @@ git commit -m "feat: generate blueprints from backend declarations"
 - Modify: `packages/bunderstack/src/provision.ts:42-127`
 
 **Interfaces:**
+
 - Produces: `TestDatabaseTarget`, `TestDatabaseStrategy`, and optional `DatabaseAdapter.testing.createTarget()`.
 - Produces: `TestOptions` with only `env` and `database` controls.
 - Produces: `createTestApp(backend, options): Promise<TestFixture<TApp>>`.
@@ -357,18 +367,26 @@ Cover these cases in `testing/fixture.test.ts` using a libSQL backend:
 
 ```ts
 test('fixtures provision independently and dispose lexically', async () => {
-  const backend = bunderstack({ schema: { notes }, database: { adapter: libsql() } })
+  const backend = bunderstack({
+    schema: { notes },
+    database: { adapter: libsql() },
+  })
   await using a = await backend.test()
   await using b = await backend.test()
   await a.app.db.insert(notes).values({ id: 'only-a' })
   expect(await b.app.db.select().from(notes)).toEqual([])
   await a.close()
-  expect((await b.app.db.select().from(notes))).toEqual([])
+  expect(await b.app.db.select().from(notes)).toEqual([])
 })
 
 test('external adapters refuse production URLs without a strategy', async () => {
-  const backend = bunderstack({ schema: pgSchema, database: { adapter: bunSql() } })
-  await expect(backend.test()).rejects.toThrow(/explicit test database strategy/)
+  const backend = bunderstack({
+    schema: pgSchema,
+    database: { adapter: bunSql() },
+  })
+  await expect(backend.test()).rejects.toThrow(
+    /explicit test database strategy/,
+  )
 })
 ```
 
@@ -468,6 +486,7 @@ git commit -m "feat: add isolated bunderstack test fixtures"
 ### Task 4: Substitute and expose email, storage, and realtime test infrastructure
 
 **Files:**
+
 - Create: `packages/bunderstack/src/testing/email.ts`
 - Create: `packages/bunderstack/src/testing/storage.ts`
 - Create: `packages/bunderstack/src/testing/infrastructure.test.ts`
@@ -478,6 +497,7 @@ git commit -m "feat: add isolated bunderstack test fixtures"
 - Modify: `packages/bunderstack/src/storage/registry.ts:12-40`
 
 **Interfaces:**
+
 - Extends `TestFixture` with `email.sent` and `storage.read(key)`.
 - Consumes `RuntimeOverrides.emailAdapter`, `resolvedStorage`, and `forceMemoryRealtime` from Task 1.
 - Preserves production bucket names, visibility, policies, quotas, and transforms.
@@ -538,6 +558,7 @@ git commit -m "feat: isolate test email storage and realtime"
 ### Task 5: Add real auth identities and the typed in-process client
 
 **Files:**
+
 - Create: `packages/bunderstack/src/testing/auth.ts`
 - Create: `packages/bunderstack/src/testing/client.ts`
 - Create: `packages/bunderstack/src/testing/auth-client.test.ts`
@@ -546,6 +567,7 @@ git commit -m "feat: isolate test email storage and realtime"
 - Modify: `packages/bunderstack/src/client/rpc-client.ts:9-135`
 
 **Interfaces:**
+
 - Produces: `TestIdentity = { user; headers }`.
 - Produces: `TestAuth.signUpEmail()` and `TestAuth.mockSession()`.
 - Produces: `TestFixture.client(identity?): BunderstackClient<TApp>`.
@@ -606,6 +628,7 @@ git commit -m "feat: add test auth identities and typed clients"
 ### Task 6: Add deterministic `runNext` and `runUntilIdle`
 
 **Files:**
+
 - Create: `packages/bunderstack/src/testing/jobs.ts`
 - Create: `packages/bunderstack/src/testing/jobs.test.ts`
 - Modify: `packages/bunderstack/src/testing/fixture.ts`
@@ -614,6 +637,7 @@ git commit -m "feat: add test auth identities and typed clients"
 - Modify: `packages/bunderstack/src/jobs/worker.ts:355-368`
 
 **Interfaces:**
+
 - Produces: `JobRunReport = { ticks; claimed; ran; failed; remainingRunnable }`.
 - Produces: `TestJobs.runNext({ now? })` and `runUntilIdle({ now?, maxTicks?, failOnJobError? })`.
 - Produces: `TestJobsError` and `TestJobsConvergenceError`.
@@ -671,6 +695,7 @@ git commit -m "feat: add deterministic test job runners"
 ### Task 7: Publish and prove the testing boundary
 
 **Files:**
+
 - Modify: `packages/bunderstack/package.json:38-155`
 - Modify: `packages/bunderstack/src/testing.ts`
 - Modify: `scripts/bundle-boundaries.test.ts`
@@ -679,6 +704,7 @@ git commit -m "feat: add deterministic test job runners"
 - Test: `scripts/packaging-contract.test.ts`
 
 **Interfaces:**
+
 - Produces public subpath: `bunderstack/testing` -> `dist/testing.js`/`.d.ts`.
 - Exports fixture types/helpers, database strategy types, errors, and `mockAuthSession` only from that subpath.
 - Proves root import does not eagerly load testing implementation or `bun:test`.
@@ -724,6 +750,7 @@ git commit -m "feat: publish bunderstack testing fixtures"
 ### Task 8: Migrate the framework suite and remove `createBunderstack`
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/access.integration.test.ts`
 - Modify: `packages/bunderstack/src/api/error-status.integration.test.ts`
 - Modify: `packages/bunderstack/src/api/global-middleware.test.ts`
@@ -752,6 +779,7 @@ git commit -m "feat: publish bunderstack testing fixtures"
 - Modify: `packages/bunderstack/src/index.ts`
 
 **Interfaces:**
+
 - Consumes the complete backend/fixture surface from Tasks 1-7.
 - Removes the temporary `createBunderstack`/`LegacyBunderstackConfig` shim.
 - Moves manifest assertions from runtime apps to backend declarations.
@@ -829,6 +857,7 @@ git commit -m "refactor: migrate core to bunderstack declarations"
 ### Task 9: Migrate the SaaS template, examples, docs, and generated contracts
 
 **Files:**
+
 - Create: `templates/tanstack-start-saas/src/bunderstack/backend.ts`
 - Modify: `templates/tanstack-start-saas/src/bunderstack/index.ts`
 - Modify: `templates/tanstack-start-saas/src/bunderstack/app.test.ts`
@@ -863,6 +892,7 @@ git commit -m "refactor: migrate core to bunderstack declarations"
 - Modify: `templates/tanstack-start-saas/src/bunderstack/auth.ts`
 
 **Interfaces:**
+
 - Produces the reference declaration at `src/bunderstack/backend.ts` and runtime singleton at `src/bunderstack/index.ts`.
 - Changes template `package.json#bunderstack.entry` to `src/bunderstack/backend.ts`.
 - Demonstrates `await using t = await backend.test()` as the default test pattern.
@@ -931,11 +961,13 @@ git commit -m "docs: migrate consumers to bunderstack declarations"
 ### Task 10: Final release verification and bunderhost handoff
 
 **Files:**
+
 - Modify: `packages/bunderstack/package.json:1-4`
 - Modify: `CHANGELOG.md`
 - Test: all workspace packages and scripts
 
 **Interfaces:**
+
 - Produces a publishable beta package containing the declaration/testing contract.
 - Produces the exact version consumed by the companion bunderhost migration plan.
 

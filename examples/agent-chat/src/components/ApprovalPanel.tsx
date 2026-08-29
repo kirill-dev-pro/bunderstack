@@ -33,7 +33,10 @@ export function ApprovalPanel({
   onRevoke(id: string): void | Promise<void>
 }) {
   return (
-    <section className="control-block control-block--authority" aria-labelledby="approval-title">
+    <section
+      className="control-block control-block--authority"
+      aria-labelledby="approval-title"
+    >
       <div className="control-heading">
         <div>
           <span className="control-mark">A</span>
@@ -50,9 +53,7 @@ export function ApprovalPanel({
             {request.toolVersion ? ` / v${request.toolVersion}` : ''}
           </strong>
           <p>{request.prompt}</p>
-          {request.args && (
-            <pre>{JSON.stringify(request.args, null, 2)}</pre>
-          )}
+          {request.args && <pre>{JSON.stringify(request.args, null, 2)}</pre>}
           <div className="action-row action-row--wrap">
             <button
               disabled={pending}

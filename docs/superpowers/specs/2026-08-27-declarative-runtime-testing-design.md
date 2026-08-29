@@ -166,9 +166,7 @@ Topology branching is not part of the public config contract:
 ```ts
 // Invalid: the Blueprint cannot describe one deterministic database resource.
 database: ({ env }) =>
-  env.USE_POSTGRES
-    ? { adapter: bunSql() }
-    : { adapter: libsql() }
+  env.USE_POSTGRES ? { adapter: bunSql() } : { adapter: libsql() }
 ```
 
 Bunderstack does not introduce a general `env()` reference DSL in this change.
@@ -311,15 +309,15 @@ API, middleware, or jobs would recreate configuration drift.
 
 Default substitutions are:
 
-| Production capability | Test implementation |
-| --- | --- |
-| libSQL | isolated memory database, or a temporary file when requested |
-| PGlite | isolated memory database, or a temporary directory when requested |
-| external PostgreSQL | no implicit target; requires an explicit test strategy |
-| local or S3 storage | isolated temporary/in-memory storage adapter |
-| Resend, SMTP, or console email | capture adapter |
-| Redis realtime | process-local memory transport |
-| background worker | `autoStart: false` |
+| Production capability          | Test implementation                                               |
+| ------------------------------ | ----------------------------------------------------------------- |
+| libSQL                         | isolated memory database, or a temporary file when requested      |
+| PGlite                         | isolated memory database, or a temporary directory when requested |
+| external PostgreSQL            | no implicit target; requires an explicit test strategy            |
+| local or S3 storage            | isolated temporary/in-memory storage adapter                      |
+| Resend, SMTP, or console email | capture adapter                                                   |
+| Redis realtime                 | process-local memory transport                                    |
+| background worker              | `autoStart: false`                                                |
 
 Better Auth, access rules, middleware, hooks, schema, API procedures, job
 handlers, and lifecycle callbacks are the production declarations.

@@ -127,8 +127,8 @@ const total = await api.postCount.call({})
 
 Import exactly one adapter. Its dialect must match your Drizzle tables.
 
-| Database          | Adapter                            | Optional peer          |
-| ----------------- | ---------------------------------- | ---------------------- |
+| Database          | Adapter                   | Optional peer          |
+| ----------------- | ------------------------- | ---------------------- |
 | SQLite / Turso    | `bunderstack/libsql`      | `@libsql/client`       |
 | Embedded Postgres | `bunderstack/pglite`      | `@electric-sql/pglite` |
 | Postgres on Bun   | `bunderstack/bun-sql`     | none                   |

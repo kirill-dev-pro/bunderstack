@@ -22,11 +22,13 @@
 ### Task 1: Configured fixture factory and lifecycle
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/backend.ts`
 - Modify: `packages/bunderstack/src/testing/fixture.ts`
 - Test: `packages/bunderstack/src/testing/fixture.test.ts`
 
 **Interfaces:**
+
 - Produces: `backend.test.configure({ env, database, logs, setup })`
 - Produces: `fixture.defer(cleanup)` and typed `fixture.context`
 
@@ -38,12 +40,14 @@
 ### Task 2: Scoped auth and email flows
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/runtime.ts`
 - Modify: `packages/bunderstack/src/testing/auth.ts`
 - Modify: `packages/bunderstack/src/testing/fixture.ts`
 - Test: `packages/bunderstack/src/testing/auth-client.test.ts`
 
 **Interfaces:**
+
 - Produces: `signInEmail`, `getSession`, `signOut`, `verifyEmail`
 - Produces: header-scoped `mockSession(user, session?)`
 
@@ -55,6 +59,7 @@
 ### Task 3: Captured runtime logs
 
 **Files:**
+
 - Create: `packages/bunderstack/src/logging.ts`
 - Create: `packages/bunderstack/src/testing/logs.ts`
 - Modify: `packages/bunderstack/src/errors.ts`
@@ -65,6 +70,7 @@
 - Test: `packages/bunderstack/src/testing/logs.test.ts`
 
 **Interfaces:**
+
 - Produces: `TestOptions.logs: 'capture' | 'inherit' | 'silent'`
 - Produces: `fixture.logs.entries`, `errors`, `warnings`, and `clear()`
 
@@ -76,12 +82,14 @@
 ### Task 4: Job inspection
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/backend-internals.ts`
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Modify: `packages/bunderstack/src/testing/jobs.ts`
 - Test: `packages/bunderstack/src/testing/jobs.test.ts`
 
 **Interfaces:**
+
 - Produces: `TestJob`, `TestJobFilter`
 - Produces: `jobs.inspect(filter)`, `jobs.pending(filter)`, `jobs.failed(filter)`
 
@@ -93,6 +101,7 @@
 ### Task 5: Documentation, release, and Bunderhost adoption
 
 **Files:**
+
 - Modify: `packages/bunderstack/package.json`
 - Modify: `packages/bunderstack/README.md`
 - Modify: `packages/bunderstack/llms.txt`

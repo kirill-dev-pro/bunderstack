@@ -1,14 +1,4 @@
-import {
-  and,
-  asc,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  lt,
-  ne,
-  or,
-} from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, isNull, lt, ne, or } from 'drizzle-orm'
 
 import { agentInbox } from '../schema'
 import { agentDefinition } from './definition'
@@ -20,7 +10,10 @@ export interface InboxContextItem {
   type: string
   delivery: 'immediate' | 'next_turn'
   aggregate: 'latest' | 'collect' | 'count'
-  payload: Record<string, unknown> | Record<string, unknown>[] | { count: number }
+  payload:
+    | Record<string, unknown>
+    | Record<string, unknown>[]
+    | { count: number }
 }
 
 export async function sendAgentEvent(
@@ -157,9 +150,7 @@ export async function acknowledgeInbox(
     )
     .returning()
   await Promise.all(
-    rows.map((row: unknown) =>
-      ctx.realtime.publish(agentInbox, 'update', row),
-    ),
+    rows.map((row: unknown) => ctx.realtime.publish(agentInbox, 'update', row)),
   )
   return rows.length
 }

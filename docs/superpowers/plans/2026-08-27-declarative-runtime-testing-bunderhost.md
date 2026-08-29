@@ -25,6 +25,7 @@
 ### Task 1: Install the new package and declare the control-plane backend
 
 **Files:**
+
 - Modify: `../bunderhost/package.json:40-48`
 - Modify: `../bunderhost/bun.lock`
 - Modify: `../bunderhost/src/bunderstack/index.ts:1-59`
@@ -35,6 +36,7 @@
 - Modify: `../bunderhost/src/bunderstack/migrations.ts:1-10`
 
 **Interfaces:**
+
 - Produces: `backend = bunderstack({...})` as the only control-plane declaration.
 - Produces: `ControlPlane = Awaited<ReturnType<typeof backend.start>>`.
 - Keeps: `app = await backend.start()` in `bunderstack/app.ts` only.
@@ -100,6 +102,7 @@ git commit -m "refactor: declare the bunderhost backend once"
 ### Task 2: Replace the generic Bunderhost test runtime with framework fixtures
 
 **Files:**
+
 - Delete: `../bunderhost/src/testing/test-app.ts`
 - Delete: `../bunderhost/src/testing/test-resources.ts`
 - Delete: `../bunderhost/src/testing/test-resources.test.ts`
@@ -144,6 +147,7 @@ git commit -m "refactor: declare the bunderhost backend once"
 - Modify: `../bunderhost/src/webhooks.test.ts`
 
 **Interfaces:**
+
 - Consumes: `backend.test({ env, database: { mode: 'temporary', schema: 'migrations' } })`.
 - Produces no Bunderhost generic fixture wrapper.
 
@@ -215,6 +219,7 @@ git commit -m "test: use lexical bunderstack fixtures"
 ### Task 3: Replace auth transport plumbing with framework identity plus a domain helper
 
 **Files:**
+
 - Modify: `../bunderhost/src/testing/auth.ts:1-39`
 - Modify: `../bunderhost/src/bunderstack/access.test.ts`
 - Modify: `../bunderhost/src/bunderstack/api/app-api.test.ts`
@@ -229,6 +234,7 @@ git commit -m "test: use lexical bunderstack fixtures"
 - Modify: `../bunderhost/src/verification-gate.test.ts`
 
 **Interfaces:**
+
 - Consumes: `fixture.auth.signUpEmail()` and `fixture.client(identity)`.
 - Produces: Bunderhost-only `signUpAccount(fixture, email, options)` returning `{ identity, organizationId }`.
 - Removes: Better Auth plugin calls through `any` from the generic sign-up path.
@@ -256,7 +262,8 @@ export async function signUpAccount(
     .from(schema.member)
     .where(eq(schema.member.userId, identity.user.id))
     .limit(1)
-  if (!membership) throw new Error('session hook did not create an organization')
+  if (!membership)
+    throw new Error('session hook did not create an organization')
   return { identity, organizationId: membership.organizationId }
 }
 ```
@@ -291,12 +298,14 @@ git commit -m "test: layer account helpers over bunderstack auth"
 ### Task 4: Adopt deterministic jobs and complete consumer verification
 
 **Files:**
+
 - Modify: `../bunderhost/src/bunderstack/jobs.test.ts`
 - Modify: any Bunderhost test containing manual `app.jobs.tick()` loops or polling for job completion
 - Modify: `../bunderhost/src/components/landing/HeroTabs.tsx:95-110`
 - Modify: Bunderhost docs/snippets that mention `createBunderstack` or `makeApp`
 
 **Interfaces:**
+
 - Consumes: `fixture.jobs.runNext()` and `runUntilIdle()`.
 - Completes acceptance: no project-level Bunderstack harness remains.
 

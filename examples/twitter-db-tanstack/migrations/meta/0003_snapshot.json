@@ -113,12 +113,8 @@
           "name": "account_userId_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -165,12 +161,8 @@
           "name": "follows_followerId_user_id_fk",
           "tableFrom": "follows",
           "tableTo": "user",
-          "columnsFrom": [
-            "followerId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["followerId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -178,12 +170,8 @@
           "name": "follows_followingId_user_id_fk",
           "tableFrom": "follows",
           "tableTo": "user",
-          "columnsFrom": [
-            "followingId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["followingId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -230,12 +218,8 @@
           "name": "likes_userId_user_id_fk",
           "tableFrom": "likes",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -243,12 +227,8 @@
           "name": "likes_postId_posts_id_fk",
           "tableFrom": "likes",
           "tableTo": "posts",
-          "columnsFrom": [
-            "postId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["postId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -317,12 +297,8 @@
           "name": "posts_userId_user_id_fk",
           "tableFrom": "posts",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -330,12 +306,8 @@
           "name": "posts_replyToId_posts_id_fk",
           "tableFrom": "posts",
           "tableTo": "posts",
-          "columnsFrom": [
-            "replyToId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["replyToId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -382,12 +354,8 @@
           "name": "retweets_userId_user_id_fk",
           "tableFrom": "retweets",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -395,12 +363,8 @@
           "name": "retweets_postId_posts_id_fk",
           "tableFrom": "retweets",
           "tableTo": "posts",
-          "columnsFrom": [
-            "postId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["postId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -472,9 +436,7 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         }
       },
@@ -483,12 +445,8 @@
           "name": "session_userId_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["userId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -562,9 +520,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -681,17 +637,12 @@
       "indexes": {
         "beev_external": {
           "name": "beev_external",
-          "columns": [
-            "external_id"
-          ],
+          "columns": ["external_id"],
           "isUnique": true
         },
         "beev_email_time": {
           "name": "beev_email_time",
-          "columns": [
-            "email_id",
-            "occurred_at"
-          ],
+          "columns": ["email_id", "occurred_at"],
           "isUnique": false
         }
       },
@@ -700,12 +651,8 @@
           "name": "_bunderstack_email_events_email_id__bunderstack_emails_id_fk",
           "tableFrom": "_bunderstack_email_events",
           "tableTo": "_bunderstack_emails",
-          "columnsFrom": [
-            "email_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["email_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -826,25 +773,17 @@
       "indexes": {
         "bem_created": {
           "name": "bem_created",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         },
         "bem_status": {
           "name": "bem_status",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         },
         "bem_provider_id": {
           "name": "bem_provider_id",
-          "columns": [
-            "provider",
-            "provider_id"
-          ],
+          "columns": ["provider", "provider_id"],
           "isUnique": true
         }
       },
@@ -930,25 +869,17 @@
       "indexes": {
         "bfm_owner": {
           "name": "bfm_owner",
-          "columns": [
-            "owner_id"
-          ],
+          "columns": ["owner_id"],
           "isUnique": false
         },
         "bfm_scope": {
           "name": "bfm_scope",
-          "columns": [
-            "bucket",
-            "scope_json"
-          ],
+          "columns": ["bucket", "scope_json"],
           "isUnique": false
         },
         "bfm_sweep": {
           "name": "bfm_sweep",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -1007,10 +938,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "_bunderstack_idempotency_key_table_name_pk": {
-          "columns": [
-            "key",
-            "table_name"
-          ],
+          "columns": ["key", "table_name"],
           "name": "_bunderstack_idempotency_key_table_name_pk"
         }
       },
@@ -1102,26 +1030,17 @@
       "indexes": {
         "bjq_claim": {
           "name": "bjq_claim",
-          "columns": [
-            "status",
-            "run_at"
-          ],
+          "columns": ["status", "run_at"],
           "isUnique": false
         },
         "bjq_type_status": {
           "name": "bjq_type_status",
-          "columns": [
-            "type",
-            "status"
-          ],
+          "columns": ["type", "status"],
           "isUnique": false
         },
         "bjq_dedupe": {
           "name": "bjq_dedupe",
-          "columns": [
-            "type",
-            "dedupe_key"
-          ],
+          "columns": ["type", "dedupe_key"],
           "isUnique": true
         }
       },
