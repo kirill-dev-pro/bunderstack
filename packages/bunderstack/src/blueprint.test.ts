@@ -4,6 +4,7 @@ import type { BunderstackManifest } from './manifest'
 
 import {
   blueprintFromManifest,
+  isSensitiveEnvVar,
   parseBlueprint,
   parseBlueprintYaml,
   serializeBlueprint,
@@ -29,8 +30,18 @@ const manifest: BunderstackManifest = {
   },
   realtime: { required: true },
   environment: [
-    { key: 'PUBLIC_APP_NAME', required: false, scope: 'client' },
-    { key: 'NOTIFY_COMPLETED', required: true, scope: 'server' },
+    {
+      key: 'PUBLIC_APP_NAME',
+      required: false,
+      scope: 'client',
+      sensitive: false,
+    },
+    {
+      key: 'NOTIFY_COMPLETED',
+      required: true,
+      scope: 'server',
+      sensitive: true,
+    },
   ],
   background: {
     jobs: [{ name: 'celebrateBoardComplete' }],
@@ -168,4 +179,54 @@ test('open objects still require declared keys', () => {
   }
 
   expect(() => parseBlueprint(broken)).toThrow(/storage/)
+})
+
+test('blueprint environment entries expose secrecy with a scope default', () => {
+  const legacy = parseBlueprint(
+    blueprintFromManifest({
+      manifest: {
+        ...manifest,
+        environment: [
+          {
+            key: 'PUBLIC_APP_NAME',
+            required: false,
+            scope: 'client',
+            sensitive: false,
+          },
+          {
+            key: 'NOTIFY_COMPLETED',
+            required: true,
+            scope: 'server',
+            sensitive: true,
+            description: 'Webhook token used to announce completed todos',
+          },
+        ],
+      },
+      generatorVersion: '0.23.0',
+      entry: 'src/bunderstack.ts',
+      migrationMode: 'migrations',
+    }),
+  )
+
+  expect(legacy.environment[0]).toEqual({
+    key: 'NOTIFY_COMPLETED',
+    required: true,
+    scope: 'server',
+    sensitive: true,
+    description: 'Webhook token used to announce completed todos',
+  })
+  expect(isSensitiveEnvVar(legacy.environment[0]!)).toBe(true)
+})
+
+test('a blueprint written before the flag falls back to scope', () => {
+  expect(
+    isSensitiveEnvVar({ key: 'STRIPE_KEY', required: true, scope: 'server' }),
+  ).toBe(true)
+  expect(
+    isSensitiveEnvVar({
+      key: 'PUBLIC_APP_NAME',
+      required: true,
+      scope: 'client',
+    }),
+  ).toBe(false)
 })

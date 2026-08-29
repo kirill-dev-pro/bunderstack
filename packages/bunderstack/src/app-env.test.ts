@@ -158,7 +158,12 @@ test('backend.manifest describes the declaration', () => {
   ])
   expect(backend.manifest.realtime).toEqual({ required: false })
   expect(backend.manifest.environment).toEqual([
-    { key: 'WEBHOOK_SECRET', required: false, scope: 'server' },
+    {
+      key: 'WEBHOOK_SECRET',
+      required: false,
+      scope: 'server',
+      sensitive: true,
+    },
   ])
 })
 

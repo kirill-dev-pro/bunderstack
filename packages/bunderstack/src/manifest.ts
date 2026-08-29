@@ -4,7 +4,7 @@ import { getTableName, isTable } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import type { Dialect } from './dialect'
-import type { EnvConfigInput } from './env'
+import type { EnvConfigInput, EnvVarMeta } from './env'
 import type { JobsDefs } from './jobs/define'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
@@ -25,6 +25,8 @@ export type ManifestEnvVar = {
   key: string
   required: boolean
   scope: 'server' | 'client'
+  sensitive: boolean
+  description?: string
 }
 
 export type BunderstackManifest = {
@@ -50,6 +52,8 @@ export type BunderstackManifest = {
     }[]
   }
 }
+
+const MAX_ENV_DESCRIPTION = 200
 
 const nonEmpty = v.pipe(v.string(), v.minLength(1))
 const migrationDirectory = v.pipe(
@@ -102,6 +106,10 @@ const manifestSchema = v.strictObject({
       key: nonEmpty,
       required: v.boolean(),
       scope: v.picklist(['server', 'client']),
+      sensitive: v.boolean(),
+      description: v.optional(
+        v.pipe(nonEmpty, v.maxLength(MAX_ENV_DESCRIPTION)),
+      ),
     }),
   ),
   background: v.strictObject({
@@ -150,9 +158,23 @@ function describeTables(schema: Record<string, unknown>) {
   )
 }
 
+function envDescription(key: string, value: string): string {
+  const description = value.trim().replace(/\s+/g, ' ')
+  if (!description)
+    throw new Error(
+      `[bunderstack] env.meta.${key}.description must not be empty`,
+    )
+  if (description.length > MAX_ENV_DESCRIPTION)
+    throw new Error(
+      `[bunderstack] env.meta.${key}.description must be at most ${MAX_ENV_DESCRIPTION} characters`,
+    )
+  return description
+}
+
 function describeSection(
   section: Record<string, StandardSchemaV1> | undefined,
   scope: ManifestEnvVar['scope'],
+  meta: Record<string, EnvVarMeta> | undefined,
 ): ManifestEnvVar[] {
   return Object.entries(section ?? {}).map(([key, schema]) => {
     let required = false
@@ -162,7 +184,22 @@ function describeSection(
       if (!(error instanceof StandardSchemaValidationError)) throw error
       required = true
     }
-    return { key, required, scope }
+    const entry = meta?.[key]
+    const sensitive = entry?.sensitive ?? scope === 'server'
+    if (scope === 'client' && sensitive) {
+      throw new Error(
+        `[bunderstack] env.meta.${key}.sensitive must be false: client values ship to the browser`,
+      )
+    }
+    return {
+      key,
+      required,
+      scope,
+      sensitive,
+      ...(entry?.description === undefined
+        ? {}
+        : { description: envDescription(key, entry.description) }),
+    }
   })
 }
 
@@ -243,14 +280,40 @@ export function buildManifest(args: {
   realtime: boolean
   jobs: JobsDefs | undefined
 }): BunderstackManifest {
+  const declaredKeys = new Set([
+    ...Object.keys(args.envConfig?.server ?? {}),
+    ...Object.keys(args.envConfig?.client ?? {}),
+  ])
+  for (const key of Object.keys(args.envConfig?.meta ?? {})) {
+    if (!declaredKeys.has(key))
+      throw new Error(
+        `[bunderstack] env.meta references undeclared key "${key}"`,
+      )
+  }
   const environment = [
-    ...describeSection(args.envConfig?.server, 'server'),
-    ...describeSection(args.envConfig?.client, 'client'),
+    ...describeSection(args.envConfig?.server, 'server', args.envConfig?.meta),
+    ...describeSection(args.envConfig?.client, 'client', args.envConfig?.meta),
     ...(args.emailProvider === 'resend'
-      ? [{ key: 'RESEND_API_KEY', required: true, scope: 'server' as const }]
+      ? [
+          {
+            key: 'RESEND_API_KEY',
+            required: true,
+            scope: 'server' as const,
+            sensitive: true,
+            description: 'Resend API key used to send transactional email',
+          },
+        ]
       : []),
     ...(args.emailProvider === 'smtp'
-      ? [{ key: 'SMTP_URL', required: true, scope: 'server' as const }]
+      ? [
+          {
+            key: 'SMTP_URL',
+            required: true,
+            scope: 'server' as const,
+            sensitive: true,
+            description: 'SMTP connection URL used to send transactional email',
+          },
+        ]
       : []),
   ]
   rejectDuplicates(

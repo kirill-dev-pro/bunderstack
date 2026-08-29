@@ -1,7 +1,7 @@
 version: 1
 generator:
   name: bunderstack
-  version: 0.21.0
+  version: 0.22.1
 application:
   framework: tanstack-start
   scripts:
@@ -29,11 +29,23 @@ resources:
       - exportName: _system.jobs
         physicalName: _bunderstack_jobs
         system: true
+      - exportName: agentCommitmentDependencies
+        physicalName: agent_commitment_dependencies
+        system: false
       - exportName: agentCommitments
         physicalName: agent_commitments
         system: false
+      - exportName: agentInbox
+        physicalName: agent_inbox
+        system: false
+      - exportName: agentMemory
+        physicalName: agent_memory
+        system: false
       - exportName: agentMessages
         physicalName: agent_messages
+        system: false
+      - exportName: agentRequests
+        physicalName: agent_requests
         system: false
       - exportName: agentRuns
         physicalName: agent_runs
@@ -43,6 +55,9 @@ resources:
         system: false
       - exportName: agentToolCalls
         physicalName: agent_tool_calls
+        system: false
+      - exportName: agentToolGrants
+        physicalName: agent_tool_grants
         system: false
       - exportName: _system.files
         physicalName: bunderstack_file_meta
@@ -67,29 +82,36 @@ environment:
   - key: AI_API_KEY
     required: true
     scope: server
+    sensitive: true
   - key: AI_BASE_URL
     required: false
     scope: server
+    sensitive: true
   - key: AI_MODEL
     required: false
     scope: server
+    sensitive: true
   - key: OPENAI_API_KEY
     required: false
     scope: server
+    sensitive: true
   - key: OPENAI_MODEL
     required: false
     scope: server
+    sensitive: true
   - key: PUBLIC_APP_NAME
     required: false
     scope: client
+    sensitive: false
 background:
   worker:
     required: true
   jobs:
+    - name: agentCommitment
     - name: agentReminder
     - name: agentTurn
   cron: []
   maintenance:
     - name: storage-sweep
-      schedule: '0 4 * * *'
+      schedule: "0 4 * * *"
       timezone: UTC

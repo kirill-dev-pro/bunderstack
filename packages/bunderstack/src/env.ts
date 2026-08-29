@@ -8,11 +8,28 @@ import {
 
 export const CLIENT_PREFIX = 'PUBLIC_' as const
 
+/**
+ * Static, value-free metadata about an environment key. It reaches the manifest
+ * and the committed blueprint, so it must never contain a value or a secret.
+ */
+export type EnvVarMeta = {
+  /**
+   * Whether the value is a secret. Defaults to `true` for server keys and
+   * `false` for client keys. A client key can never be sensitive: `PUBLIC_*`
+   * values are compiled into the browser bundle.
+   */
+  sensitive?: boolean
+  /** Prose shown to whoever fills this key in. Max 200 characters. */
+  description?: string
+}
+
 export type EnvConfigInput = {
   server?: Record<string, StandardSchemaV1>
   client?: Record<string, StandardSchemaV1>
   /** Explicit value source for client vars (e.g. Vite's import.meta.env). */
   runtimeEnv?: Record<string, unknown>
+  /** Value-free metadata per key, keyed by the key's own name. */
+  meta?: Record<string, EnvVarMeta>
 }
 
 export type BunderstackRole = 'all' | 'web' | 'worker'

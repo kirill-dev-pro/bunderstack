@@ -13,6 +13,18 @@ export type ApplicationFramework =
   | 'bun-ssr'
   | 'custom'
 
+/**
+ * Blueprint form of an environment key. `sensitive` and `description` are
+ * optional because blueprints committed before 0.23.0 do not carry them.
+ */
+export type BlueprintEnvVar = {
+  key: string
+  required: boolean
+  scope: 'server' | 'client'
+  sensitive?: boolean
+  description?: string
+}
+
 export type BunderstackBlueprint = {
   version: 1
   generator: { name: 'bunderstack'; version: string }
@@ -26,7 +38,7 @@ export type BunderstackBlueprint = {
     storage: BunderstackManifest['storage']
     realtime?: { required: true }
   }
-  environment: BunderstackManifest['environment']
+  environment: BlueprintEnvVar[]
   background: BunderstackManifest['background'] & {
     worker: { required: boolean }
   }
@@ -109,6 +121,8 @@ const blueprintSchema = open({
       key: nonEmpty,
       required: v.boolean(),
       scope: v.picklist(['server', 'client']),
+      sensitive: v.optional(v.boolean()),
+      description: v.optional(v.pipe(nonEmpty, v.maxLength(200))),
     }),
   ),
   background: open({
@@ -199,6 +213,14 @@ export function parseBlueprint(value: unknown): BunderstackBlueprint {
     )
   }
   return blueprint
+}
+
+/**
+ * Whether a host must treat this key as a secret. A blueprint generated before
+ * 0.23.0 has no flag, and server keys are secret by default.
+ */
+export function isSensitiveEnvVar(entry: BlueprintEnvVar): boolean {
+  return entry.sensitive ?? entry.scope === 'server'
 }
 
 export function blueprintFromManifest(args: {

@@ -1,7 +1,7 @@
 version: 1
 generator:
   name: bunderstack
-  version: 0.22.0-beta.0
+  version: 0.22.1
 application:
   framework: tanstack-start
   scripts:
@@ -61,15 +61,19 @@ environment:
   - key: EMAIL_FROM
     required: false
     scope: server
+    sensitive: true
   - key: PUBLIC_APP_NAME
     required: false
     scope: client
+    sensitive: false
   - key: REDIS_URL
     required: false
     scope: server
+    sensitive: true
   - key: RESEND_API_KEY
     required: false
     scope: server
+    sensitive: true
 background:
   worker:
     required: true

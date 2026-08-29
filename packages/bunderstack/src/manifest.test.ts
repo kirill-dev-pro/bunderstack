@@ -32,6 +32,10 @@ function makeManifest() {
         LOG_LEVEL: v.optional(v.string()),
       },
       client: { PUBLIC_APP_NAME: v.string() },
+      meta: {
+        STRIPE_KEY: { description: 'Secret key from the Stripe dashboard' },
+        LOG_LEVEL: { sensitive: false, description: '  debug | info  ' },
+      },
     },
     emailProvider: 'resend',
     realtime: true,
@@ -91,10 +95,33 @@ test('buildManifest describes deployment requirements deterministically', () => 
     },
     realtime: { required: true },
     environment: [
-      { key: 'LOG_LEVEL', required: false, scope: 'server' },
-      { key: 'PUBLIC_APP_NAME', required: true, scope: 'client' },
-      { key: 'RESEND_API_KEY', required: true, scope: 'server' },
-      { key: 'STRIPE_KEY', required: true, scope: 'server' },
+      {
+        key: 'LOG_LEVEL',
+        required: false,
+        scope: 'server',
+        sensitive: false,
+        description: 'debug | info',
+      },
+      {
+        key: 'PUBLIC_APP_NAME',
+        required: true,
+        scope: 'client',
+        sensitive: false,
+      },
+      {
+        key: 'RESEND_API_KEY',
+        required: true,
+        scope: 'server',
+        sensitive: true,
+        description: 'Resend API key used to send transactional email',
+      },
+      {
+        key: 'STRIPE_KEY',
+        required: true,
+        scope: 'server',
+        sensitive: true,
+        description: 'Secret key from the Stripe dashboard',
+      },
     ],
     background: {
       jobs: [{ name: 'generateLook' }],
@@ -165,4 +192,96 @@ test('buildManifest does not duplicate system tables re-exported by an app schem
       (table) => table.physicalName === '_bunderstack_jobs',
     ),
   ).toHaveLength(1)
+})
+
+test('environment entries carry secrecy and description', () => {
+  const environment = makeManifest().environment
+  const byKey = Object.fromEntries(
+    environment.map((entry) => [entry.key, entry]),
+  )
+
+  expect(byKey.STRIPE_KEY).toEqual({
+    key: 'STRIPE_KEY',
+    required: true,
+    scope: 'server',
+    sensitive: true,
+    description: 'Secret key from the Stripe dashboard',
+  })
+  expect(byKey.LOG_LEVEL).toEqual({
+    key: 'LOG_LEVEL',
+    required: false,
+    scope: 'server',
+    sensitive: false,
+    description: 'debug | info',
+  })
+  expect(byKey.PUBLIC_APP_NAME).toEqual({
+    key: 'PUBLIC_APP_NAME',
+    required: true,
+    scope: 'client',
+    sensitive: false,
+  })
+  expect(byKey.RESEND_API_KEY!.sensitive).toBe(true)
+})
+
+test('a client var cannot be declared sensitive', () => {
+  expect(() =>
+    buildManifest({
+      schema,
+      dialect: 'sqlite',
+      migrationsDirectory: './migrations',
+      storage: resolveBuckets(
+        { defaultBucket: 'files', buckets: { files: {} } },
+        {},
+      ),
+      envConfig: {
+        client: { PUBLIC_APP_NAME: v.string() },
+        meta: { PUBLIC_APP_NAME: { sensitive: true } },
+      },
+      emailProvider: undefined,
+      realtime: false,
+      jobs: undefined,
+    }),
+  ).toThrow(/PUBLIC_APP_NAME/)
+})
+
+test('env.meta cannot describe an undeclared key', () => {
+  expect(() =>
+    buildManifest({
+      schema,
+      dialect: 'sqlite',
+      migrationsDirectory: './migrations',
+      storage: resolveBuckets(
+        { defaultBucket: 'files', buckets: { files: {} } },
+        {},
+      ),
+      envConfig: {
+        server: { STRIPE_KEY: v.string() },
+        meta: { STRIPE_KEYY: { description: 'typo' } },
+      },
+      emailProvider: undefined,
+      realtime: false,
+      jobs: undefined,
+    }),
+  ).toThrow(/STRIPE_KEYY/)
+})
+
+test('a description longer than 200 characters is rejected', () => {
+  expect(() =>
+    buildManifest({
+      schema,
+      dialect: 'sqlite',
+      migrationsDirectory: './migrations',
+      storage: resolveBuckets(
+        { defaultBucket: 'files', buckets: { files: {} } },
+        {},
+      ),
+      envConfig: {
+        server: { STRIPE_KEY: v.string() },
+        meta: { STRIPE_KEY: { description: 'x'.repeat(201) } },
+      },
+      emailProvider: undefined,
+      realtime: false,
+      jobs: undefined,
+    }),
+  ).toThrow(/at most 200/)
 })
