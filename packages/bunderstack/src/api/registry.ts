@@ -2,6 +2,7 @@ import { getOpenAPIMeta } from '@orpc/openapi'
 
 const RESERVED_EXACT = new Set([
   '/api/health',
+  '/api/readiness',
   '/api/openapi.json',
   '/api/realtime',
   '/api/rpc',

@@ -74,6 +74,8 @@ import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
 } from './provision-internals'
+import { buildReadinessReport } from './readiness'
+import { createReadinessProbes } from './readiness-probes'
 import {
   createRealtimeFacade,
   type RealtimeFacade,
@@ -655,12 +657,26 @@ export async function materializeBunderstack<
           )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
         : options.api
 
+    const readinessProbes = createReadinessProbes(userDb)
+    const queueJobsDeclared = Object.values(options.jobs ?? {}).some(
+      (def) => def.kind === 'job',
+    )
+    const readiness = () =>
+      buildReadinessReport({
+        ...readinessProbes,
+        queueJobsDeclared,
+        ...(env.BUNDERSTACK_REVISION === undefined
+          ? {}
+          : { revision: env.BUNDERSTACK_REVISION }),
+      })
+
     const nativeRouter = buildApiRouter({
       crud: crudApiRouter as Record<string, unknown>,
       storage: storageApiRouter as Record<string, unknown>,
       realtime: realtimeApiRouter as Record<string, unknown> | undefined,
       custom: customApiRouter as Record<string, unknown> | undefined,
       middleware: options.middleware,
+      readiness,
     }) as any
 
     const authOpenAPISpecRaw =
@@ -683,6 +699,7 @@ export async function materializeBunderstack<
       foreignSpecs: authOpenAPISpec ? [authOpenAPISpec] : [],
       reservedCoreHandles: new Set([
         'health',
+        'readiness',
         ...(publisher ? ['realtime.changes'] : []),
         ...[...registry.keys()].flatMap((name) =>
           [

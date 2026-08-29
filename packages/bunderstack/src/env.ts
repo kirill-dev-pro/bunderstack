@@ -48,6 +48,8 @@ export type BaseEnv = {
   BUNDERSTACK_EMAIL_PROVIDER?: string
   BUNDERSTACK_EMAIL_FROM?: string
   BUNDERHOST_ENVIRONMENT_ID?: string
+  /** Deployed commit SHA, injected by the platform. Reported by readiness. */
+  BUNDERSTACK_REVISION?: string
   BUNDERSTACK_ROLE: BunderstackRole
 }
 
@@ -140,6 +142,7 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     BUNDERSTACK_EMAIL_PROVIDER: source.BUNDERSTACK_EMAIL_PROVIDER,
     BUNDERSTACK_EMAIL_FROM: source.BUNDERSTACK_EMAIL_FROM,
     BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
+    BUNDERSTACK_REVISION: source.BUNDERSTACK_REVISION,
     BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
   }
   if (isProduction && !source.AUTH_SECRET) {

@@ -25,7 +25,20 @@ export type {
 export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
 export { buildManifest, parseManifest } from './manifest'
-export type { BunderstackManifest, ManifestEnvVar } from './manifest'
+export type {
+  ApiOperation,
+  ApiOperationEffect,
+  BunderstackManifest,
+  ManifestEnvVar,
+} from './manifest'
+export { buildReadinessReport, readinessReportSchema } from './readiness'
+export type {
+  ReadinessCheck,
+  ReadinessCheckName,
+  ReadinessCode,
+  ReadinessReport,
+  ReadinessStatus,
+} from './readiness'
 export { createEmail } from './email'
 export type {
   EmailMessage,
