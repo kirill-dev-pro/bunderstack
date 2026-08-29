@@ -1,11 +1,18 @@
+import { type } from 'arktype'
 import { bunderstack, generateTypeId } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 
 import type { AgentRuntimeContext, EnqueuedJob } from './agent/runtime'
 
+import { access } from './access'
+import { api } from './api'
 import * as schema from './schema'
 
 export interface TestApp {
+  app: {
+    auth: unknown
+    handler(request: Request): Promise<Response>
+  }
   ctx: AgentRuntimeContext
   enqueued: EnqueuedJob[]
   seedUser(name: string): Promise<string>
@@ -15,6 +22,7 @@ export interface TestApp {
 export async function createTestApp(): Promise<TestApp> {
   const backend = bunderstack({
     schema,
+    access,
     database: { adapter: libsql() },
     auth: {
       baseURL: 'http://localhost:3007',
@@ -22,8 +30,35 @@ export async function createTestApp(): Promise<TestApp> {
       advanced: { database: { generateId: () => false } },
     },
     realtime: true,
+    jobs: (j) =>
+      j.define({
+        agentTurn: j.job({
+          input: type({
+            threadId: 'string',
+            reason: 'string',
+            'runId?': 'string',
+            'requestId?': 'string',
+          }),
+          handler: async () => {},
+        }),
+        agentReminder: j.job({
+          input: type({ commitmentId: 'string' }),
+          handler: async () => {},
+        }),
+        agentCommitment: j.job({
+          input: type({
+            commitmentId: 'string',
+            'runId?': 'string',
+            'requestId?': 'string',
+          }),
+          handler: async () => {},
+        }),
+      }),
+    api,
   })
-  const fixture = await backend.test({ database: { schema: 'push' } })
+  const fixture = await backend.test({
+    database: { mode: 'temporary', schema: 'push' },
+  })
   const { app } = fixture
 
   const enqueued: EnqueuedJob[] = []
@@ -38,6 +73,7 @@ export async function createTestApp(): Promise<TestApp> {
   }
 
   return {
+    app,
     ctx,
     enqueued,
     async seedUser(name) {

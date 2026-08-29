@@ -1,14 +1,10 @@
 # Agent Chat
 
-A deliberately small, app-local experiment in building a durable agent on
-Bunderstack. The user talks to one long-lived agent that can manage their task
-list and schedule a reminder that wakes the agent later.
+A deliberately small, app-local experiment in building a durable, declarative personal agent on Bunderstack. The user talks to one long-lived agent that manages their task list, remembers facts and preferences, executes durable scheduled commitments (notifications, exact tool calls, and autonomous objectives), and requests explicit user approval for destructive actions.
 
-The example is an incubation space, not a proposed public Bunderstack API. Its
-purpose is to make the recurring primitives visible before deciding which of
-them deserve to become a library.
+The example is an incubation space, not a proposed public Bunderstack API. Its purpose is to explore and validate recurring agent primitives before deciding which abstractions deserve to become framework features.
 
-## Run it
+## Quick Start
 
 From the repository root:
 
@@ -23,113 +19,118 @@ Run the example:
 bun run dev:agent-chat
 ```
 
-The development server embeds a queue worker so job publications and SSE use
-the same in-memory realtime transport. Open <http://localhost:3007>. The default
-responder is deterministic and needs
-no API key. It understands:
+The development server embeds a queue worker so job publications and SSE use the same in-memory realtime transport. Open <http://localhost:3007>.
+
+### Anonymous-first Entry and Account Upgrade
+
+1. **One-Click Anonymous Entry**: Click **Continue anonymously** to start immediately. A friendly name (such as `Gentle Otter`) is assigned automatically via Better Auth.
+2. **Save Your Agent**: At any point, an anonymous user can enter an email and password in the **Save your agent** panel. This links the account and transactionally transfers all threads, messages, runs, tool calls, tasks, commitments, memory, inbox items, requests, and tool grants to the permanent account without loss of history.
+
+### Model Responders
+
+The default responder is deterministic and needs no API key. It understands:
 
 - `Add book flights`
 - `List tasks`
 - `Complete book flights`
+- `Delete book flights` _(triggers approval workflow)_
+- `Remember that I prefer morning flights`
 - `Remind me in 5 minutes to stretch`
 
-Set `AI_API_KEY` (and optionally `AI_BASE_URL` and `AI_MODEL`) to use an AI provider.
-By default it is preconfigured for Hetzner Experiments AI (`Qwen3.8-27B` at `https://inference.hetzner.com/api/v1`).
-You can also point `AI_BASE_URL` to DeepSeek (`https://api.deepseek.com`, model `deepseek-chat`) or set `OPENAI_API_KEY` for standard OpenAI.
-The runtime itself does not import or depend on a provider.
+To use an AI provider, set `AI_API_KEY` (and optionally `AI_BASE_URL` and `AI_MODEL`) in `.env`:
 
-## What the example is testing
+- Preconfigured for Hetzner Experiments AI (`Qwen3.8-27B` at `https://inference.hetzner.com/api/v1`).
+- Point `AI_BASE_URL` to DeepSeek (`https://api.deepseek.com`, model `deepseek-chat`) or set `OPENAI_API_KEY` for standard OpenAI.
 
-The implementation separates five concerns that are easy to accidentally mix
-together in a first agent:
+The runtime itself does not import or depend on a specific provider; it compiles AI SDK tool schemas dynamically from the local agent declaration.
 
-1. **Inbox** — user and system messages are durable rows.
-2. **Wake** — every reason to run increments `wakeSeq` and enqueues one deduped
-   `agentTurn` job.
-3. **Turn** — a per-thread lock prevents concurrent turns and re-enqueues when a
-   wake arrives while the agent is running.
-4. **Tools** — every tool checks `userId` itself, performs one domain action,
-   and writes an auditable journal entry.
-5. **Commitments** — a reminder is durable application state plus a scheduled
-   job, not an in-memory timer owned by the model call.
+## Architecture and Primitives
 
-The browser can read only rows scoped to its authenticated user. It cannot call
-generated CRUD mutations for tasks, messages, runs, tool calls, or commitments;
-the protected `sendMessage` procedure and server-side tools are the write paths.
+The implementation separates core concerns into explicit, app-local boundaries:
 
-```text
-browser message
-      │
-      ▼
-agent_messages ──► wakeSeq + agentTurn job
-                         │
-                         ▼
-                load context + call tools
-                         │
-             ┌───────────┴───────────┐
-             ▼                       ▼
-      task/domain write       agent_tool_calls
-             │
-             ▼
-      assistant message
-```
+### 1. App-Local Declarations (`src/agent/declaration.ts`, `src/agent/definition.ts`)
 
-The runtime rail in the UI intentionally exposes runs, tool calls, commitments,
-and wake state. They are part of the product contract for an inspectable agent,
-not debugging data hidden behind logs.
+- Tools are declared server-side with `defineTool({ id, version, inputSchema, approval, execute })`.
+- Policies and schemas are declared once. The AI SDK adapter builds tool specifications directly from `agentDefinition`.
+- The execution context (`userId`, `threadId`, `runId`, `trigger`) is injected server-side by the runtime; the model never chooses or supplies `userId`.
 
-## Design choice: domain events are deferred
+### 2. Bounded Turn Context (`src/agent/context.ts`)
 
-This version does **not** implement a generic domain-event API, subscribe to raw
-table changes, or install SQL triggers. A scheduled reminder follows the direct
-flow:
+- Context size is strictly bounded: the most recent 20 conversation messages, up to 8 trusted memory items, up to 10 aggregated inbox events, and active domain tasks.
+- Prompt injection and context overflow risks are mitigated by enforcing hard limits and presenting long-term memory and inbox events as clearly delimited data.
+- The model receives a compact tool operating contract: tools are its only application interface, ID-based mutations first discover IDs with `listTasks`, pending approvals stop the model loop, and completion may be claimed only after a successful tool result.
 
-```text
-agentReminder job
-  → mark commitment fired (idempotently)
-  → insert “Reminder due” system message
-  → wake the agent
-```
+### 3. Trusted Long-Term Memory (`src/agent/memory.ts`)
 
-That direct path is enough to test the core agent loop without prematurely
-choosing an event envelope, delivery guarantee, retention policy, or subscription
-language for Bunderstack.
+- Stored in the durable `agentMemory` table with unique `(userId, key)` semantics.
+- Only trusted sources (`user`, `system`, `derived`) can write or update memory rows.
+- The UI provides a **Memory Panel** where users can inspect, edit, or delete stored facts and preferences.
 
-The seam is intentional. If another part of the product later changes something
-the agent cares about — for example a saved search finds a new property — the
-same example could evolve to:
+### 4. Durable Commitments & Execution Specs (`src/agent/commitments.ts`)
+
+- `agentCommitments` stores durable future intentions with explicit execution specifications:
+  - `notify`: Delivers a user-facing assistant message when due.
+  - `tool_call`: Executes a validated, schedulable tool call (`createTask`, `completeTask`, `remember`, `deleteTask`) deterministically without model reinterpretation at wake time.
+  - `objective`: Launches an autonomous model turn with a trusted execution envelope (`trigger: 'commitment'`) and structured terminal outcomes.
+- **Schedules & Recurrence**: Commitments can be one-shot (with `dueAt`) or recurring (with `schedule: { kind: 'cron', expr }` or `{ kind: 'interval', everySeconds }`). Recurring commitments automatically compute their next trigger time and re-enqueue future runs.
+- **Tools**: The agent manages commitments via `createCommitment`, `listCommitments`, `cancelCommitment`, `pauseCommitment`, `resumeCommitment`, and `retryCommitment`.
+- **Approvals & Independence**: If a scheduled tool call requires user approval, the commitment transitions to `waiting_for_approval` and releases its worker/thread lock. Other independent commitments remain runnable. Resolving the approval resumes the exact commitment run.
+- **Explicit Terminal States**: Commitments transition through `pending`, `blocked`, `running`, `waiting_for_approval`, `paused`, `completed`, `failed`, and `cancelled`. Completion requires verifiable tool execution evidence, not assistant prose.
+
+### 5. Policy Engine, Approvals, and Persistent Grants (`src/agent/policy.ts`, `src/agent/approvals.ts`)
+
+- Destructive tools (such as `deleteTask`) require explicit user approval (`{ mode: 'required', remember: true }`).
+- When invoked without a grant, AI SDK emits a `tool-approval-request`. The runtime validates and freezes the exact call, stores the accumulated model-message checkpoint, marks the existing run `waiting_for_approval`, and releases its worker/thread lock. It does not create a final assistant reply.
+- The **Approvals & Grants** UI allows users to:
+  - **Allow now** (`allow_once`): Queues one exact capability for the frozen call and resumes its existing `runId`.
+  - **Always allow** (`always_allow`): Creates a persistent, revocable grant and resumes the existing run.
+  - **Reject**: Resumes the same run with a denied approval response and no tool execution.
+  - **Revoke**: Immediately revokes an active grant.
+- Resume is a new durable worker/model invocation but not a new logical turn. The saved AI SDK transcript receives the matching `tool-approval-response`, executes the frozen tool at most once, and continues the remaining plan. If another protected tool is needed, the same run can suspend and resume again.
+
+### 6. Security and Data Scoping
+
+- Browser clients are restricted to read-only generated CRUD queries scoped strictly to the authenticated `userId`.
+- Direct table mutations from the browser are denied. State changes (sending messages, editing memory, resolving approvals, revoking grants) occur via thin protected RPC procedures in `src/api.ts`.
+- The model never receives raw database access or arbitrary authority.
 
 ```text
-domain write
-  → durable domain event (`search.match_found`)
-  → matching agent inbox/subscription
-  → system message or structured inbox item
-  → wake(agent)
+ browser (read-only queries & protected RPC)
+                   │
+                   ▼
+ agent_messages / agent_inbox ──► wakeSeq + agentTurn job
+                                           │
+                                           ▼
+                                 assemble bounded context
+                                           │
+                                           ▼
+                                    evaluate policy
+                                ┌──────────┴──────────┐
+                     allow / grant                approval required
+                           │                              │
+                           ▼                              ▼
+                    execute tool                 create agent_requests
+                           │                              │
+                           ▼                              ▼
+                 agent_tool_calls +             user resolves via UI
+                 domain state updates           (allow_once / always_allow)
+                                                          │
+                                                          ▼
+                                             resume same run checkpoint
 ```
 
-That would simplify this example once there are several independent wake
-sources: the search job, profile update, billing change, and reminder scheduler
-would publish semantic facts rather than each knowing how to construct an agent
-message and enqueue a turn. It would also give retries and auditing one shared
-boundary.
+## Explicit Non-Goals
 
-Raw table subscriptions are deliberately not that boundary. A row update says
-what storage changed, not what happened in the business. SQL triggers have the
-same semantic problem and make authorization, versioning, testing, and external
-side effects harder to see in application code. The likely future primitive is
-therefore an explicit, durable domain event emitted by a successful command —
-but this example should earn that abstraction through real use cases first.
+To keep the experiment focused, this example deliberately does **not** include:
 
-## What is intentionally missing
+- A public framework-level `agent` config key or `@bunderstack/agent` package export.
+- Spaces, organizations, memberships, or multi-agent delegation.
+- Raw SQL access or automatic CRUD-to-tool generation for the model.
+- Vector databases or semantic retrieval pipelines.
 
-- a framework-level `agent` config key or `@bunderstack/agent` package;
-- automatic CRUD-to-tool generation;
-- arbitrary database access for the model;
-- multi-agent delegation, vector memory, approval workflows, or token streaming;
-- generic domain events or subscriptions.
+## Deployment Notes
 
-Those may become useful, but none is required to validate the lower-level
-primitives in this example.
+For multi-process or production deployments:
 
-For a multi-process deployment, configure Redis realtime and run the worker as
-a separate process instead of calling `app.startWorker()` in the web process.
+- Configure Redis realtime for cross-process SSE event fan-out.
+- Run queue workers in dedicated worker processes (`bunderstack worker`) instead of embedding `app.startWorker()` in the web server process.

@@ -1,0 +1,284 @@
+import { afterEach, describe, expect, test } from 'bun:test'
+import { and, eq } from 'drizzle-orm'
+
+import {
+  agentRequests,
+  agentRuns,
+  agentToolCalls,
+  agentToolGrants,
+  tasks,
+} from '../schema'
+import { createTestApp, type TestApp } from '../test-app'
+import { invokeAgentTool, resolveApproval, revokeToolGrant } from './approvals'
+import { getOrCreateThread } from './runtime'
+
+describe('tool approvals', () => {
+  const apps: TestApp[] = []
+
+  afterEach(async () => {
+    await Promise.all(apps.splice(0).map((testApp) => testApp.close()))
+  })
+
+  async function setup(name = 'Alice') {
+    const testApp = await createTestApp()
+    apps.push(testApp)
+    const userId = await testApp.seedUser(name)
+    const thread = await getOrCreateThread(testApp.ctx.db, userId)
+    const [run] = await testApp.ctx.db
+      .insert(agentRuns)
+      .values({
+        threadId: thread.id,
+        userId,
+        reason: 'message',
+        status: 'running',
+      })
+      .returning()
+    const [task] = await testApp.ctx.db
+      .insert(tasks)
+      .values({ userId, title: 'Remove me' })
+      .returning()
+    return { ...testApp, userId, thread, run: run!, task: task! }
+  }
+
+  const invokeDelete = (
+    state: Awaited<ReturnType<typeof setup>>,
+    taskId = state.task.id,
+  ) =>
+    invokeAgentTool(state.ctx, {
+      toolId: 'deleteTask',
+      rawArgs: { taskId },
+      userId: state.userId,
+      threadId: state.thread.id,
+      runId: state.run.id,
+      trigger: { type: 'user', trusted: true },
+    })
+
+  test('deleteTask freezes a pending approval without performing the effect', async () => {
+    const setupState = await setup()
+
+    const result = await invokeDelete(setupState)
+
+    expect(result).toMatchObject({ status: 'approval_required' })
+    expect(
+      await setupState.ctx.db.select().from(agentRequests).all(),
+    ).toMatchObject([
+      {
+        status: 'pending',
+        tool: 'deleteTask',
+        toolVersion: 1,
+        args: { taskId: setupState.task.id },
+      },
+    ])
+    expect(await setupState.ctx.db.select().from(tasks).all()).toHaveLength(1)
+    expect(
+      await setupState.ctx.db.select().from(agentToolCalls).all(),
+    ).toHaveLength(0)
+  })
+
+  test('allow_once queues the exact frozen call for same-run resume and replay is inert', async () => {
+    const setupState = await setup()
+    const pending = await invokeDelete(setupState)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+
+    const first = await resolveApproval(setupState.ctx, {
+      requestId: pending.requestId,
+      userId: setupState.userId,
+      decision: 'allow_once',
+    })
+    const replay = await resolveApproval(setupState.ctx, {
+      requestId: pending.requestId,
+      userId: setupState.userId,
+      decision: 'allow_once',
+    })
+
+    expect(first.status).toBe('resuming')
+    expect(replay.status).toBe('already_resolved')
+    expect(await setupState.ctx.db.select().from(tasks).all()).toHaveLength(1)
+    expect(
+      await setupState.ctx.db.select().from(agentToolCalls).all(),
+    ).toHaveLength(0)
+    expect(setupState.enqueued.at(-1)).toEqual({
+      name: 'agentTurn',
+      input: {
+        threadId: setupState.thread.id,
+        reason: 'tool.approval_resolved',
+        runId: setupState.run.id,
+        requestId: pending.requestId,
+      },
+      options: {
+        dedupeKey: `agent-run:${setupState.run.id}:resume:${pending.requestId}`,
+      },
+    })
+  })
+
+  test('an expired approval cannot be granted', async () => {
+    const setupState = await setup()
+    const pending = await invokeDelete(setupState)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+    await setupState.ctx.db
+      .update(agentRequests)
+      .set({ expiresAt: new Date(Date.now() - 1) })
+      .where(eq(agentRequests.id, pending.requestId))
+
+    expect(
+      await resolveApproval(setupState.ctx, {
+        requestId: pending.requestId,
+        userId: setupState.userId,
+        decision: 'allow_once',
+      }),
+    ).toEqual({ status: 'already_resolved' })
+    expect(
+      await setupState.ctx.db
+        .select({ status: agentRequests.status })
+        .from(agentRequests)
+        .where(eq(agentRequests.id, pending.requestId))
+        .get(),
+    ).toEqual({ status: 'expired' })
+    expect(setupState.enqueued).toHaveLength(0)
+  })
+
+  test('always_allow creates a reusable grant and later calls update its usage', async () => {
+    const setupState = await setup()
+    const pending = await invokeDelete(setupState)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+    await resolveApproval(setupState.ctx, {
+      requestId: pending.requestId,
+      userId: setupState.userId,
+      decision: 'always_allow',
+    })
+    const [grant] = await setupState.ctx.db.select().from(agentToolGrants).all()
+    expect(grant).toMatchObject({
+      userId: setupState.userId,
+      threadId: setupState.thread.id,
+      tool: 'deleteTask',
+      toolVersion: 1,
+      status: 'active',
+    })
+
+    const [secondTask] = await setupState.ctx.db
+      .insert(tasks)
+      .values({ userId: setupState.userId, title: 'Remove me too' })
+      .returning()
+    const result = await invokeDelete(setupState, secondTask!.id)
+    expect(result.status).toBe('done')
+    const usedGrant = await setupState.ctx.db
+      .select()
+      .from(agentToolGrants)
+      .where(eq(agentToolGrants.id, grant!.id))
+      .get()
+    expect(usedGrant?.lastUsedAt).toBeInstanceOf(Date)
+  })
+
+  test('a repeated execution id returns the journaled local effect', async () => {
+    const setupState = await setup()
+    const input = {
+      toolId: 'createTask',
+      rawArgs: { title: 'Exactly once locally' },
+      userId: setupState.userId,
+      threadId: setupState.thread.id,
+      runId: setupState.run.id,
+      trigger: { type: 'system' as const, trusted: true },
+      executionId: 'stable-execution-1',
+    }
+
+    expect((await invokeAgentTool(setupState.ctx, input)).status).toBe('done')
+    expect((await invokeAgentTool(setupState.ctx, input)).status).toBe('done')
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.title, 'Exactly once locally')),
+    ).toHaveLength(1)
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(agentToolCalls)
+        .where(eq(agentToolCalls.executionId, input.executionId)),
+    ).toHaveLength(1)
+  })
+
+  test('an execution id cannot be replayed for different arguments', async () => {
+    const setupState = await setup()
+    const base = {
+      toolId: 'createTask',
+      userId: setupState.userId,
+      threadId: setupState.thread.id,
+      runId: setupState.run.id,
+      trigger: { type: 'system' as const, trusted: true },
+      executionId: 'stable-execution-collision',
+    }
+    await invokeAgentTool(setupState.ctx, {
+      ...base,
+      rawArgs: { title: 'Original effect' },
+    })
+
+    await expect(
+      invokeAgentTool(setupState.ctx, {
+        ...base,
+        rawArgs: { title: 'Different effect' },
+      }),
+    ).rejects.toThrow('Tool execution identity collision')
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.title, 'Different effect')),
+    ).toHaveLength(0)
+  })
+
+  test('revoking a grant requires approval again', async () => {
+    const setupState = await setup()
+    const pending = await invokeDelete(setupState)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+    await resolveApproval(setupState.ctx, {
+      requestId: pending.requestId,
+      userId: setupState.userId,
+      decision: 'always_allow',
+    })
+    const [grant] = await setupState.ctx.db.select().from(agentToolGrants).all()
+    await revokeToolGrant(setupState.ctx, {
+      grantId: grant!.id,
+      userId: setupState.userId,
+    })
+    const [nextTask] = await setupState.ctx.db
+      .insert(tasks)
+      .values({ userId: setupState.userId, title: 'Ask again' })
+      .returning()
+
+    expect((await invokeDelete(setupState, nextTask!.id)).status).toBe(
+      'approval_required',
+    )
+    expect(
+      await setupState.ctx.db
+        .select()
+        .from(agentToolGrants)
+        .where(
+          and(
+            eq(agentToolGrants.id, grant!.id),
+            eq(agentToolGrants.status, 'revoked'),
+          ),
+        )
+        .get(),
+    ).toBeDefined()
+  })
+
+  test('one user cannot resolve another user’s request', async () => {
+    const alice = await setup('Alice')
+    const pending = await invokeDelete(alice)
+    if (pending.status !== 'approval_required')
+      throw new Error('approval expected')
+    const bobId = await alice.seedUser('Bob')
+
+    await expect(
+      resolveApproval(alice.ctx, {
+        requestId: pending.requestId,
+        userId: bobId,
+        decision: 'reject',
+      }),
+    ).rejects.toThrow('Approval request not found')
+  })
+})

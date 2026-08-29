@@ -15,6 +15,7 @@ export type RouterContext = {
     email: string
     name: string
     image?: string | null
+    isAnonymous: boolean
   } | null
 }
 
@@ -32,6 +33,10 @@ export function getRouter() {
         'agentRuns',
         'agentToolCalls',
         'agentCommitments',
+        'agentMemory',
+        'agentInbox',
+        'agentRequests',
+        'agentToolGrants',
         'tasks',
       ],
     })

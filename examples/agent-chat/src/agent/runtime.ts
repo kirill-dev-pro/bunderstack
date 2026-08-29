@@ -1,15 +1,24 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { generateTypeId } from 'bunderstack'
+import { and, eq, lt, or, sql } from 'drizzle-orm'
 
 import type { AgentResponder, AgentTask, AgentTools } from './types'
+import type { AgentCheckpoint } from './types'
 
 import {
   agentCommitments,
   agentMessages,
+  agentRequests,
   agentRuns,
   agentThreads,
-  agentToolCalls,
-  tasks,
 } from '../schema'
+import {
+  agentToolApprovalRequired,
+  approvedToolCapability,
+  getAgentTool,
+  invokeAgentTool,
+} from './approvals'
+import { assembleAgentContext } from './context'
+import { acknowledgeInbox, sendAgentEvent } from './inbox'
 
 export interface EnqueuedJob {
   name: string
@@ -29,7 +38,7 @@ export interface AgentRuntimeContext {
   realtime: {
     publish(
       table: unknown,
-      action: 'create' | 'update',
+      action: 'create' | 'update' | 'delete',
       row: unknown,
     ): Promise<unknown>
   }
@@ -52,8 +61,13 @@ async function enqueueTurn(
   threadId: string,
   reason: string,
   dedupeKey = `agent-turn:${threadId}`,
+  executionKey = generateTypeId('arun'),
 ) {
-  await ctx.jobs.enqueue('agentTurn', { threadId, reason }, { dedupeKey })
+  await ctx.jobs.enqueue(
+    'agentTurn',
+    { threadId, reason, executionKey },
+    { dedupeKey },
+  )
 }
 
 export async function wakeAgent(
@@ -68,36 +82,9 @@ export async function wakeAgent(
   await enqueueTurn(ctx, threadId, reason)
 }
 
-async function recordTool<T>(
+export async function acquireAgentThreadLock(
   ctx: AgentRuntimeContext,
-  details: { runId: string; threadId: string; userId: string },
-  tool: string,
-  args: Record<string, unknown>,
-  invoke: () => Promise<T>,
-): Promise<T> {
-  try {
-    const result = await invoke()
-    const [call] = await ctx.db
-      .insert(agentToolCalls)
-      .values({ ...details, tool, args, result, status: 'done' })
-      .returning()
-    await ctx.realtime.publish(agentToolCalls, 'create', call)
-    return result
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    const [call] = await ctx.db
-      .insert(agentToolCalls)
-      .values({ ...details, tool, args, status: 'failed', error: message })
-      .returning()
-    await ctx.realtime.publish(agentToolCalls, 'create', call)
-    throw error
-  }
-}
-
-export async function runAgentTurn(
-  ctx: AgentRuntimeContext,
-  input: { threadId: string; reason: string },
-  responder: AgentResponder,
+  threadId: string,
 ) {
   const staleBefore = new Date(Date.now() - 10 * 60_000)
   const [thread] = await ctx.db
@@ -105,122 +92,288 @@ export async function runAgentTurn(
     .set({ status: 'running', lockedAt: new Date() })
     .where(
       and(
-        eq(agentThreads.id, input.threadId),
-        sql`(${agentThreads.status} = 'idle' or ${agentThreads.lockedAt} < ${staleBefore})`,
+        eq(agentThreads.id, threadId),
+        or(
+          eq(agentThreads.status, 'idle'),
+          lt(agentThreads.lockedAt, staleBefore),
+        ),
       ),
     )
     .returning()
+  return thread
+}
+
+export async function releaseAgentThreadLock(
+  ctx: AgentRuntimeContext,
+  thread: typeof agentThreads.$inferSelect,
+  lockedWakeSeq: number,
+) {
+  const [released] = await ctx.db
+    .update(agentThreads)
+    .set({ status: 'idle', lockedAt: null })
+    .where(eq(agentThreads.id, thread.id))
+    .returning()
+  await ctx.realtime.publish(agentThreads, 'update', released)
+  if (released.wakeSeq !== lockedWakeSeq) {
+    await enqueueTurn(
+      ctx,
+      thread.id,
+      'wake.during_turn',
+      `agent-turn:${thread.id}:wake:${released.wakeSeq}`,
+    )
+  }
+}
+
+export async function runAgentTurn(
+  ctx: AgentRuntimeContext,
+  input: {
+    threadId: string
+    reason: string
+    runId?: string
+    requestId?: string
+    executionKey?: string
+  },
+  responder: AgentResponder,
+) {
+  const thread = await acquireAgentThreadLock(ctx, input.threadId)
   if (!thread) return { status: 'busy' as const }
 
   const lockedWakeSeq = thread.wakeSeq
-  const [run] = await ctx.db
-    .insert(agentRuns)
-    .values({
-      threadId: thread.id,
-      userId: thread.userId,
-      reason: input.reason,
-      status: 'running',
-    })
-    .returning()
-  await ctx.realtime.publish(agentRuns, 'create', run)
+  const [run] = input.runId
+    ? await ctx.db
+        .update(agentRuns)
+        .set({ status: 'running', error: null })
+        .where(
+          and(
+            eq(agentRuns.id, input.runId),
+            eq(agentRuns.threadId, thread.id),
+            eq(agentRuns.status, 'waiting_for_approval'),
+          ),
+        )
+        .returning()
+    : await ctx.db
+        .insert(agentRuns)
+        .values({
+          threadId: thread.id,
+          userId: thread.userId,
+          reason: input.reason,
+          status: 'running',
+        })
+        .returning()
+  if (!run) {
+    const [released] = await ctx.db
+      .update(agentThreads)
+      .set({ status: 'idle', lockedAt: null })
+      .where(eq(agentThreads.id, thread.id))
+      .returning()
+    await ctx.realtime.publish(agentThreads, 'update', released)
+    return { status: 'stale' as const }
+  }
+  await ctx.realtime.publish(agentRuns, input.runId ? 'update' : 'create', run)
 
   try {
-    const messages = await ctx.db
-      .select()
-      .from(agentMessages)
-      .where(eq(agentMessages.threadId, thread.id))
-      .orderBy(asc(agentMessages.createdAt))
-      .all()
-    const currentTasks = (await ctx.db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.userId, thread.userId))
-      .orderBy(asc(tasks.createdAt))
-      .all()) as AgentTask[]
-    const details = {
-      runId: run.id,
-      threadId: thread.id,
-      userId: thread.userId,
+    const resumeRequest = input.requestId
+      ? await ctx.db
+          .select()
+          .from(agentRequests)
+          .where(
+            and(
+              eq(agentRequests.id, input.requestId),
+              eq(agentRequests.runId, run.id),
+              eq(agentRequests.userId, thread.userId),
+            ),
+          )
+          .get()
+      : undefined
+    if (
+      input.requestId &&
+      (!resumeRequest ||
+        (resumeRequest.status !== 'approved' &&
+          resumeRequest.status !== 'rejected'))
+    ) {
+      throw new Error('Resolved approval request not found')
+    }
+    if (
+      resumeRequest &&
+      (!resumeRequest.approvalId ||
+        !resumeRequest.tool ||
+        !resumeRequest.toolVersion ||
+        !resumeRequest.toolCallId ||
+        !resumeRequest.args)
+    ) {
+      throw new Error('Resolved approval request is incomplete')
+    }
+    const capabilities =
+      resumeRequest?.status === 'approved'
+        ? [
+            approvedToolCapability({
+              toolId: resumeRequest.tool!,
+              toolVersion: resumeRequest.toolVersion!,
+              toolCallId: resumeRequest.toolCallId!,
+              args: resumeRequest.args,
+            }),
+          ]
+        : []
+    const context = await assembleAgentContext(ctx, {
+      thread,
+      reason: input.reason,
+      now: new Date(),
+    })
+    let invocationSequence =
+      (run.checkpoint as AgentCheckpoint | null)?.toolSequence ?? 0
+    const executionKey =
+      (run.checkpoint as AgentCheckpoint | null)?.executionKey ??
+      input.executionKey ??
+      run.id
+    const invoke = async (toolId: string, rawArgs: unknown) => {
+      invocationSequence += 1
+      const result = await invokeAgentTool(ctx, {
+        toolId,
+        rawArgs,
+        userId: thread.userId,
+        threadId: thread.id,
+        runId: run.id,
+        trigger: {
+          type: input.reason.startsWith('message') ? 'user' : 'system',
+          trusted: true,
+        },
+        capabilities,
+        executionId: `${executionKey}:tool:${invocationSequence}`,
+      })
+      if (
+        result.status === 'done' &&
+        resumeRequest?.status === 'approved' &&
+        resumeRequest.tool === toolId
+      ) {
+        const [resolved] = await ctx.db
+          .update(agentRequests)
+          .set({ result: result.result })
+          .where(eq(agentRequests.id, resumeRequest.id))
+          .returning()
+        await ctx.realtime.publish(agentRequests, 'update', resolved)
+      }
+      return result
+    }
+    const requireDone = async <T>(toolId: string, rawArgs: unknown) => {
+      const result = await invoke(toolId, rawArgs)
+      if (result.status !== 'done') {
+        throw new Error(`${toolId} unexpectedly requires approval`)
+      }
+      return result.result as T
     }
 
     const tools: AgentTools = {
-      listTasks: () =>
-        recordTool(ctx, details, 'listTasks', {}, async () =>
-          ctx.db
-            .select()
-            .from(tasks)
-            .where(eq(tasks.userId, thread.userId))
-            .all(),
-        ),
-      createTask: (args) =>
-        recordTool(ctx, details, 'createTask', args, async () => {
-          const [task] = await ctx.db
-            .insert(tasks)
-            .values({ userId: thread.userId, title: args.title })
-            .returning()
-          await ctx.realtime.publish(tasks, 'create', task)
-          return task
-        }),
-      completeTask: (args) =>
-        recordTool(ctx, details, 'completeTask', args, async () => {
-          const [task] = await ctx.db
-            .update(tasks)
-            .set({ done: true, completedAt: new Date() })
-            .where(
-              and(eq(tasks.id, args.taskId), eq(tasks.userId, thread.userId)),
-            )
-            .returning()
-          if (!task) throw new Error('Task not found')
-          await ctx.realtime.publish(tasks, 'update', task)
-          return task
-        }),
-      scheduleReminder: (args) =>
-        recordTool(ctx, details, 'scheduleReminder', args, async () => {
-          const [commitment] = await ctx.db
-            .insert(agentCommitments)
-            .values({
-              threadId: thread.id,
-              userId: thread.userId,
-              kind: 'reminder',
-              title: args.title,
-              dueAt: args.dueAt,
-            })
-            .returning()
-          await ctx.realtime.publish(agentCommitments, 'create', commitment)
-          await ctx.jobs.enqueue(
-            'agentReminder',
-            { commitmentId: commitment.id },
-            { runAt: args.dueAt },
-          )
-          return {
-            id: commitment.id,
-            title: commitment.title,
-            dueAt: commitment.dueAt,
-          }
-        }),
+      listTasks: () => requireDone<AgentTask[]>('listTasks', {}),
+      createTask: (args) => requireDone<AgentTask>('createTask', args),
+      completeTask: (args) => requireDone<AgentTask>('completeTask', args),
+      createCommitment: (args) =>
+        requireDone<unknown>('createCommitment', args),
+      listCommitments: (args = {}) =>
+        requireDone<unknown[]>('listCommitments', args),
+      cancelCommitment: (args) =>
+        requireDone<unknown>('cancelCommitment', args),
+      pauseCommitment: (args) => requireDone<unknown>('pauseCommitment', args),
+      resumeCommitment: (args) =>
+        requireDone<unknown>('resumeCommitment', args),
+      retryCommitment: (args) => requireDone<unknown>('retryCommitment', args),
+      remember: (args) =>
+        requireDone<{ key: string; value: unknown }>('remember', args),
+      deleteTask: async (args) => {
+        const result = await invoke('deleteTask', args)
+        return result.status === 'done' ? (result.result as AgentTask) : result
+      },
     }
 
     const response = await responder({
-      reason: input.reason,
-      now: new Date(),
-      latestMessage: messages.at(-1)?.content ?? '',
-      messages: messages.map((message: any) => ({
-        role: message.role,
-        content: message.content,
-      })),
-      tasks: currentTasks,
+      ...context,
+      currentExecution: {
+        trigger: input.reason.startsWith('message')
+          ? 'user_message'
+          : 'system_event',
+        runId: run.id,
+        objective: context.latestMessage,
+      },
+      checkpoint: (run.checkpoint as AgentCheckpoint | null) ?? undefined,
+      approvalResponse: resumeRequest
+        ? {
+            approvalId: resumeRequest.approvalId!,
+            approved: resumeRequest.status === 'approved',
+            reason:
+              resumeRequest.status === 'rejected'
+                ? 'The user rejected this action.'
+                : undefined,
+          }
+        : undefined,
+      toolApprovalRequired: (toolId, rawArgs) =>
+        agentToolApprovalRequired(ctx, {
+          toolId,
+          rawArgs,
+          userId: thread.userId,
+          threadId: thread.id,
+          capabilities,
+        }),
       tools,
     })
-    const [assistantMessage] = await ctx.db
-      .insert(agentMessages)
-      .values({
-        threadId: thread.id,
-        userId: thread.userId,
-        role: 'assistant',
-        content: response.text,
-      })
-      .returning()
-    await ctx.realtime.publish(agentMessages, 'create', assistantMessage)
+    if (response.status === 'waiting_for_approval') {
+      const definition = getAgentTool(response.request.tool)
+      const [request] = await ctx.db
+        .insert(agentRequests)
+        .values({
+          threadId: thread.id,
+          userId: thread.userId,
+          runId: run.id,
+          kind: 'approval',
+          prompt: `Allow ${definition.id} with these exact arguments?`,
+          tool: definition.id,
+          toolVersion: definition.version,
+          args: definition.inputSchema.parse(response.request.args),
+          approvalId: response.request.approvalId,
+          toolCallId: response.request.toolCallId,
+          expiresAt: new Date(Date.now() + 15 * 60_000),
+        })
+        .returning()
+      await ctx.realtime.publish(agentRequests, 'create', request)
+      const [waitingRun] = await ctx.db
+        .update(agentRuns)
+        .set({
+          status: 'waiting_for_approval',
+          checkpoint: {
+            ...response.checkpoint,
+            toolSequence: invocationSequence,
+            executionKey,
+          },
+        })
+        .where(eq(agentRuns.id, run.id))
+        .returning()
+      await ctx.realtime.publish(agentRuns, 'update', waitingRun)
+      return {
+        status: 'waiting_for_approval' as const,
+        runId: run.id,
+        requestId: request!.id,
+      }
+    }
+    if (response.status === 'blocked' || response.status === 'failed') {
+      throw new Error(
+        response.status === 'blocked' ? response.reason : response.error,
+      )
+    }
+    if (response.text.trim()) {
+      const [assistantMessage] = await ctx.db
+        .insert(agentMessages)
+        .values({
+          threadId: thread.id,
+          userId: thread.userId,
+          role: 'assistant',
+          content: response.text,
+        })
+        .returning()
+      await ctx.realtime.publish(agentMessages, 'create', assistantMessage)
+    }
+    await acknowledgeInbox(ctx, {
+      threadId: thread.id,
+      userId: thread.userId,
+      ids: context.selectedInboxIds,
+    })
 
     const [finished] = await ctx.db
       .update(agentRuns)
@@ -240,23 +393,7 @@ export async function runAgentTurn(
     await ctx.realtime.publish(agentRuns, 'update', failed)
     throw error
   } finally {
-    const [released] = await ctx.db
-      .update(agentThreads)
-      .set({ status: 'idle', lockedAt: null })
-      .where(eq(agentThreads.id, thread.id))
-      .returning()
-    await ctx.realtime.publish(agentThreads, 'update', released)
-    if (released.wakeSeq !== lockedWakeSeq) {
-      // The normal stable key still belongs to the currently running job until
-      // its handler returns. A sequence-specific recovery key therefore makes
-      // the post-turn enqueue a distinct durable row instead of a dedupe no-op.
-      await enqueueTurn(
-        ctx,
-        thread.id,
-        'wake.during_turn',
-        `agent-turn:${thread.id}:wake:${released.wakeSeq}`,
-      )
-    }
+    await releaseAgentThreadLock(ctx, thread, lockedWakeSeq)
   }
 }
 
@@ -277,16 +414,12 @@ export async function fireCommitment(
   if (!commitment) return false
 
   await ctx.realtime.publish(agentCommitments, 'update', commitment)
-  const [message] = await ctx.db
-    .insert(agentMessages)
-    .values({
-      threadId: commitment.threadId,
-      userId: commitment.userId,
-      role: 'system',
-      content: `Reminder due: ${commitment.title}`,
-    })
-    .returning()
-  await ctx.realtime.publish(agentMessages, 'create', message)
-  await wakeAgent(ctx, commitment.threadId, 'commitment.fired')
+  await sendAgentEvent(ctx, {
+    threadId: commitment.threadId,
+    userId: commitment.userId,
+    type: 'task.reminder_due',
+    payload: { commitmentId: commitment.id, title: commitment.title },
+    dedupeKey: `commitment:${commitment.id}`,
+  })
   return true
 }
