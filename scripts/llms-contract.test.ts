@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 const root = join(import.meta.dir, '..')
 const llmsPath = join(root, 'packages/bunderstack/llms.txt')
+const llmsFullPath = join(root, 'packages/bunderstack/llms-full.txt')
 const llms = readFileSync(llmsPath, 'utf8')
 
 /**
@@ -25,6 +26,23 @@ describe('llms.txt contract', () => {
       'utf8',
     )
     expect(postbuild).toContain('llms.txt')
+  })
+
+  test('ships a full documentation corpus for agents that need framework context', () => {
+    expect(existsSync(llmsFullPath)).toBe(true)
+    const full = readFileSync(llmsFullPath, 'utf8')
+    expect(full).toContain('Bunderstack full documentation')
+    expect(full).toContain('DEPLOYMENT CONTRACT')
+    expect(full).toContain('BACKGROUND JOBS')
+    expect(full.length).toBeGreaterThan(llms.length)
+
+    const pkg = JSON.parse(
+      readFileSync(join(root, 'packages/bunderstack/package.json'), 'utf8'),
+    ) as { files: string[] }
+    expect(pkg.files).toContain('llms-full.txt')
+    expect(
+      readFileSync(join(root, 'website/scripts/postbuild.mjs'), 'utf8'),
+    ).toContain('llms-full.txt')
   })
 
   test('is plain text, not markdown', () => {

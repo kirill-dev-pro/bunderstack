@@ -73,9 +73,12 @@ That exits non-zero when the installed skills drift from the package or the
 `AGENTS.md` block is missing. Use `--dir` to install somewhere other than
 `.agents/skills`.
 
-The package also ships `llms.txt`, a dense plain-text reference for the whole
-framework at `node_modules/bunderstack/llms.txt` and at
-[/llms.txt](/llms.txt). Both skills point at it.
+The package ships two agent-readable references. `llms.txt` is the compact
+working contract at `node_modules/bunderstack/llms.txt` and
+[/llms.txt](/llms.txt). `llms-full.txt` contains the complete documentation
+corpus at `node_modules/bunderstack/llms-full.txt` and
+[/llms-full.txt](/llms-full.txt). Start compact and load the full corpus when a
+task crosses several framework capabilities.
 
 ## TanStack Agent Skills
 

@@ -32,7 +32,8 @@
     "fix": "bun run lint && bun run format",
     "build": "bun scripts/build-package.ts bunderstack",
     "prepare": "bun scripts/prepare.ts",
-    "verify:consumer": "bun scripts/verify-consumer.ts"
+    "verify:consumer": "bun scripts/verify-consumer.ts",
+    "docs:llms": "bun scripts/generate-llms-full.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

@@ -1,0 +1,2979 @@
+Bunderstack full documentation
+
+Generated from the canonical website documentation. The committed bunderstack.blueprint.yaml remains authoritative for an individual application.
+
+API PROCEDURES
+
+Generated CRUD, files, realtime, and your own behavior live in one oRPC graph.
+Declare the builder once at module scope, then write router modules that import
+the bases they need.
+
+## Declare the builder
+
+`defineApi` takes the values you already have and infers the types from them.
+It reads nothing at runtime, so a module can call it at import time.
+
+```ts
+// src/api/base.ts
+import { defineApi } from 'bunderstack'
+
+import { envSchema } from './env'
+import { schema } from './schema'
+
+export const o = defineApi({ schema, env: envSchema })
+
+export const publicProcedure = o.public
+export const protectedProcedure = o.protected
+```
+
+`context.db` is typed from `schema`, and `context.env` from `envSchema`. You do
+not write the generic parameters yourself.
+
+## Write router modules
+
+A router is a plain object. Import the base, export the object:
+
+```ts
+// src/api/boards.ts
+import * as v from 'valibot'
+
+import { protectedProcedure } from './base'
+
+export const boardsRouter = {
+  stats: protectedProcedure
+    .route({ method: 'GET', path: '/api/board-stats', tags: ['boards'] })
+    .input(v.object({ boardId: v.string() }))
+    .handler(async ({ context, input }) => {
+      const rows = await loadBoardTodos(context.db, input.boardId)
+      return {
+        total: rows.length,
+        done: rows.filter((row) => row.done).length,
+      }
+    }),
+}
+```
+
+Collect the modules and pass the object to `bunderstack`:
+
+```ts
+// src/api/index.ts
+import { boardsRouter } from './boards'
+import { projectsRouter } from './projects'
+
+export const api = { boards: boardsRouter, projects: projectsRouter }
+```
+
+```ts
+const backend = bunderstack({ schema, database, api })
+const app = await backend.start()
+```
+
+The client receives `api.boards.stats.call()`,
+`api.boards.stats.queryOptions()`, and the inferred result type. The `.route()`
+call also exposes the same procedure as ordinary HTTP.
+
+`api` also accepts a callback — `api: (o) => ({ … })` — for a router that must
+be built from the framework builder at configuration time. For everything else
+the object form keeps router modules free of factory wrappers.
+
+## Procedure bases
+
+| Base          | Session behavior                                            | Use it for                           |
+| ------------- | ----------------------------------------------------------- | ------------------------------------ |
+| `o.public`    | Session is resolved only if you call `context.getSession()` | Public application behavior          |
+| `o.protected` | Resolves the session and narrows `context.user`             | User-owned or private behavior       |
+| `o.webhook`   | Public and preserves access to the exact raw body           | Provider callbacks and signed events |
+
+Every handler context contains typed `db` and `env`, plus `storage`, `email`,
+`jobs`, `realtime`, `auth`, `request`, `resHeaders`, `getSession()`,
+`peekSession()`, and `getRawBody()`.
+
+## Extend a base
+
+A base is an oRPC builder, so `.use()` gives you your own. Declare it next to
+the others and import it like any other base:
+
+```ts
+// src/api/base.ts
+export const adminProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin') {
+      throw errors.FORBIDDEN({ message: 'Admin access required' })
+    }
+    return next()
+  },
+)
+```
+
+A middleware can also add to the context. Whatever you pass to `next` is
+merged, and later handlers see it typed:
+
+```ts
+export const orgProcedure = o.protected.use(
+  async ({ context, next, errors }) => {
+    const organizationId = context.session.activeOrganizationId
+    if (!organizationId) {
+      throw errors.FORBIDDEN({ message: 'No active organization' })
+    }
+    return next({ context: { organizationId } })
+  },
+)
+
+// context.organizationId is a string here, with no extra annotation.
+export const membersRouter = {
+  list: orgProcedure.handler(({ context }) =>
+    listMembers(context.db, context.organizationId),
+  ),
+}
+```
+
+To apply a middleware to **every** procedure, including generated CRUD, storage
+and realtime, register it in the config instead. See
+[Middleware](/docs/middleware).
+
+## Input and output schemas
+
+`.input(schema)` accepts any Standard Schema implementation. Bunderstack
+examples use Valibot, but the framework does not require it from applications.
+
+The handler's return value is the default output type. You do **not** need to
+write an output validator for every procedure.
+
+Use `.output(schema)` when runtime output validation has a concrete purpose:
+
+- the value crosses a third-party trust boundary;
+- output transformation is required;
+- a precise response schema is important in generated OpenAPI.
+
+```ts
+const result = v.object({ id: v.string(), title: v.string() })
+
+createPost: protectedProcedure
+  .input(v.object({ title: v.pipe(v.string(), v.minLength(1)) }))
+  .output(result)
+  .handler(async ({ context, input }) => createPost(context, input))
+```
+
+This is output validation by choice, not ceremony.
+
+## Typed errors
+
+Every procedure carries one declared error map. Raise from it with the `errors`
+argument, which handlers and middleware both receive:
+
+```ts
+.handler(async ({ context, input, errors }) => {
+  const board = await findBoard(context.db, input.id)
+  if (!board) throw errors.NOT_FOUND({ message: 'Board not found' })
+  return board
+})
+```
+
+The codes are `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`,
+`CONFLICT`, `PAYLOAD_TOO_LARGE`, and `TOO_MANY_REQUESTS`. Each maps to its
+standard HTTP status, and the client can narrow on them with the oRPC
+`isDefinedError` helpers. Extra context goes in `data.details`:
+
+```ts
+throw errors.CONFLICT({
+  message: 'Generation already running',
+  data: { details: { adaptationId } },
+})
+```
+
+Do not construct `ORPCError` by hand. Code outside a handler — a service
+function or a job — has no `errors` argument, so throw `BunderstackError`
+there; the framework maps it to the same typed error:
+
+```ts
+import { BunderstackError } from 'bunderstack'
+
+export async function spendCredits(db: Db, userId: string, amount: number) {
+  const balance = await readBalance(db, userId)
+  if (balance < amount) {
+    throw new BunderstackError('FORBIDDEN', 'Insufficient credits')
+  }
+}
+```
+
+Errors thrown by framework facilities use the same contract, so clients do not
+need a second error model for generated CRUD.
+
+## List endpoints outside CRUD
+
+Generated CRUD lists already support filters, sorting, cursors, and counts.
+`listSpec` gives the same contract to a procedure you write yourself — an admin
+view over a table that is not exposed as CRUD, for example:
+
+```ts
+import { listSpec } from 'bunderstack'
+
+const logsList = listSpec(appLogs, {
+  filterable: ['level', 'action', 'userId'],
+  sortable: ['createdAt'],
+  defaultSort: { column: 'createdAt', order: 'desc' },
+})
+
+export const adminRouter = {
+  logs: adminProcedure.input(logsList.input).handler(logsList.handler),
+}
+```
+
+The response is a `ListResult`:
+`{ items, hasMore, nextCursor, total, limit, offset, sort, order }`. Pass
+`count: true` in the input to receive `total`.
+
+`listSpec` returns the schema and the handler separately rather than a finished
+procedure. That keeps your base procedure concrete at the call site, which is
+what preserves the row type all the way to the client. It reads no `access`
+configuration: the base procedure carries the policy.
+
+## Typing helpers that take the database
+
+A service function in its own module cannot reach `typeof app.db` without an
+import cycle. Use the exported types instead:
+
+```ts
+import type { BunderstackDb, BunderstackTx } from 'bunderstack'
+
+import type { schema } from './schema'
+
+type Db = BunderstackDb<typeof schema>
+type Tx = BunderstackTx<typeof schema>
+
+export async function transfer(db: Db, from: string, to: string) {
+  await db.transaction(async (tx: Tx) => {
+    /* … */
+  })
+}
+```
+
+## Organizing larger APIs
+
+Group by domain. Nesting is ordinary oRPC router shape:
+
+```ts
+export const api = {
+  projects: projectsRouter,
+  billing: { invoices: invoicesRouter, plans: plansRouter },
+}
+```
+
+Procedure names may not collide with generated tables or reserved namespaces
+such as `files`, `realtime`, and `health`; collisions fail at startup.
+
+## OpenAPI
+
+Set `openapi: true` to serve `/api/openapi.json`. Route metadata and Standard
+Schema inputs are projected into the document. RPC remains the source of type
+safety; OpenAPI is useful for mobile code generation, external consumers, and
+API inspection without becoming a second implementation.
+
+See [HTTP & Webhooks](/docs/http-webhooks) for detailed HTTP inputs, signature
+verification, and raw responses.
+
+API REFERENCE
+
+This page summarizes the stable public concepts. TypeScript remains the exact
+reference for generic details and adapter-specific types.
+
+## `bunderstack(options)`
+
+```ts
+function bunderstack<
+  TSchema,
+  TAccess,
+  TStorage,
+  TEnv,
+  TJobs,
+  TApi,
+>(options: BunderstackConfig<...>): BunderstackBackend<BunderstackApp<...>>
+```
+
+Required options:
+
+- `schema`: a record containing the application's Drizzle tables;
+- `database.adapter`: one statically imported database adapter.
+
+Major optional groups:
+
+- `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
+- `auth` / `authResolver`: Better Auth and custom session resolution;
+- `storage`, `email`, `env`, and `jobs`: application facilities;
+- `api`: your oRPC router, as an object or as `(o) => router`;
+- `middleware`: oRPC middleware applied to every procedure in the graph;
+- `realtime`: memory or Redis Publisher configuration;
+- `rateLimit`, `idempotency`, `background`, and `openapi`.
+
+See [Configuration](/docs/configuration) for examples and defaults.
+
+`bunderstack()` only declares the backend. `backend.manifest` is available
+synchronously for Blueprint generation. Call `await backend.start({ env })` to
+materialize a production runtime, or `await backend.test()` to create an
+isolated test fixture owned by the current lexical scope.
+
+## `BunderstackApp`
+
+```ts
+type BunderstackApp = {
+  handler(request: Request): Promise<Response>
+  db: DbFor<TSchema>
+  auth: AuthInstance
+  storage: StorageFacade
+  email: EmailFacade
+  env: ValidatedEnv<TEnv>
+  jobs: JobsFacade<TJobs>
+  realtime: RealtimeFacade<TSchema>
+  startWorker(options?): Promise<WorkerHandle>
+  runWorker(options?): Promise<void>
+  close(): Promise<void>
+  readonly status: LifecycleStatus
+  readonly signal: AbortSignal
+  readonly backgroundRunning: boolean
+  readonly $inferClient?: ClientTypeCarrier
+}
+```
+
+`$inferClient` is type-only and does not exist at runtime. Export
+`type App = typeof app` for client inference.
+
+## API builder
+
+```ts
+const o = defineApi({ schema, env: envSchema })
+
+o.public // no session resolution
+o.protected // resolves the session, narrows context.user
+o.webhook // public, preserves the exact raw body
+o.middleware(fn) // a standalone middleware over ApiContext
+```
+
+`defineApi` infers `TSchema` and `TEnv` from the values it receives, so an
+application never writes `BunderstackApiBuilder<…>` by hand. It reads nothing
+at runtime and can be called at module scope. `createApiBuilder<TSchema,
+TEnv>()` remains available when you want to pass the generics explicitly.
+
+The three bases are oRPC procedure builders with the shared Bunderstack error
+contract and `ApiContext`:
+
+```ts
+type ApiContext = {
+  db: DbFor<TSchema>
+  env: ValidatedEnv<TEnv>
+  storage: StorageFacade
+  email: EmailFacade
+  jobs: JobsRuntimeFacade
+  realtime: RealtimeFacade<TSchema>
+  auth: AuthInstance
+  request: Request
+  resHeaders: Headers
+  getRawBody(): Promise<string>
+  getSession(): Promise<{
+    user: AccessUser | null
+    activeOrganizationId: string | null
+  }>
+  /** The already-resolved session, or undefined. Never starts a resolution. */
+  peekSession():
+    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | undefined
+}
+```
+
+`o.protected` adds non-null `context.user` and the active organization session
+to handlers. Inputs and optional outputs accept Standard Schema.
+
+`peekSession()` exists for graph-wide middleware, which runs before
+authentication. Use it for observability only, never for authorization — see
+[Middleware](/docs/middleware#reading-the-caller).
+
+## Helper exports
+
+| Export                       | Purpose                                                   |
+| ---------------------------- | --------------------------------------------------------- |
+| `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
+| `listSpec(table, options)`   | Input schema and handler for a list endpoint outside CRUD |
+| `BunderstackError`           | Typed error for code outside a handler                    |
+| `BunderstackDb<TSchema>`     | The database type for a helper parameter                  |
+| `BunderstackTx<TSchema>`     | The transaction handle inside `db.transaction`            |
+
+## Database and provisioning
+
+Import one of `libsql()`, `pglite()`, `bunSql()`, or `postgresJs()` from its
+`bunderstack/*` subpath. The schema dialect and adapter dialect must
+match.
+
+```ts
+import { provision } from 'bunderstack/provision'
+
+await provision(app, { force: false })
+```
+
+Without a migration journal, provisioning uses the development schema push.
+With committed migrations, it applies pending migrations.
+
+## `bunderstack/client`
+
+```ts
+import { createClient, createLiveView } from 'bunderstack/client'
+import { createRestClient } from 'bunderstack/client-rest'
+import { useLiveView as useReactLiveView } from 'bunderstack/client-react'
+import { createLiveStore } from 'bunderstack/client-solid'
+import { liveStore } from 'bunderstack/client-svelte'
+import { useLiveView as useVueLiveView } from 'bunderstack/client-vue'
+```
+
+A zero-dependency typed RPC client and confirmed realtime `LiveView` with reactive store adapters for Solid, React, Svelte, and Vue. Use it for lightweight clients, mobile/native applications, or when you don't need TanStack Query.
+
+## `bunderstack/query`
+
+```ts
+function createClient<TApp>(options?: {
+  baseUrl?: string
+  fetch?: TransportFetch
+  queryClient?: QueryClient
+}): BunderstackClient<TApp>
+```
+
+The result contains the complete oRPC router utilities and file helpers:
+
+```ts
+api.posts.list.call(input)
+api.posts.list.queryOptions({ input })
+api.posts.create.mutationOptions(options)
+api.customProcedure.call(input)
+api.files.images.upload(file)
+api.files.images.url(id, transforms)
+```
+
+Other exports include `createApiClient`, `syncRealtime`, `InferSchema`,
+`InferSelect`, `InferInsert`, and the list input helpers.
+
+## `bunderstack/sync`
+
+```ts
+function createSyncClient<TApp>(options: {
+  queryClient: QueryClient
+  baseUrl?: string
+  fetch?: TransportFetch
+  realtime?: boolean
+}): BunderstackSyncClient<TApp>
+```
+
+Each generated table exposes `collection`, `table`,
+`scopedCollection(options)`, and `collectionByIds(ids)`. The client starts its
+typed realtime iterator in the browser by default and keeps it disabled during
+SSR.
+
+## `bunderstack/start`
+
+```ts
+createApiHandlers(app)
+createIsomorphicFetch(options?)
+getSessionUser(app, request)
+createStartAuthClient(options?)
+bunderstackStart<TApp>(options?)
+```
+
+These adapters mount `app.handler`, resolve relative API URLs during SSR, and
+create app-inferred clients without changing the server graph.
+
+## `RealtimeFacade`
+
+```ts
+interface RealtimeFacade<TSchema> {
+  readonly enabled: boolean
+  readonly transport: 'disabled' | 'memory' | 'redis'
+  publish<TTable extends SchemaTable<TSchema>>(
+    table: TTable,
+    action: 'create' | 'update' | 'delete',
+    record: InferSelectModel<TTable>,
+  ): Promise<void>
+}
+```
+
+Generated writes publish automatically. Call `publish()` only for custom
+writes performed through `context.db` or background jobs.
+
+## Storage
+
+`StorageFacade` provides server-side `upload`, `getUrl`, and bucket-aware
+operations. Browser clients receive `upload`, `url`, and `delete` helpers per
+declared bucket. Upload and image-transform rules are documented in
+[Storage](/docs/storage) and [Thumbnails](/docs/thumbnails).
+
+## Email
+
+```ts
+interface EmailFacade {
+  send(message: EmailMessage): Promise<SentEmail>
+}
+```
+
+`EmailMessage` supports `to`, `subject`, HTML or text bodies, sender override,
+reply-to, CC, and BCC. Configure the console, Resend, SMTP, or a custom adapter.
+
+## Testing (`bunderstack/testing`)
+
+`backend.test(options)` produces an isolated test fixture with lexical async disposal
+(`await using`). For a suite, `backend.test.configure()` removes repeated environment,
+database, and seed boilerplate:
+
+```ts
+import { backend } from './bunderstack'
+
+const createFixture = backend.test.configure({
+  database: { mode: 'temporary', schema: 'migrations' },
+  setup: async (fixture) => {
+    const identity = fixture.auth.mockSession({
+      id: 'alice',
+      email: 'alice@example.com',
+      name: 'Alice',
+    })
+    return { identity, client: fixture.client(identity) }
+  },
+})
+
+test('posts procedure works', async () => {
+  await using fixture = await createFixture()
+  const { client } = fixture.context
+
+  const result = await client.posts.create({ title: 'First post' })
+  expect(result.title).toBe('First post')
+
+  await fixture.jobs.runUntilIdle()
+  expect(fixture.email.sent).toHaveLength(1)
+})
+```
+
+`TestFixture` provides:
+
+- `fixture.app`: the materialized application runtime;
+- `fixture.context`: the typed value returned by configured `setup`;
+- `fixture.defer(cleanup)`: LIFO async cleanup before application shutdown;
+- `fixture.auth`: real `signUpEmail()`, `signInEmail()`, `getSession()`, `signOut()`,
+  and `verifyEmail()` flows, plus header-scoped `mockSession()` identities;
+- `fixture.client(identity?)`: inferred typed oRPC client calling `app.handler` directly in-process;
+- `fixture.jobs`: deterministic `runNext()` / `runUntilIdle()` execution and
+  `inspect()` / `pending()` / `failed()` queue assertions;
+- `fixture.logs`: captured internal `entries`, `errors`, and `warnings` with `clear()`;
+- `fixture.email`: in-memory capture of sent emails at `fixture.email.sent`;
+- `fixture.storage`: isolated test storage with `fixture.storage.read(key)`.
+
+`configure()` defaults and per-test options deep-merge `env` and `database`. Runtime
+logs are captured by default; configure `logs: 'inherit'` to capture and forward to
+the console, or `logs: 'silent'` to discard them.
+
+AUTH
+
+Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth routes are mounted at `/api/auth/*`.
+
+## Email/password
+
+```ts
+bunderstack({
+  schema,
+  auth: {
+    emailAndPassword: { enabled: true },
+    secret: process.env.AUTH_SECRET,
+  },
+})
+```
+
+```bash
+curl -X POST /api/auth/sign-up/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123","name":"Alice"}'
+
+curl -X POST /api/auth/sign-in/email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"pass123"}'
+```
+
+## OAuth
+
+```ts
+bunderstack({
+  schema,
+  auth: {
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      },
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
+  },
+})
+```
+
+## Database hooks
+
+BetterAuth hooks often need to write — seed a balance on sign-up, log the event.
+Pass `auth` as a builder to get the app's own database instead of opening a
+second connection:
+
+```ts
+bunderstack({
+  schema,
+  auth: ({ db, env }) => ({
+    emailAndPassword: { enabled: true },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await db
+              .insert(schema.credits)
+              .values({ userId: user.id, amount: 0 })
+          },
+        },
+      },
+    },
+  }),
+})
+```
+
+`db` is typed from `schema` alone, so the builder can live in its own file — it
+never imports the app whose type it helps produce. Same reason `api`, `jobs`,
+and `routes` take builders. The plain object form keeps working when no hook
+needs the database.
+
+## Reading the session in server functions
+
+```ts
+// utils/session.ts (TanStack Start)
+import { getRequest } from '@tanstack/react-start/server'
+import { app } from '~/bunderstack'
+
+export async function getAuthSession() {
+  const request = getRequest()
+  if (!request) return null
+  return app.auth.api.getSession({ headers: request.headers })
+}
+```
+
+You can also access `app.auth` directly — it's just a BetterAuth instance.
+
+## Unit testing auth
+
+In unit tests, use the lexical testing fixture with the real email auth lifecycle or
+header-scoped mocked identities:
+
+```ts
+import { backend } from './bunderstack'
+
+test('authenticated routes', async () => {
+  await using fixture = await backend.test()
+
+  // Real sign-up via Better Auth HTTP handlers
+  const identity = await fixture.auth.signUpEmail({
+    email: 'alice@example.com',
+    name: 'Alice',
+  })
+  await fixture.auth.verifyEmail(identity)
+  expect(await fixture.auth.getSession(identity)).not.toBeNull()
+  const client = fixture.client(identity)
+
+  // Multiple mocked users safely coexist in the same fixture.
+  const admin = fixture.auth.mockSession(
+    { id: 'admin', email: 'admin@example.com', name: 'Admin' },
+    { activeOrganizationId: 'org_1' },
+  )
+  const member = fixture.auth.mockSession({
+    id: 'member',
+    email: 'member@example.com',
+    name: 'Member',
+  })
+})
+```
+
+`signInEmail()` uses the real Better Auth handler and collects its cookies.
+`signOut(identity)` invalidates a real session. `verifyEmail(identity)` follows the
+latest captured verification link for that user's email.
+
+## Required schema tables
+
+Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.
+Copy full definitions from `examples/standalone/schema.ts`.
+
+BACKGROUND JOBS AND CRON
+
+Everything in the background is a row in one table. A job is a type, a payload,
+a time to run, and an attempt count. **A cron is a job that gets created on a
+schedule.** One loop — `tick()` — moves rows forward.
+
+```ts
+import * as v from 'valibot'
+
+const backend = bunderstack({
+  schema,
+  jobs: (j) =>
+    j.define({
+      sendEmail: j.job({
+        input: v.object({ userId: v.string() }),
+        retries: 3,
+        handler: async ({ userId }, ctx) => {
+          // ctx.db, ctx.email, ctx.storage, ctx.jobs, ctx.realtime, ctx.env
+        },
+      }),
+      dailyReport: j.cron({
+        schedule: '0 9 * * 1-5',
+        retries: 2,
+        handler: async ({ scheduledFor }, ctx) => {},
+      }),
+    }),
+})
+
+const app = await backend.start()
+
+await app.jobs.enqueue('sendEmail', { userId: 'usr_123' })
+```
+
+`j.job()` is durable queue work and is the only declaration accepted by
+`app.jobs.enqueue()`. Delivery is at-least-once: make handlers idempotent.
+
+## Production worker
+
+The default `all` role keeps local development and small single-process
+deployments simple. In production, run queue work as a separate process and
+keep the web runtime from auto-starting another loop:
+
+```ts
+// src/worker.ts
+import { backend } from './bunderstack/backend'
+
+const app = await backend.start({
+  env: { ...process.env, BUNDERSTACK_ROLE: 'web' },
+})
+await app.runWorker()
+```
+
+Topology is controlled by `BUNDERSTACK_ROLE`, not by application code:
+
+| `BUNDERSTACK_ROLE` | Serves HTTP | Runs background work |
+| ------------------ | ----------- | -------------------- |
+| `all` _(default)_  | yes         | yes                  |
+| `web`              | yes         | no                   |
+| `worker`           | no          | yes                  |
+
+Use `BUNDERSTACK_ROLE=web` for the web entry. The dedicated worker command owns
+`runWorker()` and its shutdown lifecycle.
+
+```bash
+# One process, everything. The default.
+bun run start
+
+# Split production commands.
+BUNDERSTACK_ROLE=web bun run start
+bun run worker
+```
+
+`app.backgroundRunning` reports whether the current process runs the loop.
+`app.startWorker()` is useful for an explicitly embedded worker;
+`app.runWorker()` owns a dedicated worker process until shutdown.
+
+## Cron
+
+`j.cron()` uses a five-field UTC schedule. Each due minute is materialized as a
+job row whose dedupe key is the slot timestamp, so a slot runs exactly once no
+matter how many processes are ticking — including the brief overlap during a
+rolling deploy.
+
+Because cron occurrences are jobs, they take the same options queue jobs do:
+
+```ts
+weeklyDigest: j.cron({
+  schedule: '0 9 * * 1',
+  retries: 3, // a throwing handler now retries with backoff
+  timeout: 120_000, // lease duration
+  catchUp: 'latest', // or 'all'
+  onFailed: async (invocation, error, ctx) => {},
+  handler: async ({ scheduledFor }, ctx) => {},
+})
+```
+
+### Missed slots
+
+If the process was down when a slot came due, `catchUp` decides what happens on
+the next tick:
+
+- **`'latest'` (default)** — only the most recent missed slot runs. Right for
+  handlers that bring state up to date.
+- **`'all'`** — every missed slot runs, bounded by `catchUpWindow` (default one
+  hour). Right when each interval represents distinct work.
+
+A newly declared cron never backfills from the past — it starts from the minute
+it is first seen.
+
+Job names may not begin with `cron:`; the prefix is reserved.
+
+## Testing jobs deterministically
+
+Fixtures never auto-start background work. `fixture.jobs.runNext()` claims and runs one tick, while `fixture.jobs.runUntilIdle()` runs ticks until all runnable jobs are processed:
+
+```ts
+await using fixture = await backend.test()
+
+await fixture.app.jobs.enqueue('sendWelcomeEmail', { userId: 'user_1' })
+
+const report = await fixture.jobs.runUntilIdle({ failOnJobError: true })
+expect(report.ran).toBe(1)
+
+expect(await fixture.jobs.pending({ name: 'sendWelcomeEmail' })).toEqual([])
+expect(await fixture.jobs.failed()).toEqual([])
+```
+
+Jobs recursively enqueued by handlers are processed until the queue converges or `maxTicks` is reached. Delayed jobs wait for their explicit `now` timestamp without sleeping.
+
+Use `fixture.jobs.inspect(filter?)` for every retained queue row, or
+`pending(filter?)` and `failed(filter?)` for status-specific assertions. Filters
+accept `name` and `dedupeKey`; rows expose `id`, normalized `name`, `kind`, `status`,
+`attempts`, `runAt`, `dedupeKey`, and `lastError`.
+
+## Realtime from a separate worker process
+
+With `BUNDERSTACK_ROLE=all` — the default — job handlers and realtime subscribers
+share a process, so realtime works with no extra configuration.
+
+When you split roles, the web and worker processes are separate. An in-memory
+realtime broker cannot carry an event published by a job handler to clients
+connected to the web process. If a handler calls `ctx.realtime.publish()`,
+configure a shared Redis transport in both:
+
+```ts
+const backend = bunderstack({
+  schema,
+  realtime: { redis: process.env.REDIS_URL! },
+  jobs: (j) =>
+    j.define({
+      generateImage: j.job({
+        input: v.object({ itemId: v.string() }),
+        handler: async ({ itemId }, ctx) => {
+          const item = await generateAndSaveItem(itemId)
+          await ctx.realtime.publish(schema.items, 'update', item)
+        },
+      }),
+    }),
+})
+
+const app = await backend.start()
+```
+
+```bash
+REDIS_URL=redis://localhost:6379 BUNDERSTACK_ROLE=web bun run start
+REDIS_URL=redis://localhost:6379 BUNDERSTACK_ROLE=worker bun run start
+```
+
+Setting `REDIS_URL` is enough when realtime is enabled; the explicit
+`realtime.redis` option is useful when the URL comes from another source.
+`realtime: true` without Redis selects a process-local memory transport, which
+is correct for `BUNDERSTACK_ROLE=all`.
+
+`app.runWorker()` rejects the unsafe standalone memory-transport combination
+rather than silently losing cross-process events. If handlers never publish
+realtime events, say so explicitly:
+
+```ts
+await app.runWorker({ allowProcessLocalRealtime: true })
+```
+
+Inspect the selected transport through `app.realtime.transport`
+(`'disabled'`, `'memory'`, or `'redis'`). The deploy manifest exposes the
+configured value as `app.manifest.realtimeTransport`.
+
+## Standalone job handlers
+
+When extracting handler logic into separate files, annotate `ctx` with
+`BunderstackJobContext`:
+
+```ts
+// src/server/jobs/generate-resume.ts
+import type { BunderstackJobContext } from 'bunderstack'
+
+export async function generateResume(
+  adaptationId: string,
+  ctx: BunderstackJobContext,
+) {
+  const url = await ctx.storage.getUrl(`adaptations/${adaptationId}/resume.pdf`)
+  await ctx.email.send({ ... })
+}
+```
+
+## Retries and failures
+
+A handler that throws is retried with jittered exponential backoff until
+`retries` is exhausted, then the row is marked `failed` with its error and
+`onFailed` fires once. Failed rows are never reaped, so they remain queryable
+in `_bunderstack_jobs`. Succeeded rows are removed after 24 hours.
+
+Long cron work should enqueue a queue job and return quickly rather than
+holding its lease for minutes.
+
+CONFIGURATION
+
+## Application options
+
+```ts
+const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url,
+    authToken,
+    migrations: './migrations',
+  },
+  access,
+  auth,
+  authResolver,
+  storage,
+  email,
+  env,
+  jobs: (j) => j.define({}),
+  api,
+  middleware: [instrumentation],
+  background: { autoStart: true },
+  rateLimit: { windowMs: 60_000, max: 100 },
+  idempotency: { ttlMs: 86_400_000 },
+  realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
+  openapi: true,
+})
+
+const app = await backend.start()
+```
+
+`schema` and `database.adapter` are required. All validation slots accept
+Standard Schema. `api` takes your oRPC router — an object built from bases you
+declared with [`defineApi`](/docs/api-procedures#declare-the-builder), or a
+callback receiving the framework builder. `middleware` applies oRPC middleware
+to every procedure in the graph, generated ones included; see
+[Middleware](/docs/middleware). `openapi` serves the optional projection at
+`/api/openapi.json`. `auth` takes better-auth options directly, or
+a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
+own connection — see [Auth](/docs/auth#database-hooks).
+
+## Realtime transport
+
+| Configuration                     | Transport | Intended use                            |
+| --------------------------------- | --------- | --------------------------------------- |
+| omitted or `false`                | disabled  | no subscriptions or publications        |
+| `realtime: true`                  | memory    | one application process                 |
+| `realtime: true` plus `REDIS_URL` | Redis     | separate web and worker processes       |
+| `realtime: { redis }`             | Redis     | explicit shared publisher configuration |
+
+`bufferSize` and `resumeSeconds` configure Publisher retention. Heartbeats and
+exponential reconnect belong to the client transport and require no
+application setting.
+
+When a standalone worker uses the memory publisher,
+`app.runWorker()` rejects startup unless
+`allowProcessLocalRealtime: true` is explicit. This prevents silently
+publishing events that cannot reach another process.
+
+## Database adapters
+
+| Import                    | Dialect  | Optional peer          | Typical URL                       |
+| ------------------------- | -------- | ---------------------- | --------------------------------- |
+| `bunderstack/libsql`      | SQLite   | `@libsql/client`       | `file:./data.db`, `libsql://…`    |
+| `bunderstack/bun-sqlite`  | SQLite   | none                   | `file:./data.db`, `:memory:`      |
+| `bunderstack/pglite`      | Postgres | `@electric-sql/pglite` | `file:./data.pglite`, `memory://` |
+| `bunderstack/bun-sql`     | Postgres | none                   | `postgres://…`                    |
+| `bunderstack/postgres-js` | Postgres | `postgres`             | `postgres://…`                    |
+
+The adapter dialect must match the Drizzle schema. Import only the adapter you
+use so optional drivers stay outside the application dependency graph.
+
+## Email and storage adapters
+
+Email defaults to the console provider in development. Use Resend directly or
+the optional SMTP adapter:
+
+```ts
+import { smtp } from 'bunderstack/email-smtp'
+
+email: {
+  from: 'My app <hello@example.com>',
+  provider: smtp({ url: process.env.SMTP_URL! }),
+}
+```
+
+Storage may use a local directory or S3-compatible infrastructure. Buckets
+carry their own upload, access, and image-transform rules; see
+[Storage](/docs/storage).
+
+## Declaration and lifecycle
+
+`await app.close()` stops background work and closes application-owned database
+and Publisher resources. `app.status`, `app.signal`, and
+`app.backgroundRunning` expose lifecycle state.
+
+`bunderstack()` is synchronous and side-effect-free. Deployment tooling imports
+the exported backend and reads `backend.manifest` without opening database or
+Redis connections. `backend.start({ env })` owns production runtime resources;
+`backend.test()` creates an isolated, lexically owned test fixture.
+
+For test suites, declare reusable defaults and setup with
+`backend.test.configure({ env, database, logs, setup })`. A call to the returned
+factory may override its defaults; `env` and `database` are deep-merged. The value
+returned from `setup` is exposed as `fixture.context`, and
+`fixture.defer(cleanup)` attaches additional resources to the fixture lifecycle.
+
+## Common environment variables
+
+| Variable                                | Purpose                                    |
+| --------------------------------------- | ------------------------------------------ |
+| `DATABASE_URL`                          | selected database connection               |
+| `DATABASE_AUTH_TOKEN`                   | hosted libSQL authentication               |
+| `AUTH_SECRET`                           | Better Auth secret; required in production |
+| `REDIS_URL`                             | shared Publisher for split processes       |
+| `RESEND_API_KEY`                        | Resend provider                            |
+| `SMTP_URL`                              | optional SMTP adapter                      |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` | S3-compatible storage                      |
+| `BUNDERSTACK_ROLE`                      | `all`, `web`, or `worker`                  |
+
+AUTO CRUD
+
+Bunderstack generates secured oRPC procedures from your Drizzle schema. The
+same procedures are available through the typed client and ordinary HTTP.
+
+## Procedure graph and HTTP routes
+
+| Client procedure     | HTTP                     | Description       |
+| -------------------- | ------------------------ | ----------------- |
+| `api.<table>.list`   | `GET /api/:table`        | List and paginate |
+| `api.<table>.get`    | `GET /api/:table/:id`    | Get by id         |
+| `api.<table>.create` | `POST /api/:table`       | Create            |
+| `api.<table>.update` | `PATCH /api/:table/:id`  | Update            |
+| `api.<table>.delete` | `DELETE /api/:table/:id` | Delete            |
+
+## List query
+
+Every parameter below is part of the procedure's schema, so REST and RPC accept
+exactly the same thing and query strings are coerced to the column types.
+
+| Param     | Example                            | Description                                      |
+| --------- | ---------------------------------- | ------------------------------------------------ |
+| `limit`   | `?limit=20`                        | Page size (default 20, clamped to 200)           |
+| `offset`  | `?offset=0`                        | Skip rows (offset mode)                          |
+| `sort`    | `?sort=createdAt`                  | Sort column (must be in `sortableColumns`)       |
+| `order`   | `?order=desc`                      | `asc` or `desc`                                  |
+| `q`       | `?q=hello`                         | Text search on `searchableColumns`               |
+| `count`   | `?count=true`                      | Include `total` in response                      |
+| `cursor`  | `?cursor=...`                      | Keyset pagination (cannot combine with `offset`) |
+| `filters` | `?filters[replyToId]=5`            | Equality filter on a `filterableColumns` column  |
+| `filters` | `?filters[id][]=a&filters[id][]=b` | `IN (...)` — pass a list                         |
+| `filters` | `?filters[replyToId]=null`         | `IS NULL`                                        |
+
+Anything else is rejected with 400: a bare `?replyToId=5` is not a filter, and an
+unknown filter column or a value the column cannot hold fails validation with a
+`details` entry naming the field.
+
+List response:
+
+```json
+{
+  "items": [],
+  "limit": 20,
+  "offset": 0,
+  "hasMore": true,
+  "total": 42,
+  "sort": "createdAt",
+  "order": "desc",
+  "nextCursor": "..."
+}
+```
+
+`hasMore` is always returned. Use `count=true` when you need an exact `total`.
+
+### Cursor vs offset
+
+- **Offset** — simple, good for admin UIs and small datasets
+- **Cursor** — stable for feeds; pass `nextCursor` from the previous response with the same `sort` and `order`
+
+```bash
+GET /api/posts?limit=20&sort=createdAt&order=desc
+GET /api/posts?limit=20&sort=createdAt&order=desc&cursor=<nextCursor>
+```
+
+Typed calls use structured inputs rather than URL encoding:
+
+```ts
+const page = await api.posts.list.call({
+  filters: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+  limit: 20,
+})
+const created = await api.posts.create.call({ title: 'Hello' })
+```
+
+## Which tables get routes
+
+A table gets CRUD routes when it has a `userId` column (convention) **or** when you explicitly configure it in `access`. Auth tables (`user`, `session`, `account`, `verification`) are excluded by default.
+
+## Access configuration
+
+```ts
+// access.ts
+import { defineAccess } from 'bunderstack/access'
+import * as schema from './schema'
+
+export const access = defineAccess(schema, {
+  posts: {
+    ownerColumn: 'userId',
+    list: 'public',
+    get: 'public',
+    create: 'authenticated',
+    update: 'owner',
+    delete: 'owner',
+    searchableColumns: ['title', 'body'],
+    filterableColumns: ['replyToId', 'userId'],
+    sortableColumns: ['createdAt', 'id'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+  },
+  comments: {
+    ownerColumn: 'userId',
+    list: 'authenticated',
+    update: (ctx) => ctx.user?.id === ctx.row?.userId,
+  },
+})
+```
+
+`defineAccess` validates all column names against the schema at startup, so typos fail fast.
+
+### Rule values
+
+- `'public'` — no session required
+- `'authenticated'` — session required
+- `'owner'` — session required; row owner must match `ownerColumn`
+- `'deny'` — always forbidden
+- `(ctx: AccessContext) => boolean | Promise<boolean>` — custom check
+
+### Default rules (when ownerColumn is set)
+
+| Operation          | Default                                                                       |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `GET` list / by id | Public                                                                        |
+| `POST` create      | Public — owner column is **server-set** from session, never trusted from body |
+| `PATCH` / `DELETE` | Owner only                                                                    |
+
+### Column guards
+
+- `readonlyColumns` — stripped from create/update bodies (defaults: `id`, `createdAt`, `updatedAt`, `userId`)
+- `writableColumns` — optional allow-list; any field not in this list is ignored on write
+
+### Full-text search
+
+Add `searchableColumns` to enable `?q=` on list:
+
+```bash
+GET /api/posts?q=hello&limit=20&offset=0
+GET /api/posts?filters[replyToId]=5&sort=createdAt&order=asc
+```
+
+### Filters and sorting
+
+Add `filterableColumns` to allow filtering on a column (`?filters[column]=value`). Add `sortableColumns` and optional `defaultSort`:
+
+```ts
+posts: {
+  filterableColumns: ['replyToId', 'userId'],
+  sortableColumns: ['createdAt', 'id'],
+  defaultSort: { column: 'createdAt', order: 'desc' },
+}
+```
+
+Filter values are typed by the column: `?filters[likes]=5` arrives as a number,
+`?filters[createdAt]=2026-06-01` as a `Date`, and `?filters[replyToId]=null`
+matches top-level posts. Typed clients get the same shape with autocomplete:
+
+```ts
+await api.posts.list.call({ filters: { replyToId: null }, limit: 20 })
+```
+
+## Error responses
+
+Errors return `{ error, code?, details? }`:
+
+| Code                | Status | When                                       |
+| ------------------- | ------ | ------------------------------------------ |
+| `BAD_REQUEST`       | 400    | Bad query params or JSON body              |
+| `INVALID_CURSOR`    | 400    | Malformed or mismatched cursor             |
+| `UNAUTHORIZED`      | 401    | Authentication required                    |
+| `FORBIDDEN`         | 403    | Access denied                              |
+| `NOT_FOUND`         | 404    | Missing record                             |
+| `CONFLICT`          | 409    | Idempotency key reused with different body |
+| `TOO_MANY_REQUESTS` | 429    | Rate limit exceeded                        |
+
+Codes are oRPC's own, so the HTTP status always matches the code. Sub-codes that
+carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in
+`details.code`.
+
+## Rate limiting (opt-in)
+
+```ts
+bunderstack({
+  schema,
+  rateLimit: { windowMs: 60_000, max: 100 },
+})
+```
+
+In-memory per process — use a shared store for multi-instance deployments.
+
+## POST idempotency (opt-in)
+
+```ts
+bunderstack({
+  schema,
+  idempotency: true,
+})
+```
+
+Send `Idempotency-Key: <uuid>` on `POST` creates. Replays return the original response with `Idempotency-Replayed: true`.
+
+## Exposing the user table
+
+The `user` auth table can be opted into CRUD (for public profiles, avatar updates, etc.):
+
+```ts
+export const access = defineAccess(schema, {
+  user: {
+    exposeAuthTable: true,
+    ownerColumn: 'id',
+    list: 'public',
+    get: 'public',
+    create: 'deny',
+    update: 'owner',
+    delete: 'deny',
+    writableColumns: ['image', 'about'],
+    searchableColumns: ['name'],
+  },
+})
+```
+
+## Disabling CRUD for a table
+
+```ts
+export const access = defineAccess(schema, {
+  session: { crud: false },
+  account: { crud: false },
+  verification: { crud: false },
+})
+```
+
+## Application-specific behavior
+
+Use `context.db` inside an [API procedure](/docs/api-procedures) when generated
+CRUD is not the right domain operation:
+
+```ts
+api: (o) => ({
+  archiveOwnPosts: o.protected.handler(({ context }) =>
+    context.db
+      .update(schema.posts)
+      .set({ archived: true })
+      .where(eq(schema.posts.userId, context.user.id)),
+  ),
+})
+```
+
+DEPLOYMENT CONTRACT
+
+A Bunderstack application tells a platform what it needs in two places: the
+committed `bunderstack.blueprint.yaml`, read before anything is deployed, and
+`GET /api/readiness`, asked after a release is live.
+
+## Reading the blueprint
+
+```ts
+import { parseBlueprintYaml, isSensitiveEnvVar } from 'bunderstack/blueprint'
+
+const blueprint = parseBlueprintYaml(source)
+```
+
+Unknown sections are preserved, not rejected. An application upgrades
+Bunderstack on its own schedule, so a blueprint may carry sections your parser
+predates — read what you know and ignore the rest.
+
+The blueprint never contains values. No environment values, no credentials, no
+connection strings.
+
+### Environment
+
+```yaml
+environment:
+  - key: STRIPE_SECRET_KEY
+    required: true
+    scope: server
+    sensitive: true
+    description: Secret key from the Stripe dashboard
+  - key: PUBLIC_APP_NAME
+    required: true
+    scope: client
+    sensitive: false
+```
+
+`sensitive` is optional: blueprints generated before 0.23.0 do not carry it. Use
+`isSensitiveEnvVar(entry)`, which falls back to the scope — server keys are
+secrets, client keys are not. A sensitive key belongs in whatever protected
+input your platform offers a human; a non-sensitive one is safe to set from
+automation.
+
+### Application operations
+
+```yaml
+api:
+  operations:
+    - handle: billing.refund
+      operationId: billing.refund
+      effect: mutation
+      method: POST
+      path: /api/billing/refund
+```
+
+These are the procedures the application declared itself. Generated CRUD,
+storage, and realtime routes are not listed — derive them from
+`resources.database.tables` and `resources.storage.buckets`.
+
+`effect` is `read`, `mutation`, or `unknown`. `unknown` means the procedure
+declared no HTTP route, so its effect could not be established: treat it as at
+least as dangerous as a mutation.
+
+## Asking a running application
+
+`GET /api/health` is the liveness probe and always returns `{ "status": "ok" }`
+from a handler that does no work. Keep using it for restart policies.
+
+`GET /api/readiness` answers whether the release actually came up:
+
+```json
+{
+  "status": "degraded",
+  "revision": "0a8dc9f",
+  "checks": [
+    { "name": "database", "status": "ok" },
+    { "name": "schema", "status": "ok" },
+    {
+      "name": "background",
+      "status": "degraded",
+      "code": "backlog",
+      "overdue": 12
+    }
+  ]
+}
+```
+
+The response is always HTTP 200; read `status`, which is `ok`, `degraded`, or
+`error`.
+
+| Check        | Meaning                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `database`   | `error` with `unreachable` — the app cannot reach its database                                                           |
+| `schema`     | `error` with `not_provisioned` — the database is reachable but has no Bunderstack tables                                 |
+| `background` | `degraded` with `backlog` and `overdue` — pending jobs are more than a minute past due, so nothing is draining the queue |
+
+`skipped` means the check did not apply: the application declares no queue jobs,
+or an earlier check already failed.
+
+Set `BUNDERSTACK_REVISION` in the deployed environment and readiness echoes it as
+`revision`, so a deployer can confirm the running release is the commit it asked
+for.
+
+The endpoint is public, so results carry a fixed set of codes and never a driver
+message, a connection string, or a stack trace.
+
+EMAIL
+
+Bunderstack includes an email facade with pluggable providers. Add an `email`
+key to your config and use `app.email.send()` anywhere on the server.
+
+## Configuration
+
+```ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  email: {
+    from: 'noreply@example.com',
+    provider: 'resend', // or 'console' or a custom adapter
+  },
+})
+
+export const app = await backend.start()
+```
+
+## Providers
+
+### Resend
+
+```bash
+RESEND_API_KEY=re_xxx bun run server.ts
+```
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: 'resend',
+}
+```
+
+Uses the [Resend API](https://resend.com). Set `RESEND_API_KEY` in your
+environment. Bunderstack validates it at boot when `provider: 'resend'`.
+
+### SMTP
+
+```bash
+SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
+```
+
+```ts
+import { smtp } from 'bunderstack/email-smtp'
+
+email: {
+  from: 'noreply@example.com',
+  provider: smtp({ url: process.env.SMTP_URL! }),
+}
+```
+
+Uses [nodemailer](https://nodemailer.com) under the hood. Install it as an
+optional peer:
+
+```bash
+bun add nodemailer
+```
+
+The SMTP integration is isolated to this subpath, so projects that do not use
+it do not load Nodemailer.
+
+### Console (development default)
+
+When no provider is specified in development, emails are logged to the console
+instead of being sent. In production, omitting a provider throws at boot.
+
+```ts
+email: {
+  from: 'noreply@example.com'
+}
+// provider defaults to 'console' in development — logs to stdout
+```
+
+### Custom adapter
+
+Pass a full `EmailAdapter` or just a `send` function:
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: {
+    async send(msg) {
+      // msg has `from` already resolved
+      await mySendService(msg)
+      return { id: 'msg_123' }
+    },
+  },
+}
+```
+
+Or the function shorthand:
+
+```ts
+email: {
+  from: 'noreply@example.com',
+  provider: async (msg) => {
+    await fetch('https://my-email-api.com/send', {
+      method: 'POST',
+      body: JSON.stringify(msg),
+    })
+    return {}
+  },
+}
+```
+
+## Sending
+
+```ts
+await app.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome!',
+  html: '<h1>Hello</h1>',
+  text: 'Hello',
+})
+```
+
+All fields except `subject` and one of `html`/`text` are optional. The `from`
+field defaults to the config's `from` but can be overridden per-message.
+
+```ts
+await app.email.send({
+  to: ['alice@a.com', 'bob@b.com'],
+  subject: 'Team update',
+  html: '<p>Hi team</p>',
+  from: 'team@example.com', // overrides config default
+  replyTo: 'support@example.com',
+  cc: 'manager@example.com',
+  bcc: 'archive@example.com',
+})
+```
+
+Returns `{ id?: string }` — the provider-specific message ID when available.
+
+## BetterAuth auto-wiring
+
+When you configure an `email` key, Bunderstack automatically wires it into
+BetterAuth for email verification and password reset flows. No extra config
+needed — just add `email` to `bunderstack`.
+
+## Without email
+
+If you don't need email, omit the `email` key entirely. `app.email` is still
+present on the app, but calling `send()` throws with a descriptive error.
+
+ENVIRONMENT VALIDATION
+
+Bunderstack validates environment values before the application starts.
+Server-only and public values stay separate, while `app.env` and procedure
+contexts remain fully typed.
+
+## Configure schemas
+
+Each entry accepts Standard Schema. This example uses Valibot:
+
+```ts
+import * as v from 'valibot'
+
+export const env = {
+  server: {
+    STRIPE_API_KEY: v.string(),
+    WEBHOOK_SECRET: v.string(),
+  },
+  client: {
+    PUBLIC_APP_URL: v.pipe(v.string(), v.url()),
+    PUBLIC_SENTRY_DSN: v.optional(v.string()),
+  },
+}
+
+export const backend = bunderstack({ schema, database, env })
+export const app = await backend.start()
+```
+
+Server keys must not start with `PUBLIC_`; browser-safe keys must. Naming
+violations and invalid values produce a `BunderstackEnvError` with all issues,
+not only the first one.
+
+## Describe keys for deployment
+
+Hosting platforms read the committed blueprint to work out what an environment
+needs before the first deploy. `meta` adds value-free metadata per key:
+
+```ts
+export const env = {
+  server: {
+    STRIPE_API_KEY: v.string(),
+    LOG_LEVEL: v.optional(v.string()),
+  },
+  client: {
+    PUBLIC_APP_URL: v.pipe(v.string(), v.url()),
+  },
+  meta: {
+    STRIPE_API_KEY: { description: 'Secret key from the Stripe dashboard' },
+    LOG_LEVEL: { sensitive: false, description: 'debug | info | warn | error' },
+  },
+}
+```
+
+Server keys are treated as secrets by default and client keys never are — a
+`PUBLIC_*` value is compiled into the browser bundle, so declaring one sensitive
+is an error. Descriptions are static prose, at most 200 characters.
+
+Values never reach the blueprint. Only the key name, whether it is required, its
+scope, its secrecy, and its description do.
+
+## Use validated values
+
+```ts
+app.env.STRIPE_API_KEY
+app.env.PUBLIC_APP_URL
+
+api: (o) => ({
+  publicConfig: o.public.handler(({ context }) => ({
+    appUrl: context.env.PUBLIC_APP_URL,
+  })),
+})
+```
+
+## Browser values
+
+`createClientEnv()` validates only the `client` section. Server keys become
+runtime traps if code tries to access them in a browser bundle.
+
+```ts
+import { createClientEnv } from 'bunderstack/env'
+import { env } from './env-schema'
+
+export const clientEnv = createClientEnv({
+  ...env,
+  runtimeEnv: import.meta.env,
+})
+```
+
+## Built-in values
+
+Bunderstack also understands database, auth, Redis, email, and storage
+variables used by its own facilities. Production requires a secure
+`AUTH_SECRET`. Database URLs have adapter-specific development defaults; Redis
+is required when separate worker processes publish realtime changes.
+
+```ts
+import { BunderstackEnvError } from 'bunderstack'
+
+try {
+  await bunderstack({ schema, database, env }).start()
+} catch (error) {
+  if (error instanceof BunderstackEnvError) {
+    console.error(error.issues)
+  }
+}
+```
+
+FRAMEWORK PORTABILITY
+
+`app.handler(req: Request): Promise<Response>` — every modern TypeScript framework knows this Web Standard shape.
+
+Bunderstack runs in any environment supporting standard Web Requests and Responses. Below are the recommended integration patterns, configuration files, and deployment setups for each supported framework.
+
+---
+
+## TanStack Start (Full-Stack SSR)
+
+[TanStack Start](https://tanstack.com/start) provides full-stack React with server-side rendering and streaming. The official [`bunderstack/start`](/docs/query-client) adapter handles API routing, SSR-aware data fetching, session lookup, and auth client configuration.
+
+### 1. Installation
+
+```bash
+bun add bunderstack drizzle-orm valibot @libsql/client @tanstack/react-query @tanstack/react-start
+```
+
+### 2. Configuration (`src/bunderstack.ts`)
+
+TanStack Start supports top-level `await`, allowing you to export `app` and its TypeScript type directly:
+
+```ts
+// src/bunderstack.ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import { provision } from 'bunderstack/provision'
+import { access } from './access'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  access,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export const app = await backend.start()
+export type App = typeof app
+await provision(app)
+```
+
+### 3. API Catch-All Route (`src/routes/api/$.tsx`)
+
+Mount the API handler on TanStack Start's catch-all route:
+
+```ts
+// src/routes/api/$.tsx
+import { createFileRoute } from '@tanstack/react-router'
+import { createApiHandlers } from 'bunderstack/start'
+import { app } from '~/bunderstack'
+
+export const Route = createFileRoute('/api/$')({
+  server: { handlers: createApiHandlers(app) },
+})
+```
+
+### 4. Typed Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { bunderstackStart } from 'bunderstack/start'
+import type { App } from './bunderstack'
+
+export const { createQueryClient, createApi } = bunderstackStart<App>()
+```
+
+> **Important:** Do not name this file `src/client.ts`. TanStack Start reserves `client.ts` as its hydration entry point.
+
+### 5. Package Scripts & Deployment
+
+```json
+{
+  "scripts": {
+    "build": "vite build",
+    "start": "bun .output/server/index.mjs"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects `@tanstack/react-start` and outputs `framework: tanstack-start`.
+
+---
+
+## Solid 2 (Standalone Vite + Bun SSR)
+
+Standalone [Solid 2](https://solidjs.com) (without SolidStart) uses a unified Bun server to handle static assets, perform server-side rendering, and delegate API requests directly to Bunderstack.
+
+### 1. Installation
+
+```bash
+bun add bunderstack solid-js@2.0.0-rc.1 @solidjs/web@2.0.0-rc.1 @solidjs/router@2.0.0-next.17 drizzle-orm valibot @libsql/client @orpc/client
+bun add -d vite vite-plugin-solid@3.0.0-next.27
+```
+
+### 2. Configuration (`src/bunderstack.ts`)
+
+```ts
+// src/bunderstack.ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export const app = await backend.start()
+export type App = typeof app
+await provision(app)
+```
+
+### 3. Unified HTTP Server (`src/server.ts`)
+
+In production, `src/server.ts` routes all `/api/*` requests to `app.handler`, serves compiled client assets, and renders Solid 2 components via `renderToString`:
+
+```tsx
+// src/server.ts
+import { renderToString } from '@solidjs/web/server'
+import { app } from './bunderstack'
+import App from './App'
+
+const port = Number(process.env.PORT) || 3000
+
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+
+    // 1. Route API, auth, storage, jobs, and health check
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    // 2. Serve static client assets from dist/client
+    const filePath = `dist/client${url.pathname}`
+    const file = Bun.file(filePath)
+    if (await file.exists()) {
+      return new Response(file)
+    }
+
+    // 3. Render Solid 2 SSR HTML
+    const html = renderToString(() => <App url={url.pathname} />)
+    return new Response(
+      `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script type="module" src="/entry-client.js"></script>
+  </head>
+  <body>
+    <div id="app">${html}</div>
+  </body>
+</html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  },
+})
+
+console.log(`Solid 2 + Bunderstack running on port ${port}`)
+```
+
+### 4. Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { createClient } from 'bunderstack/query'
+import { QueryClient } from '@tanstack/solid-query'
+import type { App } from './bunderstack'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient, baseUrl: '/api' })
+```
+
+### 5. Package Scripts & Deployment
+
+```json
+{
+  "bunderstack": {
+    "entry": "src/bunderstack.ts"
+  },
+  "scripts": {
+    "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "start": "bun src/server.ts"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects `solid-js` and sets `framework: solid`.
+
+---
+
+## TanStack Router / React SPA (Vite)
+
+In a Single Page Application (SPA) with Vite and React (or TanStack Router), the frontend bundle runs entirely in the browser and connects to a Bunderstack backend.
+
+### 1. Configuration & Server (`server.ts` or `src/bunderstack.ts`)
+
+```ts
+// server.ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export const app = await backend.start()
+export type App = typeof app
+await provision(app)
+
+const port = Number(process.env.PORT) || 3000
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    const file = Bun.file(`dist/${url.pathname}`)
+    if (await file.exists()) return new Response(file)
+
+    return new Response(Bun.file('dist/index.html'))
+  },
+})
+```
+
+### 2. Client Setup (`src/api.ts`)
+
+```ts
+// src/api.ts
+import { createClient } from 'bunderstack/query'
+import { QueryClient } from '@tanstack/react-query'
+import type { App } from '../server'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({
+  queryClient,
+  baseUrl: '/api',
+})
+```
+
+### 3. Vite Proxy for Development (`vite.config.ts`)
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
+  },
+})
+```
+
+---
+
+## Bun SSR (Pure Web Standards Bun Server)
+
+For server-rendered applications using Bun with template literals, JSX, HTMX, Alpine.js, or Web Components without a full frontend framework.
+
+### 1. Configuration (`src/bunderstack.ts`)
+
+```ts
+// src/bunderstack.ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL || 'file:./data.db',
+  },
+  auth: { emailAndPassword: { enabled: true } },
+  realtime: true,
+})
+
+export const app = await backend.start()
+export type App = typeof app
+await provision(app)
+```
+
+### 2. Server Entry (`src/server.ts`)
+
+```ts
+// src/server.ts
+import { app } from './bunderstack'
+
+const port = Number(process.env.PORT) || 3000
+
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url)
+
+    // Route API requests (oRPC, Auth, Storage, Jobs, Health)
+    if (url.pathname.startsWith('/api/')) {
+      return app.handler(req)
+    }
+
+    // Server-rendered HTML response
+    return new Response(
+      `<!DOCTYPE html>
+<html>
+  <head><title>Bun SSR App</title></head>
+  <body>
+    <h1>Welcome to Bunderstack on Bun SSR</h1>
+  </body>
+</html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
+  },
+})
+```
+
+### 3. Package Scripts & Deployment
+
+```json
+{
+  "scripts": {
+    "build": "bun build ./src/client.ts --outdir ./dist",
+    "start": "bun src/server.ts"
+  }
+}
+```
+
+Running `bunx bunderstack blueprint` detects a generic Bun project and assigns `framework: bun-ssr`.
+
+---
+
+## Next.js (App Router)
+
+### 1. Lazy Singleton (`lib/bunderstack.ts`)
+
+```ts
+// lib/bunderstack.ts
+import { bunderstack } from 'bunderstack'
+import { provision } from 'bunderstack/provision'
+import * as schema from './schema'
+
+const backend = bunderstack({
+  schema,
+  auth: { emailAndPassword: { enabled: true } },
+})
+
+let _app: Awaited<ReturnType<typeof backend.start>> | null = null
+
+export async function getApp() {
+  if (!_app) {
+    _app = await backend.start()
+    await provision(_app)
+  }
+  return _app
+}
+```
+
+### 2. Route Handler (`app/api/[...bunderstack]/route.ts`)
+
+```ts
+// app/api/[...bunderstack]/route.ts
+import { getApp } from '@/lib/bunderstack'
+
+export async function GET(req: Request) {
+  return (await getApp()).handler(req)
+}
+export const POST = GET
+export const PATCH = GET
+export const DELETE = GET
+```
+
+> Next.js runs on Node.js. If connecting to a PostgreSQL database, install the Node driver: `npm install postgres`. When running under Bun, the native `Bun.sql` driver is selected automatically.
+
+---
+
+## Other Web Standards Runtimes
+
+Because `app.handler` implements the Web Standard `(req: Request) => Promise<Response>` signature, it integrates into any standard runtime in one line:
+
+### Hono
+
+```ts
+import { Hono } from 'hono'
+import { app } from './bunderstack'
+
+// Delegate all /api/* routes to Bunderstack
+const server = createHonoApp()
+server.all('/api/*', (c) => app.handler(c.req.raw))
+export default server
+```
+
+### Astro
+
+```ts
+// src/pages/api/[...all].ts
+import type { APIRoute } from 'astro'
+import { app } from '../../bunderstack'
+
+export const ALL: APIRoute = ({ request }) => app.handler(request)
+```
+
+---
+
+## Deployment Blueprint Comparison
+
+When generating a deployment contract via `bunx bunderstack blueprint`, Bunderstack identifies the application type and specifies it in `bunderstack.blueprint.yaml`:
+
+| Framework Type     | Blueprint `framework` | Detection Rule                               | Typical `build` Script               | Typical `start` Script         |
+| ------------------ | --------------------- | -------------------------------------------- | ------------------------------------ | ------------------------------ |
+| **TanStack Start** | `tanstack-start`      | `@tanstack/react-start` in dependencies      | `vite build`                         | `bun .output/server/index.mjs` |
+| **Solid 2**        | `solid`               | `solid-js` or `@solidjs/web` in dependencies | `vite build && vite build --ssr ...` | `bun src/server.ts`            |
+| **Bun SSR**        | `bun-ssr`             | Standard Bun scripts present                 | `bun build ...`                      | `bun src/server.ts`            |
+| **Custom / SPA**   | `custom`              | Custom specified framework                   | Custom build command                 | Custom startup command         |
+
+GETTING STARTED
+
+## Install
+
+```bash
+bun add bunderstack drizzle-orm valibot @libsql/client @tanstack/react-query
+bun add -d drizzle-kit
+```
+
+## Define a schema
+
+Use the Drizzle builders directly and re-export Bunderstack's internal tables
+so storage and runtime metadata are included in migrations.
+
+```ts
+// schema.ts
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+
+export * from 'bunderstack/schema'
+
+export const posts = sqliteTable('posts', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  userId: text('userId').notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+```
+
+Better Auth also needs its `user`, `session`, `account`, and `verification`
+tables. Copy the matching SQLite or Postgres definitions from an example or
+the SaaS template.
+
+## Create the app
+
+The custom procedure below joins the same graph as generated CRUD. Valibot is
+used for runtime input validation; the handler return type becomes the output
+contract automatically.
+
+```ts
+// bunderstack.ts
+import { bunderstack } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import { provision } from 'bunderstack/provision'
+import { count } from 'drizzle-orm'
+import * as v from 'valibot'
+
+import { posts } from './schema'
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  database: { adapter: libsql(), url: 'file:./data.db' },
+  access: {
+    posts: {
+      ownerColumn: 'userId',
+      searchableColumns: ['title'],
+      sortableColumns: ['createdAt', 'id'],
+    },
+  },
+  realtime: true,
+  api: (o) => ({
+    postCount: o.public
+      .input(v.optional(v.object({})))
+      .handler(async ({ context }) => {
+        const [row] = await context.db.select({ value: count() }).from(posts)
+        return { value: row?.value ?? 0 }
+      }),
+  }),
+})
+
+export const app = await backend.start()
+
+export type App = typeof app
+
+await provision(app)
+```
+
+`provision(app)` pushes the schema while there is no migrations journal. Once
+you run `bunx drizzle-kit generate` and commit the migrations, the same call
+only applies pending migrations. Skip it when deployment manages migrations
+outside the application.
+
+## Serve one handler
+
+```ts
+// server.ts
+import { app } from './bunderstack'
+
+Bun.serve({ fetch: app.handler })
+```
+
+Generated procedures are callable through typed RPC and ordinary HTTP:
+
+```text
+GET    /api/posts
+POST   /api/posts
+PATCH  /api/posts/:id
+DELETE /api/posts/:id
+POST   /api/rpc/postCount
+GET    /api/openapi.json       when openapi: true
+```
+
+## Call it from the client
+
+Only the `App` type crosses the boundary; server code is not bundled.
+
+```ts
+// api-client.ts
+import { QueryClient } from '@tanstack/react-query'
+import { createClient } from 'bunderstack/query'
+import type { App } from './bunderstack'
+
+export const queryClient = new QueryClient()
+export const api = createClient<App>({ queryClient })
+
+const page = await api.posts.list.call({ limit: 20 })
+const total = await api.postCount.call({})
+// page and total are inferred from the server graph
+```
+
+## Database choices
+
+Import exactly one adapter. Its dialect must match your Drizzle tables.
+
+| Database          | Adapter                   | Optional peer          |
+| ----------------- | ------------------------- | ---------------------- |
+| SQLite / Turso    | `bunderstack/libsql`      | `@libsql/client`       |
+| Embedded Postgres | `bunderstack/pglite`      | `@electric-sql/pglite` |
+| Postgres on Bun   | `bunderstack/bun-sql`     | none                   |
+| Postgres on Node  | `bunderstack/postgres-js` | `postgres`             |
+
+Continue with [Auto CRUD](/docs/crud), then add application behavior in
+[API Procedures](/docs/api-procedures).
+
+HTTP & WEBHOOKS
+
+An oRPC procedure can be a typed RPC call and an ordinary HTTP endpoint at the
+same time. Use `.route()` for mobile clients, third-party integrations, and
+provider webhooks instead of mounting another router.
+
+## Ordinary HTTP
+
+```ts
+api: (o) => ({
+  status: o.public
+    .route({ method: 'GET', path: '/status' })
+    .input(v.optional(v.object({})))
+    .handler(() => ({ ok: true })),
+})
+```
+
+The handler is available through `api.status.call({})` and `GET /status`.
+
+## Signed webhook
+
+Use `o.webhook` to signal that authentication comes from a provider signature.
+Detailed input exposes headers, query, parameters, and the decoded body while
+`context.getRawBody()` returns the exact bytes reserved before decoding.
+
+```ts
+api: (o) => ({
+  stripeWebhook: o.webhook
+    .route({
+      method: 'POST',
+      path: '/webhooks/stripe',
+      inputStructure: 'detailed',
+    })
+    .input(
+      v.object({
+        params: v.optional(v.object({}), {}),
+        query: v.optional(v.record(v.string(), v.unknown()), {}),
+        headers: v.record(v.string(), v.unknown()),
+        body: v.record(v.string(), v.unknown()),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const rawBody = await context.getRawBody()
+      await verifyStripeSignature(
+        rawBody,
+        input.headers['stripe-signature'],
+        context.env.STRIPE_WEBHOOK_SECRET,
+      )
+      await context.jobs.enqueue('processStripeEvent', input.body)
+      return { received: true }
+    }),
+})
+```
+
+Session lookup stays lazy for public and webhook procedures, so signed provider
+requests do not pay for an unused database lookup.
+
+## Response control
+
+Detailed outputs can specify status and headers for routes that need them.
+Use `context.resHeaders` for response headers shared with the procedure
+contract. File downloads, redirects, and streams may return Web Standard
+`Response`, `Blob`, `File`, or `ReadableStream` values supported by oRPC.
+
+## Rare protocol escape hatch
+
+`app.handler` is a normal `(Request) => Promise<Response>` function. When a
+protocol truly cannot be expressed as an oRPC procedure, wrap it outside
+Bunderstack and delegate everything else:
+
+```ts
+const fetch = (request: Request) => {
+  if (new URL(request.url).pathname === '/special-protocol') {
+    return handleSpecialProtocol(request)
+  }
+  return app.handler(request)
+}
+```
+
+This keeps exceptional protocol code exceptional instead of adding a second
+router and error model to every application.
+
+INTRODUCTION
+
+Bunderstack is a batteries-included backend library for TypeScript on Bun. Give
+it a Drizzle schema and it builds one oRPC procedure graph containing generated
+CRUD, files, realtime, health checks, and your application procedures.
+
+That graph is available in three useful forms:
+
+- a fully inferred TypeScript client;
+- ordinary HTTP routes for browsers, mobile apps, and webhooks;
+- an optional OpenAPI document for external tooling.
+
+RPC types are the primary contract. HTTP and OpenAPI are projections of the
+same procedures, not parallel implementations.
+
+## One mental model
+
+```text
+Drizzle schema + access rules
+              │
+              ▼
+     one oRPC procedure graph
+       ├── typed client
+       ├── ordinary HTTP
+       └── realtime iterator
+```
+
+`app.handler` is the single Web Standard `Request → Response` entry point.
+Better Auth owns `/api/auth/*`; oRPC owns generated and application routes.
+There is no general-purpose router to configure alongside them.
+
+## Batteries, without a platform
+
+Bunderstack includes database provisioning, Better Auth, access-controlled
+CRUD, file storage and transforms, email, validated environment variables,
+background jobs, rate limiting, idempotency, and realtime publication.
+
+It remains a library inside your application. `app.db` is Drizzle,
+`app.auth` is Better Auth, and `app.storage`, `app.email`, `app.jobs`, and
+`app.realtime` are available in every procedure context. Your schema and data
+stay in your repository and infrastructure.
+
+## Validation without lock-in
+
+Every application validation slot accepts [Standard Schema](https://standardschema.dev/).
+The examples use Valibot because it is compact and tree-shakeable, but Zod,
+ArkType, and other Standard Schema implementations work too.
+
+Start with [Getting Started](/docs/getting-started), then follow the primary
+path through [Auto CRUD](/docs/crud), [API Procedures](/docs/api-procedures),
+[Query Client](/docs/query-client), and [Sync & Realtime](/docs/sync-collections).
+
+MIDDLEWARE
+
+A middleware wraps a procedure call. It sees the request before the handler,
+can add to the context, and can observe or replace the result. Bunderstack has
+two places to put one, and the difference matters.
+
+| Where                             | Reaches                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `.use()` on a base                | Only procedures built from that base                        |
+| `middleware: [...]` in the config | Every procedure: generated CRUD, files, realtime, and yours |
+
+## Per-base middleware
+
+Use `.use()` when the middleware expresses a rule about a group of procedures —
+a role check, an organization scope, a quota. It belongs next to the base it
+guards. See [Extend a base](/docs/api-procedures#extend-a-base).
+
+## Graph-wide middleware
+
+Observability is the common case, and it is the one that per-base middleware
+gets wrong. Bunderstack builds the CRUD, storage, and realtime procedures
+itself, so they never pass through a base your application declares. A tracing
+middleware attached to `o.protected` covers your own procedures and leaves the
+generated CRUD — usually the larger share of traffic — unmeasured.
+
+Register it in the config instead:
+
+```ts
+// src/api/base.ts
+export const instrumentation = o.middleware(async ({ context, next, path }) => {
+  const name = path.join('.')
+  const startedAt = performance.now()
+  try {
+    const result = await next()
+    metrics.record(name, performance.now() - startedAt, 'ok')
+    return result
+  } catch (error) {
+    metrics.record(name, performance.now() - startedAt, 'error')
+    throw error
+  }
+})
+```
+
+```ts
+const backend = bunderstack({
+  schema,
+  database,
+  middleware: [instrumentation],
+  api,
+})
+
+const app = await backend.start()
+```
+
+`o.middleware(...)` types the function over the request context, so you never
+write `os.$context<…>()` by hand. The middleware receives `path` — the
+procedure's path segments, such as `['boards', 'stats']` or `['todos',
+'list']` — plus `context`, `next`, and `errors`.
+
+Middleware in the list runs outermost first, in array order.
+
+## Reading the caller
+
+A graph-wide middleware runs **before** authentication, so `context.user` does
+not exist there. Do not call `context.getSession()` to get it either: the
+session is resolved lazily on purpose, and forcing it makes every request pay
+for authentication — including signed webhooks that never needed it.
+
+Use `context.peekSession()`. It returns the session that some later code
+already resolved, or `undefined`, and never starts a resolution:
+
+```ts
+const result = await next()
+log({ path: path.join('.'), userId: context.peekSession()?.user?.id })
+return result
+```
+
+Read it **after** `await next()`, when a protected procedure has resolved the
+session. Use it for observability only. Never use it for authorization — an
+unauthenticated request and an unresolved session look the same.
+
+## Long-lived procedures
+
+A realtime subscription is one procedure call that lives as long as the client
+stays connected. Code after `await next()` runs when the stream closes, not
+when the subscription starts. Filter those paths when that matters:
+
+```ts
+export const instrumentation = o.middleware(async ({ next, path }) => {
+  if (path[0] === 'realtime') return next()
+  /* … */
+})
+```
+
+## Adding to the context
+
+`next({ context })` merges into the context, and the addition is typed for
+everything downstream:
+
+```ts
+const withRequestId = o.middleware(async ({ context, next }) => {
+  const requestId =
+    context.request.headers.get('x-request-id') ?? crypto.randomUUID()
+  return next({ context: { requestId } })
+})
+```
+
+A graph-wide middleware that adds context extends it for generated procedures
+too, which do not read your fields. Keep additions cheap; anything expensive
+belongs on the base that actually needs it.
+
+QUERY CLIENT
+
+`bunderstack/query` derives generated CRUD and application procedures from
+`typeof app`. There is no code generation, route list, or duplicated response
+interface.
+
+## Create the client
+
+```bash
+bun add bunderstack @tanstack/react-query
+```
+
+```ts
+// bunderstack.ts — server
+export const backend = bunderstack({ schema, access, api: (o) => ({}) })
+export const app = await backend.start()
+export type App = typeof app
+```
+
+```ts
+// api-client.ts — client
+import { QueryClient } from '@tanstack/react-query'
+import { createClient } from 'bunderstack/query'
+import type { App } from './bunderstack'
+
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000 } },
+})
+
+export const api = createClient<App>({ queryClient })
+```
+
+`App` is a type-only import, so server code and the Drizzle schema do not enter
+the browser bundle.
+
+## Direct calls
+
+Every procedure exposes `.call(input)`:
+
+```ts
+const page = await api.posts.list.call({ limit: 20 })
+const post = await api.posts.get.call({ id: postId })
+const created = await api.posts.create.call({ title: 'Typed boundaries' })
+const stats = await api.stats.call({ boardId })
+```
+
+Inputs and outputs are inferred from the unified oRPC graph. Generated table
+procedures and custom procedures use the same API shape.
+
+## TanStack Query
+
+Read procedures expose `.queryOptions()`. Write procedures expose
+`.mutationOptions()`.
+
+```tsx
+import { useMutation, useQuery } from '@tanstack/react-query'
+
+function Posts() {
+  const posts = useQuery(api.posts.list.queryOptions({ input: { limit: 20 } }))
+  const createPost = useMutation(api.posts.create.mutationOptions())
+
+  return (
+    <button onClick={() => createPost.mutate({ title: 'Hello' })}>
+      {posts.data?.items.length ?? 0} posts
+    </button>
+  )
+}
+```
+
+Pass standard TanStack Query callbacks and options into the option factory:
+
+```ts
+api.posts.create.mutationOptions({
+  onSuccess: (created) => console.log(created.id),
+})
+```
+
+## Loaders and prefetching
+
+```ts
+export const Route = createFileRoute('/')({
+  loader: () =>
+    queryClient.ensureQueryData(
+      api.posts.list.queryOptions({ input: { limit: 20 } }),
+    ),
+})
+```
+
+## Files
+
+Declared buckets receive small helpers in addition to their procedures:
+
+```ts
+const uploaded = await api.files.images.upload(file)
+const thumbnail = api.files.images.url(uploaded.fileId, {
+  w: 320,
+  format: 'webp',
+})
+await api.files.images.delete(uploaded.fileId)
+```
+
+## Realtime query caches
+
+Use `syncRealtime` when the application uses TanStack Query without TanStack
+DB collections:
+
+```ts
+import { syncRealtime } from 'bunderstack/query'
+
+const connection = syncRealtime({
+  api,
+  queryClient,
+  tables: ['posts', 'comments'],
+})
+
+// call connection.close() when the application client is disposed
+```
+
+The client applies typed events to matching caches and invalidates subscribed
+tables after reconnect. Connection retry, resume, and dead-stream detection are
+internal.
+
+Changes reach the cache in one batch per animation frame, so a burst of writes
+costs one cache write and one invalidation per query key instead of one of each
+per event. Pass `notifyScheduler` to change that: `'sync'` writes as each event
+arrives, and a number debounces by that many milliseconds.
+
+```ts
+syncRealtime({ api, queryClient, tables: ['posts'], notifyScheduler: 'sync' })
+```
+
+Set `apply: 'patch'` to write changes into cached lists instead of invalidating
+them, so a write costs one request rather than two. A list is patched only when
+membership and ordering can be settled locally, and invalidated otherwise.
+
+## Type utilities
+
+```ts
+import type { InferSchema, InferSelect } from 'bunderstack/query'
+
+type Schema = InferSchema<App>
+type Post = InferSelect<Schema['posts']>
+```
+
+These aliases are useful at component boundaries. Avoid restating response
+types that the procedure client already knows.
+
+STORAGE
+
+## Upload
+
+```bash
+curl -X POST /api/files -F "file=@photo.jpg"
+# 201 { fileId: "abc123.jpg", url: "/api/files/abc123.jpg" }
+```
+
+Uploads require an authenticated session by default. File ownership is tracked in an internal metadata table.
+
+## Retrieve / delete
+
+```bash
+curl /api/files/abc123.jpg
+curl -X DELETE /api/files/abc123.jpg  # 204 — owner only by default
+```
+
+## Access rules
+
+```ts
+bunderstack({
+  schema,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        access: {
+          create: 'authenticated', // default
+          get: 'public', // default
+          delete: 'owner', // default
+        },
+      },
+    },
+  },
+})
+```
+
+## Local storage
+
+```ts
+bunderstack({ schema, storage: { local: './uploads' } })
+```
+
+## S3 / R2 / MinIO
+
+```ts
+bunderstack({ schema, storage: { s3: true } })
+# Set S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY in .env
+# For R2/MinIO also set S3_ENDPOINT
+```
+
+```ts
+bunderstack({
+  schema,
+  storage: {
+    local: './uploads',
+    defaultBucket: 'files',
+    buckets: {
+      files: {
+        upload: {
+          accept: ['image/jpeg', 'image/png', 'image/webp'],
+          maxSize: '5mb',
+        },
+      },
+    },
+  },
+})
+```
+
+## Programmatic URLs (`app.storage.getUrl`)
+
+Use `app.storage.getUrl` to programmatically resolve presigned S3 download URLs in production or local proxy URLs in development:
+
+```ts
+// Programmatically get download URL for a file key
+const downloadUrl = await app.storage.getUrl('resumes/user_123/cv.pdf', {
+  expiresIn: 3600,
+})
+```
+
+## Server-side uploads (`app.storage.upload`)
+
+Use `app.storage.upload` (or `context.storage.upload` in jobs and API procedures)
+to upload server-generated files such as PDFs and exports. It registers the
+storage metadata automatically, so the file is available through the generated
+download procedure and HTTP route:
+
+```ts
+await app.storage.upload(
+  'adaptations/123/resume.pdf',
+  pdfBytes,
+  'application/pdf',
+  { filename: 'resume.pdf', ownerId: user.id },
+)
+```
+
+Nested keys (like `adaptations/123/resume.pdf`) are fully supported by `GET /api/files/:bucket/*` and `DELETE /api/files/:bucket/*`.
+
+SYNC & REALTIME
+
+`bunderstack/sync` layers TanStack DB collections over the same generated oRPC
+procedures. It provides local live queries, optimistic mutations, scoped
+windows, and reliable realtime updates inferred from your server app.
+
+## Create a sync client
+
+```bash
+bun add bunderstack @tanstack/react-query @tanstack/db @tanstack/query-db-collection
+```
+
+```ts
+import { createSyncClient } from 'bunderstack/sync'
+import type { App } from './bunderstack'
+
+const api = createSyncClient<App>({ queryClient })
+```
+
+Each exposed table receives:
+
+```ts
+api.posts.collection
+api.posts.table
+api.posts.scopedCollection(options)
+api.posts.collectionByIds(ids)
+```
+
+Collections are stable by configuration. Calling `scopedCollection()` or
+`collectionByIds()` with equivalent options returns the existing collection;
+do not cast a plain array into a collection and do not rebuild collections on
+every render.
+
+## Optimistic mutations and reconciliation
+
+```ts
+api.posts.collection.insert({ id, title, userId })
+api.posts.collection.update(id, (draft) => {
+  draft.title = 'renamed'
+})
+api.posts.collection.delete(id)
+```
+
+The server mutation returns the canonical row after defaults, ownership, and
+database transforms are applied. The sync layer reconciles that row into every
+materialized view without a follow-up list request. Several overlapping local
+edits to the same row are coalesced so a stale completion cannot overwrite a
+newer optimistic state.
+
+## Scoped collections
+
+Use a growing window for feeds and other ordered datasets:
+
+```ts
+const feed = api.posts.scopedCollection({
+  filters: { replyToId: null },
+  sort: 'createdAt',
+  order: 'desc',
+  initialCount: 20,
+})
+
+const result = useLiveQuery((q) =>
+  q
+    .from({ post: feed.collection })
+    .orderBy(({ post }) => post.createdAt, 'desc'),
+)
+
+await feed.loadMore()
+feed.hasMore()
+```
+
+Use `collectionByIds(ids)` for exact relation lookups rather than searching a
+capped base collection:
+
+```ts
+const authorIds = [...new Set(posts.map((post) => post.userId))].sort()
+const authors = api.user.collectionByIds(authorIds)
+```
+
+## One realtime path
+
+On the server, generated writes and `context.realtime.publish()` emit typed
+changes through oRPC Publisher. The built-in `realtime.changes` procedure
+returns an event iterator. On the client, Bunderstack applies each change to
+query caches and all materialized collection views.
+
+```text
+database write
+  → oRPC Publisher
+  → realtime.changes iterator
+  → query cache + TanStack DB collections
+```
+
+Realtime starts automatically in browser sync clients and stays disabled
+during SSR. Applications do not poll a list endpoint and do not create a second
+event client.
+
+## Reliability behavior
+
+The library owns the transport lifecycle:
+
+- an internal heartbeat keeps quiet streams observable without producing
+  application events or cache work;
+- a stream that stops delivering is detected and replaced. The server sends a
+  heartbeat on a fixed interval and advertises that interval on the event
+  itself. The client tears the connection down after 2.5 intervals of silence
+  and reconnects. Without this a connection killed by a proxy idle-timeout, a
+  sleeping laptop, or a network change would hang open and deliver nothing;
+- failed connections retry with exponential backoff and jitter rather than a
+  fixed request loop;
+- Publisher event IDs allow resume while retained events are available;
+- after reconnect, subscribed tables are refetched once so an expired replay
+  window cannot leave the cache stale;
+- changes are applied in one batch per animation frame, so a burst of writes
+  costs one cache write and one invalidation per query key rather than one of
+  each per event;
+- a heartbeat is filtered inside the transport and never appears in a live
+  query.
+
+Publisher replay is an optimization. The database and the reconnect refetch
+remain the source of cache correctness.
+
+## Custom publications
+
+Publish a canonical row from a procedure or job when a write happens outside
+generated CRUD:
+
+```ts
+await context.realtime.publish(schema.posts, 'update', updatedPost)
+```
+
+Use Redis realtime configuration when web and worker processes are separate;
+the memory publisher is process-local.
+
+For TanStack Query without collections, use `syncRealtime` from
+`bunderstack/query`. Framework adapters are covered in
+[Framework Portability](/docs/framework-portability).
+
+TEMPLATES & AGENT SKILLS
+
+Bunderstack ships with a production-ready SaaS template and a suite of AI coding agent skills to streamline building full-stack applications with TanStack Start, TanStack Router, and TanStack Query.
+
+---
+
+## BunderSaaS Template (`templates/tanstack-start-saas`)
+
+The **BunderSaaS** template is a complete, full-stack SaaS workspace built on **Bunderstack** and **TanStack Start**.
+
+### Key Features
+
+- **Dual Dashboards & Auth Contexts**:
+  - **Client Workspace (`/app/*`)**: Guarded by `clientAuth` route context in `src/routes/app/layout.tsx` using `requireClientAuth`.
+  - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context in `src/routes/admin/layout.tsx` using `requireAdminAuth` (`role === 'admin'`).
+- **Isomorphic Session Validation**: Root `beforeLoad` in `src/routes/__root.tsx` fetches the session user isomorphically via `fetchUser()`.
+- **shadcn/ui Ready**: Pre-configured `components.json`, Tailwind v4, Lucide icons, Radix primitives, and `@shadcnstore` registry support (`bunx shadcn@latest add <component>`).
+- **Real-Time Delivery Rail**: Visual project status and proof attachment upload pipeline.
+- **Background Worker & Cron**: Wired `worker.ts` process for background jobs and scheduled sweeps.
+
+### Quick Start with BunderSaaS
+
+```bash
+cd templates/tanstack-start-saas
+bun install
+cp .env.example .env
+bun run db:generate
+bun run dev
+```
+
+In a separate terminal, run the background queue worker:
+
+```bash
+bun run worker
+```
+
+---
+
+## Bunderstack Agent Skills
+
+Two skills ship with the `bunderstack` package, so the guidance an agent reads
+always matches the version you installed.
+
+| Skill                       | Use it for                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `creating-bunderstack-apps` | Structuring an app; declaring procedures, bases, middleware, access rules, jobs, storage, realtime |
+| `migrating-to-bunderstack`  | Replacing separate auth, database, API, storage, email, jobs, cron, or realtime infrastructure     |
+
+### Install them
+
+```bash
+bunx bunderstack skills
+```
+
+That copies both skills into `.agents/skills/` and adds a Bunderstack block to
+`AGENTS.md`. The pointer matters as much as the files: agents read `AGENTS.md`
+before they search for anything, so it is what actually pulls the skills into
+context when the model works in your repository.
+
+Re-run the command after upgrading Bunderstack to pick up the current guidance.
+It replaces its own block and leaves the rest of `AGENTS.md` alone.
+
+Keep them honest in CI:
+
+```bash
+bunx bunderstack skills --check
+```
+
+That exits non-zero when the installed skills drift from the package or the
+`AGENTS.md` block is missing. Use `--dir` to install somewhere other than
+`.agents/skills`.
+
+The package ships two agent-readable references. `llms.txt` is the compact
+working contract at `node_modules/bunderstack/llms.txt` and
+[/llms.txt](/llms.txt). `llms-full.txt` contains the complete documentation
+corpus at `node_modules/bunderstack/llms-full.txt` and
+[/llms-full.txt](/llms-full.txt). Start compact and load the full corpus when a
+task crosses several framework capabilities.
+
+## TanStack Agent Skills
+
+Bunderstack integrates [TanStack Agent Skills](https://github.com/DeckardGer/tanstack-agent-skills) to guide AI coding assistants (Antigravity, Cursor, Claude Code, etc.) in following best practices when generating or modifying code.
+
+### Available Skills
+
+1. **`tanstack-start-best-practices`**:
+   - Server functions (`createServerFn`), Standard Schema input validation, isomorphic session checks, SSR hydration safety.
+2. **`tanstack-router-best-practices`**:
+   - Root context typing (`createRootRouteWithContext`), `beforeLoad` route guards, search parameter validation (`validateSearch`), and `notFoundComponent` / `errorComponent` handling.
+3. **`tanstack-query-best-practices`**:
+   - `staleTime` optimization, query key factory patterns, and optimistic UI mutations.
+4. **`tanstack-integration-best-practices`**:
+   - Seamless data flow coordination between TanStack Router, Query, and Start.
+
+### Installing Skills in Your Workspace
+
+To add the TanStack Agent Skills to your project workspace:
+
+```bash
+npx -y skills add https://github.com/deckardger/tanstack-agent-skills
+```
+
+These are third-party skills pulled from GitHub, so they are versioned
+independently of Bunderstack.
+
+THUMBNAILS
+
+Append transform params to any image URL. First request generates and caches; repeat requests hit the cache.
+
+## Query parameters
+
+| Param     | Values                                                  | Description         |
+| --------- | ------------------------------------------------------- | ------------------- |
+| `w`       | integer                                                 | Width in pixels     |
+| `h`       | integer                                                 | Height in pixels    |
+| `fit`     | `cover` \| `contain` \| `fill` \| `inside` \| `outside` | Resize strategy     |
+| `format`  | `webp` \| `jpeg` \| `png` \| `avif`                     | Output format       |
+| `quality` | 1–100                                                   | Compression quality |
+
+## Examples
+
+```bash
+/files/photo.jpg?w=200&h=200&format=webp
+/files/photo.jpg?w=400&fit=contain
+/files/photo.jpg?format=avif&quality=80
+```

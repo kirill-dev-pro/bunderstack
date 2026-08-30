@@ -41,4 +41,13 @@ if (!existsSync(llms)) {
 }
 copyFileSync(llms, join(clientDir, 'llms.txt'))
 
+const llmsFull = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../packages/bunderstack/llms-full.txt',
+)
+if (!existsSync(llmsFull)) {
+  throw new Error('postbuild: packages/bunderstack/llms-full.txt is missing')
+}
+copyFileSync(llmsFull, join(clientDir, 'llms-full.txt'))
+
 writeFileSync(join(clientDir, '.nojekyll'), '')

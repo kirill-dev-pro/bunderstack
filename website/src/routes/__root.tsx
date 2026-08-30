@@ -84,6 +84,12 @@ export const Route = createRootRoute({
         href: '/llms.txt',
         title: 'LLM Documentation',
       },
+      {
+        rel: 'alternate',
+        type: 'text/plain',
+        href: '/llms-full.txt',
+        title: 'Full LLM Documentation',
+      },
       { rel: 'sitemap', type: 'application/xml', href: '/sitemap.xml' },
       { rel: 'stylesheet', href: appCss },
     ],

@@ -27,6 +27,7 @@
     "dist",
     "skills",
     "llms.txt",
+    "llms-full.txt",
     "CHANGELOG.md",
     "README.md",
     "LICENSE"
