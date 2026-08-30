@@ -1,8 +1,13 @@
 import { generateTypeId } from 'bunderstack'
 import { and, eq, lt, or, sql } from 'drizzle-orm'
 
-import type { AgentResponder, AgentTask, AgentTools } from './types'
-import type { AgentCheckpoint } from './types'
+import {
+  createNoopAgentStream,
+  type AgentCheckpoint,
+  type AgentResponder,
+  type AgentTask,
+  type AgentTools,
+} from './types'
 
 import {
   agentCommitments,
@@ -317,6 +322,7 @@ export async function runAgentTurn(
                 : undefined,
           }
         : undefined,
+      stream: createNoopAgentStream(),
       toolApprovalRequired: (toolId, rawArgs) =>
         agentToolApprovalRequired(ctx, {
           toolId,

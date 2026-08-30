@@ -15,7 +15,10 @@ export async function assembleAgentContext(
     now: Date
   },
 ): Promise<
-  Omit<AgentResponderInput, 'currentExecution' | 'toolApprovalRequired'> & {
+  Omit<
+    AgentResponderInput,
+    'currentExecution' | 'toolApprovalRequired' | 'stream'
+  > & {
     selectedInboxIds: string[]
   }
 > {

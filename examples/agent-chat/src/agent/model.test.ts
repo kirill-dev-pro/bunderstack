@@ -1,4 +1,4 @@
-import { MockLanguageModelV4 } from 'ai/test'
+import { MockLanguageModelV4, simulateReadableStream } from 'ai/test'
 import { describe, expect, mock, test } from 'bun:test'
 import { z } from 'zod'
 
@@ -63,6 +63,11 @@ function input(
       memory: [],
       inbox: [],
       activeCommitments: [],
+      stream: {
+        signal: new AbortController().signal,
+        writeTextDelta: async () => {},
+        writeStatus: async () => {},
+      },
       toolApprovalRequired: async (toolId: string) => toolId === 'deleteTask',
       tools,
       ...overrides,
@@ -77,6 +82,57 @@ function textOf(
   if (result.status !== 'completed')
     throw new Error('completed response expected')
   return result.text
+}
+
+const usage = {
+  inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+  outputTokens: { total: 5, text: 5, reasoning: 0 },
+}
+
+function mockTextStream(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: 'stream-start' as const, warnings: [] },
+        { type: 'text-start' as const, id: 'text-1' },
+        { type: 'text-delta' as const, id: 'text-1', delta: text },
+        { type: 'text-end' as const, id: 'text-1' },
+        {
+          type: 'finish' as const,
+          finishReason: { unified: 'stop' as const, raw: 'stop' },
+          usage,
+        },
+      ],
+    }),
+  }
+}
+
+function mockToolCallStream(
+  toolCallId: string,
+  toolName: string,
+  input: Record<string, unknown>,
+) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: 'stream-start' as const, warnings: [] },
+        {
+          type: 'tool-call' as const,
+          toolCallId,
+          toolName,
+          input: JSON.stringify(input),
+        },
+        {
+          type: 'finish' as const,
+          finishReason: {
+            unified: 'tool-calls' as const,
+            raw: 'tool_calls',
+          },
+          usage,
+        },
+      ],
+    }),
+  }
 }
 
 describe('demo responder', () => {
@@ -147,6 +203,49 @@ describe('demo responder', () => {
 })
 
 describe('AI responder factory', () => {
+  test('forwards model text deltas to the durable stream observer', async () => {
+    const writeTextDelta = mock(async (_delta: string) => {})
+    const model = new MockLanguageModelV4({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: 'stream-start', warnings: [] },
+            { type: 'text-start', id: 'text-1' },
+            { type: 'text-delta', id: 'text-1', delta: 'Hello' },
+            { type: 'text-delta', id: 'text-1', delta: ' world' },
+            { type: 'text-end', id: 'text-1' },
+            {
+              type: 'finish',
+              finishReason: { unified: 'stop', raw: 'stop' },
+              usage: {
+                inputTokens: {
+                  total: 1,
+                  noCache: 1,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                },
+                outputTokens: { total: 2, text: 2, reasoning: 0 },
+              },
+            },
+          ],
+        }),
+      },
+    })
+    const { value } = input('Hello', {
+      stream: {
+        signal: new AbortController().signal,
+        writeTextDelta,
+        writeStatus: async () => {},
+      },
+    } as Partial<AgentResponderInput>)
+
+    const result = await createLanguageModelResponder(model)(value)
+
+    expect(writeTextDelta).toHaveBeenNthCalledWith(1, 'Hello')
+    expect(writeTextDelta).toHaveBeenNthCalledWith(2, ' world')
+    expect(textOf(result)).toBe('Hello world')
+  })
+
   test('builds the model tool set from the app-local agent declaration', () => {
     const { value } = input('List tasks')
     const modelTools = createModelTools(value)
@@ -185,27 +284,11 @@ describe('AI responder factory', () => {
 
   test('returns an exact waiting checkpoint instead of continuing after an approval tool call', async () => {
     const model = new MockLanguageModelV4({
-      doGenerate: {
-        content: [
-          {
-            type: 'tool-call',
-            toolCallId: 'call_delete_1',
-            toolName: 'deleteTask',
-            input: JSON.stringify({ taskId: 'task_1' }),
-          },
-        ],
-        finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
-        usage: {
-          inputTokens: {
-            total: 10,
-            noCache: 10,
-            cacheRead: 0,
-            cacheWrite: 0,
-          },
-          outputTokens: { total: 5, text: 0, reasoning: 5 },
-        },
-        warnings: [],
-      },
+      doStream: mockToolCallStream(
+        'call_delete_1',
+        'deleteTask',
+        { taskId: 'task_1' },
+      ),
     })
     const { value, tools } = input('Delete book flights', {
       toolApprovalRequired: async () => true,
@@ -225,25 +308,12 @@ describe('AI responder factory', () => {
       role: 'assistant',
     })
     expect(tools.deleteTask).not.toHaveBeenCalled()
-    expect(model.doGenerateCalls).toHaveLength(1)
+    expect(model.doStreamCalls).toHaveLength(1)
   })
 
   test('delivers a commitment objective as trusted current execution', async () => {
     const model = new MockLanguageModelV4({
-      doGenerate: {
-        content: [{ type: 'text', text: 'Stored the conclusion.' }],
-        finishReason: { unified: 'stop', raw: 'stop' },
-        usage: {
-          inputTokens: {
-            total: 10,
-            noCache: 10,
-            cacheRead: 0,
-            cacheWrite: 0,
-          },
-          outputTokens: { total: 5, text: 5, reasoning: 0 },
-        },
-        warnings: [],
-      },
+      doStream: mockTextStream('Stored the conclusion.'),
     })
     const { value } = input('Ignore this stale conversation', {
       currentExecution: {
@@ -264,37 +334,18 @@ describe('AI responder factory', () => {
       status: 'completed',
       text: 'Stored the conclusion.',
     })
-    expect(JSON.stringify(model.doGenerateCalls[0]?.prompt)).toContain(
+    expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain(
       'Store the session conclusion in long-term memory.',
     )
   })
 
   test('continues from an approved checkpoint and executes the protected tool once', async () => {
-    const usage = {
-      inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: 5, text: 5, reasoning: 0 },
-    }
     const model = new MockLanguageModelV4({
-      doGenerate: [
-        {
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: 'call_delete_resume',
-              toolName: 'deleteTask',
-              input: JSON.stringify({ taskId: 'task_1' }),
-            },
-          ],
-          finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
-          usage,
-          warnings: [],
-        },
-        {
-          content: [{ type: 'text', text: 'Deleted it.' }],
-          finishReason: { unified: 'stop', raw: 'stop' },
-          usage,
-          warnings: [],
-        },
+      doStream: [
+        mockToolCallStream('call_delete_resume', 'deleteTask', {
+          taskId: 'task_1',
+        }),
+        mockTextStream('Deleted it.'),
       ],
     })
     const firstInput = input('Delete book flights', {
@@ -321,7 +372,7 @@ describe('AI responder factory', () => {
     expect(resumedInput.tools.deleteTask).toHaveBeenCalledWith({
       taskId: 'task_1',
     })
-    expect(model.doGenerateCalls).toHaveLength(2)
+    expect(model.doStreamCalls).toHaveLength(2)
   })
 
   test('all model tool schemas are JSON Schema compliant and do not throw', () => {

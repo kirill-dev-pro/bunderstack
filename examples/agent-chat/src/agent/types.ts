@@ -32,6 +32,20 @@ export interface AgentTools {
   }>
 }
 
+export interface AgentResponderStream {
+  signal: AbortSignal
+  writeTextDelta(delta: string): Promise<void>
+  writeStatus(title: string): Promise<void>
+}
+
+export function createNoopAgentStream(): AgentResponderStream {
+  return {
+    signal: new AbortController().signal,
+    writeTextDelta: async () => {},
+    writeStatus: async () => {},
+  }
+}
+
 export interface AgentResponderInput {
   reason: string
   now: Date
@@ -77,6 +91,7 @@ export interface AgentResponderInput {
     approved: boolean
     reason?: string
   }
+  stream: AgentResponderStream
   toolApprovalRequired(toolId: string, args: unknown): Promise<boolean>
   tools: AgentTools
 }

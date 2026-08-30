@@ -2,8 +2,8 @@ import { createOpenAI } from '@ai-sdk/openai'
 import {
   dynamicTool,
   generateId,
-  generateText,
   stepCountIs,
+  streamText,
   type LanguageModel,
   type ModelMessage,
 } from 'ai'
@@ -318,7 +318,7 @@ export function createLanguageModelResponder(
           },
         ]
       : initialMessages
-    const result = await generateText({
+    const result = streamText({
       model,
       system: [
         input.instructions,
@@ -333,12 +333,19 @@ export function createLanguageModelResponder(
       tools: createModelTools(input),
       maxRetries: 3,
       stopWhen: stepCountIs(6),
+      abortSignal: input.stream.signal,
     })
 
-    const checkpoint = {
-      messages: [...messages, ...result.responseMessages],
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === 'text-delta') {
+        await input.stream.writeTextDelta(chunk.text)
+      }
     }
-    const approval = result.content.find(
+
+    const checkpoint = {
+      messages: [...messages, ...(await result.responseMessages)],
+    }
+    const approval = (await result.content).find(
       (part) => part.type === 'tool-approval-request' && !part.isAutomatic,
     )
     if (approval?.type === 'tool-approval-request') {
@@ -354,7 +361,7 @@ export function createLanguageModelResponder(
       }
     }
 
-    return { status: 'completed', text: result.text, checkpoint }
+    return { status: 'completed', text: await result.text, checkpoint }
   }
 }
 
