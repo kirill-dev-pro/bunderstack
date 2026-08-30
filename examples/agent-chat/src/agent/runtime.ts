@@ -1,8 +1,7 @@
 import { generateTypeId } from 'bunderstack'
-import { and, eq, lt, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, lt, or, sql } from 'drizzle-orm'
 
 import {
-  createNoopAgentStream,
   type AgentCheckpoint,
   type AgentResponder,
   type AgentTask,
@@ -24,6 +23,7 @@ import {
 } from './approvals'
 import { assembleAgentContext } from './context'
 import { acknowledgeInbox, sendAgentEvent } from './inbox'
+import { createRunRecorder, type RunRecorder } from './run-recorder'
 
 export interface EnqueuedJob {
   name: string
@@ -165,7 +165,7 @@ export async function runAgentTurn(
           and(
             eq(agentRuns.id, input.runId),
             eq(agentRuns.threadId, thread.id),
-            eq(agentRuns.status, 'waiting_for_approval'),
+            inArray(agentRuns.status, ['queued', 'waiting_for_approval']),
           ),
         )
         .returning()
@@ -188,6 +188,40 @@ export async function runAgentTurn(
     return { status: 'stale' as const }
   }
   await ctx.realtime.publish(agentRuns, input.runId ? 'update' : 'create', run)
+
+  let currentRun = run
+  let recorder: RunRecorder | undefined
+  const getRecorder = async () => {
+    if (recorder) return recorder
+    if (!currentRun.assistantMessageId) {
+      const draftId = generateTypeId('amsg')
+      const created = await ctx.db.transaction(async (tx: any) => {
+        const [draft] = await tx
+          .insert(agentMessages)
+          .values({
+            id: draftId,
+            threadId: thread.id,
+            userId: thread.userId,
+            runId: currentRun.id,
+            role: 'assistant',
+            content: '',
+            status: 'queued',
+          })
+          .returning()
+        const [updatedRun] = await tx
+          .update(agentRuns)
+          .set({ assistantMessageId: draftId })
+          .where(eq(agentRuns.id, currentRun.id))
+          .returning()
+        return { draft: draft!, run: updatedRun! }
+      })
+      currentRun = created.run
+      await ctx.realtime.publish(agentMessages, 'create', created.draft)
+      await ctx.realtime.publish(agentRuns, 'update', currentRun)
+    }
+    recorder = await createRunRecorder(ctx, currentRun)
+    return recorder
+  }
 
   try {
     const resumeRequest = input.requestId
@@ -236,6 +270,7 @@ export async function runAgentTurn(
       thread,
       reason: input.reason,
       now: new Date(),
+      excludeMessageId: currentRun.assistantMessageId ?? undefined,
     })
     let invocationSequence =
       (run.checkpoint as AgentCheckpoint | null)?.toolSequence ?? 0
@@ -245,19 +280,42 @@ export async function runAgentTurn(
       run.id
     const invoke = async (toolId: string, rawArgs: unknown) => {
       invocationSequence += 1
-      const result = await invokeAgentTool(ctx, {
-        toolId,
-        rawArgs,
-        userId: thread.userId,
-        threadId: thread.id,
-        runId: run.id,
-        trigger: {
-          type: input.reason.startsWith('message') ? 'user' : 'system',
-          trusted: true,
-        },
-        capabilities,
-        executionId: `${executionKey}:tool:${invocationSequence}`,
+      const definition = getAgentTool(toolId)
+      const activeRecorder = await getRecorder()
+      const step = await activeRecorder.startStep({
+        kind: 'tool_call',
+        title: `${definition.id} v${definition.version}`,
+        input: rawArgs,
+        visibility: 'visible',
       })
+      let result: Awaited<ReturnType<typeof invokeAgentTool>>
+      try {
+        result = await invokeAgentTool(ctx, {
+          toolId,
+          rawArgs,
+          userId: thread.userId,
+          threadId: thread.id,
+          runId: currentRun.id,
+          trigger: {
+            type: input.reason.startsWith('message') ? 'user' : 'system',
+            trusted: true,
+          },
+          capabilities,
+          executionId: `${executionKey}:tool:${invocationSequence}`,
+        })
+      } catch (error) {
+        await activeRecorder.failStep(step.id, error)
+        throw error
+      }
+      if (result.status === 'done') {
+        await activeRecorder.finishStep(step.id, result.result, {
+          toolCallId: result.toolCallId,
+        })
+      } else {
+        await activeRecorder.finishStep(step.id, {
+          approvalRequired: true,
+        })
+      }
       if (
         result.status === 'done' &&
         resumeRequest?.status === 'approved' &&
@@ -322,7 +380,21 @@ export async function runAgentTurn(
                 : undefined,
           }
         : undefined,
-      stream: createNoopAgentStream(),
+      stream: {
+        signal: new AbortController().signal,
+        writeTextDelta: async (delta) => {
+          await (await getRecorder()).appendText(delta)
+        },
+        writeStatus: async (title) => {
+          const activeRecorder = await getRecorder()
+          const step = await activeRecorder.startStep({
+            kind: 'status',
+            title,
+            visibility: 'visible',
+          })
+          await activeRecorder.finishStep(step.id)
+        },
+      },
       toolApprovalRequired: (toolId, rawArgs) =>
         agentToolApprovalRequired(ctx, {
           toolId,
@@ -334,13 +406,14 @@ export async function runAgentTurn(
       tools,
     })
     if (response.status === 'waiting_for_approval') {
+      if (recorder) await recorder.flush()
       const definition = getAgentTool(response.request.tool)
       const [request] = await ctx.db
         .insert(agentRequests)
         .values({
           threadId: thread.id,
           userId: thread.userId,
-          runId: run.id,
+          runId: currentRun.id,
           kind: 'approval',
           prompt: `Allow ${definition.id} with these exact arguments?`,
           tool: definition.id,
@@ -362,12 +435,12 @@ export async function runAgentTurn(
             executionKey,
           },
         })
-        .where(eq(agentRuns.id, run.id))
+        .where(eq(agentRuns.id, currentRun.id))
         .returning()
       await ctx.realtime.publish(agentRuns, 'update', waitingRun)
       return {
         status: 'waiting_for_approval' as const,
-        runId: run.id,
+        runId: currentRun.id,
         requestId: request!.id,
       }
     }
@@ -376,17 +449,10 @@ export async function runAgentTurn(
         response.status === 'blocked' ? response.reason : response.error,
       )
     }
-    if (response.text.trim()) {
-      const [assistantMessage] = await ctx.db
-        .insert(agentMessages)
-        .values({
-          threadId: thread.id,
-          userId: thread.userId,
-          role: 'assistant',
-          content: response.text,
-        })
-        .returning()
-      await ctx.realtime.publish(agentMessages, 'create', assistantMessage)
+    if (response.text.trim() || currentRun.assistantMessageId || recorder) {
+      const activeRecorder = await getRecorder()
+      await activeRecorder.replaceText(response.text)
+      await activeRecorder.finishMessage('complete')
     }
     await acknowledgeInbox(ctx, {
       threadId: thread.id,
@@ -397,17 +463,37 @@ export async function runAgentTurn(
     const [finished] = await ctx.db
       .update(agentRuns)
       .set({ status: 'complete', completedAt: new Date() })
-      .where(eq(agentRuns.id, run.id))
+      .where(eq(agentRuns.id, currentRun.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', finished)
     return { status: 'complete' as const }
   } catch (error) {
     console.error('Error during agent turn:', error)
     const message = error instanceof Error ? error.message : String(error)
+    if (currentRun.assistantMessageId || recorder) {
+      try {
+        const activeRecorder = await getRecorder()
+        await activeRecorder.flush()
+        const [failedMessage] = await ctx.db
+          .update(agentMessages)
+          .set({
+            status: 'error',
+            revision: sql`${agentMessages.revision} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(agentMessages.id, currentRun.assistantMessageId!))
+          .returning()
+        if (failedMessage) {
+          await ctx.realtime.publish(agentMessages, 'update', failedMessage)
+        }
+      } catch (snapshotError) {
+        console.error('Failed to persist the final agent snapshot:', snapshotError)
+      }
+    }
     const [failed] = await ctx.db
       .update(agentRuns)
       .set({ status: 'error', error: message, completedAt: new Date() })
-      .where(eq(agentRuns.id, run.id))
+      .where(eq(agentRuns.id, currentRun.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', failed)
     throw error

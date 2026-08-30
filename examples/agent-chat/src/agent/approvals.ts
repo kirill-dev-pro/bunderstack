@@ -20,7 +20,7 @@ import {
 } from './policy'
 
 export type ToolInvocationResult<T = unknown> =
-  | { status: 'done'; result: T }
+  | { status: 'done'; result: T; toolCallId: string }
   | { status: 'approval_required'; requestId: string }
 
 type AnyToolDefinition = ToolDefinition<string, any, any>
@@ -129,7 +129,9 @@ async function recordExecution(
   ) {
     throw new Error(`Tool execution identity collision: ${details.executionId}`)
   }
-  if (existing?.status === 'done') return existing.result
+  if (existing?.status === 'done') {
+    return { call: existing, result: existing.result }
+  }
   if (existing?.status === 'running') {
     throw new Error(
       `Tool execution ${details.executionId} has an indeterminate prior outcome`,
@@ -172,7 +174,7 @@ async function recordExecution(
       return { call, result }
     })
     await ctx.realtime.publish(agentToolCalls, 'create', call)
-    return result
+    return { call, result }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const [call] = await ctx.db
@@ -250,7 +252,7 @@ export async function invokeAgentTool(
     permission.capability.consumed = true
   }
 
-  const result = await recordExecution(
+  const execution = await recordExecution(
     ctx,
     {
       runId: input.runId,
@@ -265,7 +267,11 @@ export async function invokeAgentTool(
     definition,
     parsed,
   )
-  return { status: 'done', result }
+  return {
+    status: 'done',
+    result: execution.result,
+    toolCallId: execution.call.id,
+  }
 }
 
 export async function resolveApproval(

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, notInArray } from 'drizzle-orm'
+import { and, asc, desc, eq, ne, notInArray } from 'drizzle-orm'
 
 import type { AgentRuntimeContext } from './runtime'
 import type { AgentResponderInput, AgentTask } from './types'
@@ -13,6 +13,7 @@ export async function assembleAgentContext(
     thread: { id: string; userId: string }
     reason: string
     now: Date
+    excludeMessageId?: string
   },
 ): Promise<
   Omit<
@@ -26,7 +27,14 @@ export async function assembleAgentContext(
   const recentMessages = (await ctx.db
     .select()
     .from(agentMessages)
-    .where(eq(agentMessages.threadId, input.thread.id))
+    .where(
+      input.excludeMessageId
+        ? and(
+            eq(agentMessages.threadId, input.thread.id),
+            ne(agentMessages.id, input.excludeMessageId),
+          )
+        : eq(agentMessages.threadId, input.thread.id),
+    )
     .orderBy(desc(agentMessages.createdAt), desc(agentMessages.id))
     .limit(conversationLimit)
     .all()) as Array<typeof agentMessages.$inferSelect>

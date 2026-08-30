@@ -6,6 +6,7 @@ import {
   agentInbox,
   agentMessages,
   agentRequests,
+  agentRunSteps,
   agentRuns,
   agentThreads,
   agentToolCalls,
@@ -13,6 +14,7 @@ import {
 } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
 import { resolveApproval } from './approvals'
+import { acceptUserMessage } from './messages'
 import {
   fireCommitment,
   getOrCreateThread,
@@ -125,6 +127,130 @@ describe('agent runtime', () => {
       .where(eq(agentThreads.id, thread.id))
       .get()
     expect(savedThread?.status).toBe('idle')
+  })
+
+  test('streams into the reserved draft and completes the same message', async () => {
+    const state = await setup()
+    const accepted = await acceptUserMessage(state.ctx, {
+      userId: state.userId,
+      content: 'List tasks',
+      clientMessageId: 'browser-stream-1',
+    })
+
+    await runAgentTurn(
+      state.ctx,
+      {
+        threadId: state.thread.id,
+        reason: 'message',
+        runId: accepted.runId,
+        executionKey: accepted.runId,
+      },
+      async (input) => {
+        expect(input.messages.at(-1)).toMatchObject({
+          role: 'user',
+          content: 'List tasks',
+        })
+        await input.stream.writeTextDelta('Three')
+        await input.stream.writeTextDelta(' tasks.')
+        return completed('Three tasks.')
+      },
+    )
+
+    expect(
+      await state.ctx.db
+        .select()
+        .from(agentMessages)
+        .where(eq(agentMessages.id, accepted.assistantMessageId))
+        .get(),
+    ).toMatchObject({
+      content: 'Three tasks.',
+      status: 'complete',
+      revision: expect.any(Number),
+    })
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentRuns).get()).toMatchObject({
+      id: accepted.runId,
+      status: 'complete',
+    })
+  })
+
+  test('links an exact visible tool step to the execution journal', async () => {
+    const state = await setup()
+    const accepted = await acceptUserMessage(state.ctx, {
+      userId: state.userId,
+      content: 'Add book flights',
+      clientMessageId: 'browser-tool-1',
+    })
+
+    await runAgentTurn(
+      state.ctx,
+      {
+        threadId: state.thread.id,
+        reason: 'message',
+        runId: accepted.runId,
+        executionKey: accepted.runId,
+      },
+      async (input) => {
+        await input.tools.createTask({ title: 'Book flights' })
+        return completed('Added “Book flights”.')
+      },
+    )
+
+    const call = await state.ctx.db.select().from(agentToolCalls).get()
+    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject([
+      {
+        runId: accepted.runId,
+        sequence: 1,
+        kind: 'tool_call',
+        title: 'createTask v1',
+        status: 'complete',
+        visibility: 'visible',
+        input: { title: 'Book flights' },
+        output: { title: 'Book flights' },
+        toolCallId: call!.id,
+      },
+    ])
+  })
+
+  test('preserves partial streamed text and completed steps when the responder fails', async () => {
+    const state = await setup()
+    const accepted = await acceptUserMessage(state.ctx, {
+      userId: state.userId,
+      content: 'Work then fail',
+      clientMessageId: 'browser-error-1',
+    })
+
+    await expect(
+      runAgentTurn(
+        state.ctx,
+        {
+          threadId: state.thread.id,
+          reason: 'message',
+          runId: accepted.runId,
+          executionKey: accepted.runId,
+        },
+        async (input) => {
+          await input.stream.writeStatus('Inspecting tasks')
+          await input.stream.writeTextDelta('Partial answer')
+          throw new Error('model unavailable')
+        },
+      ),
+    ).rejects.toThrow('model unavailable')
+
+    expect(
+      await state.ctx.db
+        .select()
+        .from(agentMessages)
+        .where(eq(agentMessages.id, accepted.assistantMessageId))
+        .get(),
+    ).toMatchObject({ content: 'Partial answer', status: 'error' })
+    expect(await state.ctx.db.select().from(agentRuns).get()).toMatchObject({
+      status: 'error',
+      error: 'model unavailable',
+    })
+    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject([
+      { title: 'Inspecting tasks', status: 'complete' },
+    ])
   })
 
   test('a commitment becomes an exact future job and a journal entry', async () => {
