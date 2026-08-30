@@ -6,6 +6,7 @@ import {
   agentMemory,
   agentMessages,
   agentRequests,
+  agentRunSteps,
   agentRuns,
   agentThreads,
   agentToolCalls,
@@ -38,6 +39,10 @@ export async function transferAnonymousAgentData(
       .update(agentRuns)
       .set({ userId: toUserId })
       .where(eq(agentRuns.userId, fromUserId))
+    await tx
+      .update(agentRunSteps)
+      .set({ userId: toUserId })
+      .where(eq(agentRunSteps.userId, fromUserId))
     await tx
       .update(agentToolCalls)
       .set({ userId: toUserId })

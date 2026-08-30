@@ -594,7 +594,7 @@ async function executeCommitmentUnlocked(
     const error = 'The user rejected this commitment action.'
     const [failedRun] = await ctx.db
       .update(agentRuns)
-      .set({ status: 'failed', error, completedAt })
+      .set({ status: 'error', error, completedAt })
       .where(eq(agentRuns.id, run.id))
       .returning()
     const [failedCommitment] = await ctx.db
@@ -852,7 +852,7 @@ async function executeCommitmentUnlocked(
         const [blockedRun] = await ctx.db
           .update(agentRuns)
           .set({
-            status: 'failed',
+            status: 'error',
             error: response.reason,
             checkpoint: response.checkpoint,
             completedAt: new Date(),
@@ -897,7 +897,7 @@ async function executeCommitmentUnlocked(
     const completedAt = new Date()
     const [finishedRun] = await ctx.db
       .update(agentRuns)
-      .set({ status: 'done', completedAt })
+      .set({ status: 'complete', completedAt })
       .where(eq(agentRuns.id, run!.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', finishedRun)
@@ -948,7 +948,7 @@ async function executeCommitmentUnlocked(
     const completedAt = new Date()
     const [failedRun] = await ctx.db
       .update(agentRuns)
-      .set({ status: 'failed', error: message, completedAt })
+      .set({ status: 'error', error: message, completedAt })
       .where(eq(agentRuns.id, run!.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', failedRun)

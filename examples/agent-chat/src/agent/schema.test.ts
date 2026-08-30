@@ -8,7 +8,9 @@ import {
   agentCommitments,
   agentInbox,
   agentMemory,
+  agentMessages,
   agentRequests,
+  agentRunSteps,
   agentRuns,
   agentThreads,
   agentToolGrants,
@@ -175,6 +177,119 @@ describe('durable agent state schema', () => {
       approvalId: 'approval_delete_1',
       toolCallId: 'call_delete_1',
     })
+  })
+
+  test('stores a revisioned assistant draft and visible run steps', async () => {
+    testApp = await createTestApp()
+    const userId = await testApp.seedUser('Streaming Lynx')
+    const threadId = generateTypeId('athread')
+    const inputMessageId = generateTypeId('amsg')
+    const runId = generateTypeId('arun')
+    const assistantMessageId = generateTypeId('amsg')
+
+    await testApp.ctx.db.insert(agentThreads).values({ id: threadId, userId })
+    await testApp.ctx.db.insert(agentMessages).values({
+      id: inputMessageId,
+      threadId,
+      userId,
+      role: 'user',
+      content: 'List tasks',
+      clientMessageId: 'browser-message-1',
+    })
+    await testApp.ctx.db.insert(agentRuns).values({
+      id: runId,
+      threadId,
+      userId,
+      inputMessageId,
+      assistantMessageId,
+      triggerType: 'user_message',
+      reason: 'message',
+      status: 'queued',
+    })
+    await testApp.ctx.db.insert(agentMessages).values({
+      id: assistantMessageId,
+      threadId,
+      userId,
+      runId,
+      role: 'assistant',
+      content: 'Three',
+      status: 'streaming',
+      revision: 2,
+    })
+    await testApp.ctx.db.insert(agentRunSteps).values({
+      runId,
+      threadId,
+      userId,
+      sequence: 1,
+      kind: 'tool_call',
+      title: 'listTasks v1',
+      status: 'complete',
+      visibility: 'visible',
+      input: {},
+      output: [{ id: 'task_1' }],
+    })
+
+    expect(await testApp.ctx.db.select().from(agentMessages).all()).toMatchObject([
+      { id: inputMessageId, clientMessageId: 'browser-message-1' },
+      {
+        id: assistantMessageId,
+        runId,
+        status: 'streaming',
+        revision: 2,
+      },
+    ])
+    expect(await testApp.ctx.db.select().from(agentRunSteps).get()).toMatchObject({
+      runId,
+      sequence: 1,
+      kind: 'tool_call',
+      status: 'complete',
+      input: {},
+    })
+  })
+
+  test('allows only one active user-message run but independent commitment runs', async () => {
+    testApp = await createTestApp()
+    const userId = await testApp.seedUser('Concurrent Ibis')
+    const threadId = generateTypeId('athread')
+    await testApp.ctx.db.insert(agentThreads).values({ id: threadId, userId })
+
+    await testApp.ctx.db.insert(agentRuns).values({
+      threadId,
+      userId,
+      triggerType: 'user_message',
+      reason: 'message',
+      status: 'running',
+    })
+    await expect(
+      testApp.ctx.db
+        .insert(agentRuns)
+        .values({
+          threadId,
+          userId,
+          triggerType: 'user_message',
+          reason: 'message',
+          status: 'queued',
+        })
+        .run(),
+    ).rejects.toThrow()
+
+    await testApp.ctx.db.insert(agentRuns).values([
+      {
+        threadId,
+        userId,
+        triggerType: 'commitment',
+        reason: 'commitment.one',
+        status: 'waiting_for_approval',
+      },
+      {
+        threadId,
+        userId,
+        triggerType: 'commitment',
+        reason: 'commitment.two',
+        status: 'waiting_for_approval',
+      },
+    ])
+    expect(await testApp.ctx.db.select().from(agentRuns).all()).toHaveLength(3)
   })
 
   test('stores executable commitments, dependencies, and linked execution attempts', async () => {

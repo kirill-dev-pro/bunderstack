@@ -7,6 +7,7 @@ import {
   agentMemory,
   agentMessages,
   agentRequests,
+  agentRunSteps,
   agentRuns,
   agentThreads,
   agentToolCalls,
@@ -37,7 +38,7 @@ describe('anonymous agent account transfer', () => {
         threadId: thread.id,
         userId: anonymousId,
         reason: 'message',
-        status: 'done',
+        status: 'complete',
       })
       .returning()
     await app.ctx.db.insert(agentMessages).values({
@@ -54,6 +55,18 @@ describe('anonymous agent account transfer', () => {
       args: {},
       result: [],
       status: 'done',
+    })
+    await app.ctx.db.insert(agentRunSteps).values({
+      runId: run!.id,
+      threadId: thread.id,
+      userId: anonymousId,
+      sequence: 1,
+      kind: 'tool_call',
+      title: 'listTasks v1',
+      status: 'complete',
+      visibility: 'visible',
+      input: {},
+      output: [],
     })
     await app.ctx.db.insert(agentCommitments).values({
       threadId: thread.id,
@@ -105,6 +118,7 @@ describe('anonymous agent account transfer', () => {
       agentThreads,
       agentMessages,
       agentRuns,
+      agentRunSteps,
       agentToolCalls,
       agentCommitments,
       tasks,

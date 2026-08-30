@@ -47,7 +47,8 @@
 - Produces: `AgentMessageStatus`, `AgentRunStatus`, `AgentRunStepKind`, `AgentRunStepStatus`, and `AgentRunStepVisibility` schema literals.
 - Produces: `agentRunSteps`, readable only through an authenticated user-scoped generated API.
 - Produces: unique `(threadId, clientMessageId)` message identity and linked `inputMessageId`/`assistantMessageId` run fields.
-- Produces: a partial unique index allowing at most one active run per thread.
+- Produces: a partial unique index allowing at most one active
+  `user_message` run per thread while preserving independent commitment runs.
 - Preserves: `waiting_for_approval` and all commitment-run relationships.
 
 - [ ] **Step 1: Write failing schema and account-transfer tests**
@@ -167,10 +168,10 @@ Add nullable `clientMessageId` and `runId`, non-null defaulted `status`,
 `assistantMessageId` to `agentRuns`. Use plain typed ID columns for the circular
 message/run links and keep the thread/user foreign keys as the ownership
 boundary. Convert `agentRuns` to the callback form and add a partial unique
-index on `threadId` for statuses `queued`, `running`,
-`waiting_for_approval`, and `cancelling`; terminal rows do not occupy the
-slot. This database constraint is the final arbiter when two tabs accept
-different messages concurrently.
+index on `threadId` where `triggerType = 'user_message'` and status is
+`queued`, `running`, `waiting_for_approval`, or `cancelling`; terminal rows
+and commitment/system runs do not occupy the slot. This database constraint is
+the final arbiter when two tabs accept different user messages concurrently.
 
 Create `agentRunSteps` with this shape:
 

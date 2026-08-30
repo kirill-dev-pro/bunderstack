@@ -377,17 +377,17 @@ export async function runAgentTurn(
 
     const [finished] = await ctx.db
       .update(agentRuns)
-      .set({ status: 'done', completedAt: new Date() })
+      .set({ status: 'complete', completedAt: new Date() })
       .where(eq(agentRuns.id, run.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', finished)
-    return { status: 'done' as const }
+    return { status: 'complete' as const }
   } catch (error) {
     console.error('Error during agent turn:', error)
     const message = error instanceof Error ? error.message : String(error)
     const [failed] = await ctx.db
       .update(agentRuns)
-      .set({ status: 'failed', error: message, completedAt: new Date() })
+      .set({ status: 'error', error: message, completedAt: new Date() })
       .where(eq(agentRuns.id, run.id))
       .returning()
     await ctx.realtime.publish(agentRuns, 'update', failed)

@@ -1,4 +1,5 @@
 import { generateTypeId, typeid } from 'bunderstack'
+import { sql } from 'drizzle-orm'
 import {
   index,
   integer,
@@ -57,22 +58,86 @@ export const agentThreads = sqliteTable('agent_threads', {
     .$defaultFn(() => new Date()),
 })
 
-export const agentMessages = sqliteTable('agent_messages', {
-  id: typeid('amsg')
-    .primaryKey()
-    .$defaultFn(() => generateTypeId('amsg')),
-  threadId: typeid('athread')
-    .notNull()
-    .references(() => agentThreads.id, { onDelete: 'cascade' }),
-  userId: typeid('user')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
-  content: text('content').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-})
+export const agentMessageStatuses = [
+  'queued',
+  'streaming',
+  'complete',
+  'cancelled',
+  'error',
+] as const
+
+export type AgentMessageStatus = (typeof agentMessageStatuses)[number]
+
+export const agentRunStatuses = [
+  'queued',
+  'running',
+  'waiting_for_approval',
+  'cancelling',
+  'cancelled',
+  'complete',
+  'error',
+] as const
+
+export type AgentRunStatus = (typeof agentRunStatuses)[number]
+
+export const agentRunStepKinds = [
+  'status',
+  'reasoning_summary',
+  'tool_call',
+  'retrieval',
+] as const
+
+export type AgentRunStepKind = (typeof agentRunStepKinds)[number]
+
+export const agentRunStepStatuses = [
+  'running',
+  'complete',
+  'failed',
+  'cancelled',
+] as const
+
+export type AgentRunStepStatus = (typeof agentRunStepStatuses)[number]
+
+export const agentRunStepVisibilities = ['visible', 'hidden'] as const
+
+export type AgentRunStepVisibility =
+  (typeof agentRunStepVisibilities)[number]
+
+export const agentMessages = sqliteTable(
+  'agent_messages',
+  {
+    id: typeid('amsg')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('amsg')),
+    threadId: typeid('athread')
+      .notNull()
+      .references(() => agentThreads.id, { onDelete: 'cascade' }),
+    userId: typeid('user')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    runId: typeid('arun'),
+    clientMessageId: text('client_message_id'),
+    role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
+    content: text('content').notNull(),
+    status: text('status', { enum: agentMessageStatuses })
+      .notNull()
+      .default('complete'),
+    revision: integer('revision').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: integer('updated_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`0`)
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('agent_messages_thread_client_message_unique').on(
+      table.threadId,
+      table.clientMessageId,
+    ),
+  ],
+)
 
 export type CommitmentSchedule =
   | { kind: 'cron'; expr: string; timezone?: string }
@@ -152,37 +217,86 @@ export const agentCommitmentDependencies = sqliteTable(
   ],
 )
 
-export const agentRuns = sqliteTable('agent_runs', {
-  id: typeid('arun')
-    .primaryKey()
-    .$defaultFn(() => generateTypeId('arun')),
-  threadId: typeid('athread')
-    .notNull()
-    .references(() => agentThreads.id, { onDelete: 'cascade' }),
-  userId: typeid('user')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  commitmentId: typeid('acommit').references(() => agentCommitments.id, {
-    onDelete: 'set null',
-  }),
-  triggerType: text('trigger_type', {
-    enum: ['user_message', 'system_event', 'commitment'],
-  }),
-  reason: text('reason').notNull(),
-  status: text('status', {
-    enum: ['running', 'waiting_for_approval', 'done', 'failed'],
-  }).notNull(),
-  checkpoint: text('checkpoint', { mode: 'json' }).$type<{
-    messages: Array<Record<string, unknown>>
-    toolSequence?: number
-    executionKey?: string
-  }>(),
-  error: text('error'),
-  startedAt: integer('started_at', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  completedAt: integer('completed_at', { mode: 'timestamp' }),
-})
+export const agentRuns = sqliteTable(
+  'agent_runs',
+  {
+    id: typeid('arun')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('arun')),
+    threadId: typeid('athread')
+      .notNull()
+      .references(() => agentThreads.id, { onDelete: 'cascade' }),
+    userId: typeid('user')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    inputMessageId: typeid('amsg'),
+    assistantMessageId: typeid('amsg'),
+    commitmentId: typeid('acommit').references(() => agentCommitments.id, {
+      onDelete: 'set null',
+    }),
+    triggerType: text('trigger_type', {
+      enum: ['user_message', 'system_event', 'commitment'],
+    }),
+    reason: text('reason').notNull(),
+    status: text('status', { enum: agentRunStatuses }).notNull(),
+    checkpoint: text('checkpoint', { mode: 'json' }).$type<{
+      messages: Array<Record<string, unknown>>
+      toolSequence?: number
+      executionKey?: string
+    }>(),
+    error: text('error'),
+    startedAt: integer('started_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+  },
+  (table) => [
+    uniqueIndex('agent_runs_one_active_user_message_unique')
+      .on(table.threadId)
+      .where(
+        sql`${table.triggerType} = 'user_message' and ${table.status} in ('queued', 'running', 'waiting_for_approval', 'cancelling')`,
+      ),
+  ],
+)
+
+export const agentRunSteps = sqliteTable(
+  'agent_run_steps',
+  {
+    id: typeid('astep')
+      .primaryKey()
+      .$defaultFn(() => generateTypeId('astep')),
+    runId: typeid('arun')
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: 'cascade' }),
+    threadId: typeid('athread')
+      .notNull()
+      .references(() => agentThreads.id, { onDelete: 'cascade' }),
+    userId: typeid('user')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    kind: text('kind', { enum: agentRunStepKinds }).notNull(),
+    title: text('title').notNull(),
+    detail: text('detail', { mode: 'json' }).$type<unknown>(),
+    status: text('status', { enum: agentRunStepStatuses }).notNull(),
+    visibility: text('visibility', { enum: agentRunStepVisibilities })
+      .notNull()
+      .default('visible'),
+    input: text('input', { mode: 'json' }).$type<unknown>(),
+    output: text('output', { mode: 'json' }).$type<unknown>(),
+    toolCallId: typeid('acall'),
+    startedAt: integer('started_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+  },
+  (table) => [
+    uniqueIndex('agent_run_steps_run_sequence_unique').on(
+      table.runId,
+      table.sequence,
+    ),
+  ],
+)
 
 export const agentToolCalls = sqliteTable(
   'agent_tool_calls',

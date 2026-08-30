@@ -107,7 +107,7 @@ describe('agent runtime', () => {
 
     const runs = await ctx.db.select().from(agentRuns).all()
     expect(runs).toHaveLength(1)
-    expect(runs[0]?.status).toBe('done')
+    expect(runs[0]?.status).toBe('complete')
 
     const messages = await ctx.db
       .select()
@@ -428,7 +428,7 @@ describe('agent runtime', () => {
     )
 
     expect(await ctx.db.select().from(agentRuns).all()).toMatchObject([
-      { id: suspended.runId, status: 'done' },
+      { id: suspended.runId, status: 'complete' },
     ])
     expect(await ctx.db.select().from(tasks).all()).toHaveLength(0)
     expect(await ctx.db.select().from(agentToolCalls).all()).toHaveLength(1)
@@ -503,7 +503,7 @@ describe('agent runtime', () => {
     )
 
     expect(await ctx.db.select().from(agentRuns).all()).toMatchObject([
-      { id: first.runId, status: 'done' },
+      { id: first.runId, status: 'complete' },
     ])
     expect(await ctx.db.select().from(tasks).all()).toHaveLength(0)
     expect(await ctx.db.select().from(agentToolCalls).all()).toHaveLength(2)
@@ -543,7 +543,7 @@ describe('agent runtime', () => {
     )
 
     expect(await ctx.db.select().from(agentRuns).all()).toMatchObject([
-      { id: suspended.runId, status: 'done' },
+      { id: suspended.runId, status: 'complete' },
     ])
     expect(await ctx.db.select().from(tasks).all()).toHaveLength(1)
     expect(await ctx.db.select().from(agentToolCalls).all()).toHaveLength(0)

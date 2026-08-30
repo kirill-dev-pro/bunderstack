@@ -34,6 +34,12 @@ export const access = defineAccess(schema, {
     sortableColumns: ['startedAt'],
     defaultSort: { column: 'startedAt', order: 'desc' },
   },
+  agentRunSteps: {
+    ...agentOwnedReadOnly,
+    filterableColumns: ['threadId', 'runId', 'visibility'],
+    sortableColumns: ['sequence'],
+    defaultSort: { column: 'sequence', order: 'asc' },
+  },
   agentToolCalls: {
     ...agentOwnedReadOnly,
     filterableColumns: ['threadId', 'runId'],
