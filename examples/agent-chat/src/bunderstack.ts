@@ -49,6 +49,7 @@ export const backend = bunderstack({
           reason: 'string',
           'runId?': 'string',
           'requestId?': 'string',
+          'executionKey?': 'string',
         }),
         retries: 3,
         concurrency: 4,

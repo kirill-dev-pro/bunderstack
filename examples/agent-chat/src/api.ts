@@ -9,7 +9,10 @@ import {
   resumeCommitment,
 } from './agent/commitments'
 import { deleteMemory, updateMemory } from './agent/memory'
-import { getOrCreateThread, wakeAgent } from './agent/runtime'
+import {
+  acceptUserMessage,
+  ActiveUserMessageRunError,
+} from './agent/messages'
 import { envSchema } from './env'
 import * as schema from './schema'
 
@@ -17,33 +20,36 @@ const o = defineApi({ schema, env: envSchema })
 
 export const api = {
   sendMessage: o.protected
-    .route({ method: 'POST', path: '/api/agent/messages', tags: ['agent'] })
+    .route({
+      method: 'POST',
+      path: '/api/agent/messages',
+      tags: ['agent'],
+      successStatus: 202,
+    })
     .input(
       type({
         content: '1 <= string <= 4000',
+        clientMessageId: '1 <= string <= 128',
       }),
     )
     .output(
       type({
         messageId: 'string',
         threadId: 'string',
+        runId: 'string',
+        assistantMessageId: 'string',
       }),
     )
-    .handler(async ({ context, input }) => {
+    .handler(async ({ context, input, errors }) => {
       const userId = asTypeId('user', context.user.id)
-      const thread = await getOrCreateThread(context.db, userId)
-      const [message] = await context.db
-        .insert(schema.agentMessages)
-        .values({
-          threadId: thread.id,
-          userId,
-          role: 'user',
-          content: input.content,
-        })
-        .returning()
-      await context.realtime.publish(schema.agentMessages, 'create', message!)
-      await wakeAgent(context, thread.id, 'message')
-      return { messageId: message!.id, threadId: thread.id }
+      try {
+        return await acceptUserMessage(context, { ...input, userId })
+      } catch (error) {
+        if (error instanceof ActiveUserMessageRunError) {
+          throw errors.CONFLICT({ message: error.message })
+        }
+        throw error
+      }
     }),
   updateMemory: o.protected
     .route({

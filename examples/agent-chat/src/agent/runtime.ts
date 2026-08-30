@@ -52,8 +52,21 @@ export async function getOrCreateThread(db: any, userId: any) {
     .get()
   if (existing) return existing
 
-  const [created] = await db.insert(agentThreads).values({ userId }).returning()
-  return created!
+  try {
+    const [created] = await db
+      .insert(agentThreads)
+      .values({ userId })
+      .returning()
+    return created!
+  } catch (error) {
+    const raced = await db
+      .select()
+      .from(agentThreads)
+      .where(eq(agentThreads.userId, userId))
+      .get()
+    if (raced) return raced
+    throw error
+  }
 }
 
 async function enqueueTurn(

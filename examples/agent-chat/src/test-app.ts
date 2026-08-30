@@ -38,6 +38,7 @@ export async function createTestApp(): Promise<TestApp> {
             reason: 'string',
             'runId?': 'string',
             'requestId?': 'string',
+            'executionKey?': 'string',
           }),
           handler: async () => {},
         }),

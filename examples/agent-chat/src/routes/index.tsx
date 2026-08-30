@@ -162,7 +162,10 @@ function AgentDesk({
   function submit(event: React.FormEvent) {
     event.preventDefault()
     if (!content.trim() || send.isPending) return
-    send.mutate({ content: content.trim() })
+    send.mutate({
+      content: content.trim(),
+      clientMessageId: crypto.randomUUID(),
+    })
   }
 
   return (

@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { remember } from './agent/memory'
 import { getOrCreateThread } from './agent/runtime'
 import {
+  agentMessages,
   agentMemory,
   agentRequests,
   agentRuns,
@@ -54,6 +55,33 @@ describe('protected agent actions', () => {
     )
 
     expect(response.status).toBe(401)
+  })
+
+  test('message acceptance is idempotent and rejects a second active message', async () => {
+    const state = await setup()
+    mockAuthSession(state.app, async () => ({
+      user: { id: state.aliceId, email: 'alice@example.test', name: 'Alice' },
+    }))
+    const body = { content: 'List tasks', clientMessageId: 'browser-1' }
+
+    const first = await call(state.app, '/api/agent/messages', 'POST', body)
+    const second = await call(state.app, '/api/agent/messages', 'POST', body)
+    const firstJson = await first.json()
+    const secondJson = await second.json()
+
+    expect(first.status).toBe(202)
+    expect(second.status).toBe(202)
+    expect(secondJson).toEqual(firstJson)
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
+
+    const conflict = await call(state.app, '/api/agent/messages', 'POST', {
+      content: 'Second question',
+      clientMessageId: 'browser-2',
+    })
+    expect(conflict.status).toBe(409)
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
   })
 
   test('a user cannot mutate another user’s memory, request, or grant', async () => {
