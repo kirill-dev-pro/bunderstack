@@ -88,23 +88,40 @@ The implementation separates core concerns into explicit, app-local boundaries:
   - **Revoke**: Immediately revokes an active grant.
 - Resume is a new durable worker/model invocation but not a new logical turn. The saved AI SDK transcript receives the matching `tool-approval-response`, executes the frozen tool at most once, and continues the remaining plan. If another protected tool is needed, the same run can suspend and resume again.
 
-### 6. Security and Data Scoping
+### 6. Durable Streaming and Recovery (`src/agent/run-recorder.ts`, `src/hooks/useAgentChat.ts`)
+
+Message submission and message observation are deliberately separate. `sendMessage` is an idempotent command: it atomically stores the user message, a queued run, and an empty server-owned assistant draft, then returns `202`. It never owns the provider response stream. The browser observes canonical `agentMessages`, `agentRuns`, and `agentRunSteps` rows through ordinary Bunderstack queries and realtime updates.
+
+The worker consumes the AI provider stream and persists the complete assistant draft immediately on the first delta, at most once per 150 ms while text is flowing, and once more at completion. Every snapshot has a monotonically increasing `revision`; the client rejects late lower revisions and only animates toward accepted snapshots. Consequently:
+
+- Reloading, changing routes, reconnecting after a network interruption, or waking a sleeping mobile tab reconstructs the latest full draft with a normal refetch and then resumes live observation.
+- Replaying a message command with the same `clientMessageId` returns the same message and run instead of duplicating the turn.
+- Observable status, retrieval, and tool-call steps are durable ledger rows. This demo shows every visible tool input and output, but private chain-of-thought is neither requested nor stored; a production application can mark selected steps `hidden`.
+- The activity ledger stays open before answer text begins, collapses when the answer starts, and remains available for later inspection.
+
+**Stop** is also a durable command. A queued or waiting run is cancelled immediately; a running worker observes `cancelling`, aborts its single provider request, preserves partial text, and publishes the terminal `cancelled` state. Closing the browser is not Stop and does not cancel server work.
+
+While a run is active, the composer may hold one intentionally ephemeral message in React state. **Send now** requests Stop but still waits for a confirmed terminal run before accepting that message. A normal queued message waits for completion. This one-message queue is never written to local or session storage, so reloading the tab intentionally discards it.
+
+The recovery guarantee in this experiment covers loss of the connection between the browser and this application while the worker and provider request remain healthy. Restarting a failed worker attempt or continuing a disconnected provider stream from an exact token is outside the current scope.
+
+### 7. Security and Data Scoping
 
 - Browser clients are restricted to read-only generated CRUD queries scoped strictly to the authenticated `userId`.
 - Direct table mutations from the browser are denied. State changes (sending messages, editing memory, resolving approvals, revoking grants) occur via thin protected RPC procedures in `src/api.ts`.
 - The model never receives raw database access or arbitrary authority.
 
 ```text
- browser (read-only queries & protected RPC)
-                   │
-                   ▼
- agent_messages / agent_inbox ──► wakeSeq + agentTurn job
+ browser (commands + read-only live queries)
+                   │                         ▲
+                   ▼                         │ durable snapshots / refetch
+ agent_messages / agent_runs ─────► agentTurn job
                                            │
                                            ▼
                                  assemble bounded context
                                            │
                                            ▼
-                                    evaluate policy
+                              provider stream + policy
                                 ┌──────────┴──────────┐
                      allow / grant                approval required
                            │                              │
@@ -127,10 +144,11 @@ To keep the experiment focused, this example deliberately does **not** include:
 - Spaces, organizations, memberships, or multi-agent delegation.
 - Raw SQL access or automatic CRUD-to-tool generation for the model.
 - Vector databases or semantic retrieval pipelines.
+- Worker-attempt recovery or exact-token continuation after the AI provider connection itself fails.
 
 ## Deployment Notes
 
 For multi-process or production deployments:
 
-- Configure Redis realtime for cross-process SSE event fan-out.
-- Run queue workers in dedicated worker processes (`bunderstack worker`) instead of embedding `app.startWorker()` in the web server process.
+- Configure Redis realtime for cross-process SSE event fan-out. It is required when the web process and queue worker are separate; the database remains canonical, while Redis carries live invalidations between processes.
+- Run queue workers in dedicated worker processes (`bun run --cwd examples/agent-chat worker`) instead of embedding the worker in the web server process.
