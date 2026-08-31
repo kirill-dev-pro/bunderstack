@@ -77,6 +77,29 @@ bun run worker
 `app.startWorker()` is useful for an explicitly embedded worker;
 `app.runWorker()` owns a dedicated worker process until shutdown.
 
+### Concurrency
+
+Queue jobs run in a continuous per-type pool. With one worker, omitted
+`concurrency` gives that type 10 execution slots.
+
+```ts
+generateAnswer: j.job({
+  concurrency: 32,
+  timeout: 120_000,
+  handler: async (input, ctx) => {},
+})
+```
+
+The worker claims rows in internal batches of at most 10 until all 32 slots are
+full. Ten is a database batch size, not a concurrency ceiling. When one handler
+finishes, the worker fills that slot immediately without waiting for the other
+handlers that started beside it.
+
+Across several worker processes, the current database-observed capacity check
+is best effort and can race; `concurrency` is not a strict provider-wide
+semaphore. Use an application/provider limiter when several workers share one
+external quota.
+
 ## Cron
 
 `j.cron()` uses a five-field UTC schedule. Each due minute is materialized as a

@@ -98,7 +98,5 @@ export type App = typeof app
 
 await provision(app)
 
-// The example intentionally embeds the queue worker so its memory-realtime
-// publications reach the same process that owns the SSE connections. A
-// multi-process deployment should configure Redis and run a separate worker.
-await app.startWorker()
+// BUNDERSTACK_ROLE defaults to `all`, so backend.start() already owns the
+// embedded queue worker. A split deployment uses `web`/`worker` roles and Redis.

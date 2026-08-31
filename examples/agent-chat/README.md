@@ -19,7 +19,7 @@ Run the example:
 bun run dev:agent-chat
 ```
 
-The development server embeds a queue worker so job publications and SSE use the same in-memory realtime transport. Open <http://localhost:3007>.
+The default `all` role auto-starts the embedded queue worker, so job publications and SSE use the same in-memory realtime transport. Open <http://localhost:3007>.
 
 ### Anonymous-first Entry and Account Upgrade
 

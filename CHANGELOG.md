@@ -2,6 +2,15 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Continuous background-job concurrency.** Workers now fill declared
+  concurrency above the internal ten-row claim batch and refill each freed slot
+  immediately instead of waiting for the slowest job in a wave. Deterministic
+  fixture ticks retain complete-wave execution.
+
 ## [0.23.0] - 2026-08-29
 
 ### Added
