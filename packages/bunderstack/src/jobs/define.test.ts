@@ -4,6 +4,7 @@ import * as v from 'valibot'
 import {
   backoffMs,
   createJobsBuilder,
+  leaseDurationFor,
   validateBackgroundDefs,
   validateJobsDefs,
 } from './define'
@@ -50,6 +51,51 @@ test('j.job and j.cron produce discriminated definitions', () => {
   void (0 as unknown as Expect<
     Equal<(typeof defs)['hourly']['schedule'], '0 * * * *'>
   >)
+})
+
+test('background timing separates lease duration from execution deadline', () => {
+  const defs = createJobsBuilder<any, any>().define({
+    slow: {
+      kind: 'job',
+      leaseDuration: 30_000,
+      maxRuntime: 600_000,
+      handler: async (_input, ctx) => {
+        expect(ctx.signal).toBeInstanceOf(AbortSignal)
+      },
+    },
+  })
+
+  expect(defs.slow.leaseDuration).toBe(30_000)
+  expect(defs.slow.maxRuntime).toBe(600_000)
+})
+
+test('timeout remains a lease alias but cannot accompany leaseDuration', () => {
+  expect(
+    leaseDurationFor({ kind: 'job', timeout: 123, handler: () => {} }),
+  ).toBe(123)
+  expect(() =>
+    validateBackgroundDefs({
+      invalid: {
+        kind: 'job',
+        timeout: 100,
+        leaseDuration: 200,
+        handler: () => {},
+      },
+    }),
+  ).toThrow(/timeout.*leaseDuration/)
+})
+
+test('background timing rejects non-positive and non-finite durations', () => {
+  for (const [field, value] of [
+    ['leaseDuration', 0],
+    ['maxRuntime', Infinity],
+  ] as const) {
+    expect(() =>
+      validateBackgroundDefs({
+        invalid: { kind: 'job', [field]: value, handler: () => {} },
+      }),
+    ).toThrow(new RegExp(field))
+  }
 })
 
 test('cron rejects invalid expressions', () => {
@@ -127,7 +173,7 @@ test('cron validates retries and timeout like jobs', () => {
     validateBackgroundDefs({
       b: { kind: 'cron', schedule: '* * * * *', timeout: 0, handler: () => {} },
     }),
-  ).toThrow(/timeout must be positive/)
+  ).toThrow(/timeout.*positive/)
 })
 
 test('queue job names may not use the reserved cron prefix', () => {

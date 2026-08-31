@@ -4,10 +4,13 @@ export {
   validateBackgroundDefs,
   validateJobsDefs,
   DEFAULT_RETRIES,
+  DEFAULT_LEASE_DURATION_MS,
   DEFAULT_TIMEOUT_MS,
+  leaseDurationFor,
 } from './define'
 export type {
   AnyJobDefinition,
+  BackgroundTiming,
   BackgroundDefinition,
   BackgroundDefs,
   BunderstackJobContext,

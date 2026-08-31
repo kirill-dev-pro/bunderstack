@@ -11,7 +11,22 @@ import { parseCron } from './cron'
 import { CRON_PREFIX, type CatchUp } from './slots'
 
 export const DEFAULT_RETRIES = 3
-export const DEFAULT_TIMEOUT_MS = 60_000
+export const DEFAULT_LEASE_DURATION_MS = 60_000
+/** @deprecated Use DEFAULT_LEASE_DURATION_MS. */
+export const DEFAULT_TIMEOUT_MS = DEFAULT_LEASE_DURATION_MS
+
+export type BackgroundTiming = {
+  /** Lease duration in ms; an expired lease sends the job back to pending. */
+  leaseDuration?: number
+  /** Optional cooperative execution deadline in ms. */
+  maxRuntime?: number
+  /** @deprecated Use leaseDuration. */
+  timeout?: number
+}
+
+export function leaseDurationFor<T extends BackgroundTiming>(def: T): number {
+  return def.leaseDuration ?? def.timeout ?? DEFAULT_LEASE_DURATION_MS
+}
 
 export type EnqueueOptions = {
   /** Collapse duplicate enqueues while the queue row is non-terminal. */
@@ -57,6 +72,8 @@ export type JobContext<
   storage: StorageFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
+  /** Aborted when execution reaches its deadline or the job loses its lease. */
+  signal: AbortSignal
 }
 
 export type BunderstackJobContext<
@@ -68,7 +85,7 @@ export type QueueJobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
-> = {
+> = BackgroundTiming & {
   kind: 'job'
   /** Standard Schema payload; parsed at enqueue AND before the handler runs. */
   input?: StandardSchemaV1<unknown, TInput>
@@ -78,8 +95,6 @@ export type QueueJobDefinition<
   backoff?: ((attempt: number) => number) | { baseMs?: number; factor?: number }
   /** Max simultaneous `running` rows of this type, enforced per worker. */
   concurrency?: number
-  /** Lease duration in ms; an expired lease sends the job back to pending. */
-  timeout?: number
   handler: (
     input: TInput,
     ctx: JobContext<TSchema, TEnvResult>,
@@ -98,15 +113,13 @@ export type CronDefinition<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
   TSchedule extends string = string,
-> = {
+> = BackgroundTiming & {
   kind: 'cron'
   schedule: TSchedule
   /** Attempts after the first failure. Default 3 (so 4 total attempts). */
   retries?: number
   /** Delay before retry N (1-based). Default exponential: 1s, 2s, 4s, … */
   backoff?: ((attempt: number) => number) | { baseMs?: number; factor?: number }
-  /** Lease duration in ms; an expired lease sends the slot back to pending. */
-  timeout?: number
   /** How missed slots are handled on wake. Default 'latest'. */
   catchUp?: CatchUp
   /** How far back catch-up looks, in ms. Default 1 hour. */
@@ -172,10 +185,21 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
         `[bunderstack] background task "${name}": retries must be a non-negative integer`,
       )
     }
-    if (def.timeout !== undefined && def.timeout <= 0) {
+    if (def.timeout !== undefined && def.leaseDuration !== undefined) {
       throw new Error(
-        `[bunderstack] background task "${name}": timeout must be positive`,
+        `[bunderstack] background task "${name}": timeout and leaseDuration cannot both be declared`,
       )
+    }
+    for (const field of ['timeout', 'leaseDuration', 'maxRuntime'] as const) {
+      const value = def[field]
+      if (
+        value !== undefined &&
+        (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0)
+      ) {
+        throw new Error(
+          `[bunderstack] background task "${name}": ${field} must be a positive finite integer`,
+        )
+      }
     }
     if (def.kind === 'cron') {
       parseCron(def.schedule)
