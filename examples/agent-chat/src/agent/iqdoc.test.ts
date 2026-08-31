@@ -1,9 +1,12 @@
 import { describe, expect, mock, test } from 'bun:test'
+import { generateTypeId, parseTypeId } from 'bunderstack'
 
 import {
+  createIQDocResponder,
   createIQDocInterceptingFetch,
   type IQDocCalculatorResult,
 } from './iqdoc'
+import type { AgentResponderInput, AgentTools } from './types'
 
 const encoder = new TextEncoder()
 
@@ -69,7 +72,9 @@ describe('IQdoc stream interceptor', () => {
       ]),
     )
     const interceptedFetch = createIQDocInterceptingFetch(baseFetch, {
-      onStatus: (status) => statuses.push(status),
+      onStatus: (status) => {
+        statuses.push(status)
+      },
       onCalculatorResult: () => {},
     })
 
@@ -116,3 +121,111 @@ describe('IQdoc stream interceptor', () => {
     expect(await result.text()).toBe('{"error":"nope"}')
   })
 })
+
+describe('IQdoc responder', () => {
+  test('uses the IQdoc request contract without exposing Bunderstack tools', async () => {
+    const threadId = generateTypeId('athread')
+    const runId = generateTypeId('arun')
+    const textDeltas: string[] = []
+    const activities: Array<{
+      kind: string
+      title: string
+      output?: unknown
+    }> = []
+    let captured:
+      | { url: string; headers: Headers; body: Record<string, unknown> }
+      | undefined
+    const providerFetch = mock(
+      async (request: RequestInfo | URL, init?: RequestInit) => {
+        captured = {
+          url: String(request),
+          headers: new Headers(init?.headers),
+          body: JSON.parse(String(init?.body)),
+        }
+        return streamingResponse([
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"pubmed_assistant_fast","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"pubmed_assistant_fast","choices":[{"index":0,"delta":{"status":"Searching PubMed"},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"pubmed_assistant_fast","choices":[{"index":0,"delta":{"calculator_result":{"ok":true,"calculator_id":"bmi","name":"BMI"}},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"pubmed_assistant_fast","choices":[{"index":0,"delta":{"content":"Clinical answer"},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"pubmed_assistant_fast","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+          'data: [DONE]\n\n',
+        ])
+      },
+    )
+    const responder = createIQDocResponder({
+      apiKey: 'iqdoc-secret',
+      baseURL: 'https://iqdoc.example/api/v1/',
+      model: 'pubmed_assistant_fast',
+      fetch: providerFetch,
+    })
+
+    const result = await responder(
+      responderInput(threadId, runId, {
+        writeTextDelta: async (delta) => {
+          textDeltas.push(delta)
+        },
+        writeActivity: async (activity) => {
+          activities.push(activity)
+        },
+      }),
+    )
+
+    expect(captured?.url).toBe(
+      'https://iqdoc.example/api/v1/chat/completions',
+    )
+    expect(captured?.headers.get('X-Api-Key')).toBe('iqdoc-secret')
+    expect(captured?.headers.get('X-Chat-Id')).toBe(parseTypeId(threadId).uuid)
+    expect(captured?.headers.get('X-Message-Id')).toBe(parseTypeId(runId).uuid)
+    expect(captured?.body.model).toBe('pubmed_assistant_fast')
+    expect(captured?.body.tools).toBeUndefined()
+    expect(textDeltas.join('')).toBe('Clinical answer')
+    expect(activities).toEqual([
+      { kind: 'status', title: 'Searching PubMed' },
+      {
+        kind: 'tool_call',
+        title: 'BMI',
+        output: { ok: true, calculator_id: 'bmi', name: 'BMI' },
+      },
+    ])
+    expect(result).toMatchObject({
+      status: 'completed',
+      text: 'Clinical answer',
+    })
+  })
+})
+
+function responderInput(
+  threadId: string,
+  runId: string,
+  stream: Pick<
+    AgentResponderInput['stream'],
+    'writeTextDelta' | 'writeActivity'
+  >,
+): AgentResponderInput {
+  const tools = {} as AgentTools
+  return {
+    threadId,
+    reason: 'message',
+    now: new Date('2026-08-31T12:00:00.000Z'),
+    instructions: 'Unused by the upstream IQdoc agent',
+    trigger: { type: 'user', trusted: true, reason: 'message' },
+    currentExecution: {
+      trigger: 'user_message',
+      runId,
+      objective: 'Give a clinical answer',
+    },
+    latestMessage: 'Give a clinical answer',
+    messages: [{ role: 'user', content: 'Give a clinical answer' }],
+    tasks: [],
+    memory: [],
+    inbox: [],
+    activeCommitments: [],
+    stream: {
+      signal: new AbortController().signal,
+      writeStatus: async () => {},
+      ...stream,
+    },
+    toolApprovalRequired: async () => false,
+    tools,
+  }
+}

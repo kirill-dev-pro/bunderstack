@@ -4,6 +4,7 @@ import { and, eq, inArray, lt, or, sql } from 'drizzle-orm'
 import {
   type AgentCheckpoint,
   type AgentResponder,
+  type AgentResponderInput,
   type AgentTask,
   type AgentTools,
 } from './types'
@@ -384,6 +385,18 @@ export async function runAgentTurn(
         })
     }, 150)
 
+    const writeActivity: AgentResponderInput['stream']['writeActivity'] = async (
+      input,
+    ) => {
+      const activeRecorder = await getRecorder()
+      const step = await activeRecorder.startStep({
+        kind: input.kind,
+        title: input.title,
+        detail: input.detail,
+        visibility: input.visibility ?? 'visible',
+      })
+      await activeRecorder.finishStep(step.id, input.output)
+    }
     const response = await responder({
       ...context,
       currentExecution: {
@@ -410,14 +423,9 @@ export async function runAgentTurn(
           await (await getRecorder()).appendText(delta)
         },
         writeStatus: async (title) => {
-          const activeRecorder = await getRecorder()
-          const step = await activeRecorder.startStep({
-            kind: 'status',
-            title,
-            visibility: 'visible',
-          })
-          await activeRecorder.finishStep(step.id)
+          await writeActivity({ kind: 'status', title })
         },
+        writeActivity,
       },
       toolApprovalRequired: (toolId, rawArgs) =>
         agentToolApprovalRequired(ctx, {

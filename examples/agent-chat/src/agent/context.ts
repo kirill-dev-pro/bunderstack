@@ -79,6 +79,7 @@ export async function assembleAgentContext(
   const triggerType = input.reason.startsWith('message') ? 'user' : 'system'
 
   return {
+    threadId: input.thread.id,
     reason: input.reason,
     now: input.now,
     instructions: agentDefinition.instructions({ now: input.now }),

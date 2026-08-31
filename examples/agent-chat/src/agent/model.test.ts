@@ -1,5 +1,6 @@
 import { MockLanguageModelV4, simulateReadableStream } from 'ai/test'
 import { describe, expect, mock, test } from 'bun:test'
+import { generateTypeId } from 'bunderstack'
 import { z } from 'zod'
 
 import type { AgentResponderInput, AgentTools } from './types'
@@ -48,6 +49,7 @@ function input(
   }
   return {
     value: {
+      threadId: generateTypeId('athread'),
       reason: 'message',
       now: new Date('2026-08-24T10:00:00.000Z'),
       instructions: 'Test instructions',
@@ -67,6 +69,7 @@ function input(
         signal: new AbortController().signal,
         writeTextDelta: async () => {},
         writeStatus: async () => {},
+        writeActivity: async () => {},
       },
       toolApprovalRequired: async (toolId: string) => toolId === 'deleteTask',
       tools,
@@ -236,6 +239,7 @@ describe('AI responder factory', () => {
         signal: new AbortController().signal,
         writeTextDelta,
         writeStatus: async () => {},
+        writeActivity: async () => {},
       },
     } as Partial<AgentResponderInput>)
 

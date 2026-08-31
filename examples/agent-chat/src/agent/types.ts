@@ -1,6 +1,11 @@
 import type { ModelMessage } from 'ai'
 
-import type { CommitmentExecutionSpec, CommitmentSchedule } from '../schema'
+import type {
+  AgentRunStepKind,
+  AgentRunStepVisibility,
+  CommitmentExecutionSpec,
+  CommitmentSchedule,
+} from '../schema'
 
 export type AgentTask = { id: string; title: string; done: boolean }
 
@@ -36,6 +41,15 @@ export interface AgentResponderStream {
   signal: AbortSignal
   writeTextDelta(delta: string): Promise<void>
   writeStatus(title: string): Promise<void>
+  writeActivity(input: AgentStreamActivity): Promise<void>
+}
+
+export interface AgentStreamActivity {
+  kind: AgentRunStepKind
+  title: string
+  detail?: unknown
+  output?: unknown
+  visibility?: AgentRunStepVisibility
 }
 
 export function createNoopAgentStream(): AgentResponderStream {
@@ -43,10 +57,12 @@ export function createNoopAgentStream(): AgentResponderStream {
     signal: new AbortController().signal,
     writeTextDelta: async () => {},
     writeStatus: async () => {},
+    writeActivity: async () => {},
   }
 }
 
 export interface AgentResponderInput {
+  threadId: string
   reason: string
   now: Date
   instructions: string

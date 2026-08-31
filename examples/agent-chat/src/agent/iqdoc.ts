@@ -1,3 +1,35 @@
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { streamText, type ModelMessage } from 'ai'
+import { parseTypeId } from 'bunderstack'
+
+import { createDemoResponder } from './model'
+import type { AgentResponder } from './types'
+
+export const IQDOC_MODEL_IDS = [
+  'assistant_auto',
+  'pubmed_assistant_fast',
+  'clinrec_assistant_fast',
+  'standart_assistant_fast',
+  'esmo_assistant_fast',
+  'asa_assistant_fast',
+  'far_assistant_fast',
+  'assistant_pro',
+] as const
+
+export type IQDocModelId = (typeof IQDOC_MODEL_IDS)[number]
+
+export type IQDocFetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>
+
+export interface IQDocResponderOptions {
+  apiKey?: string
+  baseURL?: string
+  model?: IQDocModelId | (string & {})
+  fetch?: IQDocFetch
+}
+
 export interface IQDocCalculatorResult {
   ok: boolean
   calculator_id?: string
@@ -17,6 +49,74 @@ export interface IQDocStreamCallbacks {
   ): void | Promise<void>
 }
 
+export function createIQDocResponder(
+  options: IQDocResponderOptions = {},
+): AgentResponder {
+  if (!options.apiKey?.trim()) return createDemoResponder()
+  if (!options.baseURL?.trim()) {
+    throw new Error('IQDOC_BASE_URL is required when IQdoc is enabled')
+  }
+
+  return async (input) => {
+    const providerFetch = createIQDocInterceptingFetch(
+      options.fetch ?? fetch,
+      {
+        onStatus: async (status) => {
+          await input.stream.writeActivity({ kind: 'status', title: status })
+        },
+        onCalculatorResult: async (result) => {
+          await input.stream.writeActivity({
+            kind: 'tool_call',
+            title: result.name ?? result.calculator_id ?? 'Calculator result',
+            output: result,
+          })
+        },
+      },
+    )
+    const provider = createOpenAICompatible({
+      name: 'iqdoc',
+      baseURL: options.baseURL!.replace(/\/+$/, ''),
+      includeUsage: true,
+      headers: { 'X-Api-Key': options.apiKey!.trim() },
+      fetch: providerFetch as unknown as typeof fetch,
+    })
+    const messages: ModelMessage[] = input.messages.map((message) => ({
+      role: message.role === 'system' ? ('user' as const) : message.role,
+      content:
+        message.role === 'system'
+          ? `[System]: ${message.content}`
+          : message.content,
+    }))
+    const result = streamText({
+      model: provider.chatModel(options.model ?? 'assistant_auto'),
+      messages,
+      headers: {
+        'X-Chat-Id': parseTypeId(input.threadId, 'athread').uuid,
+        'X-Message-Id': parseTypeId(
+          input.currentExecution.runId,
+          'arun',
+        ).uuid,
+      },
+      maxRetries: 0,
+      abortSignal: input.stream.signal,
+    })
+
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === 'text-delta') {
+        await input.stream.writeTextDelta(chunk.text)
+      }
+    }
+
+    return {
+      status: 'completed',
+      text: await result.text,
+      checkpoint: {
+        messages: [...messages, ...(await result.responseMessages)],
+      },
+    }
+  }
+}
+
 const IQDOC_DELTA_KEYS = new Set([
   'status',
   'transcription',
@@ -24,9 +124,9 @@ const IQDOC_DELTA_KEYS = new Set([
 ])
 
 export function createIQDocInterceptingFetch(
-  baseFetch: typeof fetch,
+  baseFetch: IQDocFetch,
   callbacks: IQDocStreamCallbacks,
-): typeof fetch {
+): IQDocFetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const response = await baseFetch(input, init)
     const contentType = response.headers.get('content-type') ?? ''
@@ -46,7 +146,7 @@ export function createIQDocInterceptingFetch(
         headers: response.headers,
       },
     )
-  }) as typeof fetch
+  })
 }
 
 function filterIQDocStream(
@@ -176,7 +276,7 @@ function filterIQDocStream(
 
 function calculatorResult(value: unknown): IQDocCalculatorResult | undefined {
   if (!isRecord(value) || typeof value.ok !== 'boolean') return undefined
-  return value as IQDocCalculatorResult
+  return value as unknown as IQDocCalculatorResult
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

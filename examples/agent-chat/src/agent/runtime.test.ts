@@ -130,6 +130,37 @@ describe('agent runtime', () => {
     expect(savedThread?.status).toBe('idle')
   })
 
+  test('persists an upstream provider activity as a completed visible step', async () => {
+    const { ctx, userId, thread } = await setup()
+    await ctx.db.insert(agentMessages).values({
+      threadId: thread.id,
+      userId,
+      role: 'user',
+      content: 'Calculate BMI',
+    })
+
+    await runAgentTurn(
+      ctx,
+      { threadId: thread.id, reason: 'message' },
+      async ({ stream }) => {
+        await stream.writeActivity({
+          kind: 'tool_call',
+          title: 'BMI',
+          output: { ok: true, values: { result: 24.2 } },
+        })
+        return completed('BMI is 24.2.')
+      },
+    )
+
+    expect(await ctx.db.select().from(agentRunSteps).get()).toMatchObject({
+      kind: 'tool_call',
+      title: 'BMI',
+      status: 'complete',
+      visibility: 'visible',
+      output: { ok: true, values: { result: 24.2 } },
+    })
+  })
+
   test('streams into the reserved draft and completes the same message', async () => {
     const state = await setup()
     const accepted = await acceptUserMessage(state.ctx, {

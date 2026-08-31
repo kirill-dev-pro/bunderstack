@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.30",
+    "@ai-sdk/openai-compatible": "^3.0.41",
     "@libsql/client": "^0.14.0",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
