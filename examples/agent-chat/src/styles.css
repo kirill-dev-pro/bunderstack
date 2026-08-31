@@ -325,6 +325,163 @@ h1 {
 .message--approval {
   max-width: 88%;
 }
+
+.streaming-message {
+  position: relative;
+}
+.streaming-message--streaming .message-content::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -2px;
+  background: var(--acid);
+  animation: streamCaret 0.8s steps(2, jump-none) infinite;
+}
+.run-activity {
+  margin-bottom: 8px;
+  border: 1px solid #29423c;
+  background: #091411;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.run-activity summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  color: #9fb4af;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  list-style: none;
+}
+.run-activity summary::-webkit-details-marker {
+  display: none;
+}
+.activity-pulse,
+.activity-mark {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border: 1px solid var(--cyan);
+}
+.activity-pulse {
+  background: var(--cyan);
+  box-shadow: 0 0 10px rgba(97, 214, 202, 0.65);
+  animation: activityPulse 1.25s ease-in-out infinite;
+}
+.activity-mark {
+  background: transparent;
+}
+.activity-chevron {
+  margin-left: auto;
+  color: var(--cyan);
+  transition: transform 160ms ease;
+}
+.run-activity[open] .activity-chevron {
+  transform: rotate(90deg);
+}
+.activity-ledger {
+  margin: 0;
+  padding: 0 10px 10px;
+  list-style: none;
+}
+.activity-step {
+  padding: 9px 0 9px 12px;
+  border-top: 1px solid #1f3530;
+  border-left: 1px solid #315047;
+}
+.activity-step--running {
+  border-left-color: var(--acid);
+}
+.activity-step--failed,
+.activity-step--cancelled {
+  border-left-color: var(--warning);
+}
+.activity-step-heading {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 10px;
+}
+.activity-step-heading strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.activity-sequence,
+.activity-duration,
+.activity-data > span {
+  color: #66827b;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.activity-data {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 7px;
+}
+.activity-data pre {
+  max-height: 140px;
+  margin: 0;
+  overflow: auto;
+  color: #8fc7be;
+  font: 9px/1.45 'IBM Plex Mono', monospace;
+  white-space: pre-wrap;
+}
+.activity-awaiting {
+  padding: 10px 12px;
+  border-top: 1px solid #1f3530;
+  color: #66827b;
+  font-size: 9px;
+}
+.streaming-actions {
+  margin-top: 8px;
+}
+.stop-generation {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid #45615b;
+  background: transparent;
+  color: #b7c8c4;
+  font: 10px 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stop-generation:hover:not(:disabled) {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.stop-generation span {
+  color: var(--warning);
+  font-size: 8px;
+}
+.stream-terminal {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--warning);
+  color: #9fb0ac;
+  background: rgba(246, 189, 96, 0.06);
+  font: 10px/1.5 'IBM Plex Mono', monospace;
+}
+.stream-terminal strong {
+  color: var(--warning);
+}
+
+@keyframes streamCaret {
+  50% {
+    opacity: 0.18;
+  }
+}
+@keyframes activityPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
 .message--approval .chat-approval-content {
   padding: 14px 16px;
   background: var(--panel-raised);
@@ -1066,7 +1223,8 @@ h1 {
     flex-direction: column;
   }
   .composer button,
-  .login-form button {
+  .login-form button,
+  .stop-generation {
     min-height: 48px;
   }
   .task-grid {
@@ -1074,5 +1232,15 @@ h1 {
   }
   .task-count {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-message--streaming .message-content::after,
+  .activity-pulse {
+    animation: none;
+  }
+  .activity-chevron {
+    transition: none;
   }
 }
