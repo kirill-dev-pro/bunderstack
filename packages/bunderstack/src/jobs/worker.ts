@@ -16,7 +16,7 @@ import { jobsTableFor } from '../internal-tables'
 import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
-import { backoffMs, DEFAULT_RETRIES, DEFAULT_TIMEOUT_MS } from './define'
+import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
 import { enqueueJob } from './queue'
 import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
 
@@ -32,10 +32,21 @@ type JobRow = {
   runAt: number
 }
 
+type LeaseOwner = {
+  attempt: number
+  lockedUntil: number
+}
+
 type ClaimedWork = {
   row: JobRow
   def: AnyBackgroundDefinition
-  leaseUntil: number
+  owner: LeaseOwner
+}
+
+type LeaseHeartbeat = {
+  owner: LeaseOwner
+  lost: Promise<void>
+  stop(): Promise<void>
 }
 
 type PumpResult = { wake?: Promise<void> }
@@ -86,6 +97,63 @@ export function createJobRunner(deps: {
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
   const active = new Map<string, Set<Promise<void>>>()
+
+  function ownershipPredicate(id: string, owner: LeaseOwner) {
+    return and(
+      eq(t.id, id),
+      eq(t.status, 'running'),
+      eq(t.attempts, owner.attempt),
+      eq(t.lockedUntil, owner.lockedUntil),
+    )
+  }
+
+  function startLeaseHeartbeat(args: {
+    row: JobRow
+    def: AnyBackgroundDefinition
+    owner: LeaseOwner
+    onLost: () => void
+  }): LeaseHeartbeat {
+    const owner = args.owner
+    const intervalMs = Math.max(10, Math.floor(leaseDurationFor(args.def) / 3))
+    let stopped = false
+    let resolveLost!: () => void
+    const lost = new Promise<void>((resolve) => {
+      resolveLost = resolve
+    })
+    let chain = Promise.resolve()
+    const lose = () => {
+      if (stopped) return
+      stopped = true
+      clearInterval(timer)
+      resolveLost()
+      args.onLost()
+    }
+    const renew = () => {
+      chain = chain
+        .then(async () => {
+          if (stopped) return
+          const nextLockedUntil = Date.now() + leaseDurationFor(args.def)
+          const updated = await db
+            .update(t)
+            .set({ lockedUntil: nextLockedUntil })
+            .where(ownershipPredicate(args.row.id, owner))
+            .returning({ id: t.id })
+          if (!updated[0]) return lose()
+          owner.lockedUntil = nextLockedUntil
+        })
+        .catch(() => lose())
+    }
+    const timer = setInterval(renew, intervalMs)
+    return {
+      owner,
+      lost,
+      async stop() {
+        stopped = true
+        clearInterval(timer)
+        await chain
+      },
+    }
+  }
 
   /** Cron rows carry no payload — their handler input is the slot itself. */
   function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
@@ -154,7 +222,10 @@ export function createJobRunner(deps: {
 
   /** running rows whose lease expired → pending (or failed when exhausted). */
   async function recoverExpiredLeases(now: number) {
-    const expired: (JobRow & { lastError: string | null })[] = await db
+    const expired: (JobRow & {
+      lastError: string | null
+      lockedUntil: number
+    })[] = await db
       .select({
         id: t.id,
         type: t.type,
@@ -162,6 +233,7 @@ export function createJobRunner(deps: {
         attempts: t.attempts,
         lastError: t.lastError,
         runAt: t.runAt,
+        lockedUntil: t.lockedUntil,
       })
       .from(t)
       .where(
@@ -172,6 +244,10 @@ export function createJobRunner(deps: {
         ),
       )
     for (const row of expired) {
+      const owner = {
+        attempt: Number(row.attempts),
+        lockedUntil: Number(row.lockedUntil),
+      }
       const def = definitionFor(defs, row.type)
       const error = new Error('lease expired (worker crashed or timed out)')
       if (!def) {
@@ -184,11 +260,11 @@ export function createJobRunner(deps: {
             lastError: `unknown job type "${row.type}"`,
             dedupeKey: null,
           })
-          .where(eq(t.id, row.id))
+          .where(ownershipPredicate(row.id, owner))
         continue
       }
       if (Number(row.attempts) >= maxAttempts(def)) {
-        await db
+        const updated = await db
           .update(t)
           .set({
             status: 'failed',
@@ -197,8 +273,9 @@ export function createJobRunner(deps: {
             lastError: error.message,
             ...terminalPatch(),
           })
-          .where(eq(t.id, row.id))
-        await fireOnFailed(def, resolveInput(def, row), error)
+          .where(ownershipPredicate(row.id, owner))
+          .returning({ id: t.id })
+        if (updated[0]) await fireOnFailed(def, resolveInput(def, row), error)
       } else {
         await db
           .update(t)
@@ -208,7 +285,7 @@ export function createJobRunner(deps: {
             runAt: now + backoffMs(def, Number(row.attempts)),
             lastError: error.message,
           })
-          .where(eq(t.id, row.id))
+          .where(ownershipPredicate(row.id, owner))
       }
     }
   }
@@ -276,12 +353,18 @@ export function createJobRunner(deps: {
     let available = capacityFor(def) - runningRows.length
     if (available <= 0) return []
 
-    const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
+    const leaseUntil = now + leaseDurationFor(def)
     const work: ClaimedWork[] = []
     while (available > 0) {
       const limit = Math.min(CLAIM_BATCH, available)
       const rows = await claim(type, limit, now, leaseUntil)
-      for (const row of rows) work.push({ row, def, leaseUntil })
+      for (const row of rows) {
+        work.push({
+          row,
+          def,
+          owner: { attempt: Number(row.attempts), lockedUntil: leaseUntil },
+        })
+      }
       available -= rows.length
       if (rows.length < limit) break
     }
@@ -295,7 +378,7 @@ export function createJobRunner(deps: {
     row: JobRow,
     def: AnyBackgroundDefinition,
     now: number,
-    leaseUntil: number,
+    owner: LeaseOwner,
   ): Promise<'ran' | 'failed' | 'lost'> {
     let input: unknown
     try {
@@ -312,14 +395,25 @@ export function createJobRunner(deps: {
           lastError: e.message,
           ...terminalPatch(),
         })
-        .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+        .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
       if (!updated[0]) return 'lost'
       await fireOnFailed(def, undefined, e)
       return 'failed'
     }
+    let lost = false
+    const heartbeat = startLeaseHeartbeat({
+      row,
+      def,
+      owner,
+      onLost: () => {
+        lost = true
+      },
+    })
     try {
       await (def.handler as (i: unknown, c: unknown) => unknown)(input, ctx)
+      await heartbeat.stop()
+      if (lost) return 'lost'
       const updated = await db
         .update(t)
         .set({
@@ -328,12 +422,14 @@ export function createJobRunner(deps: {
           lockedUntil: null,
           ...terminalPatch(),
         })
-        .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+        .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
       if (!updated[0]) return 'lost'
       return 'ran'
     } catch (err) {
       const e = toError(err)
+      await heartbeat.stop()
+      if (lost) return 'lost'
       if (Number(row.attempts) < maxAttempts(def)) {
         const updated = await db
           .update(t)
@@ -343,7 +439,7 @@ export function createJobRunner(deps: {
             runAt: now + backoffMs(def, Number(row.attempts)),
             lastError: e.message,
           })
-          .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+          .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
         if (!updated[0]) return 'lost'
       } else {
@@ -356,7 +452,7 @@ export function createJobRunner(deps: {
             lastError: e.message,
             ...terminalPatch(),
           })
-          .where(and(eq(t.id, row.id), eq(t.lockedUntil, leaseUntil)))
+          .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
         if (!updated[0]) return 'lost'
         await fireOnFailed(def, input, e)
@@ -378,8 +474,8 @@ export function createJobRunner(deps: {
     // by a handler therefore belongs to the next tick, regardless of the
     // declaration order of its target job type.
     const outcomes = await Promise.all(
-      claimedWork.map(({ row, def, leaseUntil }) =>
-        runJob(row, def, now, leaseUntil),
+      claimedWork.map(({ row, def, owner }) =>
+        runJob(row, def, now, owner),
       ),
     )
     let ran = 0
@@ -411,7 +507,7 @@ export function createJobRunner(deps: {
       active.set(type, tasks)
     }
     let task: Promise<void>
-    task = runJob(work.row, work.def, claimedAt, work.leaseUntil)
+    task = runJob(work.row, work.def, claimedAt, work.owner)
       .then(() => undefined)
       .catch((error) => {
         logger.error('[bunderstack] background job execution failed:', error)

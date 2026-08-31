@@ -45,6 +45,14 @@ async function waitFor(check: () => boolean) {
   throw new Error('condition was not reached')
 }
 
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
+}
+
 async function rowById(id: string) {
   const rows = await db
     .select()
@@ -312,6 +320,36 @@ test('pump refills a freed slot while another handler remains active', async () 
   releases.get(2)?.()
   releases.get(3)?.()
   await r.drain()
+})
+
+test('pump renews a healthy handler instead of reclaiming it', async () => {
+  const gate = deferred()
+  let starts = 0
+  const defs: JobsDefs = {
+    slow: {
+      kind: 'job',
+      timeout: 90,
+      retries: 2,
+      handler: async () => {
+        starts++
+        await gate.promise
+      },
+    },
+  }
+  const r = runner(defs)
+  const { id } = await enqueueJob(db, defs, 'slow', undefined)
+
+  await r.pump()
+  await waitFor(() => starts === 1)
+  await Bun.sleep(140)
+  await r.pump()
+
+  expect(starts).toBe(1)
+  expect((await rowById(id))?.attempts).toBe(1)
+
+  gate.resolve()
+  await r.drain()
+  expect((await rowById(id))?.status).toBe('succeeded')
 })
 
 test('pump fills concurrency above the internal claim batch', async () => {
