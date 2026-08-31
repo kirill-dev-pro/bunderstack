@@ -38,6 +38,8 @@ type ClaimedWork = {
   leaseUntil: number
 }
 
+type PumpResult = { wake?: Promise<void> }
+
 function capacityFor(def: AnyBackgroundDefinition): number {
   return def.kind === 'job' && def.concurrency !== undefined
     ? def.concurrency
@@ -83,6 +85,7 @@ export function createJobRunner(deps: {
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
+  const active = new Map<string, Set<Promise<void>>>()
 
   /** Cron rows carry no payload — their handler input is the slot itself. */
   function resolveInput(def: AnyBackgroundDefinition, row: JobRow): unknown {
@@ -388,16 +391,64 @@ export function createJobRunner(deps: {
     return { claimed: totalClaimed, ran, failed }
   }
 
+  async function maintain(now: number) {
+    await materializeCronSlots(now)
+    await recoverExpiredLeases(now)
+    if (now - lastReapAt >= REAP_INTERVAL_MS) {
+      lastReapAt = now
+      await reapSucceeded(now)
+    }
+  }
+
+  function startWork(
+    type: string,
+    work: ClaimedWork,
+    claimedAt: number,
+  ): Promise<void> {
+    let tasks = active.get(type)
+    if (!tasks) {
+      tasks = new Set()
+      active.set(type, tasks)
+    }
+    let task: Promise<void>
+    task = runJob(work.row, work.def, claimedAt, work.leaseUntil)
+      .then(() => undefined)
+      .catch((error) => {
+        logger.error('[bunderstack] background job execution failed:', error)
+      })
+      .finally(() => {
+        tasks!.delete(task)
+        if (tasks!.size === 0) active.delete(type)
+      })
+    tasks.add(task)
+    return task
+  }
+
+  async function pump(now: number = Date.now()): Promise<PumpResult> {
+    await maintain(now)
+    for (const [name, def] of Object.entries(defs)) {
+      const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
+      const work = await claimAvailable(type, def, now)
+      for (const item of work) startWork(type, item, now)
+    }
+    const snapshot = [...active.values()].flatMap((tasks) => [...tasks])
+    return snapshot.length === 0
+      ? {}
+      : { wake: Promise.race(snapshot).then(() => undefined) }
+  }
+
+  async function drain(): Promise<void> {
+    const snapshot = [...active.values()].flatMap((tasks) => [...tasks])
+    await Promise.allSettled(snapshot)
+  }
+
   return {
     async tick(now: number = Date.now()): Promise<TickResult> {
-      await materializeCronSlots(now)
-      await recoverExpiredLeases(now)
-      if (now - lastReapAt >= REAP_INTERVAL_MS) {
-        lastReapAt = now
-        await reapSucceeded(now)
-      }
+      await maintain(now)
       return runClaimable(now)
     },
+    pump,
+    drain,
     async inspect(now: number) {
       const runnableRows = await db
         .select({ id: t.id })

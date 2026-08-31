@@ -37,6 +37,14 @@ function runner(defs: JobsDefs) {
   return r
 }
 
+async function waitFor(check: () => boolean) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (check()) return
+    await new Promise((resolve) => setTimeout(resolve, 1))
+  }
+  throw new Error('condition was not reached')
+}
+
 async function rowById(id: string) {
   const rows = await db
     .select()
@@ -268,6 +276,80 @@ test('tick fills declared concurrency above the internal claim batch', async () 
       (row) => row.status === 'pending',
     ),
   ).toHaveLength(1)
+})
+
+test('pump refills a freed slot while another handler remains active', async () => {
+  const started: number[] = []
+  const releases = new Map<number, () => void>()
+  let next = 0
+  const defs: JobsDefs = {
+    continuous: {
+      kind: 'job',
+      input: v.object({ n: v.number() }),
+      concurrency: 2,
+      handler: async ({ n }) => {
+        started.push(n)
+        await new Promise<void>((resolve) => releases.set(n, resolve))
+      },
+    },
+  }
+  const r = runner(defs)
+  for (let n = 1; n <= 3; n++) {
+    await enqueueJob(db, defs, 'continuous', { n }, { runAt: ++next })
+  }
+
+  const first = await r.pump(10)
+  await waitFor(() => started.length === 2)
+  expect(started).toEqual([1, 2])
+  expect(first.wake).toBeDefined()
+
+  releases.get(1)?.()
+  await first.wake
+  await r.pump(10)
+  await waitFor(() => started.length === 3)
+  expect(started).toEqual([1, 2, 3])
+
+  releases.get(2)?.()
+  releases.get(3)?.()
+  await r.drain()
+})
+
+test('pump fills concurrency above the internal claim batch', async () => {
+  let started = 0
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let resolveAllStarted: (() => void) | undefined
+  const allStarted = new Promise<void>((resolve) => {
+    resolveAllStarted = resolve
+  })
+  const defs: JobsDefs = {
+    wide: {
+      kind: 'job',
+      concurrency: 25,
+      handler: async () => {
+        started++
+        if (started === 25) resolveAllStarted?.()
+        await gate
+      },
+    },
+  }
+  const r = runner(defs)
+  for (let i = 0; i < 26; i++) {
+    await enqueueJob(db, defs, 'wide', undefined)
+  }
+
+  const cycle = await r.pump()
+  await allStarted
+  expect(cycle.wake).toBeDefined()
+  expect(started).toBe(25)
+  const rows = await db.select().from(bunderstackJobs)
+  expect(rows.filter((row) => row.status === 'running')).toHaveLength(25)
+  expect(rows.filter((row) => row.status === 'pending')).toHaveLength(1)
+
+  release?.()
+  await r.drain()
 })
 
 test('malformed stored payload fails immediately without retries', async () => {
