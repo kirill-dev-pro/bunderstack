@@ -36,6 +36,7 @@ export interface EnqueuedJob {
 
 export interface AgentRuntimeContext {
   db: any
+  signal?: AbortSignal
   jobs: {
     enqueue(
       name: string,
@@ -226,6 +227,9 @@ export async function runAgentTurn(
     return recorder
   }
   const abortController = new AbortController()
+  const abortFromJob = () => abortController.abort(ctx.signal?.reason)
+  ctx.signal?.addEventListener('abort', abortFromJob, { once: true })
+  if (ctx.signal?.aborted) abortFromJob()
   let cancellationTimer: ReturnType<typeof setInterval> | undefined
 
   try {
@@ -590,6 +594,7 @@ export async function runAgentTurn(
     throw error
   } finally {
     if (cancellationTimer) clearInterval(cancellationTimer)
+    ctx.signal?.removeEventListener('abort', abortFromJob)
     await releaseAgentThreadLock(ctx, thread, lockedWakeSeq)
   }
 }

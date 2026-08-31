@@ -24,6 +24,20 @@ const CLAIM_BATCH = 10
 const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
 const REAP_INTERVAL_MS = 60 * 60_000
 
+class JobExecutionTimeoutError extends Error {
+  constructor(maxRuntime: number) {
+    super(`execution timed out after ${maxRuntime}ms`)
+    this.name = 'JobExecutionTimeoutError'
+  }
+}
+
+class JobLeaseLostError extends Error {
+  constructor() {
+    super('job lease ownership was lost')
+    this.name = 'JobLeaseLostError'
+  }
+}
+
 type JobRow = {
   id: string
   type: string
@@ -50,6 +64,21 @@ type LeaseHeartbeat = {
 }
 
 type PumpResult = { wake?: Promise<void> }
+
+function jobEvent(
+  event: string,
+  row: JobRow,
+  fields: Record<string, unknown> = {},
+) {
+  return {
+    source: 'bunderstack.jobs',
+    event,
+    jobId: row.id,
+    jobType: row.type,
+    attempt: Number(row.attempts),
+    ...fields,
+  }
+}
 
 function capacityFor(def: AnyBackgroundDefinition): number {
   return def.kind === 'job' && def.concurrency !== undefined
@@ -380,6 +409,7 @@ export function createJobRunner(deps: {
     now: number,
     owner: LeaseOwner,
   ): Promise<'ran' | 'failed' | 'lost'> {
+    const startedAt = Date.now()
     let input: unknown
     try {
       input = resolveInput(def, row)
@@ -401,6 +431,9 @@ export function createJobRunner(deps: {
       await fireOnFailed(def, undefined, e)
       return 'failed'
     }
+    const controller = new AbortController()
+    const handlerCtx = { ...ctx, signal: controller.signal }
+    logger.info(JSON.stringify(jobEvent('job.claimed', row)))
     let lost = false
     const heartbeat = startLeaseHeartbeat({
       row,
@@ -408,10 +441,38 @@ export function createJobRunner(deps: {
       owner,
       onLost: () => {
         lost = true
+        controller.abort(new JobLeaseLostError())
+        logger.warn(
+          JSON.stringify(
+            jobEvent('job.lease_lost', row, {
+              durationMs: Date.now() - startedAt,
+            }),
+          ),
+        )
       },
     })
+    const deadline =
+      def.maxRuntime === undefined
+        ? undefined
+        : setTimeout(() => {
+            controller.abort(new JobExecutionTimeoutError(def.maxRuntime!))
+            logger.warn(
+              JSON.stringify(
+                jobEvent('job.execution_timed_out', row, {
+                  durationMs: Date.now() - startedAt,
+                }),
+              ),
+            )
+          }, def.maxRuntime)
     try {
-      await (def.handler as (i: unknown, c: unknown) => unknown)(input, ctx)
+      await (def.handler as (i: unknown, c: unknown) => unknown)(
+        input,
+        handlerCtx,
+      )
+      if (controller.signal.reason instanceof JobExecutionTimeoutError) {
+        throw controller.signal.reason
+      }
+      if (deadline) clearTimeout(deadline)
       await heartbeat.stop()
       if (lost) return 'lost'
       const updated = await db
@@ -425,9 +486,18 @@ export function createJobRunner(deps: {
         .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
       if (!updated[0]) return 'lost'
+      logger.info(
+        JSON.stringify(
+          jobEvent('job.completed', row, { durationMs: Date.now() - startedAt }),
+        ),
+      )
       return 'ran'
     } catch (err) {
-      const e = toError(err)
+      if (deadline) clearTimeout(deadline)
+      const e =
+        controller.signal.reason instanceof JobExecutionTimeoutError
+          ? controller.signal.reason
+          : toError(err)
       await heartbeat.stop()
       if (lost) return 'lost'
       if (Number(row.attempts) < maxAttempts(def)) {
@@ -442,6 +512,14 @@ export function createJobRunner(deps: {
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
         if (!updated[0]) return 'lost'
+        logger.warn(
+          JSON.stringify(
+            jobEvent('job.retrying', row, {
+              durationMs: Date.now() - startedAt,
+              error: e.message,
+            }),
+          ),
+        )
       } else {
         const updated = await db
           .update(t)
@@ -455,6 +533,14 @@ export function createJobRunner(deps: {
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
         if (!updated[0]) return 'lost'
+        logger.error(
+          JSON.stringify(
+            jobEvent('job.failed', row, {
+              durationMs: Date.now() - startedAt,
+              error: e.message,
+            }),
+          ),
+        )
         await fireOnFailed(def, input, e)
       }
       return 'failed'

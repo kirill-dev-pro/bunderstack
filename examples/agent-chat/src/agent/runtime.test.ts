@@ -339,6 +339,36 @@ describe('agent runtime', () => {
     ).toMatchObject({ status: 'cancelled' })
   })
 
+  test('fails a run when its queue execution signal is already aborted', async () => {
+    const state = await setup()
+    const accepted = await acceptUserMessage(state.ctx, {
+      userId: state.userId,
+      content: 'Stop at the queue deadline',
+      clientMessageId: 'queue-deadline',
+    })
+    const controller = new AbortController()
+    controller.abort(new Error('execution timed out'))
+
+    await expect(
+      runAgentTurn(
+        { ...state.ctx, signal: controller.signal },
+        {
+          threadId: state.thread.id,
+          reason: 'message',
+          runId: accepted.runId,
+          executionKey: accepted.runId,
+        },
+        async (input) => {
+          if (input.stream.signal.aborted) throw input.stream.signal.reason
+          throw new Error('expected queue signal to be aborted')
+        },
+      ),
+    ).rejects.toThrow('execution timed out')
+    expect(await state.ctx.db.select().from(agentRuns).get()).toMatchObject({
+      status: 'error',
+    })
+  })
+
   test('a commitment becomes an exact future job and a journal entry', async () => {
     const { ctx, enqueued, thread } = await setup()
     const dueAt = new Date('2026-08-25T09:30:00.000Z')

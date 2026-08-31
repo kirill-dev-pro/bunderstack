@@ -61,7 +61,8 @@ export const backend = bunderstack({
         }),
         retries: 3,
         concurrency: 4,
-        timeout: 120_000,
+        leaseDuration: 30_000,
+        maxRuntime: 10 * 60_000,
         handler: async (input, ctx) => {
           const responder = responderFor(ctx.env)
           await runAgentTurn(ctx, input, responder)
@@ -82,7 +83,8 @@ export const backend = bunderstack({
         }),
         retries: 3,
         concurrency: 4,
-        timeout: 120_000,
+        leaseDuration: 30_000,
+        maxRuntime: 10 * 60_000,
         handler: async (input, ctx) => {
           const responder = responderFor(ctx.env)
           await executeCommitment(ctx, input, responder)

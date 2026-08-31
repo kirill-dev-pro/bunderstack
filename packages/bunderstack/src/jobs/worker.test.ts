@@ -28,8 +28,11 @@ async function freshDb() {
   )
 }
 
-function runner(defs: JobsDefs) {
-  const r = createJobRunner({ db, defs, ctx: {} })
+function runner(
+  defs: JobsDefs,
+  logger?: Parameters<typeof createJobRunner>[0]['logger'],
+) {
+  const r = createJobRunner({ db, defs, ctx: {}, logger })
   r.setJobsFacade({
     enqueue: (name, input, opts) => enqueueJob(db, defs, name, input, opts),
     tick: (now) => r.tick(now),
@@ -350,6 +353,76 @@ test('pump renews a healthy handler instead of reclaiming it', async () => {
   gate.resolve()
   await r.drain()
   expect((await rowById(id))?.status).toBe('succeeded')
+})
+
+test('execution deadline aborts before retrying', async () => {
+  const events: string[] = []
+  const defs: JobsDefs = {
+    bounded: {
+      kind: 'job',
+      timeout: 60,
+      maxRuntime: 30,
+      retries: 1,
+      backoff: () => 0,
+      handler: async (_input, ctx) => {
+        events.push('start')
+        if (events.filter((event) => event === 'start').length === 1) {
+          await new Promise<void>((_resolve, reject) =>
+            ctx.signal.addEventListener(
+              'abort',
+              () => {
+                events.push('aborted')
+                reject(ctx.signal.reason)
+              },
+              { once: true },
+            ),
+          )
+        }
+      },
+    },
+  }
+  const r = runner(defs)
+  const { id } = await enqueueJob(db, defs, 'bounded', undefined)
+
+  await r.pump()
+  await Bun.sleep(40)
+  await r.drain()
+  await r.pump(Date.now())
+  await r.drain()
+
+  expect(events).toEqual(['start', 'aborted', 'start'])
+  expect((await rowById(id))?.status).toBe('succeeded')
+})
+
+test('job lifecycle logs are structured and omit payloads', async () => {
+  const messages: string[] = []
+  const logger = {
+    info: (message: string) => messages.push(message),
+    warn: (message: string) => messages.push(message),
+    error: (message: string) => messages.push(message),
+  }
+  const defs: JobsDefs = {
+    logged: {
+      kind: 'job',
+      input: v.object({ secret: v.string() }),
+      handler: async () => {},
+    },
+  }
+  const r = runner(defs, logger)
+  await enqueueJob(db, defs, 'logged', { secret: 'do-not-log' })
+  await r.tick()
+
+  const events = messages.map((message) => JSON.parse(message) as {
+    event: string
+    source: string
+  })
+  expect(events).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ source: 'bunderstack.jobs', event: 'job.claimed' }),
+      expect.objectContaining({ source: 'bunderstack.jobs', event: 'job.completed' }),
+    ]),
+  )
+  expect(messages.join('\n')).not.toContain('do-not-log')
 })
 
 test('pump fills concurrency above the internal claim batch', async () => {
