@@ -226,6 +226,50 @@ test('concurrency limits simultaneous claims of one type', async () => {
   expect(maxRunning).toBe(1)
 })
 
+test('tick fills declared concurrency above the internal claim batch', async () => {
+  let started = 0
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let resolveAllStarted: (() => void) | undefined
+  const allStarted = new Promise<void>((resolve) => {
+    resolveAllStarted = resolve
+  })
+  const defs: JobsDefs = {
+    wide: {
+      kind: 'job',
+      concurrency: 25,
+      handler: async () => {
+        started++
+        if (started === 25) resolveAllStarted?.()
+        await gate
+      },
+    },
+  }
+  const r = runner(defs)
+  for (let i = 0; i < 26; i++) {
+    await enqueueJob(db, defs, 'wide', undefined)
+  }
+
+  const ticking = r.tick()
+  await allStarted
+  expect(started).toBe(25)
+  expect(
+    (await db.select().from(bunderstackJobs)).filter(
+      (row) => row.status === 'running',
+    ),
+  ).toHaveLength(25)
+
+  release?.()
+  expect(await ticking).toEqual({ claimed: 25, ran: 25, failed: 0 })
+  expect(
+    (await db.select().from(bunderstackJobs)).filter(
+      (row) => row.status === 'pending',
+    ),
+  ).toHaveLength(1)
+})
+
 test('malformed stored payload fails immediately without retries', async () => {
   const defs: JobsDefs = {
     typed: {

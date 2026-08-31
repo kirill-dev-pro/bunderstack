@@ -32,6 +32,18 @@ type JobRow = {
   runAt: number
 }
 
+type ClaimedWork = {
+  row: JobRow
+  def: AnyBackgroundDefinition
+  leaseUntil: number
+}
+
+function capacityFor(def: AnyBackgroundDefinition): number {
+  return def.kind === 'job' && def.concurrency !== undefined
+    ? def.concurrency
+    : CLAIM_BATCH
+}
+
 function toError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err))
 }
@@ -249,6 +261,30 @@ export function createJobRunner(deps: {
     return rows
   }
 
+  async function claimAvailable(
+    type: string,
+    def: AnyBackgroundDefinition,
+    now: number,
+  ): Promise<ClaimedWork[]> {
+    const runningRows = await db
+      .select({ id: t.id })
+      .from(t)
+      .where(and(eq(t.type, type), eq(t.status, 'running')))
+    let available = capacityFor(def) - runningRows.length
+    if (available <= 0) return []
+
+    const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
+    const work: ClaimedWork[] = []
+    while (available > 0) {
+      const limit = Math.min(CLAIM_BATCH, available)
+      const rows = await claim(type, limit, now, leaseUntil)
+      for (const row of rows) work.push({ row, def, leaseUntil })
+      available -= rows.length
+      if (rows.length < limit) break
+    }
+    return work
+  }
+
   // `now` is the tick's injected clock: retry runAt math uses it so tests can
   // drive backoff deterministically. finishedAt uses the real clock (a handler
   // may run long past the tick's start).
@@ -327,28 +363,13 @@ export function createJobRunner(deps: {
   }
 
   async function runClaimable(now: number): Promise<TickResult> {
-    const claimedWork: Array<{
-      row: JobRow
-      def: AnyBackgroundDefinition
-      leaseUntil: number
-    }> = []
+    const claimedWork: ClaimedWork[] = []
     let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      let limit = CLAIM_BATCH
-      if (def.kind === 'job' && def.concurrency !== undefined) {
-        const runningRows = await db
-          .select({ id: t.id })
-          .from(t)
-          .where(and(eq(t.type, type), eq(t.status, 'running')))
-        const capacity = def.concurrency - runningRows.length
-        if (capacity <= 0) continue
-        limit = Math.min(limit, capacity)
-      }
-      const leaseUntil = now + (def.timeout ?? DEFAULT_TIMEOUT_MS)
-      const claimed = await claim(type, limit, now, leaseUntil)
+      const claimed = await claimAvailable(type, def, now)
       totalClaimed += claimed.length
-      for (const row of claimed) claimedWork.push({ row, def, leaseUntil })
+      claimedWork.push(...claimed)
     }
     // Claim the whole tick snapshot before starting any handler. Work enqueued
     // by a handler therefore belongs to the next tick, regardless of the
