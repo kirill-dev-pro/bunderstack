@@ -12,6 +12,7 @@ import {
   agentCommitments,
   agentMessages,
   agentRequests,
+  agentRunSteps,
   agentRuns,
   agentThreads,
 } from '../schema'
@@ -24,6 +25,7 @@ import {
 import { assembleAgentContext } from './context'
 import { acknowledgeInbox, sendAgentEvent } from './inbox'
 import { createRunRecorder, type RunRecorder } from './run-recorder'
+import { AgentRunCancelledError } from './cancellation'
 
 export interface EnqueuedJob {
   name: string
@@ -222,6 +224,8 @@ export async function runAgentTurn(
     recorder = await createRunRecorder(ctx, currentRun)
     return recorder
   }
+  const abortController = new AbortController()
+  let cancellationTimer: ReturnType<typeof setInterval> | undefined
 
   try {
     const resumeRequest = input.requestId
@@ -282,6 +286,7 @@ export async function runAgentTurn(
       invocationSequence += 1
       const definition = getAgentTool(toolId)
       const activeRecorder = await getRecorder()
+      await activeRecorder.checkCancellation()
       const step = await activeRecorder.startStep({
         kind: 'tool_call',
         title: `${definition.id} v${definition.version}`,
@@ -307,6 +312,7 @@ export async function runAgentTurn(
         await activeRecorder.failStep(step.id, error)
         throw error
       }
+      await activeRecorder.checkCancellation()
       if (result.status === 'done') {
         await activeRecorder.finishStep(step.id, result.result, {
           toolCallId: result.toolCallId,
@@ -360,6 +366,24 @@ export async function runAgentTurn(
       },
     }
 
+    let checkingCancellation = false
+    cancellationTimer = setInterval(() => {
+      if (checkingCancellation || abortController.signal.aborted) return
+      checkingCancellation = true
+      void getRecorder()
+        .then((activeRecorder) => activeRecorder.checkCancellation())
+        .catch((error) => {
+          if (error instanceof AgentRunCancelledError) {
+            abortController.abort(error)
+          } else {
+            console.error('Failed to check agent cancellation:', error)
+          }
+        })
+        .finally(() => {
+          checkingCancellation = false
+        })
+    }, 150)
+
     const response = await responder({
       ...context,
       currentExecution: {
@@ -381,7 +405,7 @@ export async function runAgentTurn(
           }
         : undefined,
       stream: {
-        signal: new AbortController().signal,
+        signal: abortController.signal,
         writeTextDelta: async (delta) => {
           await (await getRecorder()).appendText(delta)
         },
@@ -405,6 +429,9 @@ export async function runAgentTurn(
         }),
       tools,
     })
+    if (currentRun.assistantMessageId) {
+      await (await getRecorder()).checkCancellation()
+    }
     if (response.status === 'waiting_for_approval') {
       if (recorder) await recorder.flush()
       const definition = getAgentTool(response.request.tool)
@@ -468,6 +495,62 @@ export async function runAgentTurn(
     await ctx.realtime.publish(agentRuns, 'update', finished)
     return { status: 'complete' as const }
   } catch (error) {
+    const cancellationError =
+      error instanceof AgentRunCancelledError
+        ? error
+        : abortController.signal.reason instanceof AgentRunCancelledError
+          ? abortController.signal.reason
+          : undefined
+    if (cancellationError) {
+      if (recorder) {
+        try {
+          await recorder.flush({ skipCancellation: true })
+        } catch (snapshotError) {
+          console.error(
+            'Failed to persist the cancelled agent snapshot:',
+            snapshotError,
+          )
+        }
+      }
+      const cancelledSteps = await ctx.db
+        .update(agentRunSteps)
+        .set({ status: 'cancelled', completedAt: new Date() })
+        .where(
+          and(
+            eq(agentRunSteps.runId, currentRun.id),
+            eq(agentRunSteps.status, 'running'),
+          ),
+        )
+        .returning()
+      for (const step of cancelledSteps) {
+        await ctx.realtime.publish(agentRunSteps, 'update', step)
+      }
+      if (currentRun.assistantMessageId) {
+        const [cancelledMessage] = await ctx.db
+          .update(agentMessages)
+          .set({
+            status: 'cancelled',
+            revision: sql`${agentMessages.revision} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(agentMessages.id, currentRun.assistantMessageId))
+          .returning()
+        if (cancelledMessage) {
+          await ctx.realtime.publish(
+            agentMessages,
+            'update',
+            cancelledMessage,
+          )
+        }
+      }
+      const [cancelledRun] = await ctx.db
+        .update(agentRuns)
+        .set({ status: 'cancelled', completedAt: new Date() })
+        .where(eq(agentRuns.id, currentRun.id))
+        .returning()
+      await ctx.realtime.publish(agentRuns, 'update', cancelledRun)
+      return { status: 'cancelled' as const }
+    }
     console.error('Error during agent turn:', error)
     const message = error instanceof Error ? error.message : String(error)
     if (currentRun.assistantMessageId || recorder) {
@@ -498,6 +581,7 @@ export async function runAgentTurn(
     await ctx.realtime.publish(agentRuns, 'update', failed)
     throw error
   } finally {
+    if (cancellationTimer) clearInterval(cancellationTimer)
     await releaseAgentThreadLock(ctx, thread, lockedWakeSeq)
   }
 }

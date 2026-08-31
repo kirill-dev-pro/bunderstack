@@ -84,6 +84,67 @@ describe('protected agent actions', () => {
     expect(await state.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
   })
 
+  test('a user cannot stop another user’s run', async () => {
+    const state = await setup()
+    const [run] = await state.ctx.db
+      .insert(agentRuns)
+      .values({
+        threadId: state.bobThread.id,
+        userId: state.bobId,
+        triggerType: 'user_message',
+        reason: 'message',
+        status: 'running',
+      })
+      .returning()
+    mockAuthSession(state.app, async () => ({
+      user: { id: state.aliceId, email: 'alice@example.test', name: 'Alice' },
+    }))
+
+    const response = await call(
+      state.app,
+      `/api/agent/runs/${run!.id}/stop`,
+      'POST',
+    )
+
+    expect(response.status).toBe(404)
+    expect(
+      await state.ctx.db
+        .select()
+        .from(agentRuns)
+        .where(eq(agentRuns.id, run!.id))
+        .get(),
+    ).toMatchObject({ status: 'running' })
+  })
+
+  test('the owner can stop a queued run through the protected command', async () => {
+    const state = await setup()
+    const [run] = await state.ctx.db
+      .insert(agentRuns)
+      .values({
+        threadId: state.aliceThread.id,
+        userId: state.aliceId,
+        triggerType: 'user_message',
+        reason: 'message',
+        status: 'queued',
+      })
+      .returning()
+    mockAuthSession(state.app, async () => ({
+      user: { id: state.aliceId, email: 'alice@example.test', name: 'Alice' },
+    }))
+
+    const response = await call(
+      state.app,
+      `/api/agent/runs/${run!.id}/stop`,
+      'POST',
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      id: run!.id,
+      status: 'cancelled',
+    })
+  })
+
   test('a user cannot mutate another user’s memory, request, or grant', async () => {
     const state = await setup()
     const bobMemory = await remember(state.ctx, {

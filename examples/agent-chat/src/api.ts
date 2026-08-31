@@ -8,6 +8,7 @@ import {
   pauseCommitment,
   resumeCommitment,
 } from './agent/commitments'
+import { requestRunCancellation } from './agent/cancellation'
 import { deleteMemory, updateMemory } from './agent/memory'
 import {
   acceptUserMessage,
@@ -50,6 +51,35 @@ export const api = {
         }
         throw error
       }
+    }),
+  stopRun: o.protected
+    .route({
+      method: 'POST',
+      path: '/api/agent/runs/{id}/stop',
+      tags: ['agent'],
+    })
+    .input(type({ id: 'string' }))
+    .output(
+      type({
+        id: 'string',
+        status: "'cancelling' | 'cancelled' | 'complete' | 'error'",
+      }),
+    )
+    .handler(async ({ context, input, errors }) => {
+      const run = await requestRunCancellation(context, {
+        runId: input.id,
+        userId: context.user.id,
+      })
+      if (!run) throw errors.NOT_FOUND({ message: 'Agent run not found' })
+      if (
+        run.status !== 'cancelling' &&
+        run.status !== 'cancelled' &&
+        run.status !== 'complete' &&
+        run.status !== 'error'
+      ) {
+        throw errors.CONFLICT({ message: 'Agent run could not be stopped' })
+      }
+      return { id: run.id, status: run.status }
     }),
   updateMemory: o.protected
     .route({

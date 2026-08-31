@@ -2,12 +2,13 @@ import { desc, eq, sql } from 'drizzle-orm'
 
 import {
   agentMessages,
+  agentRuns,
   agentRunSteps,
   type AgentMessageStatus,
   type AgentRunStepKind,
   type AgentRunStepVisibility,
-  type agentRuns,
 } from '../schema'
+import { AgentRunCancelledError } from './cancellation'
 import type { AgentRuntimeContext } from './runtime'
 
 export interface RunRecorderOptions {
@@ -69,9 +70,24 @@ export async function createRunRecorder(
   let nextSequence = latestStep?.sequence ?? 0
   let writeChain = Promise.resolve()
 
-  const persistSnapshot = (snapshot: string) => {
+  const checkCancellation = async () => {
+    const current = await ctx.db
+      .select({ status: agentRuns.status })
+      .from(agentRuns)
+      .where(eq(agentRuns.id, run.id))
+      .get()
+    if (current?.status === 'cancelling' || current?.status === 'cancelled') {
+      throw new AgentRunCancelledError()
+    }
+  }
+
+  const persistSnapshot = (
+    snapshot: string,
+    options: { skipCancellation?: boolean } = {},
+  ) => {
     writeChain = writeChain.then(async () => {
       if (snapshot === persistedContent) return
+      if (!options.skipCancellation) await checkCancellation()
       const [updated] = await ctx.db
         .update(agentMessages)
         .set({
@@ -108,15 +124,31 @@ export async function createRunRecorder(
     if (backgroundError !== undefined) throw backgroundError
   }
 
-  const flush = async () => {
-    throwBackgroundError()
+  const flush = async (options: { skipCancellation?: boolean } = {}) => {
+    if (!options.skipCancellation) {
+      throwBackgroundError()
+      await checkCancellation()
+    }
     if (scheduledFlush !== undefined) {
       cancelScheduled(scheduledFlush)
       scheduledFlush = undefined
     }
-    await writeChain
-    if (content !== persistedContent) await persistSnapshot(content)
-    throwBackgroundError()
+    try {
+      await writeChain
+    } catch (error) {
+      if (
+        !options.skipCancellation ||
+        !(error instanceof AgentRunCancelledError)
+      ) {
+        throw error
+      }
+      writeChain = Promise.resolve()
+      backgroundError = undefined
+    }
+    if (content !== persistedContent) {
+      await persistSnapshot(content, options)
+    }
+    if (!options.skipCancellation) throwBackgroundError()
   }
 
   return {
@@ -148,6 +180,7 @@ export async function createRunRecorder(
     },
 
     flush,
+    checkCancellation,
 
     async startStep(input: StartRunStepInput) {
       nextSequence += 1

@@ -14,6 +14,7 @@ import {
 } from '../schema'
 import { createTestApp, type TestApp } from '../test-app'
 import { resolveApproval } from './approvals'
+import { requestRunCancellation } from './cancellation'
 import { acceptUserMessage } from './messages'
 import {
   fireCommitment,
@@ -251,6 +252,60 @@ describe('agent runtime', () => {
     expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject([
       { title: 'Inspecting tasks', status: 'complete' },
     ])
+  })
+
+  test('cancels a silent responder after the durable stop request', async () => {
+    const state = await setup()
+    const accepted = await acceptUserMessage(state.ctx, {
+      userId: state.userId,
+      content: 'Wait for provider',
+      clientMessageId: 'browser-silent-stop',
+    })
+    const started = Promise.withResolvers<void>()
+
+    const running = runAgentTurn(
+      state.ctx,
+      {
+        threadId: state.thread.id,
+        reason: 'message',
+        runId: accepted.runId,
+        executionKey: accepted.runId,
+      },
+      async (input) => {
+        started.resolve()
+        await new Promise<never>((_resolve, reject) => {
+          input.stream.signal.addEventListener(
+            'abort',
+            () => reject(input.stream.signal.reason),
+            { once: true },
+          )
+        })
+        throw new Error('unreachable')
+      },
+    )
+    await started.promise
+    await requestRunCancellation(state.ctx, {
+      runId: accepted.runId,
+      userId: state.userId,
+    })
+
+    const result = await Promise.race([
+      running,
+      Bun.sleep(1_000).then(() => {
+        throw new Error('cancellation monitor timed out')
+      }),
+    ])
+    expect(result).toEqual({ status: 'cancelled' })
+    expect(await state.ctx.db.select().from(agentRuns).get()).toMatchObject({
+      status: 'cancelled',
+    })
+    expect(
+      await state.ctx.db
+        .select()
+        .from(agentMessages)
+        .where(eq(agentMessages.id, accepted.assistantMessageId))
+        .get(),
+    ).toMatchObject({ status: 'cancelled' })
   })
 
   test('a commitment becomes an exact future job and a journal entry', async () => {
