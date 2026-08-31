@@ -12,6 +12,14 @@ const notes = sqliteTable('notes', {
   body: text('body').notNull(),
 })
 
+async function waitFor(check: () => boolean) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (check()) return
+    await new Promise((resolve) => setTimeout(resolve, 1))
+  }
+  throw new Error('condition was not reached')
+}
+
 test('app.jobs enqueues without implicit execution and explicit worker runs the handler', async () => {
   const app = await bunderstack({
     schema: { notes },
@@ -61,6 +69,44 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
   const _badInput = () => app.jobs.enqueue('writeNote', { id: 42 })
   void _bad
   void _badInput
+})
+
+test('embedded worker refills one slot without waiting for its active peers', async () => {
+  const started: number[] = []
+  const releases = new Map<number, () => void>()
+  const app = await bunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    background: { autoStart: false },
+    jobs: (j) =>
+      j.define({
+        controlled: j.job({
+          input: v.object({ n: v.number() }),
+          concurrency: 2,
+          handler: async ({ n }) => {
+            started.push(n)
+            await new Promise<void>((resolve) => releases.set(n, resolve))
+          },
+        }),
+      }),
+  }).start()
+  await provision(app, { force: true })
+  for (let n = 1; n <= 3; n++) {
+    await app.jobs.enqueue('controlled', { n }, { runAt: n })
+  }
+
+  const worker = await app.startWorker({ pollIntervalMs: 60_000 })
+  await waitFor(() => started.length === 2)
+  expect(started).toEqual([1, 2])
+
+  releases.get(1)?.()
+  await waitFor(() => started.length === 3)
+  expect(started).toEqual([1, 2, 3])
+
+  releases.get(2)?.()
+  releases.get(3)?.()
+  await worker.close()
+  await app.close()
 })
 
 test('oRPC context exposes the jobs facade', async () => {

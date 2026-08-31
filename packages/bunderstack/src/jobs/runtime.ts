@@ -3,10 +3,13 @@ export type WorkerHandle = {
   close(): Promise<void>
 }
 
+export type WorkerCycleResult = { wake?: Promise<void> }
+
 export type StartWorkerOptions = {
   signal?: AbortSignal
   pollIntervalMs?: number
-  tick: (now: number) => Promise<void>
+  tick: (now: number) => Promise<void | WorkerCycleResult>
+  drain?: () => Promise<void>
   onError?: (error: Error) => void
 }
 
@@ -16,16 +19,28 @@ function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
+function waitForNext(
+  ms: number,
+  signal: AbortSignal,
+  wake: Promise<void> | undefined,
+  onError: ((error: Error) => void) | undefined,
+): Promise<void> {
   return new Promise((resolve) => {
-    if (signal.aborted) return resolve()
+    let settled = false
     const timer = setTimeout(done, ms)
     function done() {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
       signal.removeEventListener('abort', done)
       resolve()
     }
     signal.addEventListener('abort', done, { once: true })
+    void wake?.then(done, (error) => {
+      onError?.(toError(error))
+      done()
+    })
+    if (signal.aborted) done()
   })
 }
 
@@ -39,15 +54,22 @@ export function startJobWorker(options: StartWorkerOptions): WorkerHandle {
   const closed = (async () => {
     try {
       while (!controller.signal.aborted) {
+        let cycle: void | WorkerCycleResult = undefined
         try {
-          await options.tick(Date.now())
+          cycle = await options.tick(Date.now())
         } catch (error) {
           options.onError?.(toError(error))
         }
-        await wait(pollIntervalMs, controller.signal)
+        await waitForNext(
+          pollIntervalMs,
+          controller.signal,
+          cycle?.wake,
+          options.onError,
+        )
       }
     } finally {
       options.signal?.removeEventListener('abort', abort)
+      await options.drain?.()
     }
   })()
   const close = () => {

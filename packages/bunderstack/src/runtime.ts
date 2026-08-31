@@ -171,7 +171,7 @@ export interface StorageFacade {
   ): Promise<void>
 }
 
-export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick'>
+export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick' | 'drain'>
 export type AppRunWorkerOptions = AppStartWorkerOptions & {
   /**
    * Permit process-local realtime in a standalone worker.
@@ -601,11 +601,8 @@ export async function materializeBunderstack<
       const handle = startJobWorker({
         ...options,
         signal,
-        // The runtime loop only cares that a tick completed; TickResult is for
-        // callers that invoke tick() directly.
-        tick: async (now) => {
-          await jobRunner.tick(now)
-        },
+        tick: (now) => jobRunner.pump(now),
+        drain: () => jobRunner.drain(),
       })
       const unregister = lifecycle.add(() => handle.close())
       void handle.closed.finally(unregister)

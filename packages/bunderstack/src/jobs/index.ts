@@ -29,6 +29,7 @@ export { startJobWorker } from './runtime'
 export type {
   StartWorkerOptions,
   RunWorkerOptions,
+  WorkerCycleResult,
   WorkerHandle,
 } from './runtime'
 export { parseCron, cronMatches } from './cron'
