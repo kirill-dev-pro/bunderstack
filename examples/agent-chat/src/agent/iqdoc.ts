@@ -52,12 +52,14 @@ export interface IQDocStreamCallbacks {
 export function createIQDocResponder(
   options: IQDocResponderOptions = {},
 ): AgentResponder {
-  if (!options.apiKey?.trim()) return createDemoResponder()
-  if (!options.baseURL?.trim()) {
-    throw new Error('IQDOC_BASE_URL is required when IQdoc is enabled')
-  }
+  const apiKey = options.apiKey?.trim()
+  if (!apiKey) return createDemoResponder()
 
   return async (input) => {
+    const baseURL = options.baseURL?.trim()
+    if (!baseURL) {
+      throw new Error('IQDOC_BASE_URL is required when IQdoc is enabled')
+    }
     const providerFetch = createIQDocInterceptingFetch(
       options.fetch ?? fetch,
       {
@@ -75,9 +77,9 @@ export function createIQDocResponder(
     )
     const provider = createOpenAICompatible({
       name: 'iqdoc',
-      baseURL: options.baseURL!.replace(/\/+$/, ''),
+      baseURL: baseURL.replace(/\/+$/, ''),
       includeUsage: true,
-      headers: { 'X-Api-Key': options.apiKey!.trim() },
+      headers: { 'X-Api-Key': apiKey },
       fetch: providerFetch as unknown as typeof fetch,
     })
     const messages: ModelMessage[] = input.messages.map((message) => ({

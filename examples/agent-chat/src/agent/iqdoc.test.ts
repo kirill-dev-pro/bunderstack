@@ -123,6 +123,25 @@ describe('IQdoc stream interceptor', () => {
 })
 
 describe('IQdoc responder', () => {
+  test('defers a missing endpoint error into the durable responder lifecycle', async () => {
+    let responder: ReturnType<typeof createIQDocResponder> | undefined
+
+    expect(() => {
+      responder = createIQDocResponder({ apiKey: 'iqdoc-secret' })
+    }).not.toThrow()
+
+    const threadId = generateTypeId('athread')
+    const runId = generateTypeId('arun')
+    await expect(
+      responder!(
+        responderInput(threadId, runId, {
+          writeTextDelta: async () => {},
+          writeActivity: async () => {},
+        }),
+      ),
+    ).rejects.toThrow('IQDOC_BASE_URL is required when IQdoc is enabled')
+  })
+
   test('uses the IQdoc request contract without exposing Bunderstack tools', async () => {
     const threadId = generateTypeId('athread')
     const runId = generateTypeId('arun')
