@@ -8,7 +8,10 @@ import { app } from '~/bunderstack'
 import { ApprovalPanel } from '~/components/ApprovalPanel'
 import { LoginGate } from '~/components/LoginGate'
 import { MemoryPanel } from '~/components/MemoryPanel'
+import { QueuedMessage } from '~/components/QueuedMessage'
 import { SaveAgentPanel } from '~/components/SaveAgentPanel'
+import { StreamingMessage } from '~/components/StreamingMessage'
+import { useAgentChat } from '~/hooks/useAgentChat'
 
 const getAppName = createServerFn({ method: 'GET' }).handler(
   () => app.env.PUBLIC_APP_NAME,
@@ -44,24 +47,30 @@ function AgentDesk({
   const { api } = Route.useRouteContext()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [content, setContent] = useState('')
   const [hoveredCallId, setHoveredCallId] = useState<string | null>(null)
   const [hoveredCommitmentId, setHoveredCommitmentId] = useState<string | null>(
     null,
   )
   const messageListRef = useRef<HTMLDivElement>(null)
+  const stickToLatestRef = useRef(true)
   const now = useNow(1000)
 
   const threads = useQuery(
     api.agentThreads.list.queryOptions({ input: { limit: 1 } }),
   )
-  const messages = useQuery(
-    api.agentMessages.list.queryOptions({ input: { limit: 200 } }),
-  )
+  const chat = useAgentChat(api)
+  const {
+    content,
+    setContent,
+    messages,
+    runs,
+    activeRun,
+    runsById,
+    stepsByRunId,
+    queuedMessage,
+    isWorking,
+  } = chat
   const tasks = useQuery(api.tasks.list.queryOptions({ input: { limit: 100 } }))
-  const runs = useQuery(
-    api.agentRuns.list.queryOptions({ input: { limit: 12 } }),
-  )
   const calls = useQuery(
     api.agentToolCalls.list.queryOptions({ input: { limit: 20 } }),
   )
@@ -82,14 +91,6 @@ function AgentDesk({
     }),
   )
 
-  const send = useMutation(
-    api.sendMessage.mutationOptions({
-      onSuccess: () => {
-        setContent('')
-        void queryClient.invalidateQueries()
-      },
-    }),
-  )
   const updateMemory = useMutation(
     api.updateMemory.mutationOptions({
       onSuccess: () => void queryClient.invalidateQueries(),
@@ -114,10 +115,6 @@ function AgentDesk({
   const thread = threads.data?.items[0]
   const openTasks = tasks.data?.items.filter((task) => !task.done) ?? []
   const lastRun = runs.data?.items[0]
-  const isWorking =
-    thread?.status === 'running' ||
-    lastRun?.status === 'running' ||
-    send.isPending
 
   const activeCommitments = (commitments.data?.items ?? [])
     .filter(
@@ -154,18 +151,19 @@ function AgentDesk({
         ]
 
   useEffect(() => {
-    if (messageListRef.current) {
+    if (messageListRef.current && stickToLatestRef.current) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight
     }
-  }, [messages.data?.items.length, requests.data?.items.length, isWorking])
+  }, [
+    messages.data?.items.length,
+    messages.data?.items.map((message) => message.revision).join(':'),
+    requests.data?.items.length,
+    isWorking,
+  ])
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!content.trim() || send.isPending) return
-    send.mutate({
-      content: content.trim(),
-      clientMessageId: crypto.randomUUID(),
-    })
+    chat.submit()
   }
 
   return (
@@ -195,25 +193,85 @@ function AgentDesk({
             </span>
           </div>
 
-          <div className="message-list" aria-live="polite" ref={messageListRef}>
+          <div
+            className="message-list"
+            aria-live="polite"
+            ref={messageListRef}
+            onScroll={(event) => {
+              const element = event.currentTarget
+              stickToLatestRef.current =
+                element.scrollHeight -
+                  element.scrollTop -
+                  element.clientHeight <
+                64
+            }}
+          >
             {messages.data?.items.length ||
             requests.data?.items.length ||
             isWorking ? (
               <>
-                {messages.data?.items.map((message) => (
-                  <article
-                    key={message.id}
-                    className={`message message--${message.role}`}
-                  >
-                    <div className="message-meta">
-                      <span>
-                        {message.role === 'user' ? userName : message.role}
-                      </span>
-                      <time>{formatTime(message.createdAt)}</time>
-                    </div>
-                    <MarkdownContent content={message.content} />
-                  </article>
-                ))}
+                {messages.data?.items.map((message) => {
+                  const run = message.runId
+                    ? runsById.get(message.runId)
+                    : undefined
+                  const runSteps = message.runId
+                    ? (stepsByRunId.get(message.runId) ?? [])
+                    : []
+                  return (
+                    <article
+                      key={message.id}
+                      className={`message message--${message.role}`}
+                    >
+                      <div className="message-meta">
+                        <span>
+                          {message.role === 'user' ? userName : message.role}
+                        </span>
+                        <time>{formatTime(message.createdAt)}</time>
+                      </div>
+                      {message.role === 'assistant' ? (
+                        <StreamingMessage
+                          message={message}
+                          run={run}
+                          steps={runSteps}
+                          onStop={chat.stopRun}
+                        />
+                      ) : (
+                        <MarkdownContent content={message.content} />
+                      )}
+                    </article>
+                  )
+                })}
+
+                {activeRun &&
+                  !messages.data?.items.some(
+                    (message) => message.runId === activeRun.id,
+                  ) && (
+                    <article className="message message--assistant">
+                      <div className="message-meta">
+                        <span>assistant</span>
+                        <span>recovering state…</span>
+                      </div>
+                      <StreamingMessage
+                        message={{
+                          id: `pending:${activeRun.id}`,
+                          content: '',
+                          status: 'queued',
+                          revision: 0,
+                        }}
+                        run={activeRun}
+                        steps={stepsByRunId.get(activeRun.id) ?? []}
+                        onStop={chat.stopRun}
+                      />
+                    </article>
+                  )}
+
+                {queuedMessage && (
+                  <QueuedMessage
+                    message={queuedMessage}
+                    onInterrupt={chat.interruptQueuedMessage}
+                    onRemove={chat.removeQueuedMessage}
+                  />
+                )}
 
                 {requests.data?.items.map((request) => (
                   <article
@@ -286,23 +344,6 @@ function AgentDesk({
                     </div>
                   </article>
                 ))}
-
-                {isWorking && (
-                  <article
-                    className="message message--assistant message--typing"
-                    aria-label="Agent is typing"
-                  >
-                    <div className="message-meta">
-                      <span>Agent</span>
-                      <span>Thinking…</span>
-                    </div>
-                    <div className="typing-bubble">
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                    </div>
-                  </article>
-                )}
               </>
             ) : (
               <div className="empty-state">
@@ -322,6 +363,7 @@ function AgentDesk({
                 id="message"
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
+                disabled={chat.isSending || Boolean(queuedMessage)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault()
@@ -333,14 +375,16 @@ function AgentDesk({
               />
               <button
                 type="submit"
-                disabled={!content.trim() || send.isPending}
+                disabled={
+                  !content.trim() || chat.isSending || Boolean(queuedMessage)
+                }
               >
-                {send.isPending ? 'Queued' : 'Send ↗'}
+                {chat.isSending ? 'Sending…' : activeRun ? 'Queue ↗' : 'Send ↗'}
               </button>
             </div>
-            {send.isError && (
+            {chat.sendError && (
               <p className="form-error">
-                Could not queue the message. Try again.
+                Could not accept the message. Its retry identity was preserved.
               </p>
             )}
           </form>

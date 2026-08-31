@@ -430,7 +430,9 @@ h1 {
   margin: 0;
   overflow: auto;
   color: #8fc7be;
-  font: 9px/1.45 'IBM Plex Mono', monospace;
+  font:
+    9px/1.45 'IBM Plex Mono',
+    monospace;
   white-space: pre-wrap;
 }
 .activity-awaiting {
@@ -448,7 +450,9 @@ h1 {
   border: 1px solid #45615b;
   background: transparent;
   color: #b7c8c4;
-  font: 10px 'IBM Plex Mono', monospace;
+  font:
+    10px 'IBM Plex Mono',
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -466,10 +470,64 @@ h1 {
   border-left: 2px solid var(--warning);
   color: #9fb0ac;
   background: rgba(246, 189, 96, 0.06);
-  font: 10px/1.5 'IBM Plex Mono', monospace;
+  font:
+    10px/1.5 'IBM Plex Mono',
+    monospace;
 }
 .stream-terminal strong {
   color: var(--warning);
+}
+.queued-message {
+  max-width: 78%;
+  margin: -4px 0 22px auto;
+  padding: 12px 14px;
+  border: 1px dashed #49615c;
+  background: rgba(18, 32, 29, 0.62);
+  opacity: 0.82;
+}
+.queued-message-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--cyan);
+  font:
+    9px 'IBM Plex Mono',
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.queued-local-dot {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--cyan);
+}
+.queued-message p {
+  margin: 0 0 11px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.queued-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.queued-message-actions button {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #38514b;
+  background: #0a1513;
+  color: #a9bcb7;
+  font:
+    9px 'IBM Plex Mono',
+    monospace;
+  text-transform: uppercase;
+}
+.queued-message-actions button:first-child {
+  border-color: var(--acid);
+  color: var(--acid);
 }
 
 @keyframes streamCaret {
@@ -1215,6 +1273,9 @@ h1 {
   .message {
     max-width: 92%;
   }
+  .queued-message {
+    max-width: 92%;
+  }
   .message-list {
     padding: 16px;
   }
@@ -1224,8 +1285,12 @@ h1 {
   }
   .composer button,
   .login-form button,
-  .stop-generation {
+  .stop-generation,
+  .queued-message-actions button {
     min-height: 48px;
+  }
+  .queued-message-actions {
+    flex-direction: column;
   }
   .task-grid {
     grid-template-columns: 1fr;
