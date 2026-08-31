@@ -79,8 +79,12 @@ resources:
   realtime:
     required: true
 environment:
+  - key: AI_PROVIDER
+    required: false
+    scope: server
+    sensitive: false
   - key: AI_API_KEY
-    required: true
+    required: false
     scope: server
     sensitive: true
   - key: AI_BASE_URL
@@ -96,6 +100,18 @@ environment:
     scope: server
     sensitive: true
   - key: OPENAI_MODEL
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_API_KEY
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_BASE_URL
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_MODEL
     required: false
     scope: server
     sensitive: true

@@ -37,10 +37,27 @@ The default responder is deterministic and needs no API key. It understands:
 - `Remember that I prefer morning flights`
 - `Remind me in 5 minutes to stretch`
 
-To use an AI provider, set `AI_API_KEY` (and optionally `AI_BASE_URL` and `AI_MODEL`) in `.env`:
+To use an AI provider, choose it with `AI_PROVIDER`:
 
-- Preconfigured for Hetzner Experiments AI (`Qwen3.8-27B` at `https://inference.hetzner.com/api/v1`).
-- Point `AI_BASE_URL` to DeepSeek (`https://api.deepseek.com`, model `deepseek-chat`) or set `OPENAI_API_KEY` for standard OpenAI.
+- `AI_PROVIDER=openai` keeps the existing OpenAI-compatible adapter. Set
+  `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL` for Hetzner Experiments AI or
+  DeepSeek. Standard OpenAI can use `OPENAI_API_KEY` and `OPENAI_MODEL`.
+- `AI_PROVIDER=iqdoc` selects IQdoc as an upstream medical agent. Set
+  `IQDOC_API_KEY`, `IQDOC_BASE_URL`, and optionally `IQDOC_MODEL` (default
+  `assistant_auto`). IQdoc authenticates with `X-Api-Key`; the adapter sends
+  stable UUID-shaped chat and message correlation headers decoded from the
+  Bunderstack thread and run TypeIDs.
+
+Supported IQdoc model IDs are `assistant_auto`, `pubmed_assistant_fast`,
+`clinrec_assistant_fast`, `standart_assistant_fast`, `esmo_assistant_fast`,
+`asa_assistant_fast`, `far_assistant_fast`, and `assistant_pro`.
+
+IQdoc remains the upstream agent: it owns medical retrieval, calculators, and
+its other provider-side actions. The example does not pass its local task,
+memory, commitment, or approval tools to IQdoc. IQdoc `status` events become
+visible durable activity steps, calculator results become visible durable tool
+steps, and ordinary text uses the same revisioned assistant draft as every
+other provider.
 
 The runtime itself does not import or depend on a specific provider; it compiles AI SDK tool schemas dynamically from the local agent declaration.
 

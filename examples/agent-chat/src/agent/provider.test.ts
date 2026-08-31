@@ -1,7 +1,10 @@
 import { expect, mock, test } from 'bun:test'
 import { generateTypeId } from 'bunderstack'
 
-import { createConfiguredResponder } from './provider'
+import {
+  createConfiguredResponder,
+  responderOptionsFromEnv,
+} from './provider'
 import type { AgentResponderInput } from './types'
 
 test('selects the explicitly configured IQdoc responder', async () => {
@@ -42,6 +45,46 @@ test('preserves the existing OpenAI responder selection', () => {
   })
 
   expect(typeof responder).toBe('function')
+})
+
+test('maps simultaneous provider credentials using only the explicit selection', () => {
+  expect(
+    responderOptionsFromEnv({
+      AI_PROVIDER: 'iqdoc',
+      AI_API_KEY: 'hetzner-secret',
+      AI_BASE_URL: 'https://inference.example/v1',
+      AI_MODEL: 'Qwen3.8-27B',
+      OPENAI_API_KEY: 'openai-secret',
+      OPENAI_MODEL: 'gpt-5-mini',
+      IQDOC_API_KEY: 'iqdoc-secret',
+      IQDOC_BASE_URL: 'https://iqdoc.example/api/v1',
+    }),
+  ).toEqual({
+    provider: 'iqdoc',
+    openai: {
+      apiKey: 'openai-secret',
+      baseURL: undefined,
+      model: 'gpt-5-mini',
+    },
+    iqdoc: {
+      apiKey: 'iqdoc-secret',
+      baseURL: 'https://iqdoc.example/api/v1',
+      model: 'assistant_auto',
+    },
+  })
+
+  expect(
+    responderOptionsFromEnv({
+      AI_PROVIDER: 'openai',
+      AI_API_KEY: 'hetzner-secret',
+      AI_BASE_URL: 'https://inference.example/v1',
+      AI_MODEL: 'Qwen3.8-27B',
+    }).openai,
+  ).toEqual({
+    apiKey: 'hetzner-secret',
+    baseURL: 'https://inference.example/v1',
+    model: 'Qwen3.8-27B',
+  })
 })
 
 function providerInput(): AgentResponderInput {

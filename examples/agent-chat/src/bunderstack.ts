@@ -8,11 +8,19 @@ import { access } from './access'
 import { transferAnonymousAgentData } from './agent/auth-transfer'
 import { executeCommitment } from './agent/commitments'
 import { generateFriendlyName } from './agent/friendly-name'
-import { createAIResponder } from './agent/model'
+import {
+  createConfiguredResponder,
+  responderOptionsFromEnv,
+  type AgentProviderEnv,
+} from './agent/provider'
 import { fireCommitment, runAgentTurn } from './agent/runtime'
 import { api } from './api'
 import { envSchema } from './env'
 import * as schema from './schema'
+
+function responderFor(env: AgentProviderEnv) {
+  return createConfiguredResponder(responderOptionsFromEnv(env))
+}
 
 export const backend = bunderstack({
   schema,
@@ -55,11 +63,7 @@ export const backend = bunderstack({
         concurrency: 4,
         timeout: 120_000,
         handler: async (input, ctx) => {
-          const responder = createAIResponder({
-            apiKey: ctx.env.AI_API_KEY,
-            baseURL: ctx.env.AI_BASE_URL,
-            model: ctx.env.AI_MODEL,
-          })
+          const responder = responderFor(ctx.env)
           await runAgentTurn(ctx, input, responder)
         },
       }),
@@ -80,11 +84,7 @@ export const backend = bunderstack({
         concurrency: 4,
         timeout: 120_000,
         handler: async (input, ctx) => {
-          const responder = createAIResponder({
-            apiKey: ctx.env.AI_API_KEY,
-            baseURL: ctx.env.AI_BASE_URL,
-            model: ctx.env.AI_MODEL,
-          })
+          const responder = responderFor(ctx.env)
           await executeCommitment(ctx, input, responder)
         },
       }),
