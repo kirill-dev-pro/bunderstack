@@ -2,6 +2,18 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.23.2] - 2026-08-31
+
+### Fixed
+
+- **Renewable job leases.** Active handlers renew their fenced lease while
+  running, preventing a healthy long-running job from being reclaimed.
+- **Bounded execution.** Jobs may use `leaseDuration`, `maxRuntime`, and
+  `ctx.signal`; `timeout` remains a deprecated alias for the lease duration.
+- **Safe observability.** Queue lifecycle events are structured JSON without
+  payloads or exception stacks; agent-chat forwards queue cancellation to its
+  provider request.
+
 ## [0.23.1] - 2026-08-31
 
 ### Changed
