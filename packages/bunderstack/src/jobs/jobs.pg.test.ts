@@ -125,5 +125,5 @@ test('pg: cron slots materialize and run through the queue execution path', asyn
     .where(eq(bunderstackJobsPg.type, 'cron:everyMinute'))
   expect(rows).toHaveLength(1)
   expect(rows[0]?.status).toBe('succeeded')
-  expect(rows[0]?.dedupeKey).toBeNull()
+  expect(rows[0]?.dedupeKey).toBe(String(slotMs))
 })
