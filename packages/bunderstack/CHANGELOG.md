@@ -2,6 +2,18 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.23.4] - 2026-09-01
+
+### Fixed
+
+- **Cron scheduler read amplification.** Background workers now hydrate each cron
+  watermark once per process and advance it in memory instead of aggregating
+  `_bunderstack_jobs` every polling cycle. Cron slots retain their dedupe key
+  through terminal status so delayed workers cannot recreate a completed slot.
+  The jobs table adds the `bjq_type_run_at` index; applications with committed
+  migrations must run their existing `db:generate` command and apply the
+  generated migration after upgrading.
+
 ## [0.23.2] - 2026-08-31
 
 ### Fixed
