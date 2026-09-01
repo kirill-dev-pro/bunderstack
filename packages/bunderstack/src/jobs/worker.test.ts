@@ -412,14 +412,23 @@ test('job lifecycle logs are structured and omit payloads', async () => {
   await enqueueJob(db, defs, 'logged', { secret: 'do-not-log' })
   await r.tick()
 
-  const events = messages.map((message) => JSON.parse(message) as {
-    event: string
-    source: string
-  })
+  const events = messages.map(
+    (message) =>
+      JSON.parse(message) as {
+        event: string
+        source: string
+      },
+  )
   expect(events).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ source: 'bunderstack.jobs', event: 'job.claimed' }),
-      expect.objectContaining({ source: 'bunderstack.jobs', event: 'job.completed' }),
+      expect.objectContaining({
+        source: 'bunderstack.jobs',
+        event: 'job.claimed',
+      }),
+      expect.objectContaining({
+        source: 'bunderstack.jobs',
+        event: 'job.completed',
+      }),
     ]),
   )
   expect(messages.join('\n')).not.toContain('do-not-log')
@@ -526,7 +535,7 @@ test('a completed cron slot is not re-materialized on a later tick in the same m
   expect(runs).toBe(1)
   const rows1 = await cronRows('beat')
   expect(rows1[0]!.status).toBe('succeeded')
-  expect(rows1[0]!.dedupeKey).toBeNull()
+  expect(rows1[0]!.dedupeKey).toBe(String(Date.parse('2026-08-07T10:00:00Z')))
 
   await r.tick(t0 + 30_000)
   const rows2 = await cronRows('beat')
@@ -567,6 +576,33 @@ test('materialization is idempotent across concurrent ticks', async () => {
   expect(runs).toBe(1)
 })
 
+test('a delayed worker cannot duplicate a completed cron slot', async () => {
+  let runs = 0
+  const defs: JobsDefs = {
+    hourly: {
+      kind: 'cron',
+      schedule: '0 * * * *',
+      handler: () => {
+        runs++
+      },
+    },
+  }
+  const a = runner(defs)
+  const b = runner(defs)
+  const before = Date.parse('2026-08-07T09:59:30Z')
+  const due = Date.parse('2026-08-07T10:00:00Z')
+
+  await a.tick(before)
+  await b.tick(before)
+  await a.tick(due)
+  await b.tick(due)
+
+  const rows = await cronRows('hourly')
+  expect(rows).toHaveLength(1)
+  expect(rows[0]!.dedupeKey).toBe(String(due))
+  expect(runs).toBe(1)
+})
+
 test('the watermark advances so a slot is materialized once per minute', async () => {
   const defs: JobsDefs = {
     beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
@@ -582,6 +618,25 @@ test('the watermark advances so a slot is materialized once per minute', async (
     Date.parse('2026-08-07T10:00:00Z'),
     Date.parse('2026-08-07T10:01:00Z'),
   ])
+})
+
+test('the worker advances cron scheduling from memory after hydration', async () => {
+  const defs: JobsDefs = {
+    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+  }
+  const r = runner(defs)
+  const t0 = Date.parse('2026-08-07T10:00:30Z')
+
+  await r.tick(t0)
+  await db.delete(bunderstackJobs)
+
+  await r.tick(t0 + 20_000)
+  expect(await cronRows('beat')).toHaveLength(0)
+
+  await r.tick(t0 + SLOT_MS)
+  const rows = await cronRows('beat')
+  expect(rows).toHaveLength(1)
+  expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:01:00Z'))
 })
 
 test('a non-matching minute materializes nothing', async () => {
@@ -650,7 +705,7 @@ test('a failing cron slot retries with backoff then fires onFailed', async () =>
 
   const rows = await cronRows('flaky')
   expect(rows[0]!.status).toBe('failed')
-  expect(rows[0]!.dedupeKey).toBeNull()
+  expect(rows[0]!.dedupeKey).toBe(String(now - (now % SLOT_MS)))
 })
 
 test('a cron slot whose type has no definition is failed, not retried forever', async () => {

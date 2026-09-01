@@ -1,6 +1,16 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
 // recover expired leases → reap old succeeded rows → claim and run queue jobs.
-import { and, eq, inArray, is, isNotNull, lt, lte, max, sql } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  is,
+  isNotNull,
+  lt,
+  lte,
+  sql,
+} from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
@@ -65,6 +75,10 @@ type LeaseHeartbeat = {
 
 type PumpResult = { wake?: Promise<void> }
 
+type CronCursor = {
+  checkedThrough: number
+}
+
 function jobEvent(
   event: string,
   row: JobRow,
@@ -108,9 +122,9 @@ function definitionFor(
   return def?.kind === 'job' ? def : undefined
 }
 
-/** Terminal queue rows release their dedupe key. */
-function terminalPatch() {
-  return { dedupeKey: null }
+/** Queue jobs release terminal dedupe keys; cron slots retain durable ownership. */
+function terminalPatch(def: AnyBackgroundDefinition) {
+  return def.kind === 'cron' ? {} : { dedupeKey: null }
 }
 
 export function createJobRunner(deps: {
@@ -126,6 +140,7 @@ export function createJobRunner(deps: {
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
   const active = new Map<string, Set<Promise<void>>>()
+  const cronCursors = new Map<string, CronCursor>()
 
   function ownershipPredicate(id: string, owner: LeaseOwner) {
     return and(
@@ -195,31 +210,39 @@ export function createJobRunner(deps: {
       : undefined
   }
 
-  /**
-   * The watermark is the newest slot we already stored for this cron. When no
-   * rows exist — a newly declared cron, or one whose rows were reaped — anchor
-   * one slot before now so the current minute is eligible and nothing older is.
-   */
-  async function cronWatermark(type: string, now: number): Promise<number> {
+  /** Hydrate each cron cursor once, then advance it in this worker's memory. */
+  async function cronCursor(type: string, now: number): Promise<CronCursor> {
+    const cached = cronCursors.get(type)
+    if (cached) return cached
+
     const rows = await db
-      .select({ latest: max(t.runAt) })
+      .select({ runAt: t.runAt })
       .from(t)
       .where(eq(t.type, type))
-    const latest = rows[0]?.latest
-    return latest == null ? floorSlot(now) - SLOT_MS : Number(latest)
+      .orderBy(desc(t.runAt))
+      .limit(1)
+    const cursor = {
+      checkedThrough:
+        rows[0]?.runAt == null
+          ? floorSlot(now) - SLOT_MS
+          : Number(rows[0].runAt),
+    }
+    cronCursors.set(type, cursor)
+    return cursor
   }
 
   /** Enqueue a row per due slot. The unique(type, dedupeKey) constraint makes
    *  this safe to run concurrently in any number of processes. */
   async function materializeCronSlots(now: number) {
+    const through = floorSlot(now)
     for (const [name, def] of Object.entries(defs)) {
       if (def.kind !== 'cron') continue
       const type = `${CRON_PREFIX}${name}`
-      const from = await cronWatermark(type, now)
+      const cursor = await cronCursor(type, now)
       const slots = slotsDue({
         cron: parseCron(def.schedule),
-        from,
-        to: now,
+        from: cursor.checkedThrough,
+        to: through,
         catchUp: def.catchUp,
         catchUpWindowMs: def.catchUpWindow,
       })
@@ -228,7 +251,9 @@ export function createJobRunner(deps: {
           runAt: slot,
           dedupeKey: String(slot),
         })
+        cursor.checkedThrough = slot
       }
+      cursor.checkedThrough = Math.max(cursor.checkedThrough, through)
     }
   }
 
@@ -300,7 +325,7 @@ export function createJobRunner(deps: {
             finishedAt: now,
             lockedUntil: null,
             lastError: error.message,
-            ...terminalPatch(),
+            ...terminalPatch(def),
           })
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
@@ -423,7 +448,7 @@ export function createJobRunner(deps: {
           finishedAt: Date.now(),
           lockedUntil: null,
           lastError: e.message,
-          ...terminalPatch(),
+          ...terminalPatch(def),
         })
         .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
@@ -481,14 +506,16 @@ export function createJobRunner(deps: {
           status: 'succeeded',
           finishedAt: Date.now(),
           lockedUntil: null,
-          ...terminalPatch(),
+          ...terminalPatch(def),
         })
         .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
       if (!updated[0]) return 'lost'
       logger.info(
         JSON.stringify(
-          jobEvent('job.completed', row, { durationMs: Date.now() - startedAt }),
+          jobEvent('job.completed', row, {
+            durationMs: Date.now() - startedAt,
+          }),
         ),
       )
       return 'ran'
@@ -528,7 +555,7 @@ export function createJobRunner(deps: {
             finishedAt: Date.now(),
             lockedUntil: null,
             lastError: e.message,
-            ...terminalPatch(),
+            ...terminalPatch(def),
           })
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
@@ -560,9 +587,7 @@ export function createJobRunner(deps: {
     // by a handler therefore belongs to the next tick, regardless of the
     // declaration order of its target job type.
     const outcomes = await Promise.all(
-      claimedWork.map(({ row, def, owner }) =>
-        runJob(row, def, now, owner),
-      ),
+      claimedWork.map(({ row, def, owner }) => runJob(row, def, now, owner)),
     )
     let ran = 0
     let failed = 0
