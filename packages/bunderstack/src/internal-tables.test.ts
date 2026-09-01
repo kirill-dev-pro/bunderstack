@@ -1,7 +1,17 @@
 import { test, expect, beforeAll } from 'bun:test'
 import { getTableName, is, isTable } from 'drizzle-orm'
-import { PgTable, pgTable, text as pgText } from 'drizzle-orm/pg-core'
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import {
+  getTableConfig as getPgTableConfig,
+  PgTable,
+  pgTable,
+  text as pgText,
+} from 'drizzle-orm/pg-core'
+import {
+  getTableConfig as getSqliteTableConfig,
+  integer,
+  sqliteTable,
+  text,
+} from 'drizzle-orm/sqlite-core'
 
 import { validateAndResolveAccess } from './access'
 import { libsql } from './database/libsql'
@@ -209,6 +219,18 @@ test('jobs table is registered as an internal table in both dialects', () => {
   expect(isTable(bunderstackJobs)).toBe(true)
   expect(is(bunderstackJobsPg, PgTable)).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
+})
+
+test('jobs table indexes newest cron rows by type and runAt in both dialects', () => {
+  const sqliteNames = getSqliteTableConfig(bunderstackJobs).indexes.map(
+    (entry) => entry.config.name,
+  )
+  const pgNames = getPgTableConfig(bunderstackJobsPg).indexes.map(
+    (entry) => entry.config.name,
+  )
+
+  expect(sqliteNames).toContain('bjq_type_run_at')
+  expect(pgNames).toContain('bjq_type_run_at')
 })
 
 test('withInternalTables merges the jobs table', () => {

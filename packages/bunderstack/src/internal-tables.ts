@@ -70,6 +70,7 @@ export const bunderstackJobs = sqliteTable(
   (t) => [
     index('bjq_claim').on(t.status, t.runAt),
     index('bjq_type_status').on(t.type, t.status),
+    index('bjq_type_run_at').on(t.type, t.runAt),
     // NULL dedupe keys are distinct in both dialects, so keyless jobs never collide.
     uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
   ],

@@ -63,6 +63,7 @@ export const bunderstackJobsPg = pgTable(
   (t) => [
     index('bjq_claim').on(t.status, t.runAt),
     index('bjq_type_status').on(t.type, t.status),
+    index('bjq_type_run_at').on(t.type, t.runAt),
     uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
   ],
 )
