@@ -94,12 +94,12 @@ background:
     - name: celebrateBoardComplete
   cron:
     - name: archiveDoneTodos
-      schedule: "* * * * *"
+      schedule: '* * * * *'
       timezone: UTC
     - name: bunderstack:storage-sweep
-      schedule: "0 4 * * *"
+      schedule: '0 4 * * *'
       timezone: UTC
   maintenance:
     - name: storage-sweep
-      schedule: "0 4 * * *"
+      schedule: '0 4 * * *'
       timezone: UTC

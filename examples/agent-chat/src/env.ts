@@ -2,6 +2,9 @@ import { type } from 'arktype'
 
 export const envSchema = {
   server: {
+    APP_URL: type('string | undefined').pipe(
+      (v) => v ?? 'http://localhost:3007',
+    ),
     AI_PROVIDER: type("'openai' | 'iqdoc' | undefined").pipe(
       (v) => v ?? 'openai',
     ),
@@ -14,9 +17,7 @@ export const envSchema = {
     OPENAI_MODEL: type('string | undefined'),
     IQDOC_API_KEY: type('string | undefined'),
     IQDOC_BASE_URL: type('string | undefined'),
-    IQDOC_MODEL: type('string | undefined').pipe(
-      (v) => v ?? 'assistant_auto',
-    ),
+    IQDOC_MODEL: type('string | undefined').pipe((v) => v ?? 'assistant_auto'),
   },
   client: {
     PUBLIC_APP_NAME: type('string | undefined').pipe((v) => v ?? 'Agent Desk'),

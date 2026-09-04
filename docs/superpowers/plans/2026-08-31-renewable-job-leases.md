@@ -25,11 +25,13 @@
 ### Task 1: Public timing and cancellation contract
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/define.ts`
 - Modify: `packages/bunderstack/src/jobs/index.ts`
 - Test: `packages/bunderstack/src/jobs/define.test.ts`
 
 **Interfaces:**
+
 - Produces: `DEFAULT_LEASE_DURATION_MS`, `leaseDurationFor(def)`, `maxRuntime?: number`, `leaseDuration?: number`, and `JobContext.signal: AbortSignal`.
 - Consumes: existing queue and cron definition builders.
 
@@ -54,15 +56,19 @@ test('background timing separates lease duration from execution deadline', () =>
 })
 
 test('timeout remains a lease alias but cannot accompany leaseDuration', () => {
-  expect(leaseDurationFor({ kind: 'job', timeout: 123, handler() {} })).toBe(123)
-  expect(() => validateBackgroundDefs({
-    invalid: {
-      kind: 'job',
-      timeout: 100,
-      leaseDuration: 200,
-      handler() {},
-    },
-  })).toThrow(/timeout.*leaseDuration/)
+  expect(leaseDurationFor({ kind: 'job', timeout: 123, handler() {} })).toBe(
+    123,
+  )
+  expect(() =>
+    validateBackgroundDefs({
+      invalid: {
+        kind: 'job',
+        timeout: 100,
+        leaseDuration: 200,
+        handler() {},
+      },
+    }),
+  ).toThrow(/timeout.*leaseDuration/)
 })
 ```
 
@@ -121,11 +127,13 @@ git commit -m "feat(jobs): separate leases from execution deadlines"
 ### Task 2: Renewable, attempt-fenced lease ownership
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 - Test: `packages/bunderstack/src/jobs/worker.pg.test.ts`
 
 **Interfaces:**
+
 - Consumes: `leaseDurationFor(def)` from Task 1 and the claimed row's incremented `attempts`.
 - Produces: internal `LeaseOwner`, serialized renewal, and terminal fencing used by Task 3.
 
@@ -142,7 +150,10 @@ test('pump renews a healthy handler instead of reclaiming it', async () => {
       kind: 'job',
       leaseDuration: 90,
       retries: 2,
-      handler: async () => { starts++; await gate.promise },
+      handler: async () => {
+        starts++
+        await gate.promise
+      },
     },
   }
   const r = runner(defs)
@@ -242,12 +253,14 @@ git commit -m "fix(jobs): renew active job leases"
 ### Task 3: Cooperative deadlines, lease-loss cancellation, and lifecycle logs
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/jobs/worker.ts`
 - Modify: `packages/bunderstack/src/runtime.ts`
 - Test: `packages/bunderstack/src/jobs/worker.test.ts`
 - Test: `packages/bunderstack/src/jobs/integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `LeaseHeartbeat` and `maxRuntime` from Tasks 1–2.
 - Produces: one `AbortSignal` per invocation and safe structured lifecycle events.
 
@@ -270,10 +283,14 @@ test('execution deadline aborts before retrying', async () => {
         events.push('start')
         if (events.filter((x) => x === 'start').length === 1) {
           await new Promise<void>((_resolve, reject) =>
-            ctx.signal.addEventListener('abort', () => {
-              events.push('aborted')
-              reject(ctx.signal.reason)
-            }, { once: true }),
+            ctx.signal.addEventListener(
+              'abort',
+              () => {
+                events.push('aborted')
+                reject(ctx.signal.reason)
+              },
+              { once: true },
+            ),
           )
         }
       },
@@ -332,7 +349,11 @@ mutation.
 Add one helper in `worker.ts`:
 
 ```ts
-function jobEvent(event: string, row: JobRow, fields: Record<string, unknown> = {}) {
+function jobEvent(
+  event: string,
+  row: JobRow,
+  fields: Record<string, unknown> = {},
+) {
   return {
     source: 'bunderstack.jobs',
     event,
@@ -371,12 +392,14 @@ git commit -m "feat(jobs): abort bounded executions safely"
 ### Task 4: Adopt the contract in agent chat
 
 **Files:**
+
 - Modify: `examples/agent-chat/src/bunderstack.ts`
 - Modify: `examples/agent-chat/src/agent/runtime.ts`
 - Test: `examples/agent-chat/src/agent/runtime.test.ts`
 - Modify: `examples/agent-chat/README.md`
 
 **Interfaces:**
+
 - Consumes: `JobContext.signal`, `leaseDuration`, and `maxRuntime`.
 - Produces: provider cancellation linked to queue deadline and lease ownership.
 
@@ -444,12 +467,14 @@ git commit -m "fix(agent-chat): bound agent execution safely"
 ### Task 5: Public documentation, changelog, and complete verification
 
 **Files:**
+
 - Modify: `docs/superpowers/specs/2026-08-07-background-runtime-collapse-design.md`
 - Modify: `docs/superpowers/specs/2026-08-31-continuous-job-worker-design.md`
 - Modify: `packages/bunderstack/CHANGELOG.md`
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
+
 - Consumes: final public names and behavior from Tasks 1–4.
 - Produces: migration guidance for existing `timeout` declarations.
 

@@ -7,8 +7,8 @@ import type { AnyBunderstackApp, BunderstackClient } from '../client/rpc-client'
 import type { TestDatabaseStrategy } from '../database/adapter'
 import type { TestSchemaMode } from '../provision'
 import type { TestAuth, TestIdentity } from './auth'
-import type { TestEmail } from './email'
 import type { TestLogs, TestLogMode } from './logs'
+import type { TestMessagingForApp } from './messaging'
 import type { TestStorage } from './storage'
 
 import {
@@ -19,9 +19,9 @@ import { provisionForTest } from '../provision'
 import { createTestAuth, createTestSessionRegistry } from './auth'
 import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
-import { createTestEmail } from './email'
 import { createTestJobs, type TestJobs } from './jobs'
 import { createTestLogs } from './logs'
+import { createTestMessaging } from './messaging'
 import { createTestStorage, resolveTestBuckets } from './storage'
 
 export type TestOptions = {
@@ -47,7 +47,7 @@ export type TestConfigureOptions<TApp, TContext> = TestOptions & {
 export type TestFixture<TApp> = AsyncDisposable & {
   readonly app: TApp
   readonly auth: TestAuth
-  readonly email: TestEmail
+  readonly messaging: TestMessagingForApp<TApp>
   readonly jobs: TestJobs
   readonly logs: TestLogs
   readonly storage: TestStorage
@@ -138,25 +138,24 @@ export async function createTestApp<TApp extends TestableApp>(
   options: TestOptions = {},
 ): Promise<TestFixture<TApp>> {
   const internals = backend[BACKEND_INTERNALS]
+  const source = { ...defaultTestEnv, ...options.env }
+  const inspected = internals.inspect(source)
   const storageRoot = await mkdtemp(join(tmpdir(), 'bunderstack-storage-'))
   const resolvedStorage = resolveTestBuckets(
-    internals.declaration.config.storage,
+    inspected.config.storage,
     storageRoot,
   )
-  const { adapter: emailAdapter, email } = createTestEmail()
+  const testMessaging = createTestMessaging(inspected.config.messaging)
   const storage = createTestStorage(resolvedStorage)
   const sessions = createTestSessionRegistry()
   const { logger, logs } = createTestLogs(options.logs)
 
   let target
   try {
-    target = await createTestDatabaseTarget(
-      internals.declaration.config.database.adapter,
-      {
-        mode: options.database?.mode ?? 'memory',
-        strategy: options.database?.strategy,
-      },
-    )
+    target = await createTestDatabaseTarget(inspected.config.database.adapter, {
+      mode: options.database?.mode ?? 'memory',
+      strategy: options.database?.strategy,
+    })
   } catch (cause) {
     await rm(storageRoot, { recursive: true, force: true })
     throw cause
@@ -166,11 +165,11 @@ export async function createTestApp<TApp extends TestableApp>(
   let testingHandle: RuntimeTestingHandle | undefined
   try {
     app = await internals.start(
-      { ...defaultTestEnv, ...options.env },
+      source,
       {
         database: target.connection,
         resolvedStorage,
-        emailAdapter,
+        messagingAdapters: testMessaging.adapters,
         authResolver: sessions.resolver,
         logger,
         forceMemoryRealtime: true,
@@ -179,6 +178,7 @@ export async function createTestApp<TApp extends TestableApp>(
           testingHandle = handle
         },
       },
+      inspected,
     )
     await provisionForTest(app as object, options.database?.schema ?? 'auto')
   } catch (cause) {
@@ -216,7 +216,7 @@ export async function createTestApp<TApp extends TestableApp>(
     throw new Error('[bunderstack] runtime did not provide test controls')
   }
 
-  const auth = createTestAuth(app, email, sessions)
+  const auth = createTestAuth(app, testMessaging.authEmail, sessions)
   const jobs = createTestJobs(testingHandle)
   const deferred: TestCleanup[] = []
   let closePromise: Promise<void> | undefined
@@ -262,7 +262,7 @@ export async function createTestApp<TApp extends TestableApp>(
   return {
     app,
     auth,
-    email,
+    messaging: testMessaging.messaging as TestMessagingForApp<TApp>,
     jobs,
     logs,
     storage,

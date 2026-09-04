@@ -199,7 +199,9 @@ describe('agent runtime', () => {
       status: 'complete',
       revision: expect.any(Number),
     })
-    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(
+      2,
+    )
     expect(await state.ctx.db.select().from(agentRuns).get()).toMatchObject({
       id: accepted.runId,
       status: 'complete',
@@ -229,19 +231,21 @@ describe('agent runtime', () => {
     )
 
     const call = await state.ctx.db.select().from(agentToolCalls).get()
-    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject([
-      {
-        runId: accepted.runId,
-        sequence: 1,
-        kind: 'tool_call',
-        title: 'createTask v1',
-        status: 'complete',
-        visibility: 'visible',
-        input: { title: 'Book flights' },
-        output: { title: 'Book flights' },
-        toolCallId: call!.id,
-      },
-    ])
+    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject(
+      [
+        {
+          runId: accepted.runId,
+          sequence: 1,
+          kind: 'tool_call',
+          title: 'createTask v1',
+          status: 'complete',
+          visibility: 'visible',
+          input: { title: 'Book flights' },
+          output: { title: 'Book flights' },
+          toolCallId: call!.id,
+        },
+      ],
+    )
   })
 
   test('preserves partial streamed text and completed steps when the responder fails', async () => {
@@ -280,9 +284,9 @@ describe('agent runtime', () => {
       status: 'error',
       error: 'model unavailable',
     })
-    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject([
-      { title: 'Inspecting tasks', status: 'complete' },
-    ])
+    expect(await state.ctx.db.select().from(agentRunSteps).all()).toMatchObject(
+      [{ title: 'Inspecting tasks', status: 'complete' }],
+    )
   })
 
   test('cancels a silent responder after the durable stop request', async () => {

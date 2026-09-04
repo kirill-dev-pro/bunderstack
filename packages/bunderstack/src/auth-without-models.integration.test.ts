@@ -33,11 +33,10 @@ async function staleSessionCookie(secret: string): Promise<string> {
 }
 
 test('an app that declares no auth models ignores a stale session cookie', async () => {
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     access: { notes: { crud: true, list: 'public' } },
     database: { adapter: libsql() },
-  })
+  }))
   await using fixture = await backend.test({ database: { schema: 'push' } })
 
   const response = await fixture.app.handler(
@@ -55,11 +54,10 @@ test('an app that declares no auth models ignores a stale session cookie', async
 })
 
 test('declaring auth without its models warns at startup', async () => {
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { adapter: libsql() },
     auth: { emailAndPassword: { enabled: true } },
-  })
+  }))
   await using fixture = await backend.test({ database: { schema: 'push' } })
   expect(fixture.app).toBeDefined()
   const warnings = fixture.logs.warnings

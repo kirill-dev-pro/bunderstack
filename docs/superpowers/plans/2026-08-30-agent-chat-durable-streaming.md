@@ -106,22 +106,26 @@ test('stores a revisioned assistant draft and visible run steps', async () => {
     output: [{ id: 'task_1' }],
   })
 
-  expect(await testApp.ctx.db.select().from(agentMessages).all()).toMatchObject([
-    { id: inputMessageId, clientMessageId: 'browser-message-1' },
+  expect(await testApp.ctx.db.select().from(agentMessages).all()).toMatchObject(
+    [
+      { id: inputMessageId, clientMessageId: 'browser-message-1' },
+      {
+        id: assistantMessageId,
+        runId,
+        status: 'streaming',
+        revision: 2,
+      },
+    ],
+  )
+  expect(await testApp.ctx.db.select().from(agentRunSteps).get()).toMatchObject(
     {
-      id: assistantMessageId,
       runId,
-      status: 'streaming',
-      revision: 2,
+      sequence: 1,
+      kind: 'tool_call',
+      status: 'complete',
+      input: {},
     },
-  ])
-  expect(await testApp.ctx.db.select().from(agentRunSteps).get()).toMatchObject({
-    runId,
-    sequence: 1,
-    kind: 'tool_call',
-    status: 'complete',
-    input: {},
-  })
+  )
 })
 ```
 
@@ -339,8 +343,12 @@ test('accepts only one of two different messages racing for the active slot', as
     }),
   ])
 
-  expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
-  expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+  expect(
+    results.filter((result) => result.status === 'fulfilled'),
+  ).toHaveLength(1)
+  expect(results.filter((result) => result.status === 'rejected')).toHaveLength(
+    1,
+  )
   expect(await app.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
   expect(await app.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
 })
@@ -505,7 +513,9 @@ test('persists throttled snapshots and forces the final remainder', async () => 
     content: 'Hello world',
     revision: 2,
   })
-  expect(published.filter((item) => item.table === 'agentMessages')).toHaveLength(2)
+  expect(
+    published.filter((item) => item.table === 'agentMessages'),
+  ).toHaveLength(2)
 
   await recorder.appendText('!')
   await recorder.flush()
@@ -631,7 +641,12 @@ test('forwards model text deltas to the durable stream observer', async () => {
             type: 'finish',
             finishReason: { unified: 'stop', raw: 'stop' },
             usage: {
-              inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+              inputTokens: {
+                total: 1,
+                noCache: 1,
+                cacheRead: 0,
+                cacheWrite: 0,
+              },
               outputTokens: { total: 2, text: 2, reasoning: 0 },
             },
           },
@@ -1064,10 +1079,12 @@ Use:
 stopRun: o.protected
   .route({ method: 'POST', path: '/api/agent/runs/{id}/stop', tags: ['agent'] })
   .input(type({ id: 'string' }))
-  .output(type({
-    id: 'string',
-    status: "'cancelling' | 'cancelled' | 'complete' | 'error'",
-  }))
+  .output(
+    type({
+      id: 'string',
+      status: "'cancelling' | 'cancelled' | 'complete' | 'error'",
+    }),
+  )
 ```
 
 Map a missing or foreign run to `NOT_FOUND`.
@@ -1390,7 +1407,9 @@ test('a fresh reader sees the latest draft while the responder is still active',
   )
 
   await firstDeltaPersisted.promise
-  expect(await readFreshSnapshot(state, accepted.assistantMessageId)).toMatchObject({
+  expect(
+    await readFreshSnapshot(state, accepted.assistantMessageId),
+  ).toMatchObject({
     content: 'Current answer',
     status: 'streaming',
   })
@@ -1400,7 +1419,9 @@ test('a fresh reader sees the latest draft while the responder is still active',
 
   releaseResponder.resolve()
   await running
-  expect(await readFreshSnapshot(state, accepted.assistantMessageId)).toMatchObject({
+  expect(
+    await readFreshSnapshot(state, accepted.assistantMessageId),
+  ).toMatchObject({
     content: 'Current answer completed',
     status: 'complete',
   })

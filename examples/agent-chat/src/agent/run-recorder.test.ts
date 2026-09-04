@@ -27,7 +27,8 @@ describe('durable run recorder', () => {
       .from(agentRuns)
       .where(eq(agentRuns.id, accepted.runId))
       .get()
-    const published: Array<{ table: unknown; action: string; row: unknown }> = []
+    const published: Array<{ table: unknown; action: string; row: unknown }> =
+      []
     const ctx = {
       ...app.ctx,
       realtime: {

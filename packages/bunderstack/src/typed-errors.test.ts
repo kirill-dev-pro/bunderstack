@@ -16,7 +16,7 @@ function createContext() {
       db: {} as never,
       env: {} as never,
       storage: {} as never,
-      email: {} as never,
+      messaging: {} as never,
       jobs: {} as never,
       realtime: {} as never,
       auth: {} as never,

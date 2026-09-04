@@ -40,8 +40,7 @@ export type _ImplicitAccessIncludesConventionTable = Expect<
   Equal<'ownedPosts' extends ImplicitTables ? true : false, true>
 >
 
-const typedApp = await bunderstack({
-  schema: { posts, privateNotes },
+const typedApp = await bunderstack({ schema: { posts, privateNotes } }, () => ({
   database: { adapter: pglite() },
 
   access: {
@@ -65,7 +64,7 @@ const typedApp = await bunderstack({
         }
       }),
   }),
-}).start({
+})).start({
   env: {
     DATABASE_URL: 'memory://',
     BUNDERSTACK_ROLE: 'web',

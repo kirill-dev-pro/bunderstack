@@ -12,8 +12,7 @@ const marker = pgTable('client_test_marker', {
 })
 
 async function setupApp() {
-  return bunderstack({
-    schema: { marker },
+  return bunderstack({ schema: { marker } }, () => ({
     database: { adapter: pglite() },
 
     api: (o) => ({
@@ -42,7 +41,7 @@ async function setupApp() {
           ),
       },
     }),
-  }).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
+  })).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
 }
 
 test('App-inferred client calls oRPC and forwards operation metadata', async () => {

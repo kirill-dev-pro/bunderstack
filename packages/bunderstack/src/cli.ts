@@ -12,7 +12,7 @@ export type CliIo = {
 }
 
 const help = `Usage:
-  bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check]
+  bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check|--hosted-check]
   bunderstack skills [--dir <path>] [--check]
 
 blueprint  Generate a committed deployment declaration for a TanStack Start
@@ -75,7 +75,23 @@ export async function runCli(
   for (let index = 1; index < args.length; index++) {
     const argument = args[index]!
     if (argument === '--check') {
+      if (options.hostedCheck) {
+        io.stderr(
+          '[bunderstack] --check and --hosted-check are mutually exclusive',
+        )
+        return 2
+      }
       options.check = true
+      continue
+    }
+    if (argument === '--hosted-check') {
+      if (options.check) {
+        io.stderr(
+          '[bunderstack] --check and --hosted-check are mutually exclusive',
+        )
+        return 2
+      }
+      options.hostedCheck = true
       continue
     }
     if (argument === '--entry' || argument === '--output') {
@@ -101,7 +117,7 @@ export async function runCli(
   try {
     const result = await generate(options)
     io.stdout(
-      options.check || !result.changed
+      options.check || options.hostedCheck || !result.changed
         ? 'bunderstack.blueprint.yaml is current'
         : 'Generated bunderstack.blueprint.yaml',
     )

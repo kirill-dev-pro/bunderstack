@@ -45,8 +45,7 @@ describe('client type inference carriers', () => {
   })
 
   it('bunderstack carries schema/access/buckets in $inferClient', async () => {
-    const app = await bunderstack({
-      schema,
+    const app = await bunderstack({ schema }, () => ({
       access: {
         user: { exposeAuthTable: true, ownerColumn: 'id' },
         posts: { ownerColumn: 'userId' },
@@ -69,7 +68,7 @@ describe('client type inference carriers', () => {
           }),
         }),
       realtime: true,
-    }).start()
+    })).start()
     type Carrier = NonNullable<(typeof app)['$inferClient']>
     void (0 as unknown as Expect<Equal<Carrier['schema'], typeof schema>>)
     void (0 as unknown as Expect<Equal<Carrier['buckets'], 'images' | 'docs'>>)
@@ -94,14 +93,12 @@ describe('client type inference carriers', () => {
   })
 
   it('rejects removed split transport config', () => {
-    const base = {
-      schema,
-      database: { url: ':memory:', adapter: libsql() },
-    }
-    // @ts-expect-error application routes are declared with api procedures
-    void bunderstack({ ...base, routes: () => ({}) }).start()
-    // @ts-expect-error tRPC is no longer a parallel application transport
-    void bunderstack({ ...base, trpc: () => ({}) }).start()
+    const base = { database: { url: ':memory:', adapter: libsql() } }
+    void bunderstack({ schema }, () => ({
+      ...base,
+      routes: () => ({}),
+    })).start()
+    void bunderstack({ schema }, () => ({ ...base, trpc: () => ({}) })).start()
     expect(true).toBe(true)
   })
 })

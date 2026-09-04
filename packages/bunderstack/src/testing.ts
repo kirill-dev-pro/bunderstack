@@ -21,6 +21,10 @@ export type {
   TestUser,
 } from './testing/auth'
 export type { CapturedEmail, TestEmail } from './testing/email'
+export type {
+  TestMessagingChannel,
+  TestMessagingForApp,
+} from './testing/messaging'
 export type { TestStorage } from './testing/storage'
 export type { TestLogEntry, TestLogMode, TestLogs } from './testing/logs'
 export { TestJobsConvergenceError, TestJobsError } from './testing/jobs'

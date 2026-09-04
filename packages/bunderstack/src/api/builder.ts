@@ -7,6 +7,7 @@ import {
 } from '@orpc/server'
 
 import type { EnvConfigInput, ValidatedEnv } from '../env'
+import type { MessagingConfig } from '../messaging'
 import type { ApiContext } from './context'
 
 import {
@@ -19,9 +20,10 @@ export type { ProtectedContextAdditions } from './types'
 export function createApiBuilder<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 >() {
   const base = os
-    .$context<ApiContext<TSchema, TEnv>>()
+    .$context<ApiContext<TSchema, TEnv, TMessaging>>()
     .errors(BUNDERSTACK_ERRORS)
     .use(mapBunderstackErrors)
 
@@ -54,7 +56,7 @@ export function createApiBuilder<
      */
     middleware: base.middleware.bind(base) as <TOutContext extends Context>(
       middleware: Middleware<
-        ApiContext<TSchema, TEnv>,
+        ApiContext<TSchema, TEnv, TMessaging>,
         TOutContext,
         unknown,
         unknown,
@@ -72,14 +74,16 @@ export function createApiBuilder<
 export function defineApi<
   TSchema extends Record<string, unknown>,
   TEnv extends EnvConfigInput | undefined = undefined,
->(_options: { schema: TSchema; env?: TEnv }) {
-  return createApiBuilder<TSchema, ValidatedEnv<TEnv>>()
+  TMessaging extends MessagingConfig = MessagingConfig,
+>(_options: { schema: TSchema; env?: TEnv; messaging?: TMessaging }) {
+  return createApiBuilder<TSchema, ValidatedEnv<TEnv>, TMessaging>()
 }
 
 export type BunderstackApiBuilder<
   TSchema extends Record<string, unknown>,
   TEnv = Record<string, unknown>,
-> = ReturnType<typeof createApiBuilder<TSchema, TEnv>>
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
+> = ReturnType<typeof createApiBuilder<TSchema, TEnv, TMessaging>>
 
 export type ApiFactory<
   TSchema extends Record<string, unknown>,

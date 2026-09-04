@@ -6,7 +6,7 @@ import type { EmailFacade } from './email'
 
 import { withEmailAuthDefaults } from './auth'
 import { libsql } from './database/libsql'
-import { bunderstack } from './index'
+import { bunderstack, resend } from './index'
 
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),
@@ -76,25 +76,25 @@ test('default reset template sends through the facade', async () => {
   expect(msg.text).toContain('https://app/reset?token=t')
 })
 
-test('app.email is exposed and unconfigured send throws', async () => {
-  const app = await bunderstack({
-    schema: { notes },
+test('a declared email channel is exposed through app.messaging', async () => {
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
-  }).start()
-  expect(
-    app.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
-  ).rejects.toThrow(/email is not configured/)
+    messaging: { email: resend({ from: 'app@example.com' }) },
+  }))
+  await using fixture = await backend.test({ database: { schema: 'push' } })
+  await expect(
+    fixture.app.messaging.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
+  ).resolves.toHaveProperty('id')
 })
 
-test('email provider resend requires RESEND_API_KEY at boot', async () => {
+test('resend without an API key starts in capture mode', async () => {
   const hadKey = process.env.RESEND_API_KEY
   delete process.env.RESEND_API_KEY
   await expect(
-    bunderstack({
-      schema: { notes },
+    bunderstack({ schema: { notes } }, () => ({
       database: { url: ':memory:', adapter: libsql() },
-      email: { from: 'app@example.com', provider: 'resend' },
-    }).start(),
-  ).rejects.toThrow(/RESEND_API_KEY/)
+      messaging: { email: resend({ from: 'app@example.com' }) },
+    })).start(),
+  ).resolves.toBeDefined()
   if (hadKey) process.env.RESEND_API_KEY = hadKey
 })

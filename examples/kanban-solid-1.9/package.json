@@ -18,7 +18,8 @@
     "better-auth": "^1.0.0",
     "bunderstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "solid-js": "1.9.13"
+    "solid-js": "1.9.13",
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.0",

@@ -1,19 +1,11 @@
-import type { DatabaseAdapter } from './database/adapter'
+import type { EnvConfigInput } from './env'
+import type { InspectedDefinition } from './inspect'
 import type { TickResult } from './jobs'
 import type { RuntimeOverrides } from './runtime'
-import type { StorageConfigInput } from './storage/buckets'
 
 export const BACKEND_INTERNALS: unique symbol = Symbol.for(
   'bunderstack.backend-internals',
 )
-
-export type ResolvedDeclaration = {
-  readonly config: {
-    readonly database: { readonly adapter: DatabaseAdapter }
-    readonly storage?: StorageConfigInput
-  }
-  readonly jobsDefs: unknown
-}
 
 export type RuntimeJobFailure = {
   id: string
@@ -43,9 +35,11 @@ export type RuntimeTestingHandle = {
 }
 
 export type BackendInternals<TApp> = {
-  readonly declaration: ResolvedDeclaration
+  readonly envSchema: EnvConfigInput | undefined
+  inspect(source: Record<string, string | undefined>): InspectedDefinition
   start(
     source: Record<string, string | undefined>,
     overrides?: RuntimeOverrides,
+    inspected?: InspectedDefinition,
   ): Promise<TApp>
 }

@@ -100,8 +100,7 @@ export type AgentRunStepStatus = (typeof agentRunStepStatuses)[number]
 
 export const agentRunStepVisibilities = ['visible', 'hidden'] as const
 
-export type AgentRunStepVisibility =
-  (typeof agentRunStepVisibilities)[number]
+export type AgentRunStepVisibility = (typeof agentRunStepVisibilities)[number]
 
 export const agentMessages = sqliteTable(
   'agent_messages',

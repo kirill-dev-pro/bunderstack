@@ -9,8 +9,8 @@ import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
 import type { DbFor } from './db'
 import type { AnyDb } from './dialect'
-import type { EmailConfigInput } from './email'
 import type { IdempotencyConfig } from './idempotency'
+import type { MessagingConfig } from './messaging'
 import type { RateLimitConfig } from './rate-limit'
 
 import {
@@ -130,6 +130,15 @@ const RuntimeOptionsSchema = v.object({
   openapi: v.optional(v.boolean()),
 })
 
+/** Realtime declaration. Independent of schema, storage, and env. */
+export type RealtimeConfigInput =
+  | boolean
+  | {
+      bufferSize?: number
+      resumeSeconds?: number
+      redis?: string | { url: string; token?: string }
+    }
+
 export type BunderstackConfig<
   TSchema extends Record<string, unknown>,
   TAccess extends Record<string, TableAccessInput> | undefined =
@@ -162,9 +171,8 @@ export type BunderstackConfig<
    */
   authResolver?: AuthSessionResolver
   storage?: TStorage
-  env?: TEnv
   background?: { autoStart?: boolean }
-  email?: EmailConfigInput
+  messaging?: MessagingConfig
   /**
    * The application's oRPC router. Pass the finished router object, or a
    * callback when the router needs the framework builder at configuration
@@ -189,13 +197,7 @@ export type BunderstackConfig<
   idempotency?: boolean | IdempotencyConfig
   /** Generate and serve `/api/openapi.json`. Disabled by default. */
   openapi?: boolean
-  realtime?:
-    | boolean
-    | {
-        bufferSize?: number
-        resumeSeconds?: number
-        redis?: string | { url: string; token?: string }
-      }
+  realtime?: RealtimeConfigInput
 }
 
 export type ResolvedConfig = {
@@ -207,13 +209,7 @@ export type ResolvedConfig = {
   }
   auth: BetterAuthConfig | AuthConfigFactory
   storage: ResolvedStorageBuckets
-  realtime?:
-    | boolean
-    | {
-        bufferSize?: number
-        resumeSeconds?: number
-        redis?: string | { url: string; token?: string }
-      }
+  realtime?: RealtimeConfigInput
 }
 
 export function resolveConfig<
@@ -241,8 +237,7 @@ export function resolveConfig<
   const parsed = v.parse(RuntimeOptionsSchema, options)
   // Self-validate when the caller didn't pass a pre-validated env, so
   // resolveConfig stays usable standalone.
-  const resolvedEnv =
-    env ?? validateEnv(options.env as EnvConfigInput | undefined)
+  const resolvedEnv = env ?? validateEnv(undefined)
 
   const adapter = options.database?.adapter
   if (!adapter) {

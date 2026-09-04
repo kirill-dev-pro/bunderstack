@@ -65,27 +65,6 @@ test('an unknown BUNDERSTACK_ROLE fails validation', () => {
   ).toThrow(/BUNDERSTACK_ROLE/)
 })
 
-test('RESEND_API_KEY required only when email provider is resend', () => {
-  // not required without provider
-  expect(() => validateEnv(undefined, { source: {} })).not.toThrow()
-  // required with provider
-  expect(() =>
-    validateEnv(undefined, { source: {}, emailProvider: 'resend' }),
-  ).toThrow(/RESEND_API_KEY/)
-  // satisfied
-  const env = validateEnv(undefined, {
-    source: { RESEND_API_KEY: 're_123' },
-    emailProvider: 'resend',
-  })
-  expect(env.RESEND_API_KEY).toBe('re_123')
-})
-
-test('SMTP_URL required only when email provider is smtp', () => {
-  expect(() =>
-    validateEnv(undefined, { source: {}, emailProvider: 'smtp' }),
-  ).toThrow(/SMTP_URL/)
-})
-
 test('user server extension is validated and typed', () => {
   const env = validateEnv(
     { server: { OPENAI_API_KEY: v.string() } },

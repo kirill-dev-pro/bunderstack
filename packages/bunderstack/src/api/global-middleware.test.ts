@@ -25,8 +25,7 @@ const record = o.middleware(async ({ path, next }) => {
 let app: Awaited<ReturnType<typeof createApp>>
 
 const createApp = () =>
-  bunderstack({
-    schema,
+  bunderstack({ schema }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     access: { notes: { list: 'public', get: 'public' } },
     middleware: [record],
@@ -35,7 +34,7 @@ const createApp = () =>
         .route({ method: 'GET', path: '/api/ping' })
         .handler(() => ({ pong: true })),
     },
-  }).start()
+  })).start()
 
 beforeAll(async () => {
   app = await createApp()
@@ -80,8 +79,7 @@ test('a configured middleware does not resolve the session', async () => {
     return result
   })
 
-  const webhookApp = await bunderstack({
-    schema: {},
+  const webhookApp = await bunderstack({ schema: {} }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     authResolver: {
       api: {
@@ -99,7 +97,7 @@ test('a configured middleware does not resolve the session', async () => {
           raw: await context.getRawBody(),
         })),
     },
-  }).start()
+  })).start()
 
   const response = await webhookApp.handler(
     new Request('http://test/webhooks/demo', {

@@ -38,13 +38,12 @@ const throwingAdapter = {
   async migrate() {},
 }
 
-export const backend = bunderstack({
-  schema: {},
+export const backend = bunderstack({ schema: {} }, () => ({
   database: { adapter: throwingAdapter, migrations: ${JSON.stringify(migrationsDirectory)} },
   jobs: (j) => j.define({
     nightly: j.cron({ schedule: '0 3 * * *', handler() {} }),
   }),
-})`,
+}))`,
   )
   return directory
 }
@@ -82,13 +81,12 @@ test('generateBlueprint normalizes absolute migration directories inside the app
   await Bun.write(
     join(directory, 'src/bunderstack.ts'),
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
-export const backend = bunderstack({
-  schema: {},
+export const backend = bunderstack({ schema: {} }, () => ({
   database: {
     adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
     migrations: ${JSON.stringify(migrationsDirectory)},
   },
-})`,
+}))`,
   )
   try {
     const result = await generateBlueprint({ directory })
@@ -121,10 +119,9 @@ test('generateBlueprint detects solid framework from dependencies', async () => 
   await Bun.write(
     entryPath,
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
-export const backend = bunderstack({
-  schema: {},
+export const backend = bunderstack({ schema: {} }, () => ({
   database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
-})`,
+}))`,
   )
   try {
     const result = await generateBlueprint({ directory })
@@ -144,6 +141,57 @@ test('generateBlueprint rejects unbranded manifest lookalikes', async () => {
   try {
     await expect(generateBlueprint({ directory })).rejects.toThrow(
       /must export backend/,
+    )
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('generateBlueprint accepts env values that only change runtime configuration', async () => {
+  const directory = await fixture()
+  await Bun.write(
+    join(directory, 'src/bunderstack.ts'),
+    `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
+const flag = { '~standard': { version: 1, vendor: 'test', validate(value) {
+  return value === 'true' || value === 'false'
+    ? { value }
+    : { issues: [{ message: 'expected flag' }] }
+} } }
+export const backend = bunderstack({ schema: {}, env: { server: { FEATURE: flag } } }, (env) => ({
+  database: {
+    adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
+    url: env.FEATURE,
+  },
+}))`,
+  )
+  try {
+    await expect(generateBlueprint({ directory })).resolves.toBeDefined()
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('generateBlueprint rejects environment-dependent declaration shape without leaking values', async () => {
+  const directory = await fixture()
+  await Bun.write(
+    join(directory, 'src/bunderstack.ts'),
+    `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
+const flag = { '~standard': { version: 1, vendor: 'test', validate(value) {
+  return value === 'true' || value === 'false'
+    ? { value }
+    : { issues: [{ message: 'expected flag' }] }
+} } }
+export const backend = bunderstack({ schema: {}, env: { server: { FEATURE: flag } } }, (env) => ({
+  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+  realtime: env.FEATURE === 'true',
+}))`,
+  )
+  try {
+    await expect(generateBlueprint({ directory })).rejects.toThrow(
+      /realtime\.required/,
+    )
+    await expect(generateBlueprint({ directory })).rejects.not.toThrow(
+      /true|false/,
     )
   } finally {
     await rm(directory, { recursive: true, force: true })

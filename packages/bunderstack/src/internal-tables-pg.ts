@@ -68,39 +68,36 @@ export const bunderstackJobsPg = pgTable(
   ],
 )
 
-export const bunderstackEmailsPg = pgTable(
-  '_bunderstack_emails',
+export const bunderstackMessagesPg = pgTable(
+  '_bunderstack_messages',
   {
     id: text('id').primaryKey(),
+    channel: text('channel').notNull(),
+    kind: text('kind').notNull(),
     provider: text('provider').notNull(),
+    credentialSource: text('credential_source').notNull(),
     providerId: text('provider_id'),
     status: text('status').notNull(),
-    from: text('from_address').notNull(),
-    toJson: text('to_json').notNull(),
-    ccJson: text('cc_json').notNull(),
-    bccJson: text('bcc_json').notNull(),
-    replyTo: text('reply_to'),
-    subject: text('subject').notNull(),
-    html: text('html'),
-    text: text('text'),
+    recipientsJson: text('recipients_json').notNull(),
+    contentJson: text('content_json').notNull(),
     error: text('error'),
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
     updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
   },
   (t) => [
-    index('bem_created').on(t.createdAt),
-    index('bem_status').on(t.status, t.createdAt),
-    uniqueIndex('bem_provider_id').on(t.provider, t.providerId),
+    index('bmsg_created').on(t.createdAt),
+    index('bmsg_channel_status').on(t.channel, t.status, t.createdAt),
+    uniqueIndex('bmsg_provider_id').on(t.provider, t.providerId),
   ],
 )
 
-export const bunderstackEmailEventsPg = pgTable(
-  '_bunderstack_email_events',
+export const bunderstackMessageEventsPg = pgTable(
+  '_bunderstack_message_events',
   {
     id: text('id').primaryKey(),
-    emailId: text('email_id')
+    messageId: text('message_id')
       .notNull()
-      .references(() => bunderstackEmailsPg.id, { onDelete: 'cascade' }),
+      .references(() => bunderstackMessagesPg.id, { onDelete: 'cascade' }),
     externalId: text('external_id').notNull(),
     type: text('type').notNull(),
     detailJson: text('detail_json'),
@@ -108,7 +105,7 @@ export const bunderstackEmailEventsPg = pgTable(
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (t) => [
-    uniqueIndex('beev_external').on(t.externalId),
-    index('beev_email_time').on(t.emailId, t.occurredAt),
+    uniqueIndex('bmev_external').on(t.externalId),
+    index('bmev_message_time').on(t.messageId, t.occurredAt),
   ],
 )

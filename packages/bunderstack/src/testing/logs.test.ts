@@ -3,8 +3,7 @@ import { expect, test } from 'bun:test'
 import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
 
-const backend = bunderstack({
-  schema: {},
+const backend = bunderstack({ schema: {} }, () => ({
   database: { adapter: libsql() },
   api: (o) => ({
     explode: o.public
@@ -13,7 +12,7 @@ const backend = bunderstack({
         throw new Error('fixture boom')
       }),
   }),
-})
+}))
 
 async function explode(fixture: Awaited<ReturnType<typeof backend.test>>) {
   return fixture.app.handler(new Request('http://bunderstack.test/api/explode'))

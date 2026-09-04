@@ -29,7 +29,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",

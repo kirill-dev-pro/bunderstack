@@ -44,9 +44,8 @@ export type BaseEnv = {
   AUTH_SECRET: string
   REDIS_URL?: string
   RESEND_API_KEY?: string
-  SMTP_URL?: string
-  BUNDERSTACK_EMAIL_PROVIDER?: string
-  BUNDERSTACK_EMAIL_FROM?: string
+  BUNDERSTACK_MESSAGING_CONFIG?: string
+  BUNDERSTACK_BLUEPRINT_PATH?: string
   BUNDERHOST_ENVIRONMENT_ID?: string
   /** Deployed commit SHA, injected by the platform. Reported by readiness. */
   BUNDERSTACK_REVISION?: string
@@ -78,8 +77,6 @@ export class BunderstackEnvError extends Error {
 }
 
 export type ValidateEnvOptions = {
-  /** String tag of the configured email provider ('resend' | 'smtp'), if any. */
-  emailProvider?: string
   /** Value source; defaults to process.env. Tests pass this explicitly. */
   source?: Record<string, string | undefined>
   /** Dialect-aware DATABASE_URL fallback; bunderstack passes it. */
@@ -138,9 +135,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     AUTH_SECRET: source.AUTH_SECRET ?? DEV_AUTH_SECRET,
     REDIS_URL: source.REDIS_URL,
     RESEND_API_KEY: source.RESEND_API_KEY,
-    SMTP_URL: source.SMTP_URL,
-    BUNDERSTACK_EMAIL_PROVIDER: source.BUNDERSTACK_EMAIL_PROVIDER,
-    BUNDERSTACK_EMAIL_FROM: source.BUNDERSTACK_EMAIL_FROM,
+    BUNDERSTACK_MESSAGING_CONFIG: source.BUNDERSTACK_MESSAGING_CONFIG,
+    BUNDERSTACK_BLUEPRINT_PATH: source.BUNDERSTACK_BLUEPRINT_PATH,
     BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
     BUNDERSTACK_REVISION: source.BUNDERSTACK_REVISION,
     BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
@@ -156,13 +152,6 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
       `BUNDERSTACK_ROLE: must be one of ${ROLES.join(', ')} (got "${String(source.BUNDERSTACK_ROLE)}")`,
     )
   }
-  if (options.emailProvider === 'resend' && !source.RESEND_API_KEY) {
-    issues.push("RESEND_API_KEY: required when email provider is 'resend'")
-  }
-  if (options.emailProvider === 'smtp' && !source.SMTP_URL) {
-    issues.push("SMTP_URL: required when email provider is 'smtp'")
-  }
-
   const userVars: Record<string, unknown> = {}
   validateSection(envConfig?.server, 'server', source, issues, userVars)
   validateSection(envConfig?.client, 'client', source, issues, userVars)

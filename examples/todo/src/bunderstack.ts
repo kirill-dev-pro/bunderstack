@@ -4,15 +4,15 @@ import { anonymous } from 'better-auth/plugins'
  *
  *   0. Shareable boards          → capability URLs (see access.ts)
  *   1. Auto-CRUD + access rules  → `schema` + `access` keys
- *   2. Env validation            → `env` key + `app.env`
- *   3. Email sending             → `email` key + `app.email`
+ *   2. Env validation            → env schema + `app.env`
+ *   3. Messaging channels        → `messaging` key + `app.messaging`
  *   4. Unified oRPC endpoints    → `defineApi` bases + `api` client
  *   4b. Graph-wide middleware    → `middleware` key, covers generated CRUD
  *   5. File storage + transforms → `storage` key + `api.files`
  *   6. Realtime SSE              → `realtime: true`, broadcast-on-write
  *   7. Background jobs + cron    → `jobs` key + `app.jobs`
  */
-import { bunderstack } from 'bunderstack'
+import { bunderstack, resend } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
@@ -28,33 +28,34 @@ import * as schema from './schema'
  *  visible in a live demo. A real app would use something like 30 days. */
 const ARCHIVE_DONE_TODOS_AFTER_MS = 2 * 60_000
 
-export const backend = bunderstack({
-  schema,
+/**
+ * The declaration is a pure function of the validated environment. Nothing
+ * connects here — `backend.inspect()` reads this without touching a database.
+ */
+export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   access,
 
   database: {
     adapter: libsql(),
-    url: process.env.DATABASE_URL ?? 'file:./data.db',
+    url: env.DATABASE_URL,
   },
 
   // Username-only auth: the anonymous plugin creates a real session
   // without passwords or signup. See routes/index.tsx for the client side.
   auth: {
-    baseURL: process.env.APP_URL ?? 'http://localhost:3005',
-    secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
+    baseURL: env.APP_URL,
+    secret: env.AUTH_SECRET,
     plugins: [anonymous()],
     advanced: {
       database: { generateId: () => false },
     },
   },
 
-  // Env validation: all vars checked at boot, `app.env` fully typed.
-  env: envSchema,
-
-  // Email: 'console' provider by default in dev (logs to stdout).
-  // Set SMTP_URL in .env for real delivery.
-  email: {
-    from: 'todo@example.com',
+  // Messaging: named channels. Without RESEND_API_KEY the channel captures
+  // instead of sending — the message lands in the journal and, locally, in
+  // the console. Set RESEND_API_KEY in .env for real delivery.
+  messaging: {
+    email: resend({ apiKey: env.RESEND_API_KEY, from: 'todo@example.com' }),
   },
 
   // File storage: local disk in dev (./uploads), S3 in production.
@@ -96,7 +97,7 @@ export const backend = bunderstack({
             .get()
           if (!owner) return
 
-          await ctx.email.send({
+          await ctx.messaging.email.send({
             to: owner.email,
             subject: `🎉 Board complete: ${board.name}`,
             text: `Hi ${owner.name},\n\nEvery todo on "${board.name}" is done!\n\n— ${ctx.env.PUBLIC_APP_NAME}`,
@@ -127,7 +128,7 @@ export const backend = bunderstack({
 
   // oRPC custom procedures mounted alongside CRUD, declared in api.ts
   api,
-})
+}))
 
 export const app = await backend.start()
 

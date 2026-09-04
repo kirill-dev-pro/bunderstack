@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from '../database/libsql'
-import { bunderstack } from '../index'
+import { bunderstack, resend } from '../index'
 
 const user = sqliteTable('user', {
   id: text('id').primaryKey(),
@@ -55,10 +55,9 @@ const verification = sqliteTable('verification', {
 const schema = { user, session, account, verification }
 
 test('real sign-up returns an identity accepted by the typed client', async () => {
-  const backend = bunderstack({
-    schema,
+  const backend = bunderstack({ schema }, () => ({
     database: { adapter: libsql() },
-    email: { from: 'Test <test@example.com>', provider: 'resend' },
+    messaging: { email: resend({ from: 'Test <test@example.com>' }) },
     auth: {
       emailAndPassword: { enabled: true },
       emailVerification: { sendOnSignUp: true },
@@ -68,7 +67,7 @@ test('real sign-up returns an identity accepted by the typed client', async () =
         me: o.protected.handler(({ context }) => ({ id: context.user.id })),
       },
     }),
-  })
+  }))
 
   await using t = await backend.test({ database: { schema: 'push' } })
   const alice = await t.auth.signUpEmail({
@@ -104,15 +103,14 @@ test('real sign-up returns an identity accepted by the typed client', async () =
 })
 
 test('email auth helpers verify, sign out, and sign in through the real handler', async () => {
-  const backend = bunderstack({
-    schema,
+  const backend = bunderstack({ schema }, () => ({
     database: { adapter: libsql() },
-    email: { from: 'Test <test@example.com>', provider: 'resend' },
+    messaging: { email: resend({ from: 'Test <test@example.com>' }) },
     auth: {
       emailAndPassword: { enabled: true },
       emailVerification: { sendOnSignUp: true },
     },
-  })
+  }))
 
   await using fixture = await backend.test({ database: { schema: 'push' } })
   const signedUp = await fixture.auth.signUpEmail({

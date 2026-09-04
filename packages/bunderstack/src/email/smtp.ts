@@ -1,6 +1,10 @@
 import nodemailer from 'nodemailer'
 
 import type { EmailAdapter } from '../email'
+import type { EmailMessage, SentEmail } from '../email'
+import type { MessagingDescriptor } from '../messaging/types'
+
+import { descriptor } from '../messaging/types'
 
 type SmtpTransport = {
   sendMail(message: Record<string, unknown>): Promise<{ messageId?: string }>
@@ -41,5 +45,17 @@ export function createSmtpAdapter(
   }
 }
 
-export const smtp = (options: { url: string }): EmailAdapter =>
-  createSmtpAdapter(options)
+export const smtp = (options: {
+  url: string
+  from?: string
+}): MessagingDescriptor<
+  'email',
+  'smtp',
+  EmailMessage,
+  SentEmail,
+  { adapter: EmailAdapter; from?: string }
+> =>
+  descriptor('email', 'smtp', {
+    adapter: createSmtpAdapter(options),
+    from: options.from,
+  })

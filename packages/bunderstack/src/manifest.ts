@@ -6,16 +6,18 @@ import * as v from 'valibot'
 import type { Dialect } from './dialect'
 import type { EnvConfigInput, EnvVarMeta } from './env'
 import type { JobsDefs } from './jobs/define'
+import type { MessagingConfig } from './messaging'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
 import {
-  bunderstackEmailEvents,
-  bunderstackEmails,
+  bunderstackMessageEvents,
+  bunderstackMessages,
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
 } from './internal-tables'
 import { parseCron } from './jobs/cron'
+import { isMessagingDescriptor } from './messaging/types'
 import {
   StandardSchemaValidationError,
   validateStandardSchema,
@@ -46,7 +48,7 @@ export type ApiOperation = {
 }
 
 export type BunderstackManifest = {
-  version: 3
+  version: 4
   database: {
     dialect: Dialect
     migrationsDirectory: string
@@ -57,6 +59,9 @@ export type BunderstackManifest = {
     buckets: { name: string; visibility: ResolvedBucket['visibility'] }[]
   }
   realtime: { required: boolean }
+  messaging: {
+    channels: { name: string; kind: string; provider: string }[]
+  }
   environment: ManifestEnvVar[]
   api: { operations: ApiOperation[] }
   background: {
@@ -96,7 +101,7 @@ const cronSchedule = v.pipe(
 )
 
 const manifestSchema = v.strictObject({
-  version: v.literal(3),
+  version: v.literal(4),
   database: v.strictObject({
     dialect: v.picklist(['sqlite', 'pg']),
     migrationsDirectory: migrationDirectory,
@@ -118,6 +123,11 @@ const manifestSchema = v.strictObject({
     ),
   }),
   realtime: v.strictObject({ required: v.boolean() }),
+  messaging: v.strictObject({
+    channels: v.array(
+      v.strictObject({ name: nonEmpty, kind: nonEmpty, provider: nonEmpty }),
+    ),
+  }),
   environment: v.array(
     v.strictObject({
       key: nonEmpty,
@@ -235,13 +245,13 @@ function describeSection(
 function systemTables() {
   return [
     {
-      exportName: '_system.emailEvents',
-      physicalName: getTableName(bunderstackEmailEvents),
+      exportName: '_system.messageEvents',
+      physicalName: getTableName(bunderstackMessageEvents),
       system: true,
     },
     {
-      exportName: '_system.emails',
-      physicalName: getTableName(bunderstackEmails),
+      exportName: '_system.messages',
+      physicalName: getTableName(bunderstackMessages),
       system: true,
     },
     {
@@ -285,6 +295,10 @@ export function parseManifest(value: unknown): BunderstackManifest {
     manifest.environment.map((entry) => entry.key),
   )
   rejectDuplicates(
+    'messaging channel',
+    manifest.messaging.channels.map((entry) => entry.name),
+  )
+  rejectDuplicates(
     'api operation',
     manifest.api.operations.map((entry) => entry.handle),
   )
@@ -309,11 +323,21 @@ export function buildManifest(args: {
   migrationsDirectory: string
   storage: ResolvedStorageBuckets
   envConfig: EnvConfigInput | undefined
-  emailProvider: string | undefined
+  messaging: MessagingConfig | undefined
   realtime: boolean
   jobs: JobsDefs | undefined
   api: ApiOperation[]
 }): BunderstackManifest {
+  for (const [name, descriptor] of Object.entries(args.messaging ?? {})) {
+    if (!name.trim()) {
+      throw new Error('[bunderstack] messaging channel names cannot be empty')
+    }
+    if (!isMessagingDescriptor(descriptor)) {
+      throw new Error(
+        `[bunderstack] messaging.${name} is not a provider descriptor`,
+      )
+    }
+  }
   const declaredKeys = new Set([
     ...Object.keys(args.envConfig?.server ?? {}),
     ...Object.keys(args.envConfig?.client ?? {}),
@@ -327,28 +351,6 @@ export function buildManifest(args: {
   const environment = [
     ...describeSection(args.envConfig?.server, 'server', args.envConfig?.meta),
     ...describeSection(args.envConfig?.client, 'client', args.envConfig?.meta),
-    ...(args.emailProvider === 'resend'
-      ? [
-          {
-            key: 'RESEND_API_KEY',
-            required: true,
-            scope: 'server' as const,
-            sensitive: true,
-            description: 'Resend API key used to send transactional email',
-          },
-        ]
-      : []),
-    ...(args.emailProvider === 'smtp'
-      ? [
-          {
-            key: 'SMTP_URL',
-            required: true,
-            scope: 'server' as const,
-            sensitive: true,
-            description: 'SMTP connection URL used to send transactional email',
-          },
-        ]
-      : []),
   ]
   rejectDuplicates(
     'environment key',
@@ -356,7 +358,7 @@ export function buildManifest(args: {
   )
 
   return parseManifest({
-    version: 3,
+    version: 4,
     database: {
       dialect: args.dialect,
       migrationsDirectory: args.migrationsDirectory,
@@ -376,6 +378,16 @@ export function buildManifest(args: {
       ),
     },
     realtime: { required: args.realtime },
+    messaging: {
+      channels: sortBy(
+        Object.entries(args.messaging ?? {}).map(([name, descriptor]) => ({
+          name,
+          kind: descriptor.kind,
+          provider: descriptor.provider,
+        })),
+        (entry) => entry.name,
+      ),
+    },
     environment: sortBy(environment, (entry) => entry.key),
     api: {
       operations: [...args.api].sort((left, right) =>

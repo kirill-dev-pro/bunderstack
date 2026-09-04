@@ -41,11 +41,10 @@ function signIn(
 }
 
 test('declares the full SaaS runtime', () => {
-  expect(backend.manifest.realtime.required).toBe(true)
-  expect(backend.manifest.background.jobs).toEqual([
-    { name: 'sendProjectDigest' },
-  ])
-  expect(backend.manifest.background.cron).toEqual([
+  const manifest = backend.inspect()
+  expect(manifest.realtime.required).toBe(true)
+  expect(manifest.background.jobs).toEqual([{ name: 'sendProjectDigest' }])
+  expect(manifest.background.cron).toEqual([
     { name: 'archiveCompletedTasks', schedule: '0 3 * * *', timezone: 'UTC' },
     {
       name: 'bunderstack:storage-sweep',

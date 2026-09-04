@@ -22,16 +22,15 @@ function responderFor(env: AgentProviderEnv) {
   return createConfiguredResponder(responderOptionsFromEnv(env))
 }
 
-export const backend = bunderstack({
-  schema,
+export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   access,
   database: {
     adapter: libsql(),
-    url: process.env.DATABASE_URL ?? 'file:./data.db',
+    url: env.DATABASE_URL,
   },
   auth: ({ db }) => ({
-    baseURL: process.env.APP_URL ?? 'http://localhost:3007',
-    secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
+    baseURL: env.APP_URL,
+    secret: env.AUTH_SECRET,
     emailAndPassword: { enabled: true },
     plugins: [
       anonymous({
@@ -47,7 +46,6 @@ export const backend = bunderstack({
     ],
     advanced: { database: { generateId: () => false } },
   }),
-  env: envSchema,
   realtime: true,
   jobs: (j) =>
     j.define({
@@ -92,7 +90,7 @@ export const backend = bunderstack({
       }),
     }),
   api,
-})
+}))
 
 export const app = await backend.start()
 

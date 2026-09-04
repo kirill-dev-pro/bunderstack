@@ -91,9 +91,7 @@ test('the worker advances cron scheduling from memory after hydration', async ()
   await r.tick(t0 + SLOT_MS)
   const rows = await cronRows('beat')
   expect(rows).toHaveLength(1)
-  expect(Number(rows[0]!.runAt)).toBe(
-    Date.parse('2026-08-07T10:01:00Z'),
-  )
+  expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:01:00Z'))
 })
 ```
 
@@ -209,9 +207,7 @@ async function cronCursor(type: string, now: number): Promise<CronCursor> {
     .limit(1)
   const cursor = {
     checkedThrough:
-      rows[0]?.runAt == null
-        ? floorSlot(now) - SLOT_MS
-        : Number(rows[0].runAt),
+      rows[0]?.runAt == null ? floorSlot(now) - SLOT_MS : Number(rows[0].runAt),
   }
   cronCursors.set(type, cursor)
   return cursor
@@ -430,7 +426,6 @@ Insert immediately below each `# Changelog` introduction:
   The jobs table adds the `bjq_type_run_at` index; applications with committed
   migrations must run their existing `db:generate` command and apply the
   generated migration after upgrading.
-
 ```
 
 - [ ] **Step 2: Verify both entries are byte-identical**

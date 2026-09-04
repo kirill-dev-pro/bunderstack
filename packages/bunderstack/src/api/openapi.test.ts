@@ -18,17 +18,25 @@ async function setupApp(
   auth?: any,
   openapi = true,
 ) {
-  return await bunderstack({
-    schema,
-    database: { adapter: pglite() },
+  return await bunderstack(
+    { schema },
+    () =>
+      ({
+database: { adapter: pglite() },
 
-    access: {
-      posts: { crud: true, list: 'public', get: 'public', ...accessOverrides },
-    },
-    api,
-    auth,
-    openapi,
-  } as any).start({
+        access: {
+          posts: {
+            crud: true,
+            list: 'public',
+            get: 'public',
+            ...accessOverrides,
+          },
+        },
+        api,
+        auth,
+        openapi,
+      }) as any,
+  ).start({
     env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
   })
 }

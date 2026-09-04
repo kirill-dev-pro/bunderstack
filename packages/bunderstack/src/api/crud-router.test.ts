@@ -39,7 +39,7 @@ function createMockDeps(db: any, authResolver?: any) {
     db,
     env: {},
     storage: {} as any,
-    email: {} as any,
+    messaging: {} as any,
     jobs: {} as any,
     realtime: {} as any,
     auth: {} as any,

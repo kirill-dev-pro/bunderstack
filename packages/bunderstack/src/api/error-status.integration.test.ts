@@ -44,8 +44,7 @@ const verification = sqliteTable('verification', {
 const schema = { user, session, account, verification, posts }
 
 const createApp = () =>
-  bunderstack({
-    schema,
+  bunderstack({ schema }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
     access: {
@@ -57,7 +56,7 @@ const createApp = () =>
         sortableColumns: ['id'],
       },
     },
-  }).start()
+  })).start()
 
 let app: Awaited<ReturnType<typeof createApp>>
 

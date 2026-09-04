@@ -21,8 +21,7 @@ async function waitFor(check: () => boolean) {
 }
 
 test('app.jobs enqueues without implicit execution and explicit worker runs the handler', async () => {
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     // BUNDERSTACK_ROLE defaults to 'all', which auto-starts a worker whenever
     // jobs are defined. Without turning that off, the "nothing ran yet"
@@ -42,7 +41,7 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
           },
         }),
       }),
-  }).start()
+  })).start()
   await provision(app, { force: true })
 
   await app.jobs.enqueue('writeNote', { id: 'n1', body: 'from a job' })
@@ -74,8 +73,7 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
 test('embedded worker refills one slot without waiting for its active peers', async () => {
   const started: number[] = []
   const releases = new Map<number, () => void>()
-  const app = await bunderstack({
-    schema: {},
+  const app = await bunderstack({ schema: {} }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     background: { autoStart: false },
     jobs: (j) =>
@@ -89,7 +87,7 @@ test('embedded worker refills one slot without waiting for its active peers', as
           },
         }),
       }),
-  }).start()
+  })).start()
   await provision(app, { force: true })
   for (let n = 1; n <= 3; n++) {
     await app.jobs.enqueue('controlled', { n }, { runAt: n })
@@ -110,8 +108,7 @@ test('embedded worker refills one slot without waiting for its active peers', as
 })
 
 test('oRPC context exposes the jobs facade', async () => {
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
     api: (o) => ({
@@ -120,7 +117,7 @@ test('oRPC context exposes the jobs facade', async () => {
         return { id }
       }),
     }),
-  }).start()
+  })).start()
   await provision(app, { force: true })
 
   const res = await app.handler(
@@ -134,27 +131,29 @@ test('oRPC context exposes the jobs facade', async () => {
 })
 
 test('the built-in storage sweep is registered as an ordinary cron', async () => {
-  const backend = bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    storage: {
-      local: './uploads',
-      defaultBucket: 'files',
-      buckets: { files: {} },
-    },
-  } as never)
-  expect(backend.manifest.background.cron.map((c) => c.name)).toContain(
+  const backend = bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { url: ':memory:', adapter: libsql() },
+        storage: {
+          local: './uploads',
+          defaultBucket: 'files',
+          buckets: { files: {} },
+        },
+      }) as never,
+  )
+  expect(backend.inspect().background.cron.map((c) => c.name)).toContain(
     'bunderstack:storage-sweep',
   )
 })
 
 test('runWorker owns the application lifecycle until its signal aborts', async () => {
   const controller = new AbortController()
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  }).start()
+  })).start()
   await provision(app, { force: true })
 
   const running = app.runWorker({
@@ -168,10 +167,9 @@ test('runWorker owns the application lifecycle until its signal aborts', async (
 })
 
 test('an app without jobs still has a facade; enqueue throws', async () => {
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
-  }).start()
+  })).start()
   await expect(
     (
       app.jobs as unknown as { enqueue: (n: string) => Promise<unknown> }
@@ -184,12 +182,11 @@ test('runWorker rejects process-local realtime by default', async () => {
   const prevRedis = process.env.REDIS_URL
   delete process.env.REDIS_URL
   try {
-    const app = await bunderstack({
-      schema: { notes },
+    const app = await bunderstack({ schema: { notes } }, () => ({
       database: { url: ':memory:', adapter: libsql() },
       realtime: true,
       jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-    }).start()
+    })).start()
     await provision(app, { force: true })
 
     await expect(
@@ -209,12 +206,11 @@ test('runWorker allows an explicit process-local realtime override', async () =>
   const prevRedis = process.env.REDIS_URL
   delete process.env.REDIS_URL
   try {
-    const app = await bunderstack({
-      schema: { notes },
+    const app = await bunderstack({ schema: { notes } }, () => ({
       database: { url: ':memory:', adapter: libsql() },
       realtime: true,
       jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-    }).start()
+    })).start()
     await provision(app, { force: true })
 
     await expect(
@@ -232,12 +228,11 @@ test('runWorker allows an explicit process-local realtime override', async () =>
 })
 
 test('runWorker accepts configured redis realtime without throwing', async () => {
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     realtime: { redis: 'redis://localhost:6379' },
     jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  }).start()
+  })).start()
   await provision(app, { force: true })
 
   await expect(

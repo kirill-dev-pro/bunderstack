@@ -1,5 +1,7 @@
 import { desc, eq, sql } from 'drizzle-orm'
 
+import type { AgentRuntimeContext } from './runtime'
+
 import {
   agentMessages,
   agentRuns,
@@ -9,15 +11,11 @@ import {
   type AgentRunStepVisibility,
 } from '../schema'
 import { AgentRunCancelledError } from './cancellation'
-import type { AgentRuntimeContext } from './runtime'
 
 export interface RunRecorderOptions {
   flushMs?: number
   now?: () => number
-  schedule?: (
-    callback: () => Promise<void>,
-    delayMs: number,
-  ) => unknown
+  schedule?: (callback: () => Promise<void>, delayMs: number) => unknown
   cancelScheduled?: (handle: unknown) => void
 }
 
@@ -160,10 +158,7 @@ export async function createRunRecorder(
       throwBackgroundError()
       if (!delta) return
       content += delta
-      if (
-        lastFlushAt === undefined ||
-        now() - lastFlushAt >= flushMs
-      ) {
+      if (lastFlushAt === undefined || now() - lastFlushAt >= flushMs) {
         if (scheduledFlush !== undefined) {
           cancelScheduled(scheduledFlush)
           scheduledFlush = undefined

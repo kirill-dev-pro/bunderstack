@@ -288,11 +288,9 @@ describe('AI responder factory', () => {
 
   test('returns an exact waiting checkpoint instead of continuing after an approval tool call', async () => {
     const model = new MockLanguageModelV4({
-      doStream: mockToolCallStream(
-        'call_delete_1',
-        'deleteTask',
-        { taskId: 'task_1' },
-      ),
+      doStream: mockToolCallStream('call_delete_1', 'deleteTask', {
+        taskId: 'task_1',
+      }),
     })
     const { value, tools } = input('Delete book flights', {
       toolApprovalRequired: async () => true,

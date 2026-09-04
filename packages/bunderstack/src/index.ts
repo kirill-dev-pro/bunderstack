@@ -1,4 +1,12 @@
 export * from './backend'
+export { resend, customEmail, telegram } from './messaging'
+export type {
+  MessagingConfig,
+  MessagingDescriptor,
+  MessagingFacade,
+  MessagingFacades,
+  TelegramMessage,
+} from './messaging'
 export type {
   AppRunWorkerOptions,
   AppStartWorkerOptions,
@@ -39,13 +47,7 @@ export type {
   ReadinessReport,
   ReadinessStatus,
 } from './readiness'
-export { createEmail } from './email'
-export type {
-  EmailMessage,
-  EmailAdapter,
-  EmailConfigInput,
-  EmailFacade,
-} from './email'
+export type { EmailMessage, EmailAdapter } from './email'
 export { createJobsBuilder } from './jobs/index'
 export type {
   BunderstackJobContext,

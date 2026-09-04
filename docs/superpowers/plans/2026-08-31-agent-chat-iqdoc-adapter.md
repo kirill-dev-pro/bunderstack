@@ -271,10 +271,10 @@ mapping is not connected.
 Add optional environment entries with these defaults:
 
 ```ts
-AI_PROVIDER: type("'openai' | 'iqdoc' | undefined").pipe(v => v ?? 'openai')
+AI_PROVIDER: type("'openai' | 'iqdoc' | undefined").pipe((v) => v ?? 'openai')
 IQDOC_API_KEY: type('string | undefined')
 IQDOC_BASE_URL: type('string | undefined')
-IQDOC_MODEL: type('string | undefined').pipe(v => v ?? 'assistant_auto')
+IQDOC_MODEL: type('string | undefined').pipe((v) => v ?? 'assistant_auto')
 ```
 
 Create one local `responderFor(env)` helper in `bunderstack.ts` and use it for

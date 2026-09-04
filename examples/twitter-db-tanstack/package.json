@@ -42,7 +42,8 @@
     "react-dom": "^19.0.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.0.0",
-    "tailwindcss": "^4.0.0"
+    "tailwindcss": "^4.0.0",
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.8.0",

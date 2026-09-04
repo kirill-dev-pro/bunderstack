@@ -1,4 +1,5 @@
 import type { BunderstackJobsBuilder } from 'bunderstack'
+import type { ResendDescriptor } from 'bunderstack/messaging'
 
 import { and, eq, lt } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -13,7 +14,11 @@ import * as schema from './schema'
  * deployment blueprint — never as an application HTTP route behind a secret.
  */
 export const defineJobs = (
-  jobs: BunderstackJobsBuilder<typeof schema, RelayEnv>,
+  jobs: BunderstackJobsBuilder<
+    typeof schema,
+    RelayEnv,
+    { email: ResendDescriptor }
+  >,
 ) =>
   jobs.define({
     sendProjectDigest: jobs.job({
@@ -45,7 +50,7 @@ export const defineJobs = (
             ),
           )
 
-        await ctx.email.send({
+        await ctx.messaging.email.send({
           to: owner.email,
           subject: `${project.name}: ${open.length} open deliverables`,
           html: `<p>${open.length} deliverables are still open on ${project.name}.</p>`,

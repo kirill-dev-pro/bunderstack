@@ -2,8 +2,9 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { streamText, type ModelMessage } from 'ai'
 import { parseTypeId } from 'bunderstack'
 
-import { createDemoResponder } from './model'
 import type { AgentResponder } from './types'
+
+import { createDemoResponder } from './model'
 
 export const IQDOC_MODEL_IDS = [
   'assistant_auto',
@@ -44,9 +45,7 @@ export interface IQDocCalculatorResult {
 
 export interface IQDocStreamCallbacks {
   onStatus(status: string): void | Promise<void>
-  onCalculatorResult(
-    result: IQDocCalculatorResult,
-  ): void | Promise<void>
+  onCalculatorResult(result: IQDocCalculatorResult): void | Promise<void>
 }
 
 export function createIQDocResponder(
@@ -60,21 +59,18 @@ export function createIQDocResponder(
     if (!baseURL) {
       throw new Error('IQDOC_BASE_URL is required when IQdoc is enabled')
     }
-    const providerFetch = createIQDocInterceptingFetch(
-      options.fetch ?? fetch,
-      {
-        onStatus: async (status) => {
-          await input.stream.writeActivity({ kind: 'status', title: status })
-        },
-        onCalculatorResult: async (result) => {
-          await input.stream.writeActivity({
-            kind: 'tool_call',
-            title: result.name ?? result.calculator_id ?? 'Calculator result',
-            output: result,
-          })
-        },
+    const providerFetch = createIQDocInterceptingFetch(options.fetch ?? fetch, {
+      onStatus: async (status) => {
+        await input.stream.writeActivity({ kind: 'status', title: status })
       },
-    )
+      onCalculatorResult: async (result) => {
+        await input.stream.writeActivity({
+          kind: 'tool_call',
+          title: result.name ?? result.calculator_id ?? 'Calculator result',
+          output: result,
+        })
+      },
+    })
     const provider = createOpenAICompatible({
       name: 'iqdoc',
       baseURL: baseURL.replace(/\/+$/, ''),
@@ -94,10 +90,7 @@ export function createIQDocResponder(
       messages,
       headers: {
         'X-Chat-Id': parseTypeId(input.threadId, 'athread').uuid,
-        'X-Message-Id': parseTypeId(
-          input.currentExecution.runId,
-          'arun',
-        ).uuid,
+        'X-Message-Id': parseTypeId(input.currentExecution.runId, 'arun').uuid,
       },
       maxRetries: 0,
       abortSignal: input.stream.signal,
@@ -129,7 +122,7 @@ export function createIQDocInterceptingFetch(
   baseFetch: IQDocFetch,
   callbacks: IQDocStreamCallbacks,
 ): IQDocFetch {
-  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
     const response = await baseFetch(input, init)
     const contentType = response.headers.get('content-type') ?? ''
     if (
@@ -140,15 +133,12 @@ export function createIQDocInterceptingFetch(
       return response
     }
 
-    return new Response(
-      filterIQDocStream(response.body, callbacks),
-      {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-      },
-    )
-  })
+    return new Response(filterIQDocStream(response.body, callbacks), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    })
+  }
 }
 
 function filterIQDocStream(

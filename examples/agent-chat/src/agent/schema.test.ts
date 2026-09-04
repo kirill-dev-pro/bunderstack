@@ -229,7 +229,9 @@ describe('durable agent state schema', () => {
       output: [{ id: 'task_1' }],
     })
 
-    expect(await testApp.ctx.db.select().from(agentMessages).all()).toMatchObject([
+    expect(
+      await testApp.ctx.db.select().from(agentMessages).all(),
+    ).toMatchObject([
       { id: inputMessageId, clientMessageId: 'browser-message-1' },
       {
         id: assistantMessageId,
@@ -238,7 +240,9 @@ describe('durable agent state schema', () => {
         revision: 2,
       },
     ])
-    expect(await testApp.ctx.db.select().from(agentRunSteps).get()).toMatchObject({
+    expect(
+      await testApp.ctx.db.select().from(agentRunSteps).get(),
+    ).toMatchObject({
       runId,
       sequence: 1,
       kind: 'tool_call',

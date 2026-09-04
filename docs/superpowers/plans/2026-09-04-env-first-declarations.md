@@ -23,12 +23,14 @@
 ### Task 1: Model static and env-first backend declarations
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/backend-internals.ts`
 - Modify: `packages/bunderstack/src/backend.ts`
 - Test: `packages/bunderstack/src/backend.test.ts`
 - Test: `packages/bunderstack/src/config-env-inference.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EnvConfigInput`, `ValidatedEnv<TEnv>`, and `BunderstackDefinitionConfig`.
 - Produces: `EnvFirstBunderstackBackend<TApp>`, `StaticBunderstackBackend<TApp>`, and overloads for `bunderstack(config)` and `bunderstack(envSchema, factory)`.
 
@@ -76,8 +78,9 @@ export type StaticBackendDeclaration = {
 export type EnvFirstBackendDeclaration = {
   kind: 'env-first'
   envSchema: EnvConfigInput
-  factory: (env: BaseEnv) =>
-    BunderstackDefinitionConfig<any, any, any, any, any, any, any>
+  factory: (
+    env: BaseEnv,
+  ) => BunderstackDefinitionConfig<any, any, any, any, any, any, any>
 }
 ```
 
@@ -108,6 +111,7 @@ git commit -m "feat: declare env-first backends"
 ### Task 2: Extract pure configuration inspection
 
 **Files:**
+
 - Create: `packages/bunderstack/src/inspect.ts`
 - Modify: `packages/bunderstack/src/backend.ts`
 - Modify: `packages/bunderstack/src/config.ts`
@@ -115,6 +119,7 @@ git commit -m "feat: declare env-first backends"
 - Test: `packages/bunderstack/src/app-env.test.ts`
 
 **Interfaces:**
+
 - Consumes: either backend declaration and a raw env source.
 - Produces: `inspectDeclaration(declaration, source): ResolvedDefinition` where `ResolvedDefinition` contains `config`, `jobsDefs`, `customApiRouter`, and `manifest`.
 
@@ -185,6 +190,7 @@ git commit -m "feat: inspect resolved backend declarations"
 ### Task 3: Materialize the exact inspected definition
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/runtime.ts`
 - Modify: `packages/bunderstack/src/backend.ts`
 - Modify: `packages/bunderstack/src/testing/fixture.ts`
@@ -192,6 +198,7 @@ git commit -m "feat: inspect resolved backend declarations"
 - Test: `packages/bunderstack/src/testing/fixture.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ResolvedDefinition` from Task 2.
 - Produces: `materializeBunderstack(resolved, source, overrides)` without resolving jobs/API/config again.
 
@@ -244,6 +251,7 @@ git commit -m "refactor: materialize inspected declarations"
 ### Task 4: Add blueprint purity probes and structural diffs
 
 **Files:**
+
 - Create: `packages/bunderstack/src/manifest-diff.ts`
 - Create: `packages/bunderstack/src/env-probe.ts`
 - Modify: `packages/bunderstack/src/blueprint-generator.ts`
@@ -251,6 +259,7 @@ git commit -m "refactor: materialize inspected declarations"
 - Test: `packages/bunderstack/src/manifest.test.ts`
 
 **Interfaces:**
+
 - Consumes: `backend.inspect({ env })` and normalized manifests.
 - Produces: `diffManifests(expected, actual): ManifestDifference[]` and generated probe sources that contain key names but no user values.
 
@@ -259,7 +268,7 @@ git commit -m "refactor: materialize inspected declarations"
 Cover a stable value-only factory and an unstable factory:
 
 ```ts
-(env) => ({
+;(env) => ({
   schema,
   database,
   realtime: env.FEATURE_FLAG === 'enabled',
@@ -327,6 +336,7 @@ git commit -m "feat: detect environment-dependent blueprint shape"
 ### Task 5: Add hosted contract checking
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/cli.ts`
 - Modify: `packages/bunderstack/src/blueprint-generator.ts`
 - Modify: `packages/bunderstack/src/backend.ts`
@@ -335,6 +345,7 @@ git commit -m "feat: detect environment-dependent blueprint shape"
 - Test: `packages/bunderstack/src/backend.test.ts`
 
 **Interfaces:**
+
 - Consumes: an existing blueprint plus an inspected manifest.
 - Produces: `bunderstack blueprint --hosted-check` and automatic
   `BUNDERSTACK_BLUEPRINT_PATH` checking before runtime materialization.
@@ -390,6 +401,7 @@ git commit -m "feat: verify hosted blueprint contracts"
 ### Task 6: Document, build, and verify the public API
 
 **Files:**
+
 - Modify: `website/content/docs/getting-started.mdx`
 - Modify: `website/content/docs/env.mdx`
 - Modify: `website/content/docs/api-reference.mdx`
@@ -397,6 +409,7 @@ git commit -m "feat: verify hosted blueprint contracts"
 - Modify: `website/scripts/gen-code-snippets.ts`
 
 **Interfaces:**
+
 - Consumes: completed env-first API.
 - Produces: published declarations and migration guidance.
 

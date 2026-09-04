@@ -1,12 +1,13 @@
 import { describe, expect, mock, test } from 'bun:test'
 import { generateTypeId, parseTypeId } from 'bunderstack'
 
+import type { AgentResponderInput, AgentTools } from './types'
+
 import {
   createIQDocResponder,
   createIQDocInterceptingFetch,
   type IQDocCalculatorResult,
 } from './iqdoc'
-import type { AgentResponderInput, AgentTools } from './types'
 
 const encoder = new TextEncoder()
 
@@ -98,9 +99,10 @@ describe('IQdoc stream interceptor', () => {
     }
 
     const sseText = await (
-      await createIQDocInterceptingFetch(sseFetch, callbacks)(
-        'https://iqdoc.example/stream',
-      )
+      await createIQDocInterceptingFetch(
+        sseFetch,
+        callbacks,
+      )('https://iqdoc.example/stream')
     ).text()
 
     expect(sseText).toBe('data: {not-json}\n\ndata: [DONE]\n\n')
@@ -189,9 +191,7 @@ describe('IQdoc responder', () => {
       }),
     )
 
-    expect(captured?.url).toBe(
-      'https://iqdoc.example/api/v1/chat/completions',
-    )
+    expect(captured?.url).toBe('https://iqdoc.example/api/v1/chat/completions')
     expect(captured?.headers.get('X-Api-Key')).toBe('iqdoc-secret')
     expect(captured?.headers.get('X-Chat-Id')).toBe(parseTypeId(threadId).uuid)
     expect(captured?.headers.get('X-Message-Id')).toBe(parseTypeId(runId).uuid)

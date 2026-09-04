@@ -58,7 +58,10 @@ export function RunActivity({
       </summary>
       <ol className="activity-ledger">
         {visibleSteps.map((step) => (
-          <li key={step.id} className={`activity-step activity-step--${step.status}`}>
+          <li
+            key={step.id}
+            className={`activity-step activity-step--${step.status}`}
+          >
             <div className="activity-step-heading">
               <span className="activity-sequence">
                 {String(step.sequence).padStart(2, '0')}

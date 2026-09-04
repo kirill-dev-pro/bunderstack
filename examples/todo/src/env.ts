@@ -9,6 +9,7 @@ import * as v from 'valibot'
  */
 export const envSchema = {
   server: {
+    APP_URL: v.optional(v.string(), 'http://localhost:3005'),
     NOTIFY_COMPLETED: v.optional(
       v.pipe(
         v.picklist(['true', 'false']),

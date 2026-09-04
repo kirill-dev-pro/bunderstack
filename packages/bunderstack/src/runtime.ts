@@ -9,7 +9,6 @@ import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 
 import type { TableAccessInput } from './access'
 import type { AuthSessionResolver } from './access'
-import type { BunderstackApiBuilder } from './api/builder'
 import type { RealtimeApiRouter } from './api/realtime-router'
 import type {
   CrudApiRouterFor,
@@ -19,6 +18,7 @@ import type {
 import type { RuntimeTestingHandle } from './backend-internals'
 import type { DatabaseConnection } from './database/adapter'
 import type { DbFor } from './db'
+import type { EmailFacade } from './email'
 import type {
   BunderstackJobsBuilder,
   EnqueueOptions,
@@ -27,6 +27,8 @@ import type {
   StartWorkerOptions,
   WorkerHandle,
 } from './jobs/index'
+import type { MessagingConfig, MessagingFacadesFor } from './messaging'
+import type { MessagingAdapter } from './messaging/runtime'
 import type {
   ResolvedStorageBuckets,
   StorageConfigInput,
@@ -34,7 +36,6 @@ import type {
 import type { StorageAdapter } from './storage/index'
 
 import { validateAndResolveAccess } from './access'
-import { createApiBuilder } from './api/builder'
 import { createApiContext } from './api/context'
 import { buildCrudApiRouter } from './api/crud-router'
 import { mergeOpenAPISpecs } from './api/openapi'
@@ -52,24 +53,13 @@ import { resolveConfig, type BunderstackConfig } from './config'
 import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
-import {
-  createEmail,
-  emailProviderTag,
-  type EmailAdapter,
-  type EmailFacade,
-} from './email'
-import { validateEnv, type EnvConfigInput, type ValidatedEnv } from './env'
+import { type EnvConfigInput, type ValidatedEnv } from './env'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
-import {
-  createJobsBuilder,
-  createJobRunner,
-  enqueueJob,
-  startJobWorker,
-  validateJobsDefs,
-} from './jobs/index'
+import { createJobRunner, enqueueJob, startJobWorker } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import { consoleLogger, type BunderstackLogger } from './logging'
+import { createMessaging } from './messaging/runtime'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
@@ -100,7 +90,7 @@ export type AuthInstance = ReturnType<typeof createAuth>
 export type RuntimeOverrides = {
   database?: DatabaseConnection
   resolvedStorage?: ResolvedStorageBuckets
-  emailAdapter?: EmailAdapter
+  messagingAdapters?: Record<string, MessagingAdapter>
   forceMemoryRealtime?: boolean
   backgroundAutoStart?: false
   authResolver?: AuthSessionResolver
@@ -196,6 +186,7 @@ export type BunderstackApp<
   TJobsDefs extends JobsDefs | undefined = undefined,
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
   TRealtime = undefined,
+  TMessaging extends MessagingConfig | undefined = undefined,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
@@ -203,8 +194,8 @@ export type BunderstackApp<
   storage: StorageFacade
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
   env: ValidatedEnv<TEnv>
-  /** Email facade; always present — send() throws when email isn't configured. */
-  email: EmailFacade
+  /** Named, provider-specific outbound messaging channels. */
+  messaging: MessagingFacadesFor<TMessaging>
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<
     TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>
@@ -256,6 +247,7 @@ export function materializeBunderstack<
     TEnv,
     TCustomApiRouter
   >['realtime'] = undefined,
+  const TMessaging extends MessagingConfig | undefined = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -265,12 +257,16 @@ export function materializeBunderstack<
     TCustomApiRouter
   > & {
     realtime?: TRealtime
+    messaging?: TMessaging
     jobs?:
       | TJobsDefs
-      | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => TJobsDefs)
+      | ((
+          j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>, TMessaging>,
+        ) => TJobsDefs)
   },
   source: Record<string, string | undefined>,
   overrides?: RuntimeOverrides,
+  env?: ValidatedEnv<TEnv>,
 ): Promise<
   BunderstackApp<
     TSchema,
@@ -279,7 +275,8 @@ export function materializeBunderstack<
     TEnv,
     TJobsDefs,
     TCustomApiRouter,
-    TRealtime
+    TRealtime,
+    TMessaging
   >
 >
 export async function materializeBunderstack<
@@ -296,6 +293,7 @@ export async function materializeBunderstack<
     TEnv,
     TCustomApiRouter
   >['realtime'] = undefined,
+  const TMessaging extends MessagingConfig | undefined = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -305,12 +303,16 @@ export async function materializeBunderstack<
     TCustomApiRouter
   > & {
     realtime?: TRealtime
+    messaging?: TMessaging
     jobs?:
       | JobsDefs
-      | ((j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>>) => JobsDefs)
+      | ((
+          j: BunderstackJobsBuilder<TSchema, ValidatedEnv<TEnv>, TMessaging>,
+        ) => JobsDefs)
   },
   source: Record<string, string | undefined>,
   overrides: RuntimeOverrides = {},
+  inspectedEnv?: ValidatedEnv<TEnv>,
 ): Promise<
   BunderstackApp<
     TSchema,
@@ -319,28 +321,17 @@ export async function materializeBunderstack<
     TEnv,
     JobsDefs | undefined,
     TCustomApiRouter,
-    TRealtime
+    TRealtime,
+    TMessaging
   >
 > {
   const logger = overrides.logger ?? consoleLogger
   const dialect = detectDialect(options.schema)
-  const jobsDefs: JobsDefs | undefined = options.jobs
-    ? typeof options.jobs === 'function'
-      ? options.jobs(createJobsBuilder<TSchema, ValidatedEnv<TEnv>>())
-      : (options.jobs as JobsDefs)
-    : undefined
-  if (jobsDefs) validateJobsDefs(jobsDefs)
-  // Env is validated FIRST: the app refuses to boot on missing/invalid vars,
-  // and everything downstream consumes the result.
-  const env = validateEnv(options.env, {
-    emailProvider:
-      overrides.emailAdapter === undefined
-        ? (source.BUNDERSTACK_EMAIL_PROVIDER ?? emailProviderTag(options.email))
-        : undefined,
-    defaultDatabaseUrl:
-      dialect === 'pg' ? 'file:./data.pglite' : 'file:./data.db',
-    source,
-  })
+  const jobsDefs = options.jobs as JobsDefs | undefined
+  if (!inspectedEnv) {
+    throw new Error('[bunderstack] runtime requires an inspected environment')
+  }
+  const env = inspectedEnv
   const resolvedConfig = resolveConfig(options, env, source)
   const config = {
     ...resolvedConfig,
@@ -362,11 +353,14 @@ export async function materializeBunderstack<
     ...config.database,
     dialect,
   })
-  const email = createEmail(options.email, {
-    env,
-    db,
-    adapterOverride: overrides.emailAdapter,
-  })
+  const messaging = createMessaging(
+    (options.messaging ?? {}) as MessagingConfig,
+    {
+      env,
+      db,
+      adapterOverrides: overrides.messagingAdapters,
+    },
+  ) as MessagingFacadesFor<TMessaging>
   if (closeDatabase) lifecycle.add(closeDatabase)
   try {
     // `db` is typed with the merged schema (user tables + internal tables) so the
@@ -379,9 +373,17 @@ export async function materializeBunderstack<
     // An `auth` builder gets the user-facing db, so better-auth hooks in another
     // file can write through the app's own connection without importing the app.
     const authConfig = resolveAuthConfig(config.auth, { db: userDb, env })
+    const authEmail =
+      options.messaging?.email?.kind === 'email'
+        ? ((messaging as Record<string, unknown>).email as EmailFacade)
+        : undefined
     const auth = createAuth(
       db,
-      withEmailAuthDefaults(authConfig, email, Boolean(options.email)),
+      withEmailAuthDefaults(
+        authConfig,
+        authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
+        Boolean(authEmail),
+      ),
       dialect,
       options.schema as Record<string, unknown>,
     )
@@ -542,7 +544,7 @@ export async function materializeBunderstack<
       ? createJobRunner({
           db,
           defs: resolvedDefs,
-          ctx: { db: userDb, env, email, storage, realtime },
+          ctx: { db: userDb, env, messaging, storage, realtime },
           logger,
         })
       : undefined
@@ -645,14 +647,7 @@ export async function materializeBunderstack<
       livePublisher: publisher,
     })
 
-    const customApiRouter =
-      typeof options.api === 'function'
-        ? (
-            options.api as (
-              builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
-            ) => TCustomApiRouter
-          )(createApiBuilder<TSchema, ValidatedEnv<TEnv>>())
-        : options.api
+    const customApiRouter = options.api as TCustomApiRouter | undefined
 
     const readinessProbes = createReadinessProbes(userDb)
     const queueJobsDeclared = Object.values(options.jobs ?? {}).some(
@@ -801,7 +796,7 @@ export async function materializeBunderstack<
           db: userDb,
           env,
           storage,
-          email,
+          messaging,
           jobs,
           realtime,
           auth,
@@ -853,7 +848,8 @@ export async function materializeBunderstack<
       TEnv,
       JobsDefs | undefined,
       TCustomApiRouter,
-      TRealtime
+      TRealtime,
+      TMessaging
     > = {
       handler,
       // Internal tables live on the runtime db but stay out of the public type.
@@ -861,7 +857,7 @@ export async function materializeBunderstack<
       auth,
       storage,
       env,
-      email,
+      messaging,
       realtime,
       // Runtime facade is untyped (JobsRuntimeFacade); the generic-typed field
       // narrows `enqueue` per-app from the declared job defs — same relationship
@@ -923,13 +919,7 @@ export { validateEnv, createClientEnv, BunderstackEnvError } from './env'
 export type { EnvConfigInput, BaseEnv, ValidatedEnv } from './env'
 export { buildManifest, parseManifest } from './manifest'
 export type { BunderstackManifest, ManifestEnvVar } from './manifest'
-export { createEmail } from './email'
-export type {
-  EmailMessage,
-  EmailAdapter,
-  EmailConfigInput,
-  EmailFacade,
-} from './email'
+export type { EmailMessage, EmailAdapter } from './email'
 export { createJobsBuilder } from './jobs/index'
 export type {
   BunderstackJobContext,

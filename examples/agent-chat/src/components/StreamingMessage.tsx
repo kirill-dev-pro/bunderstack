@@ -103,7 +103,9 @@ export function StreamingMessage({
         </div>
       )}
       {canonical.status === 'cancelled' && (
-        <p className="stream-terminal stream-terminal--cancelled">Stopped by user</p>
+        <p className="stream-terminal stream-terminal--cancelled">
+          Stopped by user
+        </p>
       )}
       {canonical.status === 'error' && (
         <p className="stream-terminal stream-terminal--error">

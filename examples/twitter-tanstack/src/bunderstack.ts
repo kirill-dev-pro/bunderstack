@@ -1,21 +1,28 @@
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
+import * as v from 'valibot'
 
 import { access } from './access'
 import { api } from './api'
 import * as schema from './schema'
 
-export const backend = bunderstack({
-  schema,
+/** Declared env. These names reach the manifest; the values never do. */
+const envSchema = {
+  server: {
+    APP_URL: v.optional(v.string(), 'http://localhost:3000'),
+  },
+}
+
+export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   access,
   database: {
     adapter: libsql(),
-    url: process.env.DATABASE_URL ?? 'file:./data.db',
+    url: env.DATABASE_URL,
   },
   auth: {
-    baseURL: process.env.APP_URL ?? 'http://localhost:3000',
+    baseURL: env.APP_URL,
     emailAndPassword: { enabled: true },
-    secret: process.env.AUTH_SECRET ?? 'dev-secret-change-before-production',
+    secret: env.AUTH_SECRET,
     advanced: {
       database: {
         generateId: () => false,
@@ -47,7 +54,7 @@ export const backend = bunderstack({
     },
   },
   api,
-})
+}))
 
 export const app = await backend.start()
 

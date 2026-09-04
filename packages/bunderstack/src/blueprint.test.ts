@@ -11,7 +11,7 @@ import {
 } from './blueprint'
 
 const manifest: BunderstackManifest = {
-  version: 3,
+  version: 4,
   database: {
     dialect: 'sqlite',
     migrationsDirectory: './migrations',
@@ -29,6 +29,9 @@ const manifest: BunderstackManifest = {
     buckets: [{ name: 'images', visibility: 'private' }],
   },
   realtime: { required: true },
+  messaging: {
+    channels: [{ name: 'email', kind: 'email', provider: 'resend' }],
+  },
   environment: [
     {
       key: 'PUBLIC_APP_NAME',

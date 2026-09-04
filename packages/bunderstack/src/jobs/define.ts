@@ -4,7 +4,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import type { DbFor } from '../db'
-import type { EmailFacade } from '../email'
+import type { MessagingConfig, MessagingFacadesFor } from '../messaging'
 import type { StorageFacade } from '../runtime'
 
 import { parseCron } from './cron'
@@ -65,10 +65,11 @@ import type { RealtimeFacade } from '../realtime/facade'
 export type JobContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 > = {
   db: DbFor<TSchema>
   env: TEnvResult
-  email: EmailFacade
+  messaging: MessagingFacadesFor<TMessaging>
   storage: StorageFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
@@ -79,12 +80,14 @@ export type JobContext<
 export type BunderstackJobContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
-> = JobContext<TSchema, TEnvResult>
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
+> = JobContext<TSchema, TEnvResult, TMessaging>
 
 export type QueueJobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 > = BackgroundTiming & {
   kind: 'job'
   /** Standard Schema payload; parsed at enqueue AND before the handler runs. */
@@ -97,13 +100,13 @@ export type QueueJobDefinition<
   concurrency?: number
   handler: (
     input: TInput,
-    ctx: JobContext<TSchema, TEnvResult>,
+    ctx: JobContext<TSchema, TEnvResult, TMessaging>,
   ) => Promise<void> | void
   /** Fires once, after the final attempt fails. Errors here are logged, never retried. */
   onFailed?: (
     input: TInput,
     error: Error,
-    ctx: JobContext<TSchema, TEnvResult>,
+    ctx: JobContext<TSchema, TEnvResult, TMessaging>,
   ) => Promise<void> | void
 }
 
@@ -113,6 +116,7 @@ export type CronDefinition<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
   TSchedule extends string = string,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 > = BackgroundTiming & {
   kind: 'cron'
   schedule: TSchedule
@@ -126,19 +130,19 @@ export type CronDefinition<
   catchUpWindow?: number
   handler: (
     invocation: CronInvocation,
-    ctx: JobContext<TSchema, TEnvResult>,
+    ctx: JobContext<TSchema, TEnvResult, TMessaging>,
   ) => Promise<void> | void
   /** Fires once, after the final attempt fails. Errors here are logged, never retried. */
   onFailed?: (
     invocation: CronInvocation,
     error: Error,
-    ctx: JobContext<TSchema, TEnvResult>,
+    ctx: JobContext<TSchema, TEnvResult, TMessaging>,
   ) => Promise<void> | void
 }
 
 export type BackgroundDefinition =
-  | QueueJobDefinition<any, any, any>
-  | CronDefinition<any, any>
+  | QueueJobDefinition<any, any, any, any>
+  | CronDefinition<any, any, any, any>
 export type BackgroundDefs = Record<string, BackgroundDefinition>
 
 /** @deprecated Use QueueJobDefinition. */
@@ -146,18 +150,20 @@ export type JobDefinition<
   TInput,
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
-> = QueueJobDefinition<TInput, TSchema, TEnvResult>
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
+> = QueueJobDefinition<TInput, TSchema, TEnvResult, TMessaging>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyJobDefinition = QueueJobDefinition<any, any, any>
+export type AnyJobDefinition = QueueJobDefinition<any, any, any, any>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyBackgroundDefinition =
-  | QueueJobDefinition<any, any, any>
-  | CronDefinition<any, any, any>
+  | QueueJobDefinition<any, any, any, any>
+  | CronDefinition<any, any, any, any>
 export type JobsDefs = BackgroundDefs
 
 export type QueueJobKeys<TDefs extends BackgroundDefs> = {
   [K in keyof TDefs & string]: TDefs[K] extends QueueJobDefinition<
+    any,
     any,
     any,
     any
@@ -253,17 +259,24 @@ export function backoffMs(
 export function createJobsBuilder<
   TSchema extends Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 >() {
   return {
     /** Identity with inference: pins TInput from the schema output. */
     job<TInput = undefined>(
-      def: Omit<QueueJobDefinition<TInput, TSchema, TEnvResult>, 'kind'>,
-    ): QueueJobDefinition<TInput, TSchema, TEnvResult> {
+      def: Omit<
+        QueueJobDefinition<TInput, TSchema, TEnvResult, TMessaging>,
+        'kind'
+      >,
+    ): QueueJobDefinition<TInput, TSchema, TEnvResult, TMessaging> {
       return { kind: 'job', ...def }
     },
     cron<const TSchedule extends string>(
-      def: Omit<CronDefinition<TSchema, TEnvResult, TSchedule>, 'kind'>,
-    ): CronDefinition<TSchema, TEnvResult, TSchedule> {
+      def: Omit<
+        CronDefinition<TSchema, TEnvResult, TSchedule, TMessaging>,
+        'kind'
+      >,
+    ): CronDefinition<TSchema, TEnvResult, TSchedule, TMessaging> {
       parseCron(def.schedule)
       return { kind: 'cron', ...def }
     },
@@ -279,14 +292,17 @@ export function createJobsBuilder<
 export type BunderstackJobsBuilder<
   TSchema extends Record<string, unknown>,
   TEnvResult = Record<string, unknown>,
-> = ReturnType<typeof createJobsBuilder<TSchema, TEnvResult>>
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
+> = ReturnType<typeof createJobsBuilder<TSchema, TEnvResult, TMessaging>>
 
 // Infers TInput from the JobDefinition's own type argument rather than
 // pattern-matching the (optional, so union-with-undefined) `input` property —
 // A required-property pattern fails structurally because `input` is optional,
 // so infer from the definition's own type argument instead.
 type JobInputOf<TDef> =
-  TDef extends QueueJobDefinition<infer TInput, any, any> ? TInput : undefined
+  TDef extends QueueJobDefinition<infer TInput, any, any, any>
+    ? TInput
+    : undefined
 
 /**
  * `app.jobs`: `enqueue` narrowed to declared names + payloads. `Omit`s the

@@ -54,10 +54,9 @@ test.skipIf(!url)(
       }),
     )
 
-    const app = await bunderstack({
-      schema: { widgets },
+    const app = await bunderstack({ schema: { widgets } }, () => ({
       database: { url: url!, migrations: dir, adapter: bunSql() },
-    }).start()
+    })).start()
 
     try {
       // Clean slate: drop leftovers from previous runs before migrating.

@@ -550,10 +550,7 @@ remove the parent abort listener and then `await options.drain?.()`.
 Change the public app option alias:
 
 ```ts
-export type AppStartWorkerOptions = Omit<
-  StartWorkerOptions,
-  'tick' | 'drain'
->
+export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick' | 'drain'>
 ```
 
 In `startWorker()`, replace the deterministic callback with the production methods:

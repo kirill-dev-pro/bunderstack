@@ -20,8 +20,7 @@ export interface TestApp {
 }
 
 export async function createTestApp(): Promise<TestApp> {
-  const backend = bunderstack({
-    schema,
+  const backend = bunderstack({ schema }, () => ({
     access,
     database: { adapter: libsql() },
     auth: {
@@ -56,7 +55,7 @@ export async function createTestApp(): Promise<TestApp> {
         }),
       }),
     api,
-  })
+  }))
   const fixture = await backend.test({
     database: { mode: 'temporary', schema: 'push' },
   })

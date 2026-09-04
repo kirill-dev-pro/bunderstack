@@ -10,18 +10,24 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { isBunderstackBackend } from './backend'
+import { BACKEND_INTERNALS } from './backend-internals'
 import {
   blueprintFromManifest,
   serializeBlueprint,
   type BunderstackBlueprint,
 } from './blueprint'
+import { parseBlueprintYaml } from './blueprint'
+import { createEnvProbeSources } from './env-probe'
+import { assertManifestMatchesBlueprint } from './hosted-contract'
 import { parseManifest } from './manifest'
+import { diffManifests } from './manifest-diff'
 
 export type GenerateBlueprintOptions = {
   directory: string
   entry?: string
   output?: string
   check?: boolean
+  hostedCheck?: boolean
 }
 
 export type GenerateBlueprintResult = {
@@ -151,7 +157,39 @@ export async function generateBlueprint(
   if (!isBunderstackBackend(backend)) {
     throw new Error(`[bunderstack] ${entry} must export backend`)
   }
-  const manifest = parseManifest(backend.manifest)
+  if (options.hostedCheck) {
+    const file = Bun.file(outputPath)
+    if (!(await file.exists())) {
+      throw new Error(
+        `[bunderstack] hosted blueprint does not exist: ${output}`,
+      )
+    }
+    const source = await file.text()
+    const manifest = parseManifest(backend.inspect({ env: process.env }))
+    assertManifestMatchesBlueprint(manifest, source)
+    return {
+      path: outputPath,
+      blueprint: parseBlueprintYaml(source),
+      source,
+      changed: false,
+    }
+  }
+  const probeSources = createEnvProbeSources(
+    backend[BACKEND_INTERNALS].envSchema,
+    process.env as Record<string, string | undefined>,
+  )
+  const firstManifest = parseManifest(backend.inspect({ env: probeSources[0] }))
+  const secondManifest = parseManifest(
+    backend.inspect({ env: probeSources[1] }),
+  )
+  const differences = diffManifests(firstManifest, secondManifest)
+  if (differences.length > 0) {
+    throw new Error(
+      '[bunderstack] environment-dependent blueprint shape:\n' +
+        differences.map(({ kind, path }) => `  - ${kind}: ${path}`).join('\n'),
+    )
+  }
+  const manifest = firstManifest
   const workerRequired = manifest.background.jobs.length > 0
   requireScript(pkg, 'worker', workerRequired)
   const migrationsDirectory = normalizeProjectPath(

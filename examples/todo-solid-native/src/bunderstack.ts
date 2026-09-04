@@ -15,32 +15,33 @@ export const todos = sqliteTable('todos', {
     .$defaultFn(() => new Date()),
 })
 
-export const backend = bunderstack({
-  schema: { ...internal, todos },
-
-  access: {
-    todos: {
-      crud: true,
-      list: 'public',
-      get: 'public',
-      create: 'public',
-      update: 'public',
-      delete: 'public',
-      writableColumns: ['title', 'done'],
-      sortableColumns: ['createdAt', 'done'],
-      defaultSort: { column: 'createdAt', order: 'desc' },
+export const backend = bunderstack(
+  { schema: { ...internal, todos } },
+  (env) => ({
+    access: {
+      todos: {
+        crud: true,
+        list: 'public',
+        get: 'public',
+        create: 'public',
+        update: 'public',
+        delete: 'public',
+        writableColumns: ['title', 'done'],
+        sortableColumns: ['createdAt', 'done'],
+        defaultSort: { column: 'createdAt', order: 'desc' },
+      },
     },
-  },
 
-  database: {
-    adapter: bunSqlite(),
-    url: process.env.DATABASE_URL ?? 'file:./data.db',
-  },
+    database: {
+      adapter: bunSqlite(),
+      url: env.DATABASE_URL,
+    },
 
-  // Broadcast every CRUD write over SSE. The client consumes the stream
-  // as a plain async iterator — see src/native/sse.ts.
-  realtime: true,
-})
+    // Broadcast every CRUD write over SSE. The client consumes the stream
+    // as a plain async iterator — see src/native/sse.ts.
+    realtime: true,
+  }),
+)
 
 /**
  * One app per process, kept on `globalThis` so Vite's dev server cannot boot

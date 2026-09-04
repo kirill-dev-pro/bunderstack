@@ -15,10 +15,9 @@ const notes = sqliteTable('fixture_notes', {
 })
 
 test('fixtures provision independently and dispose lexically', async () => {
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { adapter: libsql() },
-  })
+  }))
 
   await using a = await backend.test({ database: { schema: 'push' } })
   await using b = await backend.test({ database: { schema: 'push' } })
@@ -29,6 +28,25 @@ test('fixtures provision independently and dispose lexically', async () => {
   await a.close()
   await a.close()
   expect(await b.app.db.select().from(notes)).toEqual([])
+})
+
+test('each fixture resolves the env-first declaration exactly once', async () => {
+  let calls = 0
+  const backend = bunderstack(
+    { schema: { notes }, env: { server: { TENANT: v.string() } } },
+    (env) => {
+      calls++
+      return {
+        database: { adapter: libsql(), url: `file:${env.TENANT}.db` },
+      }
+    },
+  )
+
+  await using first = await backend.test({ env: { TENANT: 'first' } })
+  await using second = await backend.test({ env: { TENANT: 'second' } })
+  expect(first.app.env.TENANT).toBe('first')
+  expect(second.app.env.TENANT).toBe('second')
+  expect(calls).toBe(2)
 })
 
 test('configured fixtures merge defaults, expose setup context, and defer LIFO cleanup', async () => {
@@ -42,16 +60,20 @@ test('configured fixtures merge defaults, expose setup context, and defer LIFO c
     },
   }
   const cleanup: string[] = []
-  const backend = bunderstack({
-    schema: { notes },
-    database: { adapter },
-    env: {
-      server: {
-        FIXTURE_DEFAULT: v.string(),
-        FIXTURE_OVERRIDE: v.string(),
+  const backend = bunderstack(
+    {
+      schema: { notes },
+      env: {
+        server: {
+          FIXTURE_DEFAULT: v.string(),
+          FIXTURE_OVERRIDE: v.string(),
+        },
       },
     },
-  })
+    () => ({
+      database: { adapter },
+    }),
+  )
   const createFixture = backend.test.configure({
     env: {
       FIXTURE_DEFAULT: 'kept',
@@ -83,10 +105,9 @@ test('external adapters refuse production URLs without a strategy', async () => 
   const pgNotes = pgTable('fixture_notes', {
     id: pgText('id').primaryKey(),
   })
-  const backend = bunderstack({
-    schema: { pgNotes },
+  const backend = bunderstack({ schema: { pgNotes } }, () => ({
     database: { adapter: bunSql() },
-  })
+  }))
 
   await expect(backend.test()).rejects.toThrow(
     /explicit test database strategy/,
@@ -97,10 +118,9 @@ test('PGlite fixtures use independent in-memory targets', async () => {
   const pgNotes = pgTable('fixture_notes', {
     id: pgText('id').primaryKey(),
   })
-  const backend = bunderstack({
-    schema: { pgNotes },
+  const backend = bunderstack({ schema: { pgNotes } }, () => ({
     database: { adapter: pglite() },
-  })
+  }))
 
   await using a = await backend.test({ database: { schema: 'push' } })
   await using b = await backend.test({ database: { schema: 'push' } })
@@ -129,10 +149,9 @@ test('setup failure disposes its allocated database target once', async () => {
       },
     },
   }
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { adapter },
-  })
+  }))
 
   await expect(backend.test()).rejects.toThrow('runtime creation failed')
   expect(disposals).toBe(1)

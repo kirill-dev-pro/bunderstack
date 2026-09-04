@@ -10,10 +10,9 @@ const notes = sqliteTable('bun_sqlite_notes', {
 })
 
 test('an app on the bun:sqlite adapter provisions and round-trips a row', async () => {
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { adapter: bunSqlite() },
-  })
+  }))
 
   await using fixture = await backend.test({ database: { schema: 'push' } })
   await fixture.app.db.insert(notes).values({ id: 'n1', title: 'first' })
@@ -24,10 +23,9 @@ test('an app on the bun:sqlite adapter provisions and round-trips a row', async 
 })
 
 test('the bun:sqlite adapter refuses a remote database URL', async () => {
-  const backend = bunderstack({
-    schema: { notes },
+  const backend = bunderstack({ schema: { notes } }, () => ({
     database: { adapter: bunSqlite(), url: 'libsql://db.turso.io' },
-  })
+  }))
 
   await expect(backend.start()).rejects.toThrow(/connects to a local file only/)
 })

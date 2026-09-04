@@ -1,25 +1,24 @@
 import { expect, mock, test } from 'bun:test'
 import { generateTypeId } from 'bunderstack'
 
-import {
-  createConfiguredResponder,
-  responderOptionsFromEnv,
-} from './provider'
 import type { AgentResponderInput } from './types'
 
+import { createConfiguredResponder, responderOptionsFromEnv } from './provider'
+
 test('selects the explicitly configured IQdoc responder', async () => {
-  const providerFetch = mock(async () =>
-    new Response(
-      [
-        'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"assistant_auto","choices":[{"index":0,"delta":{"content":"IQdoc selected"},"finish_reason":null}]}',
-        '',
-        'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"assistant_auto","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
-        '',
-        'data: [DONE]',
-        '',
-      ].join('\n'),
-      { headers: { 'content-type': 'text/event-stream' } },
-    ),
+  const providerFetch = mock(
+    async () =>
+      new Response(
+        [
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"assistant_auto","choices":[{"index":0,"delta":{"content":"IQdoc selected"},"finish_reason":null}]}',
+          '',
+          'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,"model":"assistant_auto","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
+          '',
+          'data: [DONE]',
+          '',
+        ].join('\n'),
+        { headers: { 'content-type': 'text/event-stream' } },
+      ),
   )
   const responder = createConfiguredResponder({
     provider: 'iqdoc',

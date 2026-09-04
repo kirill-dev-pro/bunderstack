@@ -39,7 +39,7 @@ function context(request: Request) {
       db: {} as never,
       env: {},
       storage: {} as never,
-      email: {} as never,
+      messaging: {} as never,
       jobs: {} as never,
       realtime: {} as never,
       auth: {} as never,

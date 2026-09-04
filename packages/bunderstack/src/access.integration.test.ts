@@ -43,11 +43,10 @@ const verification = sqliteTable('verification', {
 
 const schema = { user, session, account, verification, posts }
 
-const backend = bunderstack({
-  schema,
+const backend = bunderstack({ schema }, () => ({
   database: { url: ':memory:', adapter: libsql() },
   auth: {},
-})
+}))
 type App = Awaited<ReturnType<typeof backend.start>>
 let app: App
 
@@ -73,8 +72,7 @@ test('posts CRUD is available with userId convention', async () => {
 })
 
 test('uses an application-provided session resolver for CRUD access', async () => {
-  const appWithApplicationAuth = await bunderstack({
-    schema,
+  const appWithApplicationAuth = await bunderstack({ schema }, () => ({
     database: { url: ':memory:', adapter: libsql() },
     access: { posts: { list: 'authenticated' } },
     authResolver: {
@@ -90,7 +88,7 @@ test('uses an application-provided session resolver for CRUD access', async () =
             : null,
       },
     },
-  }).start()
+  })).start()
   await provision(appWithApplicationAuth, { force: true })
 
   const response = await appWithApplicationAuth.handler(

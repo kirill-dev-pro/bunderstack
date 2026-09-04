@@ -32,11 +32,12 @@ export type BunderstackBlueprint = {
     framework: ApplicationFramework
     scripts: { build: 'build'; start: 'start'; worker?: 'worker' }
   }
-  bunderstack: { entry: string; manifestVersion: 3 }
+  bunderstack: { entry: string; manifestVersion: 4 }
   resources: {
     database: BunderstackManifest['database'] & { migrationMode: MigrationMode }
     storage: BunderstackManifest['storage']
     realtime?: { required: true }
+    messaging: BunderstackManifest['messaging']
   }
   environment: BlueprintEnvVar[]
   /** Application-declared procedures. Absent in blueprints written before 0.23.0. */
@@ -92,7 +93,7 @@ const blueprintSchema = open({
   }),
   bunderstack: open({
     entry: relativePath,
-    manifestVersion: v.literal(3),
+    manifestVersion: v.literal(4),
   }),
   resources: open({
     database: open({
@@ -117,6 +118,11 @@ const blueprintSchema = open({
       ),
     }),
     realtime: v.optional(open({ required: v.literal(true) })),
+    messaging: open({
+      channels: v.array(
+        open({ name: nonEmpty, kind: nonEmpty, provider: nonEmpty }),
+      ),
+    }),
   }),
   environment: v.array(
     open({
@@ -196,6 +202,10 @@ export function parseBlueprint(value: unknown): BunderstackBlueprint {
     'environment key',
     blueprint.environment.map((entry) => entry.key),
   )
+  rejectDuplicates(
+    'messaging channel',
+    blueprint.resources.messaging.channels.map((entry) => entry.name),
+  )
   if (blueprint.api)
     rejectDuplicates(
       'api operation',
@@ -263,7 +273,7 @@ export function blueprintFromManifest(args: {
         ...(workerRequired ? { worker: 'worker' } : {}),
       },
     },
-    bunderstack: { entry: args.entry, manifestVersion: 3 },
+    bunderstack: { entry: args.entry, manifestVersion: 4 },
     resources: {
       database: {
         ...args.manifest.database,
@@ -280,6 +290,12 @@ export function blueprintFromManifest(args: {
       ...(args.manifest.realtime.required
         ? { realtime: { required: true } }
         : {}),
+      messaging: {
+        channels: sortBy(
+          args.manifest.messaging.channels,
+          (entry) => entry.name,
+        ),
+      },
     },
     environment: sortBy(args.manifest.environment, (entry) => entry.key),
     api: { operations: args.manifest.api.operations },

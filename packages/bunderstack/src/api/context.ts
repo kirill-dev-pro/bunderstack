@@ -1,8 +1,8 @@
 import type { AccessUser, AuthSessionResolver } from '../access'
 import type { DbFor } from '../db'
-import type { EmailFacade } from '../email'
 import type { JobsRuntimeFacade } from '../jobs/define'
 import type { BunderstackLogger } from '../logging'
+import type { MessagingConfig, MessagingFacadesFor } from '../messaging'
 import type { RealtimeFacade } from '../realtime/facade'
 import type { AuthInstance, StorageFacade } from '../runtime'
 
@@ -12,11 +12,12 @@ import { consoleLogger } from '../logging'
 export interface ApiContextDeps<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 > {
   db: DbFor<TSchema>
   env: TEnv
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacadesFor<TMessaging>
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
@@ -27,11 +28,12 @@ export interface ApiContextDeps<
 export interface ApiContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 > {
   db: DbFor<TSchema>
   env: TEnv
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacadesFor<TMessaging>
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
@@ -57,10 +59,11 @@ export interface ApiContext<
 export function createApiContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
 >(
-  deps: ApiContextDeps<TSchema, TEnv>,
+  deps: ApiContextDeps<TSchema, TEnv, TMessaging>,
   request: Request,
-): ApiContext<TSchema, TEnv> {
+): ApiContext<TSchema, TEnv, TMessaging> {
   // Reserve the body stream before a transport codec consumes `request`.
   const rawBodyRequest = request.clone()
   let rawBodyPromise: Promise<string> | undefined
@@ -95,7 +98,7 @@ export function createApiContext<
     db: deps.db,
     env: deps.env,
     storage: deps.storage,
-    email: deps.email,
+    messaging: deps.messaging,
     jobs: deps.jobs,
     realtime: deps.realtime,
     auth: deps.auth,

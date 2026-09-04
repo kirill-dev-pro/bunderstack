@@ -1,8 +1,9 @@
 import { generateTypeId } from 'bunderstack'
 import { and, eq, inArray } from 'drizzle-orm'
 
-import { agentMessages, agentRuns } from '../schema'
 import type { AgentRuntimeContext } from './runtime'
+
+import { agentMessages, agentRuns } from '../schema'
 import { getOrCreateThread } from './runtime'
 
 export interface AcceptedUserMessage {

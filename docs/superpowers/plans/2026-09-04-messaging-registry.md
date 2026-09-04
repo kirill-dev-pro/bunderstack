@@ -28,6 +28,7 @@
 ### Task 1: Define provider descriptors and inferred registry types
 
 **Files:**
+
 - Create: `packages/bunderstack/src/messaging/types.ts`
 - Create: `packages/bunderstack/src/messaging/email.ts`
 - Create: `packages/bunderstack/src/messaging/telegram.ts`
@@ -36,6 +37,7 @@
 - Test: `packages/bunderstack/src/messaging/types.test.ts`
 
 **Interfaces:**
+
 - Produces: `MessagingDescriptor<TKind, TProvider, TInput, TResult>`, `MessagingFacade<TDescriptor>`, `resend`, `customEmail`, and `telegram`.
 - Consumes: existing `EmailMessage`, `EmailAdapter`, and `SentEmail` contracts.
 
@@ -49,7 +51,9 @@ const config = {
   telegram: telegram({ botToken: 'token' }),
 }
 type Facades = MessagingFacades<typeof config>
-expectTypeOf<Parameters<Facades['email']['send']>[0]>().toMatchTypeOf<EmailMessage>()
+expectTypeOf<
+  Parameters<Facades['email']['send']>[0]
+>().toMatchTypeOf<EmailMessage>()
 expectTypeOf<Parameters<Facades['telegram']['send']>[0]>().toEqualTypeOf<{
   to: string | number
   text: string
@@ -103,6 +107,7 @@ git commit -m "feat: define messaging provider descriptors"
 ### Task 2: Materialize messaging facades
 
 **Files:**
+
 - Create: `packages/bunderstack/src/messaging/runtime.ts`
 - Create: `packages/bunderstack/src/messaging/journal.ts`
 - Modify: `packages/bunderstack/src/config.ts`
@@ -114,6 +119,7 @@ git commit -m "feat: define messaging provider descriptors"
 - Test: `packages/bunderstack/src/api/context.test.ts`
 
 **Interfaces:**
+
 - Consumes: named descriptor record from `config.messaging`.
 - Produces: `createMessaging(config, options)` and typed `app.messaging` / `ctx.messaging`.
 
@@ -175,6 +181,7 @@ git commit -m "feat: expose typed messaging facades"
 ### Task 3: Preserve legacy email and Better Auth behavior
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/email.ts`
 - Modify: `packages/bunderstack/src/auth.ts`
 - Modify: `packages/bunderstack/src/config.ts`
@@ -183,6 +190,7 @@ git commit -m "feat: expose typed messaging facades"
 - Test: `packages/bunderstack/src/config.test.ts`
 
 **Interfaces:**
+
 - Consumes: legacy `email` or `messaging.email`.
 - Produces: deprecated `app.email` and `ctx.email` aliases, plus Better Auth defaults wired only to `messaging.email`.
 
@@ -241,6 +249,7 @@ git commit -m "feat: bridge legacy email into messaging"
 ### Task 4: Add messaging test capture
 
 **Files:**
+
 - Create: `packages/bunderstack/src/testing/messaging.ts`
 - Modify: `packages/bunderstack/src/testing/email.ts`
 - Modify: `packages/bunderstack/src/testing/fixture.ts`
@@ -248,6 +257,7 @@ git commit -m "feat: bridge legacy email into messaging"
 - Test: `packages/bunderstack/src/testing/infrastructure.test.ts`
 
 **Interfaces:**
+
 - Consumes: messaging descriptors from a resolved test declaration.
 - Produces: `t.messaging` with per-channel `sent` arrays and deprecated `t.email` alias.
 
@@ -291,6 +301,7 @@ git commit -m "feat: capture messaging in test fixtures"
 ### Task 5: Publish messaging topology in manifest and blueprint
 
 **Files:**
+
 - Modify: `packages/bunderstack/src/manifest.ts`
 - Modify: `packages/bunderstack/src/blueprint.ts`
 - Modify: `packages/bunderstack/src/backend.ts`
@@ -298,6 +309,7 @@ git commit -m "feat: capture messaging in test fixtures"
 - Test: `packages/bunderstack/src/blueprint.test.ts`
 
 **Interfaces:**
+
 - Consumes: descriptor records.
 - Produces: manifest version 4 and `resources.messaging.channels` in blueprint version 1.
 
@@ -306,7 +318,7 @@ git commit -m "feat: capture messaging in test fixtures"
 Assert sorted entries exactly equal:
 
 ```ts
-[
+;[
   { name: 'email', kind: 'email', provider: 'resend' },
   { name: 'personalEmail', kind: 'email', provider: 'resend' },
   { name: 'telegram', kind: 'telegram', provider: 'telegram' },
@@ -350,12 +362,14 @@ git commit -m "feat: publish messaging topology"
 ### Task 6: Document and verify messaging
 
 **Files:**
+
 - Replace: `website/content/docs/email.mdx`
 - Modify: `website/content/docs/api-reference.mdx`
 - Modify: `website/scripts/gen-code-snippets.ts`
 - Modify: `docs/MIGRATION-0.24.md`
 
 **Interfaces:**
+
 - Consumes: completed messaging API.
 - Produces: migration examples and verified package declarations.
 

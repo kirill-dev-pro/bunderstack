@@ -18,11 +18,12 @@ const notes = sqliteTable('notes', {
 
 test('bunderstack exposes typed app.env', async () => {
   process.env.MY_API_KEY = 'k-1'
-  const app = await bunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    env: { server: { MY_API_KEY: v.string() } },
-  }).start()
+  const app = await bunderstack(
+    { schema: { notes }, env: { server: { MY_API_KEY: v.string() } } },
+    () => ({
+      database: { url: ':memory:', adapter: libsql() },
+    }),
+  ).start()
   const key: string = app.env.MY_API_KEY
   expect(key).toBe('k-1')
   expect(app.env.DATABASE_URL).toBe('file:./data.db')
@@ -31,11 +32,12 @@ test('bunderstack exposes typed app.env', async () => {
 
 test('bunderstack refuses to boot on invalid env', async () => {
   await expect(
-    bunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-      env: { server: { MISSING_REQUIRED: v.string() } },
-    }).start(),
+    bunderstack(
+      { schema: { notes }, env: { server: { MISSING_REQUIRED: v.string() } } },
+      () => ({
+        database: { url: ':memory:', adapter: libsql() },
+      }),
+    ).start(),
   ).rejects.toThrow(BunderstackEnvError)
 })
 
@@ -54,10 +56,9 @@ test('app.close closes the database exactly once', async () => {
     },
     async migrate() {},
   }
-  const app = await bunderstack({
-    schema: { notes },
+  const app = await bunderstack({ schema: { notes } }, () => ({
     database: { url: ':memory:', adapter },
-  }).start()
+  })).start()
 
   await app.close()
   expect(closeCount).toBe(1)
@@ -84,15 +85,14 @@ test('initialization failure closes the database and preserves the cause', async
 
   let caught: unknown
   try {
-    await bunderstack({
-      schema: { notes },
+    await bunderstack({ schema: { notes } }, () => ({
       database: { url: ':memory:', adapter },
       // The auth factory runs inside runtime init, after the database is
       // connected, so a throw here exercises the cleanup path.
       auth: () => {
         throw initializationError
       },
-    }).start()
+    })).start()
   } catch (cause) {
     caught = cause
   }
@@ -122,15 +122,14 @@ test('initialization and cleanup failures are preserved in an AggregateError', a
 
   let caught: unknown
   try {
-    await bunderstack({
-      schema: { notes },
+    await bunderstack({ schema: { notes } }, () => ({
       database: { url: ':memory:', adapter },
       // The auth factory runs inside runtime init, after the database is
       // connected, so a throw here exercises the cleanup path.
       auth: () => {
         throw initializationError
       },
-    }).start()
+    })).start()
   } catch (cause) {
     caught = cause
   }
@@ -146,22 +145,27 @@ test('initialization and cleanup failures are preserved in an AggregateError', a
   expect(closeCount).toBe(1)
 })
 
-test('backend.manifest describes the declaration', () => {
-  const backend = bunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    env: { server: { WEBHOOK_SECRET: v.optional(v.string()) } },
-    storage: {
-      local: './tmp-manifest-uploads',
-      buckets: { avatars: { visibility: 'public' } },
+test('backend.inspect describes the declaration', () => {
+  const backend = bunderstack(
+    {
+      schema: { notes },
+      env: { server: { WEBHOOK_SECRET: v.optional(v.string()) } },
     },
-  })
-  expect(backend.manifest.database.dialect).toBe('sqlite')
-  expect(backend.manifest.storage.buckets).toEqual([
+    () => ({
+      database: { url: ':memory:', adapter: libsql() },
+      storage: {
+        local: './tmp-manifest-uploads',
+        buckets: { avatars: { visibility: 'public' } },
+      },
+    }),
+  )
+  const manifest = backend.inspect({ env: {} })
+  expect(manifest.database.dialect).toBe('sqlite')
+  expect(manifest.storage.buckets).toEqual([
     { name: 'avatars', visibility: 'public' },
   ])
-  expect(backend.manifest.realtime).toEqual({ required: false })
-  expect(backend.manifest.environment).toEqual([
+  expect(manifest.realtime).toEqual({ required: false })
+  expect(manifest.environment).toEqual([
     {
       key: 'WEBHOOK_SECRET',
       required: false,
@@ -172,13 +176,17 @@ test('backend.manifest describes the declaration', () => {
 })
 
 test('role=all starts the background loop', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    env: undefined,
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
-  } as never).start({
+  const app = await bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { url: ':memory:', adapter: libsql() },
+        jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
+          j.define({
+            beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
+          }),
+      }) as never,
+  ).start({
     env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   })
   expect(app.backgroundRunning).toBe(true)
@@ -186,12 +194,17 @@ test('role=all starts the background loop', async () => {
 })
 
 test('role=web does not start the background loop', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
-  } as never).start({
+  const app = await bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { url: ':memory:', adapter: libsql() },
+        jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
+          j.define({
+            beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
+          }),
+      }) as never,
+  ).start({
     env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
   })
   expect(app.backgroundRunning).toBe(false)
@@ -199,13 +212,18 @@ test('role=web does not start the background loop', async () => {
 })
 
 test('background.autoStart false wins over role=all', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({ beat: j.cron({ schedule: '* * * * *', handler: () => {} }) }),
-    background: { autoStart: false },
-  } as never).start({
+  const app = await bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { url: ':memory:', adapter: libsql() },
+        jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
+          j.define({
+            beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
+          }),
+        background: { autoStart: false },
+      }) as never,
+  ).start({
     env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
   })
   expect(app.backgroundRunning).toBe(false)
@@ -213,10 +231,13 @@ test('background.autoStart false wins over role=all', async () => {
 })
 
 test('start env feeds platform overrides as well as env vars', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { adapter: libsql() },
-  } as never).start({
+  const app = await bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { adapter: libsql() },
+      }) as never,
+  ).start({
     env: {
       DATABASE_URL: 'file::memory:',
       BUNDERSTACK_DATABASE_URL: 'file::memory:',
@@ -228,11 +249,14 @@ test('start env feeds platform overrides as well as env vars', async () => {
 })
 
 test('envSource is no longer accepted', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { adapter: libsql() },
-    envSource: { BUNDERSTACK_ROLE: 'worker' },
-  } as never).start({ env: { DATABASE_URL: 'file::memory:' } })
+  const app = await bunderstack(
+    { schema: {} },
+    () =>
+      ({
+database: { adapter: libsql() },
+        envSource: { BUNDERSTACK_ROLE: 'worker' },
+      }) as never,
+  ).start({ env: { DATABASE_URL: 'file::memory:' } })
   // envSource is ignored entirely; the role falls back to its default.
   expect(app.env.BUNDERSTACK_ROLE).toBe('all')
   await app.close()

@@ -19,7 +19,7 @@ function createTestDeps() {
     db: { fakeDb: true } as any,
     env: { STRIPE_KEY: 'sk_test', DATABASE_URL: 'file:./x.db' } as any,
     storage: { fakeStorage: true } as any,
-    email: { fakeEmail: true } as any,
+    messaging: { fakeEmail: true } as any,
     jobs: { fakeJobs: true } as any,
     realtime: { fakeRealtime: true } as any,
     auth: { fakeAuth: true } as any,

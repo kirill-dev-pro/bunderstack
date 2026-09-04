@@ -4,6 +4,7 @@ import * as v from 'valibot'
 
 import { bunderstackJobs } from './internal-tables'
 import { buildManifest, parseManifest } from './manifest'
+import { resend } from './messaging'
 import { resolveBuckets } from './storage/buckets'
 
 const posts = sqliteTable('app_posts', { id: text('id').primaryKey() })
@@ -37,7 +38,7 @@ function makeManifest() {
         LOG_LEVEL: { sensitive: false, description: '  debug | info  ' },
       },
     },
-    emailProvider: 'resend',
+    messaging: { email: resend(), personalEmail: resend() },
     realtime: true,
     jobs: {
       generateLook: { kind: 'job', handler: async () => {} },
@@ -57,21 +58,11 @@ function makeManifest() {
 // appearing. Expect to update this test whenever a field is added.
 test('the manifest contains exactly these fields and nothing more', () => {
   expect(makeManifest()).toEqual({
-    version: 3,
+    version: 4,
     database: {
       dialect: 'sqlite',
       migrationsDirectory: './migrations',
       tables: [
-        {
-          exportName: '_system.emailEvents',
-          physicalName: '_bunderstack_email_events',
-          system: true,
-        },
-        {
-          exportName: '_system.emails',
-          physicalName: '_bunderstack_emails',
-          system: true,
-        },
         {
           exportName: '_system.idempotency',
           physicalName: '_bunderstack_idempotency',
@@ -80,6 +71,16 @@ test('the manifest contains exactly these fields and nothing more', () => {
         {
           exportName: '_system.jobs',
           physicalName: '_bunderstack_jobs',
+          system: true,
+        },
+        {
+          exportName: '_system.messageEvents',
+          physicalName: '_bunderstack_message_events',
+          system: true,
+        },
+        {
+          exportName: '_system.messages',
+          physicalName: '_bunderstack_messages',
           system: true,
         },
         { exportName: 'accounts', physicalName: 'app_accounts', system: false },
@@ -99,6 +100,12 @@ test('the manifest contains exactly these fields and nothing more', () => {
       ],
     },
     realtime: { required: true },
+    messaging: {
+      channels: [
+        { name: 'email', kind: 'email', provider: 'resend' },
+        { name: 'personalEmail', kind: 'email', provider: 'resend' },
+      ],
+    },
     environment: [
       {
         key: 'LOG_LEVEL',
@@ -112,13 +119,6 @@ test('the manifest contains exactly these fields and nothing more', () => {
         required: true,
         scope: 'client',
         sensitive: false,
-      },
-      {
-        key: 'RESEND_API_KEY',
-        required: true,
-        scope: 'server',
-        sensitive: true,
-        description: 'Resend API key used to send transactional email',
       },
       {
         key: 'STRIPE_KEY',
@@ -164,7 +164,7 @@ test('buildManifest handles zero-config apps', () => {
     migrationsDirectory: './migrations',
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
-    emailProvider: undefined,
+    messaging: undefined,
     realtime: false,
     jobs: undefined,
     api: [],
@@ -190,7 +190,7 @@ test('buildManifest does not duplicate system tables re-exported by an app schem
     migrationsDirectory: './migrations',
     storage: resolveBuckets(undefined, {}),
     envConfig: undefined,
-    emailProvider: undefined,
+    messaging: undefined,
     realtime: false,
     jobs: undefined,
     api: [],
@@ -228,7 +228,7 @@ test('environment entries carry secrecy and description', () => {
     scope: 'client',
     sensitive: false,
   })
-  expect(byKey.RESEND_API_KEY!.sensitive).toBe(true)
+  expect(byKey.RESEND_API_KEY).toBeUndefined()
 })
 
 test('a client var cannot be declared sensitive', () => {
@@ -245,7 +245,7 @@ test('a client var cannot be declared sensitive', () => {
         client: { PUBLIC_APP_NAME: v.string() },
         meta: { PUBLIC_APP_NAME: { sensitive: true } },
       },
-      emailProvider: undefined,
+      messaging: undefined,
       realtime: false,
       jobs: undefined,
       api: [],
@@ -267,7 +267,7 @@ test('env.meta cannot describe an undeclared key', () => {
         server: { STRIPE_KEY: v.string() },
         meta: { STRIPE_KEYY: { description: 'typo' } },
       },
-      emailProvider: undefined,
+      messaging: undefined,
       realtime: false,
       jobs: undefined,
       api: [],
@@ -289,7 +289,7 @@ test('a description longer than 200 characters is rejected', () => {
         server: { STRIPE_KEY: v.string() },
         meta: { STRIPE_KEY: { description: 'x'.repeat(201) } },
       },
-      emailProvider: undefined,
+      messaging: undefined,
       realtime: false,
       jobs: undefined,
       api: [],
@@ -307,7 +307,7 @@ test('the manifest carries application-declared operations sorted by handle', ()
       {},
     ),
     envConfig: undefined,
-    emailProvider: undefined,
+    messaging: undefined,
     realtime: false,
     jobs: undefined,
     api: [
@@ -338,7 +338,7 @@ test('duplicate operation handles are rejected', () => {
         {},
       ),
       envConfig: undefined,
-      emailProvider: undefined,
+      messaging: undefined,
       realtime: false,
       jobs: undefined,
       api: [

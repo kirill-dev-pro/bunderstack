@@ -45,7 +45,12 @@ test('hidden activity never leaks into the demo transcript', () => {
     <RunActivity
       steps={[
         ...steps,
-        { ...steps[0], id: 'astep_hidden', title: 'Private', visibility: 'hidden' },
+        {
+          ...steps[0],
+          id: 'astep_hidden',
+          title: 'Private',
+          visibility: 'hidden',
+        },
       ]}
       hasAnswer={false}
       runStatus="running"

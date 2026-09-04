@@ -8,6 +8,7 @@ description: Use when building, structuring, or migrating an application on Bund
 ## Overview
 
 Bunderstack is a batteries-included full-stack backend framework for Bun unifying:
+
 - **Drizzle ORM** (libSQL / SQLite / Postgres)
 - **Better Auth** (authentication & session management)
 - **oRPC v2** (unified type-safe RPC & OpenAPI/REST procedures with Standard Schema / Valibot)
@@ -35,7 +36,10 @@ import { api } from './api'
 export const backend = bunderstack({
   schema,
   access,
-  database: { adapter: libsql(), url: process.env.DATABASE_URL ?? 'file:./data.db' },
+  database: {
+    adapter: libsql(),
+    url: process.env.DATABASE_URL ?? 'file:./data.db',
+  },
   api,
 })
 
@@ -52,25 +56,25 @@ export type App = typeof app
 
 All Bunderstack capabilities are imported directly from single-segment subpaths of `bunderstack`:
 
-| Subpath Import | Purpose |
-| --- | --- |
-| `bunderstack` | Core backend builder (`bunderstack`, `defineApi`, `defineAccess`, `BunderstackError`) |
-| `bunderstack/libsql` | libSQL / SQLite database adapter |
-| `bunderstack/postgres-js` | postgres.js database adapter |
-| `bunderstack/bun-sql` | `Bun.sql` Postgres adapter |
-| `bunderstack/pglite` | PGlite in-memory / embedded Postgres adapter |
-| `bunderstack/client` | Framework-neutral typed client & `createLiveView` |
-| `bunderstack/client-react` | React LiveView hook (`useLiveView`) |
-| `bunderstack/client-rest` | Type-safe REST client |
-| `bunderstack/query` | TanStack Query integration (`createClient`, `syncRealtime`) |
-| `bunderstack/query-react` | React-specific query helpers |
-| `bunderstack/sync` | TanStack DB realtime sync collections |
-| `bunderstack/start` | TanStack Start integration (`createApiHandlers`) |
-| `bunderstack/start-auth` | Better Auth client for TanStack Start |
-| `bunderstack/provision` | Database schema provisioning (`provision(app)`) |
-| `bunderstack/testing` | Test fixture helpers |
-| `bunderstack/schema` | Internal system tables (`export * from 'bunderstack/schema'`) |
-| `bunderstack/typeid` | TypeID column types & generators |
+| Subpath Import             | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `bunderstack`              | Core backend builder (`bunderstack`, `defineApi`, `defineAccess`, `BunderstackError`) |
+| `bunderstack/libsql`       | libSQL / SQLite database adapter                                                      |
+| `bunderstack/postgres-js`  | postgres.js database adapter                                                          |
+| `bunderstack/bun-sql`      | `Bun.sql` Postgres adapter                                                            |
+| `bunderstack/pglite`       | PGlite in-memory / embedded Postgres adapter                                          |
+| `bunderstack/client`       | Framework-neutral typed client & `createLiveView`                                     |
+| `bunderstack/client-react` | React LiveView hook (`useLiveView`)                                                   |
+| `bunderstack/client-rest`  | Type-safe REST client                                                                 |
+| `bunderstack/query`        | TanStack Query integration (`createClient`, `syncRealtime`)                           |
+| `bunderstack/query-react`  | React-specific query helpers                                                          |
+| `bunderstack/sync`         | TanStack DB realtime sync collections                                                 |
+| `bunderstack/start`        | TanStack Start integration (`createApiHandlers`)                                      |
+| `bunderstack/start-auth`   | Better Auth client for TanStack Start                                                 |
+| `bunderstack/provision`    | Database schema provisioning (`provision(app)`)                                       |
+| `bunderstack/testing`      | Test fixture helpers                                                                  |
+| `bunderstack/schema`       | Internal system tables (`export * from 'bunderstack/schema'`)                         |
+| `bunderstack/typeid`       | TypeID column types & generators                                                      |
 
 ---
 
@@ -79,6 +83,7 @@ All Bunderstack capabilities are imported directly from single-segment subpaths 
 ### Scale Decision: Flat vs. Modular
 
 1. **Flat Layout (MVP / Small Service: < 5 tables, < 5 procedures, 1 job):**
+
    ```
    src/
    ├── bunderstack.ts   # backend declaration & app start
@@ -159,12 +164,14 @@ export const protectedProcedure = o.protected.use(async ({ context, next }) => {
   return next()
 })
 
-export const adminProcedure = protectedProcedure.use(async ({ context, next, errors }) => {
-  if (context.user.role !== 'admin') {
-    throw errors.FORBIDDEN({ message: 'Admin privileges required' })
-  }
-  return next()
-})
+export const adminProcedure = protectedProcedure.use(
+  async ({ context, next, errors }) => {
+    if (context.user.role !== 'admin') {
+      throw errors.FORBIDDEN({ message: 'Admin privileges required' })
+    }
+    return next()
+  },
+)
 
 // Graph-wide observability middleware (registered in bunderstack({ middleware: [instrumentation] }))
 export const instrumentation = o.middleware(async ({ context, next, path }) => {
@@ -176,7 +183,9 @@ export const instrumentation = o.middleware(async ({ context, next, path }) => {
     const duration = Math.round(performance.now() - startedAt)
     // context.peekSession() reads resolved session without triggering forced auth on public/webhooks
     const userId = context.peekSession()?.user?.id
-    console.log(`[oRPC] ${path.join('.')} - ${duration}ms - User: ${userId ?? 'anon'}`)
+    console.log(
+      `[oRPC] ${path.join('.')} - ${duration}ms - User: ${userId ?? 'anon'}`,
+    )
   }
 })
 ```
@@ -184,6 +193,7 @@ export const instrumentation = o.middleware(async ({ context, next, path }) => {
 ### Rule: Circular Boot-Time Import Prevention
 
 `src/bunderstack/auth.ts` and `api/base.ts` must **NEVER** import `app` or `src/bunderstack/index.ts` at module top-level.
+
 - In `auth.ts`: Read `process.env` directly for secret keys. If an async hook (like email sending) needs the initialized app, use dynamic `import('./index')` inside the callback.
 - In `api/*.ts`: Consume `context.db`, `context.env`, `context.jobs`, `context.storage`, `context.auth` from handler parameters.
 
@@ -235,15 +245,16 @@ export const access = defineAccess(schema, {
   await client.posts.update.call({ id: 'post_1', title: 'Updated Title' })
   ```
 - **Custom List Procedures**: Use `listSpec` to give custom endpoints the same pagination and filtering behavior:
+
   ```ts
   import { listSpec } from 'bunderstack'
-  
+
   const logSpec = listSpec(schema.auditLogs, {
     filterable: ['level', 'userId'],
     sortable: ['createdAt'],
     defaultSort: { column: 'createdAt', order: 'desc' },
   })
-  
+
   export const logsProcedure = adminProcedure
     .input(logSpec.input)
     .handler(logSpec.handler)
@@ -277,7 +288,10 @@ import * as v from 'valibot'
 export const defineJobs = (jobs) =>
   jobs.define({
     sendWelcomeEmail: jobs.job({
-      input: v.object({ userId: v.string(), email: v.pipe(v.string(), v.email()) }),
+      input: v.object({
+        userId: v.string(),
+        email: v.pipe(v.string(), v.email()),
+      }),
       concurrency: 5,
       timeout: 30_000,
       retries: 3,
@@ -360,6 +374,7 @@ Raise typed errors in procedures using `errors`:
 ```
 
 Outside procedures (e.g. in background jobs or domain services):
+
 ```ts
 import { BunderstackError } from 'bunderstack'
 
@@ -384,6 +399,7 @@ throw new BunderstackError('FORBIDDEN', 'Quota exceeded')
 
 > [!CAUTION]
 > **ALL MIGRATIONS MUST BE GENERATED EXCLUSIVELY VIA DRIZZLE-KIT CLI.**
+>
 > - Always run: `bunx drizzle-kit generate` (or `bun run db:generate`).
 > - **NEVER** hand-edit generated migration SQL files.
 > - **NEVER** let an LLM agent write or modify `.sql` files in `migrations/`.
@@ -410,7 +426,7 @@ export const Route = createFileRoute('/api/$')({
 })
 ```
 
-*Note: Remove any separate `/api/auth/$`, `/api/trpc/$`, or `/api/cron/*` route files.*
+_Note: Remove any separate `/api/auth/$`, `/api/trpc/$`, or `/api/cron/_` route files.\*
 
 ### Dedicated Production Worker (`src/worker.ts`)
 
@@ -429,6 +445,7 @@ await app.runWorker()
 ```
 
 Add worker script in `package.json`:
+
 ```json
 {
   "scripts": {
@@ -470,7 +487,10 @@ test('creates and retrieves a post', async () => {
   // Typed in-process oRPC client
   const client = t.client(identity)
 
-  const created = await client.posts.create({ title: 'New Post', content: 'Hello' })
+  const created = await client.posts.create({
+    title: 'New Post',
+    content: 'Hello',
+  })
   expect(created.title).toBe('New Post')
 
   // Run all queued background jobs deterministically
@@ -515,6 +535,7 @@ Bunderhost monitors application deployment status via `GET /api/readiness`, whic
 ### Official Bunderstack Documentation for LLMs
 
 When working on Bunderstack projects, consult the dedicated LLM references:
+
 - **Web Documentation**: [https://bunderstack.kcrz.dev/docs](https://bunderstack.kcrz.dev/docs)
 - **Compact LLM Context (`llms.txt`)**: [https://bunderstack.kcrz.dev/docs/llms.txt](https://bunderstack.kcrz.dev/docs/llms.txt) (or local `node_modules/bunderstack/llms.txt`)
 - **Complete LLM Knowledge Base (`llms-full.txt`)**: [https://bunderstack.kcrz.dev/docs/llms-full.txt](https://bunderstack.kcrz.dev/docs/llms-full.txt)
@@ -524,10 +545,12 @@ When working on Bunderstack projects, consult the dedicated LLM references:
 Bunderhost provides a Model Context Protocol (MCP) server that allows coding agents to inspect, manage, and deploy projects.
 
 #### Connecting to Bunderhost MCP:
+
 1. Generate an Agent Access Token in Bunderhost: **Organization → Agent Access → Issue Token**.
 2. Connect your MCP client to `https://<bunderhost-host>/mcp` using the token as a `Bearer` credential.
 
 #### Key MCP Tools:
+
 - `list_projects`: List all projects in the organization.
 - `get_project`: Retrieve project configuration, active deployments, and blueprint status.
 - `get_project_readiness`: Check database reachability, migration state, and queue backlog.
@@ -537,6 +560,7 @@ Bunderhost provides a Model Context Protocol (MCP) server that allows coding age
 - `get_runtime_logs`: Stream runtime container logs.
 
 #### Agent Safety Rules for Bunderhost:
+
 1. **Secrets Are Never Exposed**: Database passwords, encryption keys, and environment values are never returned by MCP tools. When a new secret is needed, the agent must create a setup session (`create_setup_session`), and the user types the secret in the Bunderhost UI.
 2. **Mutations Require Confirmation**: Creating projects or deploying revisions require explicit user approval in the MCP client before execution.
 
@@ -544,15 +568,14 @@ Bunderhost provides a Model Context Protocol (MCP) server that allows coding age
 
 ## 9. Quick Reference & Common Mistakes
 
-| Anti-Pattern (Don't Do This) | Canonical Pattern (Do This) |
-| --- | --- |
-| Creating separate `/api/auth/$` and `/api/trpc/$` routes | Single catch-all `src/routes/api/$.ts` with `createApiHandlers(app)` |
-| Creating multiple Drizzle instances in `src/lib/db.ts` | Use `app.db` and `context.db`; export types with `BunderstackDb<typeof schema>` |
-| Constructing `ORPCError` manually | Use `errors.CODE({ message })` or `new BunderstackError('CODE', message)` |
-| Calling `getSession()` inside global middleware | Use `context.peekSession()` for non-blocking observability |
-| Editing `.sql` files in `migrations/` by hand | Always generate with `bunx drizzle-kit generate` and commit untouched |
-| Deploying to Bunderhost with schema push only | Generate and commit Drizzle migrations before deploying |
-| Starting workers inside the web server process in prod | Run dedicated `src/worker.ts` with `app.runWorker()` |
-| Hand-written HTTP `/api/cron/*` endpoints | Use `jobs.cron({ schedule, handler })` |
-| Top-level import of `app` inside `auth.ts` or `api/base.ts` | Consume `context` in handlers or use dynamic `import('./index')` in callbacks |
-
+| Anti-Pattern (Don't Do This)                                | Canonical Pattern (Do This)                                                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Creating separate `/api/auth/$` and `/api/trpc/$` routes    | Single catch-all `src/routes/api/$.ts` with `createApiHandlers(app)`            |
+| Creating multiple Drizzle instances in `src/lib/db.ts`      | Use `app.db` and `context.db`; export types with `BunderstackDb<typeof schema>` |
+| Constructing `ORPCError` manually                           | Use `errors.CODE({ message })` or `new BunderstackError('CODE', message)`       |
+| Calling `getSession()` inside global middleware             | Use `context.peekSession()` for non-blocking observability                      |
+| Editing `.sql` files in `migrations/` by hand               | Always generate with `bunx drizzle-kit generate` and commit untouched           |
+| Deploying to Bunderhost with schema push only               | Generate and commit Drizzle migrations before deploying                         |
+| Starting workers inside the web server process in prod      | Run dedicated `src/worker.ts` with `app.runWorker()`                            |
+| Hand-written HTTP `/api/cron/*` endpoints                   | Use `jobs.cron({ schedule, handler })`                                          |
+| Top-level import of `app` inside `auth.ts` or `api/base.ts` | Consume `context` in handlers or use dynamic `import('./index')` in callbacks   |

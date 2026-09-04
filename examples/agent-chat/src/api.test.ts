@@ -72,7 +72,9 @@ describe('protected agent actions', () => {
     expect(first.status).toBe(202)
     expect(second.status).toBe(202)
     expect(secondJson).toEqual(firstJson)
-    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(
+      2,
+    )
     expect(await state.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
 
     const conflict = await call(state.app, '/api/agent/messages', 'POST', {
@@ -80,7 +82,9 @@ describe('protected agent actions', () => {
       clientMessageId: 'browser-2',
     })
     expect(conflict.status).toBe(409)
-    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(2)
+    expect(await state.ctx.db.select().from(agentMessages).all()).toHaveLength(
+      2,
+    )
     expect(await state.ctx.db.select().from(agentRuns).all()).toHaveLength(1)
   })
 

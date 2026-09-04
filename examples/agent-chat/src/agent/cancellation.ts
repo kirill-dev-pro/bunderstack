@@ -1,7 +1,8 @@
 import { and, eq, inArray, sql } from 'drizzle-orm'
 
-import { agentMessages, agentRequests, agentRuns } from '../schema'
 import type { AgentRuntimeContext } from './runtime'
+
+import { agentMessages, agentRequests, agentRuns } from '../schema'
 
 export class AgentRunCancelledError extends Error {
   constructor() {
@@ -66,7 +67,10 @@ export async function requestRunCancellation(
         .select()
         .from(agentRuns)
         .where(
-          and(eq(agentRuns.id, input.runId), eq(agentRuns.userId, input.userId)),
+          and(
+            eq(agentRuns.id, input.runId),
+            eq(agentRuns.userId, input.userId),
+          ),
         )
         .get()
     }

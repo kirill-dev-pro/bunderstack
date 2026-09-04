@@ -143,7 +143,7 @@ export const api = {
         .where(eq(schema.todos.id, asTypeId('todo', input.id)))
 
       if (context.env.NOTIFY_COMPLETED) {
-        await context.email.send({
+        await context.messaging.email.send({
           to: context.user.email!,
           subject: `✅ Completed: ${todo.title}`,
           text: `Hi ${context.user.name},\n\nYou completed "${todo.title}".\n\n— ${context.env.PUBLIC_APP_NAME}`,

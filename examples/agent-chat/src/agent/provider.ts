@@ -1,12 +1,7 @@
-import {
-  createAIResponder,
-  type AIResponderOptions,
-} from './model'
-import {
-  createIQDocResponder,
-  type IQDocResponderOptions,
-} from './iqdoc'
 import type { AgentResponder } from './types'
+
+import { createIQDocResponder, type IQDocResponderOptions } from './iqdoc'
+import { createAIResponder, type AIResponderOptions } from './model'
 
 export type AgentProvider = 'openai' | 'iqdoc'
 
@@ -37,9 +32,7 @@ export function responderOptionsFromEnv(
     openai: {
       apiKey: openAIKey ?? env.AI_API_KEY,
       baseURL: openAIKey ? undefined : env.AI_BASE_URL,
-      model: openAIKey
-        ? (env.OPENAI_MODEL ?? 'gpt-5-mini')
-        : env.AI_MODEL,
+      model: openAIKey ? (env.OPENAI_MODEL ?? 'gpt-5-mini') : env.AI_MODEL,
     },
     iqdoc: {
       apiKey: env.IQDOC_API_KEY,
