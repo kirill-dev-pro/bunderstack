@@ -146,7 +146,7 @@ Configuration is a named object rather than an array:
 ```ts
 messaging: {
   email: resend({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }),
-  telegram: telegram({ token: env.TELEGRAM_BOT_TOKEN }),
+  telegram: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
   personalEmail: resend({
     apiKey: env.RESEND_API_KEY,
     from: 'Carl from Company <carl@company.com>',
@@ -158,6 +158,26 @@ The key is the application-facing channel name. There is no conditional `name`
 field and duplicate providers need no special case. Provider factories return
 pure descriptors tagged with a stable provider ID and channel kind. Network
 clients are created only during materialization.
+
+Provider credentials are optional. Every descriptor has an intrinsic capture
+mode, so applications never select a separate console provider. Resolution
+follows this order for every provider field:
+
+1. a non-empty value explicitly supplied by the channel descriptor;
+2. shared provider defaults injected by a hosting platform;
+3. capture mode when required delivery configuration remains absent or empty.
+
+An explicitly supplied value always wins over a managed default. This lets a
+project use Bunderhost's shared Resend connection for most channels while an
+advanced channel supplies credentials for another account. Invalid non-empty
+configuration is an error; it never silently falls back to capture. A configured
+provider whose network request fails records `failed`; it never retries through
+capture.
+
+In local development capture writes the journal when a database is present and
+prints a provider-appropriate representation to the console. Under Bunderhost it
+writes the journal without printing message bodies into production logs. The
+status is `captured`, meaning recorded but not delivered.
 
 The runtime and procedure context expose the same keys with provider-specific
 message types:
@@ -175,9 +195,10 @@ await ctx.messaging.telegram.send({
 })
 ```
 
-The first release supplies `resend(...)`, `consoleEmail(...)`, a custom email
-adapter descriptor, and `telegram(...)`. SMTP remains a separate package factory
-and returns an email descriptor.
+The first release supplies `resend(...)`, a custom email adapter descriptor, and
+`telegram(...)`. SMTP remains a separate package factory and returns an email
+descriptor. A custom descriptor declares the configuration required for real
+delivery and supplies a console formatter; the registry owns capture selection.
 
 The existing `email` config, `app.email`, `ctx.email`, and test email capture
 remain as deprecated compatibility aliases for one release. When only legacy
@@ -185,7 +206,32 @@ remain as deprecated compatibility aliases for one release. When only legacy
 `email` and `messaging.email` is an error; other messaging keys may coexist with
 legacy email during migration.
 
-### 6. Authentication integration
+### 6. Message journal
+
+The email-only journal becomes:
+
+```text
+_bunderstack_messages
+_bunderstack_message_events
+```
+
+Each message records its channel name, kind, provider, delivery status,
+credential source (`explicit`, `managed`, or `capture`), provider ID, normalized
+recipients, provider-specific content JSON, safe error, and timestamps. Email
+content contains subject, HTML, text, sender, reply-to, cc, and bcc. Telegram
+content contains chat ID, text, and parse mode. Provider webhook events reference
+the general message ID.
+
+The initial status vocabulary is `captured`, `sending`, `sent`, `delivered`, and
+`failed`. Providers may append normalized delivery events such as `opened`,
+`clicked`, `bounced`, or `complained` without changing the channel kind.
+
+Legacy email tables remain readable for one compatibility release but receive
+no new rows after a legacy email config is normalized into `messaging.email`.
+Bunderhost merges legacy rows into the Messaging view so existing history does
+not disappear.
+
+### 7. Authentication integration
 
 Better Auth's default verification and reset mail hooks use
 `messaging.email` by convention. If it is absent, Bunderstack does not guess
@@ -194,7 +240,7 @@ their Better Auth callbacks explicitly or add an `email` alias.
 
 Telegram and other channels do not participate in Better Auth defaults.
 
-### 7. Testing
+### 8. Testing
 
 `backend.test({ env })` resolves the declaration with that test's env. Each
 declared channel receives an isolated capture adapter. The primary surface is:
@@ -211,7 +257,7 @@ network requests.
 Tests cover independent fixtures started from one backend with different env
 values so no resolved configuration leaks between starts.
 
-### 8. Blueprint compatibility
+### 9. Blueprint compatibility
 
 The manifest version increments from 3 to 4 because it gains the required
 `messaging.channels` collection. Blueprint version remains 1: its open schema
@@ -233,7 +279,31 @@ Older Bunderhost versions ignore the additive section. Bunderhost enables
 declaration preflight only for blueprints whose `manifestVersion` is 4 or newer.
 Older committed blueprints continue through the existing deployment path.
 
-### 9. Security and failure behavior
+### 10. Hosting provider defaults
+
+A hosting platform may inject one shared connection per provider type. Runtime
+consumes a reserved `BUNDERSTACK_MESSAGING_CONFIG` JSON object keyed by stable
+provider ID:
+
+```json
+{
+  "resend": {
+    "apiKey": "...",
+    "defaultFrom": "Company <hello@example.com>"
+  },
+  "telegram": { "botToken": "..." }
+}
+```
+
+This value is runtime-only, sensitive, absent from manifests, and not exposed as
+application `ctx.env`. Provider descriptors merge these defaults field by field
+underneath explicit channel configuration. Bunderhost stores one managed
+connection for `resend` and one for `telegram` per project, not one per channel.
+Several named Resend channels share the sending key and webhook while retaining
+independent `from` values; `defaultFrom` is used only when a channel and message
+omit their own sender.
+
+### 11. Security and failure behavior
 
 - Probe and preflight output never contains environment values.
 - User secrets reach preflight only as environment variables of an ephemeral
@@ -274,5 +344,6 @@ preflight succeed.
 - Serializing secrets or runtime values into manifests or blueprints.
 - Supporting inbound Telegram updates or a general conversation model.
 - Automatically selecting an arbitrary email-kind channel for Better Auth.
+- Multiple named managed accounts for the same provider type in the first
+  release; advanced applications supply explicit credentials instead.
 - Deleting existing resources on an ordinary failed redeploy.
-

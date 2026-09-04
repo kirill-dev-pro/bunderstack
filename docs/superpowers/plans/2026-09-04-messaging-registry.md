@@ -4,9 +4,9 @@
 
 **Goal:** Replace the singular email configuration with a typed named messaging registry supporting email and Telegram while retaining one-release email compatibility aliases.
 
-**Architecture:** Provider factories create pure tagged descriptors at declaration time. Runtime materialization converts each descriptor into a provider-specific facade and exposes the inferred registry on app and procedure contexts. Testing substitutes isolated capture facades for every declared channel.
+**Architecture:** Provider factories create pure tagged descriptors with optional credentials. Runtime materialization merges explicit channel configuration over shared hosting defaults, selects real delivery only when required fields are non-empty, and otherwise captures to the message journal (plus console locally). Testing substitutes isolated capture facades for every declared channel.
 
-**Tech Stack:** Bun, TypeScript, Fetch, Drizzle email journal, oRPC context.
+**Tech Stack:** Bun, TypeScript, Fetch, Drizzle message journal, oRPC context.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-env-first-declarations-design.md`
 
@@ -17,6 +17,11 @@
 - Channel keys and provider kinds reach manifest/blueprint; credentials never do.
 - Legacy `email` configuration and facades remain deprecated aliases for one release.
 - Better Auth defaults use only the channel named `email`.
+- Explicit channel credentials override managed provider defaults field by field.
+- Missing or empty required delivery configuration selects capture; invalid
+  non-empty configuration and delivery failures do not.
+- Bunderstack has no public console provider; capture behavior belongs to every
+  provider descriptor.
 
 ---
 
@@ -31,7 +36,7 @@
 - Test: `packages/bunderstack/src/messaging/types.test.ts`
 
 **Interfaces:**
-- Produces: `MessagingDescriptor<TKind, TProvider, TInput, TResult>`, `MessagingFacade<TDescriptor>`, `resend`, `consoleEmail`, `customEmail`, and `telegram`.
+- Produces: `MessagingDescriptor<TKind, TProvider, TInput, TResult>`, `MessagingFacade<TDescriptor>`, `resend`, `customEmail`, and `telegram`.
 - Consumes: existing `EmailMessage`, `EmailAdapter`, and `SentEmail` contracts.
 
 - [ ] **Step 1: Write failing type tests**
@@ -41,7 +46,7 @@ Assert that this registry preserves distinct inputs:
 ```ts
 const config = {
   email: resend({ apiKey: 'key', from: 'App <app@test.dev>' }),
-  telegram: telegram({ token: 'token' }),
+  telegram: telegram({ botToken: 'token' }),
 }
 type Facades = MessagingFacades<typeof config>
 expectTypeOf<Parameters<Facades['email']['send']>[0]>().toMatchTypeOf<EmailMessage>()
@@ -74,7 +79,9 @@ type MessagingDescriptor<K, P, I, O> = {
 ```
 
 Factories store credentials inside `config` but expose only `kind` and
-`provider` to manifest construction.
+`provider` to manifest construction. Resend's `apiKey` and Telegram's
+`botToken` are optional strings; absent and empty values remain distinguishable
+from invalid non-empty values until runtime resolution.
 
 - [ ] **Step 4: Export provider subpaths and run typecheck**
 
@@ -97,10 +104,13 @@ git commit -m "feat: define messaging provider descriptors"
 
 **Files:**
 - Create: `packages/bunderstack/src/messaging/runtime.ts`
+- Create: `packages/bunderstack/src/messaging/journal.ts`
 - Modify: `packages/bunderstack/src/config.ts`
 - Modify: `packages/bunderstack/src/runtime.ts`
 - Modify: `packages/bunderstack/src/api/context.ts`
+- Modify: `packages/bunderstack/src/internal-tables.ts`
 - Test: `packages/bunderstack/src/messaging/runtime.test.ts`
+- Test: `packages/bunderstack/src/internal-tables.test.ts`
 - Test: `packages/bunderstack/src/api/context.test.ts`
 
 **Interfaces:**
@@ -110,8 +120,11 @@ git commit -m "feat: define messaging provider descriptors"
 - [ ] **Step 1: Write failing runtime tests**
 
 Test two Resend channels with different senders plus one Telegram channel.
-Assert each facade uses its own configuration and Telegram calls
-`https://api.telegram.org/bot<TOKEN>/sendMessage` with `chat_id` and `text`.
+Assert explicit credentials beat `BUNDERSTACK_MESSAGING_CONFIG`, missing and
+empty credentials capture, managed defaults fill only missing fields, invalid
+non-empty credentials fail, and a failed request never becomes captured. Assert
+configured Telegram calls `https://api.telegram.org/bot<TOKEN>/sendMessage`
+with `chat_id` and `text`.
 
 - [ ] **Step 2: Run tests and verify failure**
 
@@ -124,18 +137,28 @@ Expected: FAIL because app/context expose only `email`.
 - [ ] **Step 3: Implement provider materialization**
 
 Move reusable email adapter creation behind the email descriptor materializer.
-Build the registry with `Object.fromEntries`, preserving keys in the generic
-return type. Validate non-empty unique object keys and reject unbranded values.
+Parse the reserved `BUNDERSTACK_MESSAGING_CONFIG` as a provider-keyed object and
+merge managed fields underneath explicit fields. Build the registry with
+`Object.fromEntries`, preserving keys in the generic return type. Validate
+non-empty unique object keys and reject unbranded values.
+
+Select capture only when a required merged field is absent or trims to empty.
+In development, format the message to console. When
+`BUNDERHOST_ENVIRONMENT_ID` is present, suppress body logging while retaining
+the journal row.
 
 - [ ] **Step 4: Thread the registry through runtime and API context**
 
-Replace internal single-email dependencies with `messaging`. Keep email journal
-insertion only for `kind: 'email'`; Telegram is not written into email tables.
+Replace internal single-email dependencies with `messaging`. Add
+`_bunderstack_messages` and `_bunderstack_message_events` with channel, kind,
+provider, credential source (`explicit`, `managed`, or `capture`), provider ID,
+status, recipients JSON, content JSON, safe error, and timestamps. Journal every
+channel kind; provider-specific delivery events point to the general message ID.
 
 - [ ] **Step 5: Run focused tests**
 
 ```bash
-bun test packages/bunderstack/src/messaging/runtime.test.ts packages/bunderstack/src/api/context.test.ts packages/bunderstack/src/email.test.ts
+bun test packages/bunderstack/src/messaging/runtime.test.ts packages/bunderstack/src/internal-tables.test.ts packages/bunderstack/src/api/context.test.ts packages/bunderstack/src/email.test.ts
 ```
 
 Expected: PASS.
@@ -143,7 +166,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add packages/bunderstack/src/messaging/runtime.ts packages/bunderstack/src/messaging/runtime.test.ts packages/bunderstack/src/config.ts packages/bunderstack/src/runtime.ts packages/bunderstack/src/api/context.ts packages/bunderstack/src/api/context.test.ts packages/bunderstack/src/email.test.ts
+git add packages/bunderstack/src/messaging/runtime.ts packages/bunderstack/src/messaging/journal.ts packages/bunderstack/src/messaging/runtime.test.ts packages/bunderstack/src/config.ts packages/bunderstack/src/runtime.ts packages/bunderstack/src/api/context.ts packages/bunderstack/src/api/context.test.ts packages/bunderstack/src/internal-tables.ts packages/bunderstack/src/internal-tables.test.ts packages/bunderstack/src/email.test.ts
 git commit -m "feat: expose typed messaging facades"
 ```
 
@@ -168,6 +191,8 @@ git commit -m "feat: expose typed messaging facades"
 Cover legacy-only normalization, messaging-only behavior, both declarations
 colliding at `email`, legacy email coexisting with `messaging.telegram`, and an
 email provider named only `personalEmail` not being selected for auth defaults.
+Assert normalized legacy sends create only a `_bunderstack_messages` row and do
+not append to `_bunderstack_emails`.
 
 - [ ] **Step 2: Run tests and verify failure**
 
@@ -336,8 +361,9 @@ git commit -m "feat: publish messaging topology"
 
 - [ ] **Step 1: Replace email documentation with messaging documentation**
 
-Cover named channels, Resend, console, SMTP, custom email, Telegram, Better Auth
-convention, testing capture, and legacy migration:
+Cover named channels, Resend, SMTP, custom email, Telegram, Better Auth
+convention, implicit local/hosted capture, managed provider defaults, testing
+capture, and legacy migration:
 
 ```ts
 email: { from, provider: 'resend' }
@@ -370,4 +396,3 @@ Expected: all commands PASS.
 git add website/content/docs/email.mdx website/content/docs/api-reference.mdx website/scripts/gen-code-snippets.ts website/src/lib/code-snippets.gen.json docs/MIGRATION-0.24.md
 git commit -m "docs: migrate email to messaging channels"
 ```
-
