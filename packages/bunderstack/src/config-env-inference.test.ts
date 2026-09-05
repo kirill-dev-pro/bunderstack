@@ -96,11 +96,11 @@ test('env slots and the auth builder are inferred from the env schema', async ()
 })
 
 /**
- * A factory that names its `env` parameter is context-sensitive, and so is an
- * inline `jobs` or `api` builder. TypeScript gives up on a type parameter that
- * a nested context-sensitive callback names, so the declaration keeps `schema`
- * and `env` in its first argument and keeps `TMessaging` out of the builder
- * parameters. This test fails to compile if either rule is broken.
+ * TypeScript gives up on a type parameter that a nested context-sensitive
+ * callback names, so the declaration stays the direct argument — one more
+ * wrapping callback and `TSchema` collapses to its constraint — and the jobs
+ * and api builder parameters name the open `MessagingConfig` rather than
+ * `TMessaging`. This test fails to compile if either rule is broken.
  */
 test('declarations keep their inference beside inline builders', async () => {
   const backend = bunderstack({
