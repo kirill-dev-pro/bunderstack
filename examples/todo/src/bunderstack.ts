@@ -16,7 +16,7 @@ import { bunderstack, resend } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import { asTypeId } from 'bunderstack/typeid'
-import { and, desc, eq, lt } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import { access } from './access'

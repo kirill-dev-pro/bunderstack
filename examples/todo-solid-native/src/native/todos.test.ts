@@ -1,7 +1,36 @@
 import { expect, test } from 'bun:test'
-import { createRoot, flush } from 'solid-js'
+import { createEffect, createRoot, createSignal, flush } from 'solid-js'
 
 import { createTodoStore, type Todo, type TodoApi } from './todos'
+
+/**
+ * Solid resolves to its SSR build under the `node` condition, and there every
+ * effect is inert: the store's projection never recomputes and every
+ * assertion below fails for the same uninformative reason. Say so once,
+ * plainly, instead of five times.
+ */
+const effectsRun = createRoot((dispose) => {
+  let ran = false
+  const [count, setCount] = createSignal(0)
+  createEffect(
+    () => count(),
+    () => {
+      ran = true
+    },
+  )
+  flush()
+  setCount(1)
+  flush()
+  dispose()
+  return ran
+})
+if (!effectsRun) {
+  throw new Error(
+    'Solid effects are inert here: this run resolved solid-js to its SSR ' +
+      'build. Run the suite with `bun run test`, which passes ' +
+      '--conditions=browser.',
+  )
+}
 
 const todo = (id: string, done: boolean): Todo => ({
   id,

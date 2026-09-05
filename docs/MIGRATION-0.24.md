@@ -152,8 +152,11 @@ starts realtime, or starts a worker.
 ### Before (0.23)
 
 ```ts
+// in the declaration
 email: { from: 'App <hello@example.com>', provider: 'resend' }
+```
 
+```ts
 await app.email.send({ to, subject, html })
 await ctx.email.send({ to, subject, html })
 expect(t.email.sent).toHaveLength(1)
@@ -164,13 +167,17 @@ expect(t.email.sent).toHaveLength(1)
 ```ts
 import { resend } from 'bunderstack'
 
-messaging: ((env) => ({
+// in the declaration
+messaging: (env) => ({
   email: resend({
     apiKey: env.RESEND_API_KEY,
     from: 'App <hello@example.com>',
   }),
-}),
-  await app.messaging.email.send({ to, subject, html }))
+})
+```
+
+```ts
+await app.messaging.email.send({ to, subject, html })
 await ctx.messaging.email.send({ to, subject, html })
 expect(t.messaging.email.sent).toHaveLength(1)
 ```
