@@ -59,7 +59,8 @@ type ListBody = {
 }
 
 const createApp = () =>
-  bunderstack({ schema }, () => ({
+  bunderstack({
+    schema,
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
     access: {
@@ -73,7 +74,7 @@ const createApp = () =>
       },
       tags: { crud: true, list: 'public' },
     },
-  })).start()
+  }).start()
 
 let app: Awaited<ReturnType<typeof createApp>>
 
@@ -213,7 +214,8 @@ test('a column named like a list parameter can still be filtered and sorted', as
     limit: integer('limit').notNull(),
   })
   const planSchema = { user, session, account, verification, plans }
-  const planApp = await bunderstack({ schema: planSchema }, () => ({
+  const planApp = await bunderstack({
+    schema: planSchema,
     database: { url: ':memory:', adapter: libsql() },
     auth: {},
     access: {
@@ -224,7 +226,7 @@ test('a column named like a list parameter can still be filtered and sorted', as
         sortableColumns: ['id', 'limit'],
       },
     },
-  })).start()
+  }).start()
   await provision(planApp, { force: true })
   await planApp.db.insert(plans).values([{ limit: 10 }, { limit: 20 }])
 

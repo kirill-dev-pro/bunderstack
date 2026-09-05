@@ -3,11 +3,12 @@
 ## Separate declaration from runtime
 
 `src/bunderstack/backend.ts` synchronously constructs and exports `backend =
-bunderstack({ schema, env }, (env) => ({...}))`. The first argument is the
-static half; the callback returns everything that depends on a validated
-environment value. It is pure: `backend.inspect({ env })` resolves it and
-returns a manifest without connecting to infrastructure, and the blueprint
-imports this declaration without starting the application.
+bunderstack({...})`. The declaration is one object; `database`, `storage`,
+`messaging`, and `realtime` also accept a function of the validated
+environment, and `auth` accepts a builder over `{ db, env }`. It is pure:
+`backend.inspect({ env })` resolves it and returns a manifest without
+connecting to infrastructure, and the blueprint imports this declaration
+without starting the application.
 
 `src/bunderstack/index.ts` owns the production runtime: it imports `backend`,
 calls `await backend.start()`, exports `app`, and calls `provision(app)` when the
@@ -68,7 +69,7 @@ export const projectsRouter = {
 export const api = { projects: projectsRouter }
 
 // backend.ts
-bunderstack({ schema }, () => ({ database, api }))
+bunderstack({ schema, database, api })
 ```
 
 Do not write a router factory that receives a bag of procedures. That shape
@@ -124,11 +125,12 @@ const instrumentation = o.middleware(async ({ context, next, path }) => {
   }
 })
 
-bunderstack({ schema }, () => ({
+bunderstack({
+  schema,
   database,
   middleware: [instrumentation],
   api,
-}))
+})
 ```
 
 Three rules apply to a graph-wide middleware. It runs before authentication, so

@@ -7,27 +7,33 @@ email facade with a named **messaging registry**.
 
 ## The one-paragraph summary
 
-Two changes need edits in your code, and both are mechanical. `bunderstack(config)`
-becomes `bunderstack({ schema, env }, (env) => config)`: the schema and the env
-schema move into the first argument, and everything that reads a value moves
-into a callback that receives the validated environment. And `email: { from,
-provider }` becomes `messaging: { email: resend({ apiKey, from }) }`, with
-`app.email.send()` becoming `app.messaging.email.send()`. Everything else is
-additive: `backend.inspect({ env })` resolves a declaration without any I/O,
-blueprint generation rejects a declaration whose shape depends on a value,
-`bunderstack blueprint --hosted-check` compares a runtime declaration against
-the committed blueprint, and a channel without credentials captures to the
-message journal instead of failing.
+One change needs edits in your code, and it is mechanical: `email: { from,
+provider }` becomes `messaging: { email: resend({ apiKey, from }) }`, and
+`app.email.send()` becomes `app.messaging.email.send()`. The declaration itself
+keeps its shape — one object with `schema`, `env`, `database`, and the rest.
+`backend.manifest` becomes `backend.inspect({ env })`, because a manifest now
+depends on the environment.
 
-There is no compatibility shim. The old single-argument form, the `env` config
-key, the eager `backend.manifest` property, the `email` config key, `app.email`,
-`ctx.email`, and `t.email` are all gone in this release.
+Everything else is additive: the slots that hold credentials also accept a
+function of the validated environment, blueprint generation rejects a
+declaration whose shape depends on a value, `bunderstack blueprint
+--hosted-check` compares a runtime declaration against the committed blueprint,
+and a channel without credentials captures to the message journal instead of
+failing.
+
+There is no compatibility shim. The eager `backend.manifest` property, the
+`email` config key, `app.email`, `ctx.email`, and `t.email` are gone in this
+release.
 
 ---
 
 # What Changed
 
-## 1. Env-first declarations
+## 1. Validated env inside the declaration
+
+The declaration is still one object, and most of it is unchanged. What is new:
+the slots that hold credentials accept a function of the validated environment,
+so an application no longer reaches for `process.env` while declaring itself.
 
 ### Before (0.23)
 
@@ -39,7 +45,7 @@ export const backend = bunderstack({
     adapter: libsql(),
     url: process.env.DATABASE_URL ?? 'file:./data.db',
   },
-  auth: { secret: process.env.AUTH_SECRET! },
+  email: { from: 'App <hello@example.com>', provider: 'resend' },
   jobs: (j) => j.define({ ... }),
 })
 ```
@@ -47,41 +53,45 @@ export const backend = bunderstack({
 ### After (0.24)
 
 ```ts
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
-  database: { adapter: libsql(), url: env.DATABASE_URL },
-  auth: { secret: env.AUTH_SECRET },
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
+  database: { adapter: libsql() }, // url still defaults to DATABASE_URL
+  messaging: (env) => ({
+    email: resend({ apiKey: env.RESEND_API_KEY, from: 'App <hello@example.com>' }),
+  }),
   jobs: (j) => j.define({ ... }),
-}))
+})
 ```
 
-The first argument is the static half of the declaration. It holds `schema` and,
-when the application declares one, `env`. The second argument is a pure callback
-over the validated environment; everything else in the configuration moves into
-it. `env` is no longer a configuration key.
+`database`, `storage`, `messaging`, and `realtime` take either a value or a
+function of the environment. `auth` has taken a `({ db, env })` builder since
+0.22 and is unchanged. Everything else stays plain data, and a procedure or a
+job keeps reading `ctx.env`.
 
-`DATABASE_URL`, `AUTH_SECRET`, `REDIS_URL`, and the other built-in variables are
-on the callback's argument already, with the same defaults as before, so
-`process.env.X ?? fallback` inside the declaration can usually become `env.X`.
+`process.env.X` still works — it is an ordinary expression — but a declared key
+read through the slot function is validated first and appears in the blueprint,
+which is how a host learns what the application needs.
 
-### The callback runs more than once
+### A slot function runs more than once
 
 It is resolved once per `inspect()`, once per `start()`, and once per test
 fixture. Keep it pure: no connections, no file reads, no state. Two test
 fixtures with different values are fully independent because each resolves the
 declaration for itself.
 
-### Why the first argument exists
+### A slot supplies values, not shapes
 
-TypeScript cannot both infer a type parameter and contextually type a
-context-sensitive callback that names it. With `schema` inside the callback's
-returned object, an inline `jobs: (j) => …`, `api: (o) => …`, or
-`auth: ({ db }) => …` builder made TypeScript fall back to `Record<string,
-unknown>`, and the generated CRUD types disappeared from the client. Resolving
-`schema` and `env` before the callback runs keeps every inline builder exact.
+Which channels, buckets, or tables exist must not depend on a value. Blueprint
+generation enforces this by resolving the declaration against two accepted
+environments and comparing the manifests, so a host can provision from the
+committed blueprint before any value exists.
 
-One limit remains: an inline builder receives the open messaging type, not the
-declared channel record. Declare the builder in its own module to get the exact
-channels — `defineApi({ schema, env, messaging })`, or
+One typing limit is worth knowing: an inline `jobs` or `api` builder receives
+the open messaging type, not the declared channel record, because TypeScript
+cannot infer that record and type a sibling callback in the same pass. Declare
+the builder in its own module for exact channels —
+`defineApi({ schema, env, messaging })`, or
 `BunderstackJobsBuilder<typeof schema, AppEnv, { email: ResendDescriptor }>`.
 
 ## 2. `backend.manifest` → `backend.inspect({ env })`
@@ -109,10 +119,12 @@ whose _shape_ depends on a value is rejected:
 
 ```ts
 // Rejected — the deployed contract would differ per environment.
-bunderstack({ schema, env }, (env) => ({
+bunderstack({
+  schema,
+  env,
   database,
-  realtime: env.FEATURE_FLAG === 'enabled',
-}))
+  realtime: (env) => env.FEATURE_FLAG === 'enabled',
+})
 ```
 
 The error names the differing paths, such as `realtime.required`. It never
@@ -152,11 +164,13 @@ expect(t.email.sent).toHaveLength(1)
 ```ts
 import { resend } from 'bunderstack'
 
-messaging: {
-  email: resend({ apiKey: env.RESEND_API_KEY, from: 'App <hello@example.com>' }),
-}
-
-await app.messaging.email.send({ to, subject, html })
+messaging: ((env) => ({
+  email: resend({
+    apiKey: env.RESEND_API_KEY,
+    from: 'App <hello@example.com>',
+  }),
+}),
+  await app.messaging.email.send({ to, subject, html }))
 await ctx.messaging.email.send({ to, subject, html })
 expect(t.messaging.email.sent).toHaveLength(1)
 ```
@@ -222,17 +236,16 @@ Copy any history you need out of `_bunderstack_emails` first.
 
 # Migration checklist
 
-1. Move `schema` and `env` into the first argument of `bunderstack()`, and wrap
-   the rest of the configuration in `(env) => ({ … })`.
-2. Replace `process.env.X` inside the declaration with `env.X`, declaring the
-   key in the env schema when it is not built in.
-3. Replace `backend.manifest` with `backend.inspect({ env })`.
+1. Replace `backend.manifest` with `backend.inspect({ env })`.
+2. Optionally replace `process.env.X` inside `database`, `storage`, `messaging`,
+   or `realtime` with the slot's env function, declaring the key in `env` when
+   it is not built in.
+3. Move a value-dependent branch out of the declaration if blueprint generation
+   reports a shape difference.
 4. Replace the `email` key with a `messaging` channel built by `resend`,
    `smtp`, `customEmail`, or `telegram`.
 5. Replace `app.email` / `ctx.email` with `app.messaging.<channel>` /
    `ctx.messaging.<channel>`, and `t.email.sent` with
    `t.messaging.<channel>.sent`.
 6. Run `bunx drizzle-kit generate` for the journal tables.
-7. Regenerate the blueprint with `bunderstack blueprint`, and fix any reported
-   shape difference by moving the value-dependent branch out of the
-   declaration.
+7. Regenerate the blueprint with `bunderstack blueprint`.

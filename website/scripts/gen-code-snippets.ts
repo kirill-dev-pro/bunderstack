@@ -42,9 +42,9 @@ export const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack({ schema: { posts } }, (env) => ({
+export const backend = bunderstack({
+  schema: { posts },
   database: { adapter: bunSql() },
-  auth: { secret: env.AUTH_SECRET },
   access: { posts: { ownerColumn: 'userId' } },
   realtime: true,
   api: (o) => ({
@@ -53,7 +53,7 @@ export const backend = bunderstack({ schema: { posts } }, (env) => ({
       requestedBy: context.user.id,
     })),
   }),
-}))
+})
 
 export type App = Awaited<ReturnType<typeof backend.start>>
 `
@@ -83,41 +83,36 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack(
-  {
-    schema: { posts },
-    env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
-  },
-  (env) => ({
-    database: { adapter: bunSql() },
-    auth: { secret: env.AUTH_SECRET },
-    access: { posts: { ownerColumn: 'userId' } },
-    storage: { local: true, buckets: { images: { transforms: true } } },
-    messaging: {
-      email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
-    },
-    realtime: true,
-    jobs: (j) =>
-      j.define({
-        digest: j.cron({
-          schedule: '0 9 * * *',
-          handler: async (_run, ctx) => {
-            await ctx.messaging.email.send({
-              to: 'team@example.com',
-              subject: ctx.env.PUBLIC_APP_NAME,
-              text: 'Daily digest',
-            })
-          },
-        }),
-      }),
-    api: (o) => ({
-      stats: o.protected.handler(async ({ context }) => ({
-        total: 12,
-        requestedBy: context.user.id,
-      })),
-    }),
+export const backend = bunderstack({
+  schema: { posts },
+  env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
+  database: { adapter: bunSql() },
+  access: { posts: { ownerColumn: 'userId' } },
+  storage: { local: true, buckets: { images: { transforms: true } } },
+  messaging: (env) => ({
+    email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
   }),
-)
+  realtime: true,
+  jobs: (j) =>
+    j.define({
+      digest: j.cron({
+        schedule: '0 9 * * *',
+        handler: async (_run, ctx) => {
+          await ctx.messaging.email.send({
+            to: 'team@example.com',
+            subject: ctx.env.PUBLIC_APP_NAME,
+            text: 'Daily digest',
+          })
+        },
+      }),
+    }),
+  api: (o) => ({
+    stats: o.protected.handler(async ({ context }) => ({
+      total: 12,
+      requestedBy: context.user.id,
+    })),
+  }),
+})
 
 export type App = Awaited<ReturnType<typeof backend.start>>`,
 
@@ -133,7 +128,8 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack({ schema: { posts } }, () => ({
+export const backend = bunderstack({
+  schema: { posts },
   database: { adapter: bunSql() },
   realtime: true,
   api: (o) => ({
@@ -142,7 +138,7 @@ export const backend = bunderstack({ schema: { posts } }, () => ({
       requestedBy: context.user.id,
     })),
   }),
-}))
+})
 
 export type App = Awaited<ReturnType<typeof backend.start>>`,
 
@@ -360,10 +356,10 @@ database: { adapter: bunSql() }`,
   local: true,
   buckets: { images: { transforms: true } }
 }`,
-  messaging: `messaging: {
+  messaging: `messaging: (env) => ({
   email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
   telegram: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
-}`,
+})`,
   realtime: `realtime: true`,
   jobs: `jobs: (j) =>
   j.define({

@@ -45,7 +45,8 @@ describe('client type inference carriers', () => {
   })
 
   it('bunderstack carries schema/access/buckets in $inferClient', async () => {
-    const app = await bunderstack({ schema }, () => ({
+    const app = await bunderstack({
+      schema,
       access: {
         user: { exposeAuthTable: true, ownerColumn: 'id' },
         posts: { ownerColumn: 'userId' },
@@ -68,7 +69,7 @@ describe('client type inference carriers', () => {
           }),
         }),
       realtime: true,
-    })).start()
+    }).start()
     type Carrier = NonNullable<(typeof app)['$inferClient']>
     void (0 as unknown as Expect<Equal<Carrier['schema'], typeof schema>>)
     void (0 as unknown as Expect<Equal<Carrier['buckets'], 'images' | 'docs'>>)
@@ -93,12 +94,19 @@ describe('client type inference carriers', () => {
   })
 
   it('rejects removed split transport config', () => {
-    const base = { database: { url: ':memory:', adapter: libsql() } }
-    void bunderstack({ schema }, () => ({
-      ...base,
+    const database = { url: ':memory:', adapter: libsql() }
+    void bunderstack({
+      schema,
+      database,
+      // @ts-expect-error `routes` was replaced by the one API graph
       routes: () => ({}),
-    })).start()
-    void bunderstack({ schema }, () => ({ ...base, trpc: () => ({}) })).start()
+    }).start()
+    void bunderstack({
+      schema,
+      database,
+      // @ts-expect-error `trpc` was replaced by the one API graph
+      trpc: () => ({}),
+    }).start()
     expect(true).toBe(true)
   })
 })

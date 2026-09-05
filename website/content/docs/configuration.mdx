@@ -6,13 +6,10 @@ description: bunderstack declarations, runtime options, transports, adapters, an
 ## Application options
 
 ```ts
-const backend = bunderstack({ schema, env }, (env) => ({
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-    authToken: env.DATABASE_AUTH_TOKEN,
-    migrations: './migrations',
-  },
+const backend = bunderstack({
+  schema,
+  env,
+  database: { adapter: libsql(), migrations: './migrations' },
   access,
   auth,
   authResolver,
@@ -26,7 +23,7 @@ const backend = bunderstack({ schema, env }, (env) => ({
   idempotency: { ttlMs: 86_400_000 },
   realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
   openapi: true,
-}))
+})
 
 const app = await backend.start()
 ```

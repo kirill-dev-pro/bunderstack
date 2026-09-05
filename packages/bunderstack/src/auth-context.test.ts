@@ -14,19 +14,15 @@ const notes = sqliteTable('notes', {
 test('auth builder receives the app database and validated env', async () => {
   let seen: { db: unknown; env: unknown } | undefined
 
-  const app = await bunderstack(
-    {
-      schema: { notes },
-      env: { server: { GREETING: v.optional(v.string(), 'hi') } },
+  const app = await bunderstack({
+    schema: { notes },
+    env: { server: { GREETING: v.optional(v.string(), 'hi') } },
+    database: { url: ':memory:', adapter: libsql() },
+    auth: (ctx) => {
+      seen = ctx
+      return { emailAndPassword: { enabled: true } }
     },
-    () => ({
-      database: { url: ':memory:', adapter: libsql() },
-      auth: (ctx) => {
-        seen = ctx
-        return { emailAndPassword: { enabled: true } }
-      },
-    }),
-  ).start()
+  }).start()
 
   // The whole point of the builder: hooks write through the app's own
   // connection instead of a second one opened by the application.
@@ -38,11 +34,12 @@ test('auth builder receives the app database and validated env', async () => {
 })
 
 test('auth builder output still gets the resolved secret and email defaults', async () => {
-  const app = await bunderstack({ schema: { notes } }, () => ({
+  const app = await bunderstack({
+    schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
     messaging: { email: resend({ from: 'app@example.com' }) },
     auth: () => ({ emailAndPassword: { enabled: true } }),
-  })).start()
+  }).start()
 
   expect(typeof app.auth.options.secret).toBe('string')
   expect(typeof app.auth.options.emailAndPassword?.sendResetPassword).toBe(
@@ -53,10 +50,11 @@ test('auth builder output still gets the resolved secret and email defaults', as
 })
 
 test('a plain auth object keeps working', async () => {
-  const app = await bunderstack({ schema: { notes } }, () => ({
+  const app = await bunderstack({
+    schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
     auth: { emailAndPassword: { enabled: true } },
-  })).start()
+  }).start()
 
   expect(app.auth.options.emailAndPassword?.enabled).toBe(true)
 

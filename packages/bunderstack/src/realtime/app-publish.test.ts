@@ -20,7 +20,8 @@ type Event = {
 }
 
 test('app, API procedures, and jobs share the application publisher facade', async () => {
-  const app = await bunderstack({ schema: { avatars } }, () => ({
+  const app = await bunderstack({
+    schema: { avatars },
     database: { url: ':memory:', adapter: libsql() },
     realtime: true,
     access: {
@@ -57,7 +58,7 @@ test('app, API procedures, and jobs share the application publisher facade', asy
           },
         }),
       }),
-  })).start()
+  }).start()
   await provision(app, { force: true })
   const events: Event[] = []
   spyOn(app.realtime, 'publish').mockImplementation(
@@ -109,9 +110,10 @@ test('app, API procedures, and jobs share the application publisher facade', asy
 })
 
 test('app exposes an enabled=false no-op when realtime is not configured', async () => {
-  const app = await bunderstack({ schema: { avatars } }, () => ({
+  const app = await bunderstack({
+    schema: { avatars },
     database: { url: ':memory:', adapter: libsql() },
-  })).start()
+  }).start()
 
   expect(app.realtime.enabled).toBe(false)
   await expect(

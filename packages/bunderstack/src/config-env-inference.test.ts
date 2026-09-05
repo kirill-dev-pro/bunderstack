@@ -45,10 +45,12 @@ test('env stays inferred when auth is a defineAuth factory', async () => {
     database: db ? undefined : undefined,
   }))
 
-  const app = await bunderstack({ schema, env: envSchema }, () => ({
+  const app = await bunderstack({
+    schema,
+    env: envSchema,
     database,
     auth: authConfig,
-  })).start()
+  }).start()
 
   // Compiles only when TEnv is inferred from `envSchema`.
   const key: string = app.env.STRIPE_KEY
@@ -60,10 +62,12 @@ test('env stays inferred when auth is a defineAuth factory', async () => {
 })
 
 test('env stays inferred when auth is a plain object', async () => {
-  const app = await bunderstack({ schema, env: envSchema }, () => ({
+  const app = await bunderstack({
+    schema,
+    env: envSchema,
     database,
     auth: { secret: 'test-secret' },
-  })).start()
+  }).start()
 
   const key: string = app.env.STRIPE_KEY
 
@@ -71,14 +75,16 @@ test('env stays inferred when auth is a plain object', async () => {
   await app.close()
 })
 
-test('env-first declaration callback is inferred from its schema', async () => {
-  const backend = bunderstack({ schema, env: envSchema }, (env) => {
-    const key: string = env.STRIPE_KEY
-    const name: string = env.PUBLIC_APP_NAME
-    return {
-      database,
-      auth: { secret: `${key}:${name}` },
-    }
+test('env slots and the auth builder are inferred from the env schema', async () => {
+  const backend = bunderstack({
+    schema,
+    env: envSchema,
+    database,
+    auth: ({ env }) => {
+      const key: string = env.STRIPE_KEY
+      const name: string = env.PUBLIC_APP_NAME
+      return { secret: `${key}:${name}` }
+    },
   })
 
   const app = await backend.start({
@@ -97,11 +103,15 @@ test('env-first declaration callback is inferred from its schema', async () => {
  * parameters. This test fails to compile if either rule is broken.
  */
 test('declarations keep their inference beside inline builders', async () => {
-  const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+  const backend = bunderstack({
+    schema,
+    env: envSchema,
     database,
     access: { notes: { crud: true, list: 'public' } },
     realtime: true,
-    messaging: { email: resend({ from: `noreply@${env.PUBLIC_APP_NAME}` }) },
+    messaging: (env) => ({
+      email: resend({ from: `noreply@${env.PUBLIC_APP_NAME}` }),
+    }),
     jobs: (j) =>
       j.define({
         beat: j.job({
@@ -112,7 +122,7 @@ test('declarations keep their inference beside inline builders', async () => {
           },
         }),
       }),
-  }))
+  })
 
   const app = await backend.start({ env: { DATABASE_URL: ':memory:' } })
   // Compiles only when the channel record and the realtime flag are inferred.

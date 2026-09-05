@@ -37,10 +37,11 @@ test('bunderstack accepts a router object for the api option', async () => {
       .handler(() => ({ pong: true })),
   }
 
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
     api,
-  })).start()
+  }).start()
 
   const response = await app.handler(new Request('http://test/api/ping'))
 
@@ -50,14 +51,15 @@ test('bunderstack accepts a router object for the api option', async () => {
 })
 
 test('bunderstack still accepts the api callback', async () => {
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
     api: (o) => ({
       ping: o.public
         .route({ method: 'GET', path: '/api/ping' })
         .handler(() => ({ pong: 'callback' })),
     }),
-  })).start()
+  }).start()
 
   const response = await app.handler(new Request('http://test/api/ping'))
 
@@ -67,9 +69,10 @@ test('bunderstack still accepts the api callback', async () => {
 })
 
 test('readiness reports an unprovisioned database as an error', async () => {
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
-  })).start()
+  }).start()
 
   const response = await app.handler(new Request('http://test/api/readiness'))
 
@@ -86,9 +89,10 @@ test('readiness reports an unprovisioned database as an error', async () => {
 })
 
 test('readiness reports a provisioned application as ok', async () => {
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
-  })).start()
+  }).start()
   await provision(app, { force: true })
 
   const response = await app.handler(new Request('http://test/api/readiness'))

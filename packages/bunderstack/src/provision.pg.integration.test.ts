@@ -15,13 +15,14 @@ const widgets = pgTable('provision_pg_widgets', {
 })
 
 test('provision pushes a pg schema to PGlite when no migrations exist', async () => {
-  const app = await bunderstack({ schema: { widgets } }, () => ({
+  const app = await bunderstack({
+    schema: { widgets },
     database: {
       url: 'memory://',
       migrations: './does-not-exist-migrations',
       adapter: pglite(),
     },
-  })).start()
+  }).start()
 
   await provision(app, { force: true })
 
@@ -57,9 +58,10 @@ test('provision applies committed pg migrations instead of pushing', async () =>
   )
 
   try {
-    const app = await bunderstack({ schema: { widgets } }, () => ({
+    const app = await bunderstack({
+      schema: { widgets },
       database: { url: 'memory://', migrations: dir, adapter: pglite() },
-    })).start()
+    }).start()
 
     await provision(app)
 

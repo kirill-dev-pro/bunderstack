@@ -25,9 +25,10 @@ test('bunderstack is synchronous and does not connect', () => {
     async migrate() {},
   }
 
-  const backend = bunderstack({ schema: { notes } }, () => ({
+  const backend = bunderstack({
+    schema: { notes },
     database: { adapter },
-  }))
+  })
 
   expect(connects).toBe(0)
   expect(
@@ -39,12 +40,11 @@ test('explicit start env does not inherit process.env', async () => {
   const previous = process.env.ADMIN_TOKEN
   process.env.ADMIN_TOKEN = 'ambient'
   try {
-    const backend = bunderstack(
-      { schema: { notes }, env: { server: { ADMIN_TOKEN: v.string() } } },
-      () => ({
-        database: { adapter: libsql() },
-      }),
-    )
+    const backend = bunderstack({
+      schema: { notes },
+      env: { server: { ADMIN_TOKEN: v.string() } },
+      database: { adapter: libsql() },
+    })
 
     await expect(
       backend.start({ env: { DATABASE_URL: ':memory:' } }),
@@ -58,29 +58,26 @@ test('explicit start env does not inherit process.env', async () => {
 test('a throwing api callback fails during inspection', () => {
   const failure = new Error('router construction failed')
 
-  const backend = bunderstack({ schema: { notes } }, () => ({
+  const backend = bunderstack({
+    schema: { notes },
     database: { adapter: libsql() },
     api: () => {
       throw failure
     },
-  }))
+  })
   expect(() => backend.inspect()).toThrow(failure)
 })
 
-test('env-first declarations are lazy and inspect each explicit environment', () => {
+test('env slots are lazy and resolve per inspected environment', () => {
   const seen: string[] = []
-  const backend = bunderstack(
-    { schema: { notes }, env: { server: { TENANT: v.string() } } },
-    (env) => {
+  const backend = bunderstack({
+    schema: { notes },
+    env: { server: { TENANT: v.string() } },
+    database: (env) => {
       seen.push(env.TENANT)
-      return {
-        database: {
-          adapter: libsql(),
-          migrations: `migrations/${env.TENANT}`,
-        },
-      }
+      return { adapter: libsql(), migrations: `migrations/${env.TENANT}` }
     },
-  )
+  })
 
   expect(seen).toEqual([])
   expect(
@@ -103,9 +100,10 @@ test('hosted blueprint mismatch fails before connecting to the database', async 
     },
     async migrate() {},
   }
-  const backend = bunderstack({ schema: { notes } }, () => ({
+  const backend = bunderstack({
+    schema: { notes },
     database: { adapter },
-  }))
+  })
   const directory = await mkdtemp(join(tmpdir(), 'bunderstack-contract-'))
   const path = join(directory, 'bunderstack.blueprint.yaml')
   const blueprint = blueprintFromManifest({

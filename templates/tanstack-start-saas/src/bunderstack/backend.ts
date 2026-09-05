@@ -12,13 +12,15 @@ import * as schema from './schema'
  * The application declaration is synchronous and side-effect free. Blueprint
  * generation imports this module without opening a database or starting jobs.
  */
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
   access,
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+  database: { adapter: libsql() },
   auth: authConfig,
-  messaging: {
+  messaging: (env) => ({
     email: resend({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }),
-  },
+  }),
   storage: {
     local: './uploads',
     defaultBucket: 'project-files',
@@ -34,4 +36,4 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   jobs: defineJobs,
   middleware: [requestTiming],
   api,
-}))
+})

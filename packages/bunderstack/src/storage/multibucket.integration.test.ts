@@ -13,7 +13,8 @@ afterAll(async () => {
 })
 
 async function buildApp() {
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
     storage: {
       local: TMP_DIR,
@@ -25,7 +26,7 @@ async function buildApp() {
         },
       },
     },
-  })).start()
+  }).start()
   await provision(app, { force: true })
   return app
 }

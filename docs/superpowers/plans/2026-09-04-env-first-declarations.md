@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the object form with `bunderstack({ schema, env }, env => config)`, adding per-start resolution, explicit inspection, and blueprint shape probes.
+**Goal:** Let a declaration read validated environment values, with per-start resolution, explicit inspection, and blueprint shape probes.
 
-**Outcome (2026-09-05):** Implemented. The declaration's static half moved into
-the first argument after the two-argument form was found to break inference for
-every inline `jobs`, `api`, and `auth` builder; see the design's decision 1.
+**Outcome (2026-09-05):** Implemented. The declaration stays a single object;
+the slots that hold credentials accept a function of the validated environment.
+An outer callback around the whole configuration was tried first and dropped: it
+breaks inference for every inline `jobs`, `api`, and `auth` builder. See the
+design's decision 1.
 
 **Architecture:** Store either a static config or an env schema plus pure config factory in backend internals. Route `start()`, `test()`, and `inspect()` through one materializer that validates env before resolving the factory. Build manifests from resolved configuration without starting runtime resources.
 
@@ -16,7 +18,7 @@ every inline `jobs`, `api`, and `auth` builder; see the design's decision 1.
 
 ## Global Constraints
 
-- The single-argument `bunderstack(config)` form and the eager `backend.manifest` property are removed.
+- `bunderstack(config)` keeps its single-argument form; the eager `backend.manifest` property is removed.
 - Env-first factories are resolved independently for every inspection, start, and test fixture.
 - Inspection performs no database, storage, network, provider, or worker I/O.
 - Manifest errors and diffs never contain environment values.

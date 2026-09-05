@@ -51,9 +51,9 @@ test('schema mapper covers the shapes bunderstack emits', () => {
 })
 
 test('generated route map carries literals plus typed phantoms', async () => {
-  const app = await bunderstack({ schema: { posts } }, () => ({
+  const app = await bunderstack({
+    schema: { posts },
     database: { adapter: pglite() },
-
     access: {
       posts: {
         crud: true,
@@ -68,7 +68,7 @@ test('generated route map carries literals plus typed phantoms', async () => {
     },
     realtime: true,
     openapi: true,
-  })).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
+  }).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
   const response = await app.handler(
     new Request('http://test/api/openapi.json'),
   )

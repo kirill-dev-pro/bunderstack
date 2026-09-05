@@ -19,16 +19,18 @@ import { defineJobs } from './jobs'
 import { schema } from './schema'
 import * as v from 'valibot'
 
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
   access,
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+  env: envSchema,
+  database: { adapter: libsql() },
   auth: authConfig,
-  messaging: {
+  messaging: (env) => ({
     email: resend({
       apiKey: env.RESEND_API_KEY,
       from: 'App <no-reply@example.com>',
     }),
-  },
+  }),
   storage: {
     local: './uploads',
     defaultBucket: 'files',
@@ -236,7 +238,7 @@ performs domain work that cannot move into a job.
 await app.messaging.email.send({ to, subject, html })
 ```
 
-Declare named channels: `messaging: { email: resend({ apiKey, from }) }`. A
+Declare named channels: `messaging: (env) => ({ email: resend({ apiKey: env.RESEND_API_KEY, from }) })`. A
 channel whose credentials are absent or empty captures to the message journal
 instead of sending, and prints to the console locally. Telegram is a provider
 too, with its own message type. The facade uses Web Standard `fetch`, so the
@@ -244,7 +246,7 @@ too, with its own message type. The facade uses Web Standard `fetch`, so the
 
 ## Env
 
-Pass `envSchema` in the first argument — `bunderstack({ schema, env: envSchema }, (env) => …)` — and read `app.env`
+Pass `envSchema` as the `env` key of the declaration and read `app.env`
 or `ctx.env`. Remove `@t3-oss/env-core` `createEnv()` calls and `dotenv`; Bun
 loads `.env` itself. Server variables must not use the `PUBLIC_` prefix, and
 browser-safe variables must. Declared env appears in the deployment blueprint,

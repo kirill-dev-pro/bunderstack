@@ -28,6 +28,7 @@ Major optional groups:
 
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
+- `env`: declared environment, validated before anything reads it;
 - `storage`, `messaging`, and `jobs`: application facilities;
 - `api`: your oRPC router, as an object or as `(o) => router`;
 - `middleware`: oRPC middleware applied to every procedure in the graph;
@@ -36,10 +37,12 @@ Major optional groups:
 
 See [Configuration](/docs/configuration) for examples and defaults.
 
-`bunderstack({ schema, env }, (env) => config)` only declares the backend. The
-first argument is the static half — the Drizzle schema and the environment
-schema — and the callback returns everything that depends on a validated value.
-The callback runs once per operation, never at import time.
+`bunderstack(config)` only declares the backend. `database`, `storage`,
+`messaging`, and `realtime` also accept a function of the validated
+environment, and `auth` accepts a builder over `{ db, env }`. Those functions
+run once per operation — never at import time — and must supply values, not
+shapes: blueprint generation rejects a declaration whose shape depends on a
+value.
 
 `backend.inspect({ env })` resolves the declaration and returns its manifest
 without opening a database, a bucket, a provider connection, or a worker.

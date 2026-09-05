@@ -12,8 +12,9 @@ import { libsql } from 'bunderstack/libsql'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const backend = bunderstack({ schema }, (env) => ({
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+export const backend = bunderstack({
+  schema,
+  database: { adapter: libsql() },
   access: { posts: { crud: true } },
   realtime: true,
   api: {
@@ -22,7 +23,7 @@ export const backend = bunderstack({ schema }, (env) => ({
       .input(v.optional(v.object({})))
       .handler(() => ({ ok: true })),
   },
-}))
+})
 
 export const app = await backend.start()
 Bun.serve({ fetch: app.handler })
@@ -41,7 +42,7 @@ await context.realtime.publish(schema.posts, 'update', post)
 ```
 
 Use the in-memory Publisher for one process or configure
-`realtime: { redis: env.REDIS_URL }` for multi-process delivery and
+`realtime: (env) => ({ redis: env.REDIS_URL })` for multi-process delivery and
 replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
 ## Package Subpaths (0.21+)

@@ -41,8 +41,9 @@ import { provision } from 'bunderstack/provision'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const backend = bunderstack({ schema }, (env) => ({
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+export const backend = bunderstack({
+  schema,
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: {
@@ -61,7 +62,7 @@ export const backend = bunderstack({ schema }, (env) => ({
       .input(v.object({ name: v.string() }))
       .handler(({ input }) => ({ message: `Hello, ${input.name}` })),
   }),
-}))
+})
 
 export const app = await backend.start()
 

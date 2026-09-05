@@ -38,12 +38,13 @@ const throwingAdapter = {
   async migrate() {},
 }
 
-export const backend = bunderstack({ schema: {} }, () => ({
+export const backend = bunderstack({
+  schema: {},
   database: { adapter: throwingAdapter, migrations: ${JSON.stringify(migrationsDirectory)} },
   jobs: (j) => j.define({
     nightly: j.cron({ schedule: '0 3 * * *', handler() {} }),
   }),
-}))`,
+})`,
   )
   return directory
 }
@@ -81,12 +82,13 @@ test('generateBlueprint normalizes absolute migration directories inside the app
   await Bun.write(
     join(directory, 'src/bunderstack.ts'),
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
-export const backend = bunderstack({ schema: {} }, () => ({
+export const backend = bunderstack({
+  schema: {},
   database: {
     adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
     migrations: ${JSON.stringify(migrationsDirectory)},
   },
-}))`,
+})`,
   )
   try {
     const result = await generateBlueprint({ directory })
@@ -119,9 +121,10 @@ test('generateBlueprint detects solid framework from dependencies', async () => 
   await Bun.write(
     entryPath,
     `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
-export const backend = bunderstack({ schema: {} }, () => ({
+export const backend = bunderstack({
+  schema: {},
   database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
-}))`,
+})`,
   )
   try {
     const result = await generateBlueprint({ directory })
@@ -157,12 +160,14 @@ const flag = { '~standard': { version: 1, vendor: 'test', validate(value) {
     ? { value }
     : { issues: [{ message: 'expected flag' }] }
 } } }
-export const backend = bunderstack({ schema: {}, env: { server: { FEATURE: flag } } }, (env) => ({
-  database: {
+export const backend = bunderstack({
+  schema: {},
+  env: { server: { FEATURE: flag } },
+  database: (env) => ({
     adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} },
     url: env.FEATURE,
-  },
-}))`,
+  }),
+})`,
   )
   try {
     await expect(generateBlueprint({ directory })).resolves.toBeDefined()
@@ -181,10 +186,12 @@ const flag = { '~standard': { version: 1, vendor: 'test', validate(value) {
     ? { value }
     : { issues: [{ message: 'expected flag' }] }
 } } }
-export const backend = bunderstack({ schema: {}, env: { server: { FEATURE: flag } } }, (env) => ({
+export const backend = bunderstack({
+  schema: {},
+  env: { server: { FEATURE: flag } },
   database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
-  realtime: env.FEATURE === 'true',
-}))`,
+  realtime: (env) => env.FEATURE === 'true',
+})`,
   )
   try {
     await expect(generateBlueprint({ directory })).rejects.toThrow(

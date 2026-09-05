@@ -13,13 +13,14 @@ const widgets = sqliteTable('provision_widgets', {
 })
 
 test('provision pushes schema when no migrations folder exists', async () => {
-  const app = await bunderstack({ schema: { widgets } }, () => ({
+  const app = await bunderstack({
+    schema: { widgets },
     database: {
       url: ':memory:',
       migrations: './does-not-exist-migrations',
       adapter: libsql(),
     },
-  })).start()
+  }).start()
 
   await provision(app, { force: true })
 
@@ -55,9 +56,10 @@ test('provision applies committed migrations instead of pushing', async () => {
   )
 
   try {
-    const app = await bunderstack({ schema: { widgets } }, () => ({
+    const app = await bunderstack({
+      schema: { widgets },
       database: { url: ':memory:', migrations: dir, adapter: libsql() },
-    })).start()
+    }).start()
 
     await provision(app)
 

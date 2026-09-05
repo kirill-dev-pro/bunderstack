@@ -33,13 +33,14 @@ import { access } from './access'
 import { api } from './api'
 
 // 1. Pure synchronous declaration (does NO I/O, no DB connection)
-//    First argument: the static half — schema, plus `env` when declared.
-//    Callback: everything that depends on a validated environment value.
-export const backend = bunderstack({ schema }, (env) => ({
+//    One object. `database`, `storage`, `messaging`, and `realtime` also take
+//    a function of the validated env when they need a key or a URL.
+export const backend = bunderstack({
+  schema,
   access,
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+  database: { adapter: libsql() }, // url defaults to DATABASE_URL
   api,
-}))
+})
 
 // 2. Explicit runtime start (connects to DB, migrates, starts services)
 export const app = await backend.start()
@@ -96,7 +97,7 @@ All Bunderstack capabilities are imported directly from single-segment subpaths 
    Consolidate all backend logic in `src/bunderstack/` with domain separation:
    ```
    src/bunderstack/
-   ├── backend.ts         # Synchronous bunderstack({ schema, env }, (env) => ({...})) declaration
+   ├── backend.ts         # Synchronous bunderstack({...}) declaration
    ├── index.ts           # export const app = await backend.start(), provision(app), exports { db, auth, env }
    ├── env.ts             # envSchema (server / client) via Valibot
    ├── access.ts          # defineAccess(schema, { ... })
@@ -260,7 +261,7 @@ export const access = defineAccess(schema, {
 
 ### 3.2 Authentication (`authConfig`)
 
-Export a clean Better Auth config and return it from the declaration callback as `auth: authConfig`:
+Export a clean Better Auth config and pass it as `auth: authConfig`; use the `({ db, env })` builder form when a hook needs the database or an env value:
 
 ```ts
 // src/bunderstack/auth.ts

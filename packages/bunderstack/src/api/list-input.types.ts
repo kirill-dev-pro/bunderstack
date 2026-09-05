@@ -19,9 +19,9 @@ const posts = pgTable('posts', {
   likes: integer('likes').notNull(),
 })
 
-const app = await bunderstack({ schema: { posts } }, () => ({
+const app = await bunderstack({
+  schema: { posts },
   database: { adapter: pglite() },
-
   access: {
     posts: {
       crud: true,
@@ -30,7 +30,7 @@ const app = await bunderstack({ schema: { posts } }, () => ({
       sortableColumns: ['id', 'likes'],
     },
   },
-})).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
+}).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
 
 type Api = NonNullable<(typeof app)['$inferClient']>['api']
 type ListInput = InferRouterInputs<Api>['posts']['list']

@@ -109,10 +109,10 @@ database: { adapter: bunSql() }`,
     docPath: 'messaging',
     color: '#06b6d4',
     colorRgb: '6, 182, 212',
-    code: `messaging: {
+    code: `messaging: (env) => ({
   email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
   telegram: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
-}`,
+})`,
     description:
       'Named channels per provider, each with its own message type. A channel without credentials captures to the message journal instead of sending.',
   },

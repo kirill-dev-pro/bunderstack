@@ -5,7 +5,8 @@ import { bunderstack, resend, telegram } from '../index'
 import { bunderstackMessages } from '../internal-tables'
 
 test('fixtures replace email storage and realtime infrastructure', async () => {
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database: { adapter: libsql() },
     messaging: {
       email: resend({ from: 'App <app@test.local>' }),
@@ -17,7 +18,7 @@ test('fixtures replace email storage and realtime infrastructure', async () => {
       buckets: { files: { visibility: 'private' } },
     },
     realtime: { redis: 'redis://production.invalid:6379' },
-  }))
+  })
 
   await using t = await backend.test({ database: { schema: 'push' } })
   await t.app.messaging.email.send({

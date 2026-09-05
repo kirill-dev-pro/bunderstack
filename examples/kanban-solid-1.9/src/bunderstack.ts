@@ -14,20 +14,18 @@ const envSchema = {
   },
 }
 
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-  },
-  auth: {
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
+  database: { adapter: libsql() },
+  auth: ({ env }) => ({
     baseURL: env.APP_URL,
-    secret: env.AUTH_SECRET,
     emailAndPassword: { enabled: true },
     plugins: [organization()],
-  },
+  }),
   access,
   realtime: true,
-}))
+})
 
 export const app = await backend.start()
 

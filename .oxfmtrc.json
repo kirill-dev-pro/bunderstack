@@ -4,7 +4,7 @@
   "singleQuote": true,
   "trailingComma": "all",
   "printWidth": 80,
-  "ignorePatterns": [],
+  "ignorePatterns": ["**/bunderstack.blueprint.yaml"],
   "sortImports": {
     "groups": [
       "type-import",

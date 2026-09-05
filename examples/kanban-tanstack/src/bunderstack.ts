@@ -20,19 +20,17 @@ const envSchema = {
   },
 }
 
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-  },
-  auth: {
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
+  database: { adapter: libsql() },
+  auth: ({ env }) => ({
     baseURL: env.APP_URL,
-    secret: env.AUTH_SECRET,
     emailAndPassword: { enabled: true },
     plugins: [organization()],
     // Ids come from the schema's `typeid()` defaults, not from Better Auth.
     advanced: { database: { generateId: () => false } },
-  },
+  }),
   access,
   realtime: true,
   storage: {
@@ -71,7 +69,7 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
       },
     },
   },
-}))
+})
 
 export const app = await backend.start()
 

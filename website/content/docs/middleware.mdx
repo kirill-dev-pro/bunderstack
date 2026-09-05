@@ -45,11 +45,12 @@ export const instrumentation = o.middleware(async ({ context, next, path }) => {
 ```
 
 ```ts
-const backend = bunderstack({ schema }, () => ({
+const backend = bunderstack({
+  schema,
   database,
   middleware: [instrumentation],
   api,
-}))
+})
 
 const app = await backend.start()
 ```

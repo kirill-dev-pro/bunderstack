@@ -22,15 +22,13 @@ function responderFor(env: AgentProviderEnv) {
   return createConfiguredResponder(responderOptionsFromEnv(env))
 }
 
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
   access,
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-  },
-  auth: ({ db }) => ({
+  database: { adapter: libsql() },
+  auth: ({ db, env }) => ({
     baseURL: env.APP_URL,
-    secret: env.AUTH_SECRET,
     emailAndPassword: { enabled: true },
     plugins: [
       anonymous({
@@ -90,7 +88,7 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
       }),
     }),
   api,
-}))
+})
 
 export const app = await backend.start()
 

@@ -80,16 +80,57 @@ export function isBunderstackBackend(
 }
 
 /**
- * The static half of a declaration. `schema` and `env` are resolved before the
- * factory runs, which is what lets an inline `jobs`, `api`, or `auth` builder
- * see the exact table and env types.
+ * A configuration slot that may read validated environment values. The shape a
+ * slot produces reaches the manifest, so a callback belongs here to supply a
+ * key, a URL, or a sender — never to change which channels, buckets, or tables
+ * exist. Blueprint generation resolves the declaration against two accepted
+ * environments and rejects a shape that differs between them.
+ */
+export type EnvAware<TEnv extends EnvConfigInput | undefined, T> =
+  | T
+  | ((env: ValidatedEnv<NoInfer<TEnv>>) => T)
+
+export type DatabaseSlot = BunderstackConfig<
+  Record<string, unknown>,
+  undefined,
+  undefined,
+  undefined,
+  undefined
+>['database']
+
+/**
+ * The whole application in one object. `schema`, `access`, and the routers are
+ * plain data; the slots that hold credentials also accept a function of the
+ * validated environment.
  */
 export type BunderstackDeclaration<
   TSchema extends Record<string, unknown>,
-  TEnv extends EnvConfigInput | undefined,
-> = {
-  schema: TSchema
+  TEnv extends EnvConfigInput | undefined = undefined,
+  TAccess extends Record<string, TableAccessInput> | undefined = undefined,
+  TStorage extends StorageConfigInput | undefined = undefined,
+  TJobsDefs extends JobsDefs | undefined = undefined,
+  TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
+  TRealtime = undefined,
+  TMessaging extends MessagingConfig | undefined = undefined,
+> = Omit<
+  BunderstackDefinitionConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TJobsDefs,
+    TCustomApiRouter,
+    TRealtime,
+    TMessaging
+  >,
+  'database' | 'storage' | 'messaging' | 'realtime'
+> & {
+  /** Declared environment. Its names reach the blueprint; its values never do. */
   env?: TEnv
+  database: EnvAware<TEnv, DatabaseSlot>
+  storage?: EnvAware<TEnv, TStorage>
+  messaging?: EnvAware<TEnv, TMessaging>
+  realtime?: EnvAware<TEnv, TRealtime>
 }
 
 export function bunderstack<
@@ -103,21 +144,15 @@ export function bunderstack<
   const TRealtime extends RealtimeConfigInput | undefined = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
 >(
-  declaration: BunderstackDeclaration<TSchema, TEnv>,
-  factory: (
-    env: ValidatedEnv<TEnv>,
-  ) => Omit<
-    BunderstackDefinitionConfig<
-      TSchema,
-      TAccess,
-      TStorage,
-      TEnv,
-      TJobsDefs,
-      TCustomApiRouter,
-      TRealtime,
-      TMessaging
-    >,
-    'schema'
+  declaration: BunderstackDeclaration<
+    TSchema,
+    TEnv,
+    TAccess,
+    TStorage,
+    TJobsDefs,
+    TCustomApiRouter,
+    TRealtime,
+    TMessaging
   >,
 ): BunderstackBackend<
   BunderstackApp<
@@ -132,18 +167,27 @@ export function bunderstack<
   >
 >
 export function bunderstack(
-  declaration: BunderstackDeclaration<Record<string, unknown>, EnvConfigInput>,
-  factory: (
-    env: any,
-  ) => Omit<
-    BunderstackDefinitionConfig<any, any, any, any, any, any, any, any>,
-    'schema'
-  >,
+  declaration: BunderstackDeclaration<Record<string, unknown>, any>,
 ): BunderstackBackend<any> {
-  const envSchema = declaration.env
+  const { env: envSchema, ...slots } = declaration as Record<
+    string,
+    unknown
+  > & {
+    env?: EnvConfigInput
+  }
   const inspect = (source: Record<string, string | undefined>) => {
     const env = validateEnv(envSchema, { source })
-    const config = { schema: declaration.schema, ...factory(env) }
+    const resolve = (value: unknown) =>
+      typeof value === 'function'
+        ? (value as (given: typeof env) => unknown)(env)
+        : value
+    const config = {
+      ...slots,
+      database: resolve(slots.database),
+      storage: resolve(slots.storage),
+      messaging: resolve(slots.messaging),
+      realtime: resolve(slots.realtime),
+    }
     return inspectConfig(config as never, envSchema, env)
   }
 

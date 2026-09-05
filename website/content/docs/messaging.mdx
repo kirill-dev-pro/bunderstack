@@ -17,28 +17,26 @@ import * as v from 'valibot'
 
 import * as schema from './schema'
 
-export const backend = bunderstack(
-  {
-    schema,
-    env: {
-      server: {
-        RESEND_API_KEY: v.optional(v.string()),
-        TELEGRAM_BOT_TOKEN: v.optional(v.string()),
-      },
+export const backend = bunderstack({
+  schema,
+  env: {
+    server: {
+      RESEND_API_KEY: v.optional(v.string()),
+      TELEGRAM_BOT_TOKEN: v.optional(v.string()),
     },
   },
-  (env) => ({
-    database: { adapter: libsql(), url: env.DATABASE_URL },
-    messaging: {
-      email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
-      billing: resend({
-        apiKey: env.RESEND_API_KEY,
-        from: 'billing@example.com',
-      }),
-      ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
-    },
+  database: { adapter: libsql() },
+  // `messaging` holds credentials, so it also accepts a function of the
+  // validated environment. Which channels exist must not depend on a value.
+  messaging: (env) => ({
+    email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
+    billing: resend({
+      apiKey: env.RESEND_API_KEY,
+      from: 'billing@example.com',
+    }),
+    ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
   }),
-)
+})
 
 export const app = await backend.start()
 ```
@@ -109,9 +107,9 @@ custom adapter the adapter itself plus `from`.
 ### Resend
 
 ```ts
-messaging: {
+messaging: (env) => ({
   email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
-}
+})
 ```
 
 ### SMTP
@@ -119,9 +117,9 @@ messaging: {
 ```ts
 import { smtp } from 'bunderstack/email-smtp'
 
-messaging: {
+messaging: (env) => ({
   email: smtp({ url: env.SMTP_URL, from: 'app@example.com' }),
-}
+})
 ```
 
 SMTP uses [nodemailer](https://nodemailer.com) through its own subpath, so an
@@ -134,9 +132,9 @@ bun add nodemailer
 ### Telegram
 
 ```ts
-messaging: {
+messaging: (env) => ({
   ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
-}
+})
 ```
 
 `to` accepts a chat ID or an `@channel` name.
@@ -210,9 +208,9 @@ type-checks against an email message.
 
 ## Exact channel types in a separate module
 
-A builder declared inline in the config callback receives an open messaging
-type, because TypeScript cannot infer the channel record and type the callback
-in the same pass. Declare the builder in its own module to get the exact type:
+An inline `jobs` or `api` builder receives an open messaging type, because
+TypeScript cannot infer the channel record and type a sibling callback in the
+same pass. Declare the builder in its own module to get the exact type:
 
 ```ts
 import type { BunderstackJobsBuilder } from 'bunderstack'

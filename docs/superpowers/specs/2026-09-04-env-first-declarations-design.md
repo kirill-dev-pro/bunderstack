@@ -9,22 +9,20 @@ configuration, without forcing environment values through separate auth,
 database, and provider builders:
 
 ```ts
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
   access,
-  auth: authConfig(env),
-  database: {
-    adapter: libsql(),
-    migrations: './migrations',
-    url: env.DATABASE_URL,
-  },
-  messaging: {
+  auth: ({ env }) => authConfig(env),
+  database: { adapter: libsql(), migrations: './migrations' },
+  messaging: (env) => ({
     email: resend({
       apiKey: env.RESEND_API_KEY,
       from: 'Company <hello@company.com>',
     }),
     telegram: telegram({ token: env.TELEGRAM_BOT_TOKEN }),
-  },
-}))
+  }),
+})
 ```
 
 The callback receives ordinary validated values. Bunderstack does not introduce
@@ -38,35 +36,45 @@ values before runtime clients are created.
 
 ## Decisions
 
-### 1. One declaration form
+### 1. One declaration object, env in the slots that hold keys
 
-There is one form, and the previous single-argument object form is removed:
+The declaration keeps the single-object form. The slots that carry credentials
+also accept a function of the validated environment:
 
 ```ts
-const backend = bunderstack({ schema, env: envSchema }, (env) => ({
-  database: { adapter: libsql(), url: env.DATABASE_URL },
-}))
+const backend = bunderstack({
+  schema,
+  env: envSchema,
+  database: { adapter: libsql() },
+  messaging: (env) => ({ email: resend({ apiKey: env.RESEND_API_KEY }) }),
+})
 ```
 
-The first argument is the static half of the declaration: the Drizzle schema
-and, optionally, the environment schema. The callback returns everything that
-depends on a validated value, and its parameter is contextually typed as
-`ValidatedEnv<typeof envSchema>`. `env` is no longer a configuration key, and
-`schema` is not repeated inside the returned object.
+The env-aware slots are `database`, `storage`, `messaging`, and `realtime`;
+`auth` already takes a builder over `{ db, env }`. Everything else is plain
+data, and procedures and jobs read `ctx.env`.
 
-**Why `schema` moved into the first argument.** TypeScript cannot both infer a
-type parameter and contextually type a nested context-sensitive callback that
-names it. With `schema` in the returned object, an inline `jobs: (j) => …`,
-`api: (o) => …`, or `auth: ({ db }) => …` builder made the compiler fix
-`TSchema` to its constraint, and the generated CRUD types vanished from the
-client. Resolving `schema` and `env` before the callback runs removes that
-failure. The same limit still applies to `TMessaging`, so the inline `jobs` and
-`api` builders receive the open `MessagingConfig`; a builder declared in its own
-module with an annotated parameter gets the exact channel record.
+**Why not a callback around the whole configuration.** TypeScript resolves a
+nested context-sensitive callback in a second pass, using the type parameters
+inferred from its siblings — which is why `api: (o) => router` and
+`auth: ({ db, env }) => …` have always worked. Wrapping the entire
+configuration in one more callback adds a level the compiler has no pass for:
+`TSchema` collapses to its constraint and the generated CRUD types vanish from
+the client. Keeping the configuration as the direct argument avoids that
+entirely.
 
-A backend resolves the callback independently for every `start()`, `test()`,
-and inspection. It must not cache a configuration produced for a different
-environment.
+One limit remains inside the object: a type parameter named by a
+context-sensitive sibling is fixed early, so the inline `jobs` and `api`
+builders receive the open `MessagingConfig` rather than `TMessaging`. A builder
+declared in its own module with an annotated parameter gets the exact channel
+record.
+
+A slot function is resolved independently for every `start()`, `test()`, and
+inspection. It must not cache a configuration produced for a different
+environment, and it supplies values, never shapes: the probe in decision 4
+rejects a declaration whose manifest differs between two accepted
+environments, which is what lets a host provision from the committed blueprint
+alone.
 
 ### 2. Inspection is explicit
 

@@ -6,13 +6,12 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ### Changed
 
-- **Env-first declarations.** `bunderstack(config)` becomes
-  `bunderstack({ schema, env }, (env) => config)`. The first argument holds the
-  static half of the declaration; the callback receives the validated
-  environment and returns everything that depends on a value. `env` is no
-  longer a configuration key, and the callback is resolved once per `inspect()`,
-  `start()`, and test fixture. Resolving `schema` and `env` before the callback
-  runs is what keeps an inline `jobs`, `api`, or `auth` builder exactly typed.
+- **Env-first declarations.** The declaration stays one object, and the slots
+  that hold credentials — `database`, `storage`, `messaging`, and `realtime` —
+  now also accept a function of the validated environment; `auth` has taken a
+  `{ db, env }` builder since 0.22. A slot function is resolved once per
+  `inspect()`, `start()`, and test fixture, and it supplies values, never
+  shapes.
 - **`backend.manifest` becomes `backend.inspect({ env })`.** A manifest depends
   on the environment, so it is a call. Inspection validates the environment,
   resolves the declaration, and builds the manifest without opening a database,
@@ -53,8 +52,7 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ### Removed
 
-- The single-argument `bunderstack(config)` form, the `env` configuration key,
-  the eager `backend.manifest` property, the `email` configuration key,
+- The eager `backend.manifest` property, the `email` configuration key,
   `app.email`, `ctx.email`, and `t.email`. See `docs/MIGRATION-0.24.md`.
 
 ## [0.23.4] - 2026-09-01

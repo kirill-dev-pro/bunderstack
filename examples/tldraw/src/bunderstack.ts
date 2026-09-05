@@ -12,22 +12,20 @@ const envSchema = {
   },
 }
 
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
   access,
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-  },
-  auth: {
+  database: { adapter: libsql() },
+  auth: ({ env }) => ({
     baseURL: env.APP_URL,
     emailAndPassword: { enabled: true },
-    secret: env.AUTH_SECRET,
     advanced: {
       database: {
         generateId: () => false,
       },
     },
-  },
+  }),
   storage: {
     local: './uploads',
     defaultBucket: 'images',
@@ -44,7 +42,7 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
     },
   },
   realtime: true,
-}))
+})
 
 export const app = await backend.start()
 

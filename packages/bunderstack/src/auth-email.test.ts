@@ -77,10 +77,11 @@ test('default reset template sends through the facade', async () => {
 })
 
 test('a declared email channel is exposed through app.messaging', async () => {
-  const backend = bunderstack({ schema: { notes } }, () => ({
+  const backend = bunderstack({
+    schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
     messaging: { email: resend({ from: 'app@example.com' }) },
-  }))
+  })
   await using fixture = await backend.test({ database: { schema: 'push' } })
   await expect(
     fixture.app.messaging.email.send({ to: 'a@b.c', subject: 's', text: 't' }),
@@ -91,10 +92,11 @@ test('resend without an API key starts in capture mode', async () => {
   const hadKey = process.env.RESEND_API_KEY
   delete process.env.RESEND_API_KEY
   await expect(
-    bunderstack({ schema: { notes } }, () => ({
+    bunderstack({
+      schema: { notes },
       database: { url: ':memory:', adapter: libsql() },
       messaging: { email: resend({ from: 'app@example.com' }) },
-    })).start(),
+    }).start(),
   ).resolves.toBeDefined()
   if (hadKey) process.env.RESEND_API_KEY = hadKey
 })

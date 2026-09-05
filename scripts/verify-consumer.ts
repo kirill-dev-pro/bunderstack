@@ -215,7 +215,8 @@ const timing = os
   .$context<ApiContext<typeof schema>>()
   .middleware(async ({ next }) => next())
 
-export const backend = bunderstack({ schema }, () => ({
+export const backend = bunderstack({
+  schema,
   database: { adapter: libsql() },
   auth: {},
   realtime: true,
@@ -235,7 +236,7 @@ export const backend = bunderstack({ schema }, () => ({
       .output(v.object({ id: v.string() }))
       .handler(() => ({ id: generate('req') })),
   }),
-}))
+})
 
 export type App = Awaited<ReturnType<typeof backend.start>>
 `,

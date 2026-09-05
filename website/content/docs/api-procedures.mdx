@@ -63,7 +63,7 @@ export const api = { boards: boardsRouter, projects: projectsRouter }
 ```
 
 ```ts
-const backend = bunderstack({ schema }, () => ({ database, api }))
+const backend = bunderstack({ schema, database, api })
 const app = await backend.start()
 ```
 

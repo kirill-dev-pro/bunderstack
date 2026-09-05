@@ -52,8 +52,9 @@ import * as v from 'valibot'
 import { posts } from './schema'
 import * as schema from './schema'
 
-export const backend = bunderstack({ schema }, (env) => ({
-  database: { adapter: libsql(), url: env.DATABASE_URL },
+export const backend = bunderstack({
+  schema,
+  database: { adapter: libsql() },
   access: {
     posts: {
       ownerColumn: 'userId',
@@ -70,7 +71,7 @@ export const backend = bunderstack({ schema }, (env) => ({
         return { value: row?.value ?? 0 }
       }),
   }),
-}))
+})
 
 export const app = await backend.start()
 
@@ -79,10 +80,11 @@ export type App = typeof app
 await provision(app)
 ```
 
-The first argument is the static half of the declaration — the Drizzle schema,
-plus an `env` schema when the application declares one. The callback receives
-the validated environment and returns everything that depends on it. It is
-pure: nothing connects until `backend.start()`.
+The declaration is one object and it is pure: nothing connects until
+`backend.start()`. `database.url` is omitted here because it defaults to
+`DATABASE_URL`. When a slot does need a value — an API key, a custom URL —
+`database`, `storage`, `messaging`, and `realtime` also accept a function of
+the validated environment, and `auth` accepts a builder over `{ db, env }`.
 
 `provision(app)` pushes the schema while there is no migrations journal. Once
 you run `bunx drizzle-kit generate` and commit the migrations, the same call

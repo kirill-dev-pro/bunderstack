@@ -23,9 +23,9 @@ const privateNotes = pgTable('private_notes', {
 const schema = { posts, privateNotes }
 
 async function setupApp() {
-  return await bunderstack({ schema }, () => ({
+  return await bunderstack({
+    schema,
     database: { adapter: pglite() },
-
     openapi: true,
     storage: {
       local: true,
@@ -48,7 +48,7 @@ async function setupApp() {
         .output(v.object({ totalPosts: v.number() }))
         .handler(async () => ({ totalPosts: 42 })),
     }),
-  })).start({
+  }).start({
     env: {
       DATABASE_URL: 'memory://',
       BUNDERSTACK_ROLE: 'web',

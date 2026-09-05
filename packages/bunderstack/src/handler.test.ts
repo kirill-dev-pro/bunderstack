@@ -42,7 +42,8 @@ test('dispatches rate limit, auth, API, then 404', async () => {
 test('webhook receives exact raw bytes and does not resolve auth', async () => {
   let authCalls = 0
   const raw = '{ "event" : "created", "escaped": "h\\u00e9" }'
-  const app = await bunderstack({ schema: {} }, () => ({
+  const app = await bunderstack({
+    schema: {},
     database: { url: ':memory:', adapter: libsql() },
     authResolver: {
       api: {
@@ -71,7 +72,7 @@ test('webhook receives exact raw bytes and does not resolve auth', async () => {
           valid: input.headers['x-signature'] === (await context.getRawBody()),
         })),
     }),
-  })).start()
+  }).start()
 
   const response = await app.handler(
     new Request('http://test/webhooks/example', {

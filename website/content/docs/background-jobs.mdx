@@ -10,7 +10,8 @@ schedule.** One loop — `tick()` — moves rows forward.
 ```ts
 import * as v from 'valibot'
 
-const backend = bunderstack({ schema }, () => ({
+const backend = bunderstack({
+  schema,
   jobs: (j) =>
     j.define({
       sendEmail: j.job({
@@ -26,7 +27,7 @@ const backend = bunderstack({ schema }, () => ({
         handler: async ({ scheduledFor }, ctx) => {},
       }),
     }),
-}))
+})
 
 const app = await backend.start()
 
@@ -168,8 +169,9 @@ connected to the web process. If a handler calls `ctx.realtime.publish()`,
 configure a shared Redis transport in both:
 
 ```ts
-const backend = bunderstack({ schema }, (env) => ({
-  realtime: { redis: env.REDIS_URL },
+const backend = bunderstack({
+  schema,
+  realtime: (env) => ({ redis: env.REDIS_URL }),
   jobs: (j) =>
     j.define({
       generateImage: j.job({
@@ -180,7 +182,7 @@ const backend = bunderstack({ schema }, (env) => ({
         },
       }),
     }),
-}))
+})
 
 const app = await backend.start()
 ```

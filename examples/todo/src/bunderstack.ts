@@ -29,35 +29,30 @@ import * as schema from './schema'
 const ARCHIVE_DONE_TODOS_AFTER_MS = 2 * 60_000
 
 /**
- * The declaration is a pure function of the validated environment. Nothing
- * connects here — `backend.inspect()` reads this without touching a database.
+ * One declaration object. Slots that hold credentials also accept a function
+ * of the validated environment, and nothing connects here —
+ * `backend.inspect()` reads all of it without touching a database.
  */
-export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
+export const backend = bunderstack({
+  schema,
+  env: envSchema,
   access,
-
-  database: {
-    adapter: libsql(),
-    url: env.DATABASE_URL,
-  },
-
+  database: { adapter: libsql() },
   // Username-only auth: the anonymous plugin creates a real session
   // without passwords or signup. See routes/index.tsx for the client side.
-  auth: {
+  auth: ({ env }) => ({
     baseURL: env.APP_URL,
-    secret: env.AUTH_SECRET,
     plugins: [anonymous()],
     advanced: {
       database: { generateId: () => false },
     },
-  },
-
+  }),
   // Messaging: named channels. Without RESEND_API_KEY the channel captures
   // instead of sending — the message lands in the journal and, locally, in
   // the console. Set RESEND_API_KEY in .env for real delivery.
-  messaging: {
+  messaging: (env) => ({
     email: resend({ apiKey: env.RESEND_API_KEY, from: 'todo@example.com' }),
-  },
-
+  }),
   // File storage: local disk in dev (./uploads), S3 in production.
   // `transforms: true` enables on-the-fly sharp resizing via ?w=&h=&format=.
   storage: {
@@ -69,11 +64,9 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
       },
     },
   },
-
   // Realtime: SSE endpoint + broadcast-on-write for every CRUD change.
   // The client consumes the typed Publisher iterator (see router.tsx).
   realtime: true,
-
   // Background work is declarative. Queue jobs run in an explicit worker
   // process; production cron is delivered by Bunderhost over signed HTTP.
   jobs: (j) =>
@@ -122,13 +115,11 @@ export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
         },
       }),
     }),
-
   // Applies to every procedure, generated ones included.
   middleware: [requestLog],
-
   // oRPC custom procedures mounted alongside CRUD, declared in api.ts
   api,
-}))
+})
 
 export const app = await backend.start()
 

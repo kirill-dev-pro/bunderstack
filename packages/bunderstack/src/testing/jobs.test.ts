@@ -9,7 +9,8 @@ const testOptions = { database: { schema: 'push' as const } }
 
 test('runUntilIdle drains immediate and recursively enqueued work', async () => {
   const ran: string[] = []
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -25,7 +26,7 @@ test('runUntilIdle drains immediate and recursively enqueued work', async () => 
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('first')
@@ -42,7 +43,8 @@ test('runUntilIdle drains immediate and recursively enqueued work', async () => 
 
 test('runNext only runs delayed work once the explicit clock reaches it', async () => {
   let calls = 0
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -52,7 +54,7 @@ test('runNext only runs delayed work once the explicit clock reaches it', async 
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('delayed', undefined, { runAt: 2_000 })
@@ -73,7 +75,8 @@ test('runNext only runs delayed work once the explicit clock reaches it', async 
 
 test('runUntilIdle does not advance time to a scheduled retry', async () => {
   let calls = 0
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -86,7 +89,7 @@ test('runUntilIdle does not advance time to a scheduled retry', async () => {
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('retryLater', undefined, { runAt: 5_000 })
@@ -111,7 +114,8 @@ test('runUntilIdle does not advance time to a scheduled retry', async () => {
 })
 
 test('terminal failures throw with queue-row details by default', async () => {
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -122,7 +126,7 @@ test('terminal failures throw with queue-row details by default', async () => {
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('broken')
@@ -145,7 +149,8 @@ test('terminal failures throw with queue-row details by default', async () => {
 })
 
 test('terminal failures can be reported without throwing', async () => {
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -156,7 +161,7 @@ test('terminal failures can be reported without throwing', async () => {
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('broken')
@@ -169,7 +174,8 @@ test('terminal failures can be reported without throwing', async () => {
 })
 
 test('runUntilIdle bounds recursive enqueue with a convergence error', async () => {
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -179,7 +185,7 @@ test('runUntilIdle bounds recursive enqueue with a convergence error', async () 
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   await t.app.jobs.enqueue('again')
@@ -197,7 +203,8 @@ test('runUntilIdle bounds recursive enqueue with a convergence error', async () 
 })
 
 test('inspect, pending, and failed expose normalized queue rows with filters', async () => {
-  const backend = bunderstack({ schema: {} }, () => ({
+  const backend = bunderstack({
+    schema: {},
     database,
     jobs: (j) =>
       j.define({
@@ -209,7 +216,7 @@ test('inspect, pending, and failed expose normalized queue rows with filters', a
           },
         }),
       }),
-  }))
+  })
 
   await using t = await backend.test(testOptions)
   const deliver = await t.app.jobs.enqueue('deliver', undefined, {
