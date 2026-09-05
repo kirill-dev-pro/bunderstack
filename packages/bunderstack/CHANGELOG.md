@@ -49,6 +49,9 @@ All notable changes to `bunderstack` will be documented in this file.
   connects to anything.
 - `defineApi({ schema, env, messaging })` types `context.messaging` exactly for
   a router declared in its own module.
+- `createMessaging(channels, { env, db })` builds the same channel facades
+  outside a started app, for a Better Auth builder or a script. It replaces
+  `createEmail`.
 
 ### Removed
 

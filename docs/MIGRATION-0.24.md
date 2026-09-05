@@ -208,6 +208,25 @@ A key that is present but wrong is not capture, and neither is a provider that
 rejects the request: both raise, and the journal row records `failed`. This
 replaces the old rule that a missing provider threw at boot in production.
 
+### Sending outside the app
+
+`createEmail(config, { env, db })` is replaced by
+`createMessaging(channels, { env, db })`, which returns the same facades
+`app.messaging` exposes:
+
+```ts
+// Before
+const email = createEmail({ from, provider: 'resend' }, { env, db })
+await email.send({ to, subject, text })
+
+// After
+const messaging = createMessaging(
+  { email: resend({ apiKey: env.RESEND_API_KEY, from }) },
+  { env, db },
+)
+await messaging.email.send({ to, subject, text })
+```
+
 ### Managed credentials
 
 A host may supply `BUNDERSTACK_MESSAGING_CONFIG`, a JSON object keyed by

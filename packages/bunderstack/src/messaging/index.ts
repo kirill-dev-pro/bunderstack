@@ -1,4 +1,6 @@
 export { resend, customEmail } from './email'
+export { createMessaging } from './standalone'
+export type { MessagingContext } from './standalone'
 export type {
   CustomEmailConfig,
   CustomEmailDescriptor,

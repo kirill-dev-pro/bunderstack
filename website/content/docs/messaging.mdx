@@ -206,6 +206,30 @@ expect(t.messaging.ops.sent).toEqual([])
 Each `sent` array is typed by its own channel, so a Telegram capture never
 type-checks against an email message.
 
+## Sending outside the app
+
+Code that runs before or beside the started app — a Better Auth builder sending
+an invitation, a script, a one-off worker — builds the same facades with
+`createMessaging`:
+
+```ts
+import { createMessaging, defineAuth, resend } from 'bunderstack'
+
+export const auth = defineAuth(schema, ({ db, env }) => {
+  const messaging = createMessaging(
+    { email: resend({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }) },
+    { env, db },
+  )
+  return {
+    /* … */
+  }
+})
+```
+
+Pass `db` so those messages reach the same journal the application writes.
+Capture, managed credentials, and provider errors behave exactly as they do on
+`app.messaging`.
+
 ## Exact channel types in a separate module
 
 An inline `jobs` or `api` builder receives an open messaging type, because

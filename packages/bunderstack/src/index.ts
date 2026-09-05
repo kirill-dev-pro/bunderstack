@@ -1,5 +1,5 @@
 export * from './backend'
-export { resend, customEmail, telegram } from './messaging'
+export { createMessaging, resend, customEmail, telegram } from './messaging'
 export type {
   MessagingConfig,
   MessagingDescriptor,
