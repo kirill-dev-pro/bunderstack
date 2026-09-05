@@ -9,8 +9,7 @@ configuration, without forcing environment values through separate auth,
 database, and provider builders:
 
 ```ts
-export const backend = bunderstack(envSchema, (env) => ({
-  schema,
+export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   access,
   auth: authConfig(env),
   database: {
@@ -39,36 +38,40 @@ values before runtime clients are created.
 
 ## Decisions
 
-### 1. Two declaration forms
+### 1. One declaration form
 
-The existing object form remains supported:
-
-```ts
-const backend = bunderstack({ schema, database })
-```
-
-It remains synchronous and exposes its eager `backend.manifest` unchanged.
-
-The new env-first form is:
+There is one form, and the previous single-argument object form is removed:
 
 ```ts
-const backend = bunderstack(envSchema, (env) => ({
-  schema,
+const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   database: { adapter: libsql(), url: env.DATABASE_URL },
 }))
 ```
 
-The environment schema is not repeated inside the returned object. The callback
-parameter is contextually typed as `ValidatedEnv<typeof envSchema>`.
+The first argument is the static half of the declaration: the Drizzle schema
+and, optionally, the environment schema. The callback returns everything that
+depends on a validated value, and its parameter is contextually typed as
+`ValidatedEnv<typeof envSchema>`. `env` is no longer a configuration key, and
+`schema` is not repeated inside the returned object.
 
-An env-first backend resolves the callback independently for every `start()`,
-`test()`, and inspection. It must not cache a configuration produced for a
-different environment.
+**Why `schema` moved into the first argument.** TypeScript cannot both infer a
+type parameter and contextually type a nested context-sensitive callback that
+names it. With `schema` in the returned object, an inline `jobs: (j) => …`,
+`api: (o) => …`, or `auth: ({ db }) => …` builder made the compiler fix
+`TSchema` to its constraint, and the generated CRUD types vanished from the
+client. Resolving `schema` and `env` before the callback runs removes that
+failure. The same limit still applies to `TMessaging`, so the inline `jobs` and
+`api` builders receive the open `MessagingConfig`; a builder declared in its own
+module with an annotated parameter gets the exact channel record.
 
-### 2. Inspection is explicit for env-first backends
+A backend resolves the callback independently for every `start()`, `test()`,
+and inspection. It must not cache a configuration produced for a different
+environment.
 
-An env-first backend cannot truthfully expose a single eager manifest. It
-instead exposes:
+### 2. Inspection is explicit
+
+A manifest depends on the environment, so no backend exposes an eager
+`manifest` property. Every backend instead exposes:
 
 ```ts
 backend.inspect({ env?: Record<string, string | undefined> }):
@@ -200,11 +203,10 @@ The first release supplies `resend(...)`, a custom email adapter descriptor, and
 descriptor. A custom descriptor declares the configuration required for real
 delivery and supplies a console formatter; the registry owns capture selection.
 
-The existing `email` config, `app.email`, `ctx.email`, and test email capture
-remain as deprecated compatibility aliases for one release. When only legacy
-`email` is configured it becomes `messaging.email`. Declaring both legacy
-`email` and `messaging.email` is an error; other messaging keys may coexist with
-legacy email during migration.
+The `email` config key, `app.email`, `ctx.email`, and `t.email` are removed in
+the same release. There is no alias and no normalization step: an application
+declares channels or it declares none. The migration is mechanical and is
+documented in `docs/MIGRATION-0.24.md`.
 
 ### 6. Message journal
 
@@ -226,10 +228,10 @@ The initial status vocabulary is `captured`, `sending`, `sent`, `delivered`, and
 `failed`. Providers may append normalized delivery events such as `opened`,
 `clicked`, `bounced`, or `complained` without changing the channel kind.
 
-Legacy email tables remain readable for one compatibility release but receive
-no new rows after a legacy email config is normalized into `messaging.email`.
-Bunderhost merges legacy rows into the Messaging view so existing history does
-not disappear.
+The old `_bunderstack_emails` and `_bunderstack_email_events` tables are
+removed from the internal schema, so an application's next generated migration
+drops them. Bunderhost keeps reading whatever history it already holds; it is
+not part of the framework's schema after this release.
 
 ### 7. Authentication integration
 
@@ -250,9 +252,8 @@ t.messaging.email.sent
 t.messaging.telegram.sent
 ```
 
-`t.email` remains a deprecated alias of `t.messaging.email` when that channel
-is email-kind. Captures preserve the provider-specific input type and never send
-network requests.
+There is no `t.email` alias. Captures preserve the provider-specific input type
+and never send network requests.
 
 Tests cover independent fixtures started from one backend with different env
 values so no resolved configuration leaks between starts.

@@ -15,7 +15,7 @@
     "sync-collections",
     "---Facilities---",
     "auth",
-    "email",
+    "messaging",
     "env",
     "background-jobs",
     "storage",

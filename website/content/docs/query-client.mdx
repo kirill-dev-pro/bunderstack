@@ -15,7 +15,10 @@ bun add bunderstack @tanstack/react-query
 
 ```ts
 // bunderstack.ts — server
-export const backend = bunderstack({ schema, access, api: (o) => ({}) })
+export const backend = bunderstack({ schema }, () => ({
+  access,
+  api: (o) => ({}),
+}))
 export const app = await backend.start()
 export type App = typeof app
 ```

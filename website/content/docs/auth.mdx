@@ -8,13 +8,12 @@ Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth 
 ## Email/password
 
 ```ts
-bunderstack({
-  schema,
+bunderstack({ schema }, (env) => ({
   auth: {
     emailAndPassword: { enabled: true },
-    secret: process.env.AUTH_SECRET,
+    secret: env.AUTH_SECRET,
   },
-})
+}))
 ```
 
 ```bash
@@ -30,21 +29,20 @@ curl -X POST /api/auth/sign-in/email \
 ## OAuth
 
 ```ts
-bunderstack({
-  schema,
+bunderstack({ schema, env: envSchema }, (env) => ({
   auth: {
     socialProviders: {
       github: {
-        clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        clientId: env.GITHUB_CLIENT_ID,
+        clientSecret: env.GITHUB_CLIENT_SECRET,
       },
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
     },
   },
-})
+}))
 ```
 
 ## Database hooks
@@ -54,8 +52,7 @@ Pass `auth` as a builder to get the app's own database instead of opening a
 second connection:
 
 ```ts
-bunderstack({
-  schema,
+bunderstack({ schema }, () => ({
   auth: ({ db, env }) => ({
     emailAndPassword: { enabled: true },
     databaseHooks: {
@@ -70,7 +67,7 @@ bunderstack({
       },
     },
   }),
-})
+}))
 ```
 
 `db` is typed from `schema` alone, so the builder can live in its own file — it

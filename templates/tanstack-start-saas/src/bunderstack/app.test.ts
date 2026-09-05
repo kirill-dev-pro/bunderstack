@@ -27,6 +27,10 @@ async function seedUser(
     .returning()
 }
 
+/**
+ * A mocked session is an identity, not global state: its headers must reach
+ * the request, so two identities can act in the same test without collision.
+ */
 function signIn(
   testApp: BunderSaaSTest,
   id: string,
@@ -74,9 +78,11 @@ test('scopes the project list to the signed-in owner', async () => {
     { id: 'project_b', ownerId: 'user_bob', name: 'Bob rebrand' },
   ])
 
-  signIn(t, 'user_alice')
+  const alice = signIn(t, 'user_alice')
   const response = await app.handler(
-    new Request('http://bunderstack.test/api/projects'),
+    new Request('http://bunderstack.test/api/projects', {
+      headers: alice.headers,
+    }),
   )
   expect(response.status).toBe(200)
 
@@ -89,12 +95,14 @@ test('keeps custom creation procedures reachable at unique REST paths', async ()
   const { app } = t
 
   await seedUser(app, 'user_alice')
-  signIn(t, 'user_alice')
+  const alice = signIn(t, 'user_alice')
+  const headers = new Headers(alice.headers)
+  headers.set('Content-Type', 'application/json')
 
   const projectResponse = await app.handler(
     new Request('http://bunderstack.test/api/create-project', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: 'Alice launch', clientName: 'Acme' }),
     }),
   )
@@ -104,7 +112,7 @@ test('keeps custom creation procedures reachable at unique REST paths', async ()
   const taskResponse = await app.handler(
     new Request('http://bunderstack.test/api/add-task', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ projectId: project.id, title: 'Ship it' }),
     }),
   )
@@ -121,9 +129,11 @@ test('refuses a cross-owner project read', async () => {
     .insert(schema.projects)
     .values({ id: 'project_b', ownerId: 'user_bob', name: 'Bob rebrand' })
 
-  signIn(t, 'user_alice')
+  const alice = signIn(t, 'user_alice')
   const response = await app.handler(
-    new Request('http://bunderstack.test/api/projects/project_b'),
+    new Request('http://bunderstack.test/api/projects/project_b', {
+      headers: alice.headers,
+    }),
   )
   // The owner rule refuses before the read scope filters, so this is 403
   // rather than the 404 a scope-only configuration would produce.

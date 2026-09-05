@@ -103,17 +103,18 @@ database: { adapter: bunSql() }`,
       'Local dev storage or S3 buckets with signed URLs, direct file uploads, and on-the-fly image transformations.',
   },
   {
-    id: 'email',
-    title: 'Transactional Email',
-    library: 'Nodemailer · Resend / SMTP',
-    docPath: 'email',
+    id: 'messaging',
+    title: 'Messaging Channels',
+    library: 'Resend · SMTP · Telegram',
+    docPath: 'messaging',
     color: '#06b6d4',
     colorRgb: '6, 182, 212',
-    code: `email: {
-  from: 'hello@example.com'
+    code: `messaging: {
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
+  telegram: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
 }`,
     description:
-      'Type-safe transactional emailing with dev console logging in development and Resend or SMTP in production.',
+      'Named channels per provider, each with its own message type. A channel without credentials captures to the message journal instead of sending.',
   },
   {
     id: 'realtime',
@@ -138,7 +139,7 @@ database: { adapter: bunSql() }`,
     digest: j.cron({
       schedule: '0 9 * * *',
       handler: async (_run, ctx) => {
-        await ctx.email.send({ ... })
+        await ctx.messaging.email.send({ ... })
       },
     }),
   })`,

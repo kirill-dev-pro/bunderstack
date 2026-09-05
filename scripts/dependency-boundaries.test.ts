@@ -53,7 +53,7 @@ describe('published dependency boundaries', () => {
       'packages/bunderstack/README.md',
       'website/content/docs/getting-started.mdx',
       'website/content/docs/configuration.mdx',
-      'website/content/docs/email.mdx',
+      'website/content/docs/messaging.mdx',
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
       expect(source, path).toContain('adapter: libsql()')
@@ -61,15 +61,15 @@ describe('published dependency boundaries', () => {
     }
   })
 
-  test('configuration and email docs use the SMTP factory', async () => {
+  test('configuration and messaging docs use the SMTP factory', async () => {
     for (const path of [
       'website/content/docs/configuration.mdx',
-      'website/content/docs/email.mdx',
+      'website/content/docs/messaging.mdx',
     ]) {
       const source = await Bun.file(join(repoRoot, path)).text()
 
       expect(source, path).toContain('bunderstack/email-smtp')
-      expect(source, path).toContain('provider: smtp(')
+      expect(source, path).toContain('smtp({ url:')
       expect(source, path).not.toContain("email: 'smtp'")
       expect(source, path).not.toContain("provider: 'smtp'")
     }

@@ -1,0 +1,226 @@
+---
+title: Messaging
+description: Named channels for email and Telegram, with capture when credentials are absent
+---
+
+`messaging` is a named record of channels. Each channel names one provider, and
+each provider carries its own message type. Send through
+`app.messaging.<channel>.send()` on the server, or `ctx.messaging.<channel>`
+inside a procedure or a job.
+
+## Declaration
+
+```ts
+import { bunderstack, resend, telegram } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import * as v from 'valibot'
+
+import * as schema from './schema'
+
+export const backend = bunderstack(
+  {
+    schema,
+    env: {
+      server: {
+        RESEND_API_KEY: v.optional(v.string()),
+        TELEGRAM_BOT_TOKEN: v.optional(v.string()),
+      },
+    },
+  },
+  (env) => ({
+    database: { adapter: libsql(), url: env.DATABASE_URL },
+    messaging: {
+      email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
+      billing: resend({
+        apiKey: env.RESEND_API_KEY,
+        from: 'billing@example.com',
+      }),
+      ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
+    },
+  }),
+)
+
+export const app = await backend.start()
+```
+
+Two channels can name the same provider with a different sender. Only the
+channel names and provider kinds reach the manifest and the blueprint; a key,
+a token, and a sender address never do.
+
+## Sending
+
+An email channel takes an email message:
+
+```ts
+await app.messaging.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome',
+  html: '<h1>Hello</h1>',
+  text: 'Hello',
+})
+```
+
+A message needs `html` or `text`. Everything else except `to` and `subject` is
+optional, and a per-message `from` overrides the channel's own sender.
+
+```ts
+await app.messaging.billing.send({
+  to: ['alice@a.com', 'bob@b.com'],
+  subject: 'Invoice 41',
+  text: 'Attached.',
+  replyTo: 'support@example.com',
+  cc: 'manager@example.com',
+  bcc: 'archive@example.com',
+})
+```
+
+A Telegram channel takes a different message, and TypeScript enforces it:
+
+```ts
+await app.messaging.ops.send({
+  to: '@release_channel',
+  text: '*Deploy finished*',
+  parseMode: 'MarkdownV2',
+})
+```
+
+`send()` returns `{ id, providerId? }`. `id` is the journal row; `providerId`
+is the provider's own identifier when the provider returns one.
+
+## Capture
+
+A channel whose required configuration is absent or empty captures instead of
+sending. Capture is not an error state and not a separate provider: every
+channel has it.
+
+- Locally, a captured message is written to the journal and printed to the
+  console.
+- On a host (`BUNDERHOST_ENVIRONMENT_ID` is set), it is written to the journal
+  only. The body never reaches the production logs.
+
+A key that is present but wrong is not capture. So is a provider that rejects
+the request: both raise, and the journal row records `failed`.
+
+For Resend that means `apiKey` and `from`, for Telegram `botToken`, and for a
+custom adapter the adapter itself plus `from`.
+
+## Providers
+
+### Resend
+
+```ts
+messaging: {
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
+}
+```
+
+### SMTP
+
+```ts
+import { smtp } from 'bunderstack/email-smtp'
+
+messaging: {
+  email: smtp({ url: env.SMTP_URL, from: 'app@example.com' }),
+}
+```
+
+SMTP uses [nodemailer](https://nodemailer.com) through its own subpath, so an
+application that does not declare it never loads it:
+
+```bash
+bun add nodemailer
+```
+
+### Telegram
+
+```ts
+messaging: {
+  ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
+}
+```
+
+`to` accepts a chat ID or an `@channel` name.
+
+### Custom email
+
+Pass a full adapter or one `send` function:
+
+```ts
+import { customEmail } from 'bunderstack'
+
+messaging: {
+  email: customEmail({
+    from: 'app@example.com',
+    adapter: async (message) => {
+      // `from` is already resolved on the message.
+      await mySendService(message)
+      return { id: 'msg_123' }
+    },
+  }),
+}
+```
+
+## Managed credentials
+
+A host can supply credentials through the reserved
+`BUNDERSTACK_MESSAGING_CONFIG` variable, a JSON object keyed by provider:
+
+```json
+{ "resend": { "apiKey": "re_managed" }, "telegram": { "botToken": "123:abc" } }
+```
+
+Every channel of one provider shares that connection. A field the channel
+declares itself wins over the managed value, field by field, so a channel can
+take the managed key and keep its own `from`. Each journal row records where
+the credentials came from: `explicit`, `managed`, or `capture`.
+
+## Auth emails
+
+Better Auth verification and password-reset mail goes through the channel named
+`email`, and only that one, when its provider is an email provider. A channel
+named anything else is never selected for it.
+
+## The journal
+
+Every channel writes to `_bunderstack_messages`, with delivery attempts in
+`_bunderstack_message_events`. A row carries the channel, the provider kind, the
+credential source, the status (`captured`, `sending`, `sent`, or `failed`), the
+recipients, the content, and the provider's message ID once it exists.
+
+## Testing
+
+A test fixture substitutes an isolated capture for every declared channel, so
+nothing leaves the process and no fixture sees another fixture's messages:
+
+```ts
+await using t = await backend.test()
+
+await t.app.messaging.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome',
+  text: 'Hello',
+})
+
+expect(t.messaging.email.sent).toHaveLength(1)
+expect(t.messaging.ops.sent).toEqual([])
+```
+
+Each `sent` array is typed by its own channel, so a Telegram capture never
+type-checks against an email message.
+
+## Exact channel types in a separate module
+
+A builder declared inline in the config callback receives an open messaging
+type, because TypeScript cannot infer the channel record and type the callback
+in the same pass. Declare the builder in its own module to get the exact type:
+
+```ts
+import type { BunderstackJobsBuilder } from 'bunderstack'
+import type { ResendDescriptor } from 'bunderstack/messaging'
+
+export const defineJobs = (
+  jobs: BunderstackJobsBuilder<typeof schema, AppEnv, { email: ResendDescriptor }>,
+) => jobs.define({ ... })
+```
+
+`defineApi({ schema, env, messaging })` does the same for procedures.

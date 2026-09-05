@@ -3,8 +3,10 @@
 ## Separate declaration from runtime
 
 `src/bunderstack/backend.ts` synchronously constructs and exports `backend =
-bunderstack({...})`. It is pure: it validates the declaration and exposes
-`backend.manifest`, but it does not connect to infrastructure. The blueprint
+bunderstack({ schema, env }, (env) => ({...}))`. The first argument is the
+static half; the callback returns everything that depends on a validated
+environment value. It is pure: `backend.inspect({ env })` resolves it and
+returns a manifest without connecting to infrastructure, and the blueprint
 imports this declaration without starting the application.
 
 `src/bunderstack/index.ts` owns the production runtime: it imports `backend`,
@@ -66,7 +68,7 @@ export const projectsRouter = {
 export const api = { projects: projectsRouter }
 
 // backend.ts
-bunderstack({ schema, database, api })
+bunderstack({ schema }, () => ({ database, api }))
 ```
 
 Do not write a router factory that receives a bag of procedures. That shape
@@ -122,7 +124,11 @@ const instrumentation = o.middleware(async ({ context, next, path }) => {
   }
 })
 
-bunderstack({ schema, database, middleware: [instrumentation], api })
+bunderstack({ schema }, () => ({
+  database,
+  middleware: [instrumentation],
+  api,
+}))
 ```
 
 Three rules apply to a graph-wide middleware. It runs before authentication, so
@@ -186,9 +192,10 @@ Commit `.env.example` with names and safe placeholders only. Keep production
 secrets, database URLs, storage credentials, and auth secrets in the runtime
 environment.
 
-Use local libSQL storage and console email for development when appropriate;
-declare production adapters and credentials through configuration and runtime
-environment rather than hard-coding them.
+Use local libSQL storage for development, and let a messaging channel without
+credentials capture instead of sending; declare production adapters and
+credentials through the declaration and the runtime environment rather than
+hard-coding them.
 
 ## Publish direct writes
 

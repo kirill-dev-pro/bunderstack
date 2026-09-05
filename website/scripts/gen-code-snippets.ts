@@ -42,10 +42,9 @@ export const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack({
-  schema: { posts },
+export const backend = bunderstack({ schema: { posts } }, (env) => ({
   database: { adapter: bunSql() },
-  auth: { secret: process.env.AUTH_SECRET! },
+  auth: { secret: env.AUTH_SECRET },
   access: { posts: { ownerColumn: 'userId' } },
   realtime: true,
   api: (o) => ({
@@ -54,7 +53,7 @@ export const backend = bunderstack({
       requestedBy: context.user.id,
     })),
   }),
-})
+}))
 
 export type App = Awaited<ReturnType<typeof backend.start>>
 `
@@ -73,7 +72,7 @@ export const authClient = createAuthClient()
 const snippets: Record<string, string> = {
   declaration: `// @filename: bunderstack.ts
 // ---cut---
-import { bunderstack } from 'bunderstack'
+import { bunderstack, resend } from 'bunderstack'
 import { bunSql } from 'bunderstack/bun-sql'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import * as v from 'valibot'
@@ -84,35 +83,41 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack({
-  schema: { posts },
-  database: { adapter: bunSql() },
-  auth: { secret: process.env.AUTH_SECRET! },
-  access: { posts: { ownerColumn: 'userId' } },
-  env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
-  storage: { local: true, buckets: { images: { transforms: true } } },
-  email: { from: 'hello@example.com' },
-  realtime: true,
-  jobs: (j) =>
-    j.define({
-      digest: j.cron({
-        schedule: '0 9 * * *',
-        handler: async (_run, ctx) => {
-          await ctx.email.send({
-            to: 'team@example.com',
-            subject: ctx.env.PUBLIC_APP_NAME,
-            text: 'Daily digest',
-          })
-        },
+export const backend = bunderstack(
+  {
+    schema: { posts },
+    env: { client: { PUBLIC_APP_NAME: v.optional(v.string(), 'Example') } },
+  },
+  (env) => ({
+    database: { adapter: bunSql() },
+    auth: { secret: env.AUTH_SECRET },
+    access: { posts: { ownerColumn: 'userId' } },
+    storage: { local: true, buckets: { images: { transforms: true } } },
+    messaging: {
+      email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
+    },
+    realtime: true,
+    jobs: (j) =>
+      j.define({
+        digest: j.cron({
+          schedule: '0 9 * * *',
+          handler: async (_run, ctx) => {
+            await ctx.messaging.email.send({
+              to: 'team@example.com',
+              subject: ctx.env.PUBLIC_APP_NAME,
+              text: 'Daily digest',
+            })
+          },
+        }),
       }),
+    api: (o) => ({
+      stats: o.protected.handler(async ({ context }) => ({
+        total: 12,
+        requestedBy: context.user.id,
+      })),
     }),
-  api: (o) => ({
-    stats: o.protected.handler(async ({ context }) => ({
-      total: 12,
-      requestedBy: context.user.id,
-    })),
   }),
-})
+)
 
 export type App = Awaited<ReturnType<typeof backend.start>>`,
 
@@ -128,8 +133,7 @@ const posts = pgTable('posts', {
   userId: text('userId').notNull(),
 })
 
-export const backend = bunderstack({
-  schema: { posts },
+export const backend = bunderstack({ schema: { posts } }, () => ({
   database: { adapter: bunSql() },
   realtime: true,
   api: (o) => ({
@@ -138,7 +142,7 @@ export const backend = bunderstack({
       requestedBy: context.user.id,
     })),
   }),
-})
+}))
 
 export type App = Awaited<ReturnType<typeof backend.start>>`,
 
@@ -356,8 +360,9 @@ database: { adapter: bunSql() }`,
   local: true,
   buckets: { images: { transforms: true } }
 }`,
-  email: `email: {
-  from: 'hello@example.com'
+  messaging: `messaging: {
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'hello@example.com' }),
+  telegram: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
 }`,
   realtime: `realtime: true`,
   jobs: `jobs: (j) =>
@@ -365,7 +370,7 @@ database: { adapter: bunSql() }`,
     digest: j.cron({
       schedule: '0 9 * * *',
       handler: async (_run, ctx) => {
-        await ctx.email.send({ ... })
+        await ctx.messaging.email.send({ ... })
       },
     }),
   })`,

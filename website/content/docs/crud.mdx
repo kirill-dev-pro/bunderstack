@@ -182,10 +182,9 @@ carry extra meaning (`INVALID_CURSOR`, `IDEMPOTENCY_CONFLICT`) arrive in
 ## Rate limiting (opt-in)
 
 ```ts
-bunderstack({
-  schema,
+bunderstack({ schema }, () => ({
   rateLimit: { windowMs: 60_000, max: 100 },
-})
+}))
 ```
 
 In-memory per process — use a shared store for multi-instance deployments.
@@ -193,10 +192,9 @@ In-memory per process — use a shared store for multi-instance deployments.
 ## POST idempotency (opt-in)
 
 ```ts
-bunderstack({
-  schema,
+bunderstack({ schema }, () => ({
   idempotency: true,
-})
+}))
 ```
 
 Send `Idempotency-Key: <uuid>` on `POST` creates. Replays return the original response with `Idempotency-Replayed: true`.

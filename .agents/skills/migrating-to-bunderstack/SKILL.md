@@ -32,23 +32,21 @@ import { schema } from './schema'
 import { access } from './access'
 import { api } from './api'
 
-// 1. Pure synchronous declaration (does NO I/O, no DB connection, exports static manifest)
-export const backend = bunderstack({
-  schema,
+// 1. Pure synchronous declaration (does NO I/O, no DB connection)
+//    First argument: the static half — schema, plus `env` when declared.
+//    Callback: everything that depends on a validated environment value.
+export const backend = bunderstack({ schema }, (env) => ({
   access,
-  database: {
-    adapter: libsql(),
-    url: process.env.DATABASE_URL ?? 'file:./data.db',
-  },
+  database: { adapter: libsql(), url: env.DATABASE_URL },
   api,
-})
+}))
 
 // 2. Explicit runtime start (connects to DB, migrates, starts services)
 export const app = await backend.start()
 export type App = typeof app
 ```
 
-- `backend.manifest` can be read statically by tools (such as blueprint generators) without starting the app or connecting to a database.
+- `backend.inspect({ env })` resolves the declaration and returns its manifest for tools (such as blueprint generators) without starting the app or connecting to a database.
 - `app = await backend.start()` explicitly boots the runtime.
 - `backend.test()` creates an isolated, lexically owned test fixture.
 
@@ -98,7 +96,7 @@ All Bunderstack capabilities are imported directly from single-segment subpaths 
    Consolidate all backend logic in `src/bunderstack/` with domain separation:
    ```
    src/bunderstack/
-   ├── backend.ts         # Synchronous bunderstack({...}) declaration
+   ├── backend.ts         # Synchronous bunderstack({ schema, env }, (env) => ({...})) declaration
    ├── index.ts           # export const app = await backend.start(), provision(app), exports { db, auth, env }
    ├── env.ts             # envSchema (server / client) via Valibot
    ├── access.ts          # defineAccess(schema, { ... })
@@ -173,7 +171,7 @@ export const adminProcedure = protectedProcedure.use(
   },
 )
 
-// Graph-wide observability middleware (registered in bunderstack({ middleware: [instrumentation] }))
+// Graph-wide observability middleware (registered as `middleware: [instrumentation]`)
 export const instrumentation = o.middleware(async ({ context, next, path }) => {
   const startedAt = performance.now()
   try {
@@ -262,7 +260,7 @@ export const access = defineAccess(schema, {
 
 ### 3.2 Authentication (`authConfig`)
 
-Export a clean Better Auth config and pass it into `bunderstack({ auth: authConfig })`:
+Export a clean Better Auth config and return it from the declaration callback as `auth: authConfig`:
 
 ```ts
 // src/bunderstack/auth.ts
@@ -296,7 +294,7 @@ export const defineJobs = (jobs) =>
       timeout: 30_000,
       retries: 3,
       handler: async ({ userId, email }, ctx) => {
-        await ctx.email.send({
+        await ctx.messaging.email.send({
           to: email,
           subject: 'Welcome!',
           html: '<h1>Welcome to our service</h1>',
@@ -497,7 +495,7 @@ test('creates and retrieves a post', async () => {
   await t.jobs.runUntilIdle()
 
   // Inspect sent emails
-  expect(t.email.sent).toHaveLength(0)
+  expect(t.messaging.email.sent).toHaveLength(0)
 })
 ```
 

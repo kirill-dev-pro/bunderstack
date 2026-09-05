@@ -35,11 +35,12 @@ There is no general-purpose router to configure alongside them.
 ## Batteries, without a platform
 
 Bunderstack includes database provisioning, Better Auth, access-controlled
-CRUD, file storage and transforms, email, validated environment variables,
+CRUD, file storage and transforms, messaging channels, validated environment
+variables,
 background jobs, rate limiting, idempotency, and realtime publication.
 
 It remains a library inside your application. `app.db` is Drizzle,
-`app.auth` is Better Auth, and `app.storage`, `app.email`, `app.jobs`, and
+`app.auth` is Better Auth, and `app.storage`, `app.messaging`, `app.jobs`, and
 `app.realtime` are available in every procedure context. Your schema and data
 stay in your repository and infrastructure.
 

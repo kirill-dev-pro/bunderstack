@@ -180,7 +180,7 @@ test('role=all starts the background loop', async () => {
     { schema: {} },
     () =>
       ({
-database: { url: ':memory:', adapter: libsql() },
+        database: { url: ':memory:', adapter: libsql() },
         jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
           j.define({
             beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
@@ -198,7 +198,7 @@ test('role=web does not start the background loop', async () => {
     { schema: {} },
     () =>
       ({
-database: { url: ':memory:', adapter: libsql() },
+        database: { url: ':memory:', adapter: libsql() },
         jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
           j.define({
             beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
@@ -216,7 +216,7 @@ test('background.autoStart false wins over role=all', async () => {
     { schema: {} },
     () =>
       ({
-database: { url: ':memory:', adapter: libsql() },
+        database: { url: ':memory:', adapter: libsql() },
         jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
           j.define({
             beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
@@ -235,7 +235,7 @@ test('start env feeds platform overrides as well as env vars', async () => {
     { schema: {} },
     () =>
       ({
-database: { adapter: libsql() },
+        database: { adapter: libsql() },
       }) as never,
   ).start({
     env: {
@@ -253,7 +253,7 @@ test('envSource is no longer accepted', async () => {
     { schema: {} },
     () =>
       ({
-database: { adapter: libsql() },
+        database: { adapter: libsql() },
         envSource: { BUNDERSTACK_ROLE: 'worker' },
       }) as never,
   ).start({ env: { DATABASE_URL: 'file::memory:' } })

@@ -1,37 +1,3 @@
-CREATE TABLE `_bunderstack_email_events` (
-	`id` text PRIMARY KEY NOT NULL,
-	`email_id` text NOT NULL,
-	`external_id` text NOT NULL,
-	`type` text NOT NULL,
-	`detail_json` text,
-	`occurred_at` integer NOT NULL,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`email_id`) REFERENCES `_bunderstack_emails`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `beev_external` ON `_bunderstack_email_events` (`external_id`);--> statement-breakpoint
-CREATE INDEX `beev_email_time` ON `_bunderstack_email_events` (`email_id`,`occurred_at`);--> statement-breakpoint
-CREATE TABLE `_bunderstack_emails` (
-	`id` text PRIMARY KEY NOT NULL,
-	`provider` text NOT NULL,
-	`provider_id` text,
-	`status` text NOT NULL,
-	`from_address` text NOT NULL,
-	`to_json` text NOT NULL,
-	`cc_json` text NOT NULL,
-	`bcc_json` text NOT NULL,
-	`reply_to` text,
-	`subject` text NOT NULL,
-	`html` text,
-	`text` text,
-	`error` text,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `bem_created` ON `_bunderstack_emails` (`created_at`);--> statement-breakpoint
-CREATE INDEX `bem_status` ON `_bunderstack_emails` (`status`,`created_at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `bem_provider_id` ON `_bunderstack_emails` (`provider`,`provider_id`);--> statement-breakpoint
 CREATE TABLE `bunderstack_file_meta` (
 	`file_id` text PRIMARY KEY NOT NULL,
 	`bucket` text NOT NULL,
@@ -74,7 +40,39 @@ CREATE TABLE `_bunderstack_jobs` (
 --> statement-breakpoint
 CREATE INDEX `bjq_claim` ON `_bunderstack_jobs` (`status`,`run_at`);--> statement-breakpoint
 CREATE INDEX `bjq_type_status` ON `_bunderstack_jobs` (`type`,`status`);--> statement-breakpoint
+CREATE INDEX `bjq_type_run_at` ON `_bunderstack_jobs` (`type`,`run_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `bjq_dedupe` ON `_bunderstack_jobs` (`type`,`dedupe_key`);--> statement-breakpoint
+CREATE TABLE `_bunderstack_message_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`message_id` text NOT NULL,
+	`external_id` text NOT NULL,
+	`type` text NOT NULL,
+	`detail_json` text,
+	`occurred_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`message_id`) REFERENCES `_bunderstack_messages`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `bmev_external` ON `_bunderstack_message_events` (`external_id`);--> statement-breakpoint
+CREATE INDEX `bmev_message_time` ON `_bunderstack_message_events` (`message_id`,`occurred_at`);--> statement-breakpoint
+CREATE TABLE `_bunderstack_messages` (
+	`id` text PRIMARY KEY NOT NULL,
+	`channel` text NOT NULL,
+	`kind` text NOT NULL,
+	`provider` text NOT NULL,
+	`credential_source` text NOT NULL,
+	`provider_id` text,
+	`status` text NOT NULL,
+	`recipients_json` text NOT NULL,
+	`content_json` text NOT NULL,
+	`error` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `bmsg_created` ON `_bunderstack_messages` (`created_at`);--> statement-breakpoint
+CREATE INDEX `bmsg_channel_status` ON `_bunderstack_messages` (`channel`,`status`,`created_at`);--> statement-breakpoint
+CREATE UNIQUE INDEX `bmsg_provider_id` ON `_bunderstack_messages` (`provider`,`provider_id`);--> statement-breakpoint
 CREATE TABLE `account` (
 	`id` text PRIMARY KEY NOT NULL,
 	`issuer` text NOT NULL,

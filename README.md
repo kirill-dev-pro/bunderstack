@@ -5,7 +5,7 @@
 # bunderstack
 
 **Your whole backend as a single file declaration.** Database, auth, CRUD,
-storage, jobs, email, and realtime are keys on one object. `bun run dev` starts
+storage, jobs, messaging, and realtime are keys on one object. `bun run dev` starts
 all of it with nothing to configure. Small enough to fit in your agent's
 context, and in your head.
 
@@ -16,7 +16,8 @@ context, and in your head.
 - **No local setup.** No docker-compose, no local Postgres, no S3 emulator, no
   queue broker, no auth service to point at. One command, one process.
 - **The dev/prod gap is a config value.** Storage moves from disk to S3, the
-  database from SQLite to Postgres, email from your console to a real sender.
+  database from SQLite to Postgres, a messaging channel from capture to a real
+  sender.
   The code that uses them does not change.
 - **Small enough for an agent to read all of it.** The backend of the
   [todo example](examples/todo) is 439 lines across five files — accounts,
@@ -34,15 +35,14 @@ bun add bunderstack better-auth drizzle-orm valibot @libsql/client
 ```
 
 ```ts
-import { createBunderstack } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 import { provision } from 'bunderstack/provision'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const app = await createBunderstack({
-  schema,
-  database: { adapter: libsql(), url: 'file:./data.db' },
+export const backend = bunderstack({ schema }, (env) => ({
+  database: { adapter: libsql(), url: env.DATABASE_URL },
   auth: { emailAndPassword: { enabled: true } },
   access: {
     posts: {
@@ -61,7 +61,9 @@ export const app = await createBunderstack({
       .input(v.object({ name: v.string() }))
       .handler(({ input }) => ({ message: `Hello, ${input.name}` })),
   }),
-})
+}))
+
+export const app = await backend.start()
 
 await provision(app)
 Bun.serve({ fetch: app.handler })
@@ -229,14 +231,15 @@ const url = api.files.avatars.url(uploaded.fileId, { w: 160, format: 'webp' })
 await api.files.avatars.delete(uploaded.fileId)
 ```
 
-## Email journal
+## Message journal
 
-Configured email is always recorded in `_bunderstack_emails`. Without a
-provider, messages are captured locally and are not delivered. With Resend or a
+Every declared channel records what it sends in `_bunderstack_messages`.
+Without credentials a channel captures: the row is written, the message is
+printed locally, and nothing is delivered. With Resend, SMTP, Telegram, or a
 custom adapter, the same row advances through sending and provider delivery
-states; `_bunderstack_email_events` keeps the provider event history. Managed
-Bunderhost deployments can supply the Resend credentials and sender without
-putting provider keys in application code.
+states, and `_bunderstack_message_events` keeps the provider event history.
+Managed Bunderhost deployments can supply provider credentials without putting
+keys in application code.
 
 ## Optional OpenAPI
 
@@ -304,6 +307,7 @@ TanStack DB, and tldraw applications.
 
 ## Migration Guides
 
+- [Migrating to 0.24](docs/MIGRATION-0.24.md) — Env-first declarations, `backend.inspect()`, and the messaging registry.
 - [Migrating to 0.22](docs/MIGRATION-0.22.md) — Declaration/runtime split, flat subpath exports, and testing fixtures.
 - [Migrating to 0.21](docs/MIGRATION-0.21.md) — Single-package consolidation, subpath exports, direct CRUD inputs, and production server entry.
 - [Migrating to 0.17](docs/MIGRATION-0.17.md) — Unified oRPC procedure graph, Standard Schema, and typed filters.

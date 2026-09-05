@@ -19,16 +19,16 @@ import { defineJobs } from './jobs'
 import { schema } from './schema'
 import * as v from 'valibot'
 
-export const backend = bunderstack({
-  schema,
+export const backend = bunderstack({ schema, env: envSchema }, (env) => ({
   access,
-  env: envSchema,
-  database: {
-    adapter: libsql(),
-    url: 'file:./data.db',
-  },
+  database: { adapter: libsql(), url: env.DATABASE_URL },
   auth: authConfig,
-  email: { from: 'App <no-reply@example.com>' },
+  messaging: {
+    email: resend({
+      apiKey: env.RESEND_API_KEY,
+      from: 'App <no-reply@example.com>',
+    }),
+  },
   storage: {
     local: './uploads',
     defaultBucket: 'files',
@@ -69,7 +69,7 @@ await provision(app)
 
 The database adapter is imported explicitly; there is no implicit driver. Keep
 unrelated external side effects out of the backend import graph. The blueprint
-imports the declaration and reads `backend.manifest`; it never starts the app,
+imports the declaration and calls `backend.inspect({ env })`; it never starts the app,
 connects to a queue, or needs a special environment flag.
 
 Aggregate every domain, Better Auth, plugin, and internal table in the schema
@@ -230,19 +230,21 @@ access rules. Delete the AWS or Tigris wrapper and uninstall the SDK. A custom
 multipart upload route is replaced by the bucket's own upload route unless it
 performs domain work that cannot move into a job.
 
-## Email
+## Messaging
 
 ```ts
-await app.email.send({ to, subject, html })
+await app.messaging.email.send({ to, subject, html })
 ```
 
-Configure `email: { from, provider }`. `provider` defaults to `resend` when
-`RESEND_API_KEY` is set and `console` in development. The facade uses Web
-Standard `fetch`, so the `resend` package is uninstalled.
+Declare named channels: `messaging: { email: resend({ apiKey, from }) }`. A
+channel whose credentials are absent or empty captures to the message journal
+instead of sending, and prints to the console locally. Telegram is a provider
+too, with its own message type. The facade uses Web Standard `fetch`, so the
+`resend` package is uninstalled.
 
 ## Env
 
-Pass `envSchema` to `bunderstack({ env: envSchema })` and read `app.env`
+Pass `envSchema` in the first argument — `bunderstack({ schema, env: envSchema }, (env) => …)` — and read `app.env`
 or `ctx.env`. Remove `@t3-oss/env-core` `createEnv()` calls and `dotenv`; Bun
 loads `.env` itself. Server variables must not use the `PUBLIC_` prefix, and
 browser-safe variables must. Declared env appears in the deployment blueprint,

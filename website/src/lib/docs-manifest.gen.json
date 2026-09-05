@@ -111,12 +111,12 @@
           "$ref": "auth.mdx"
         },
         {
-          "$id": "email.mdx",
+          "$id": "messaging.mdx",
           "type": "page",
-          "name": "Email",
-          "description": "Send emails with resend, SMTP, console, or a custom adapter",
-          "url": "/docs/email",
-          "$ref": "email.mdx"
+          "name": "Messaging",
+          "description": "Named channels for email and Telegram, with capture when credentials are absent",
+          "url": "/docs/messaging",
+          "$ref": "messaging.mdx"
         },
         {
           "$id": "env.mdx",
@@ -198,12 +198,12 @@
     "configuration": "configuration.mdx",
     "crud": "crud.mdx",
     "deployment-contract": "deployment-contract.mdx",
-    "email": "email.mdx",
     "env": "env.mdx",
     "framework-portability": "framework-portability.mdx",
     "getting-started": "getting-started.mdx",
     "http-webhooks": "http-webhooks.mdx",
     "": "index.mdx",
+    "messaging": "messaging.mdx",
     "middleware": "middleware.mdx",
     "query-client": "query-client.mdx",
     "storage": "storage.mdx",
@@ -240,10 +240,6 @@
       "title": "Deployment Contract",
       "description": "What a hosting platform can read from a Bunderstack application without running it, and what it can ask a running one"
     },
-    "email": {
-      "title": "Email",
-      "description": "Send emails with resend, SMTP, console, or a custom adapter"
-    },
     "env": {
       "title": "Environment Validation",
       "description": "Standard Schema validation for server and browser environment values"
@@ -263,6 +259,10 @@
     "": {
       "title": "Introduction",
       "description": "One typed backend graph for Bun applications"
+    },
+    "messaging": {
+      "title": "Messaging",
+      "description": "Named channels for email and Telegram, with capture when credentials are absent"
     },
     "middleware": {
       "title": "Middleware",

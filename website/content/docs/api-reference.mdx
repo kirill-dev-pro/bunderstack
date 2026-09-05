@@ -28,7 +28,7 @@ Major optional groups:
 
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
-- `storage`, `email`, `env`, and `jobs`: application facilities;
+- `storage`, `messaging`, and `jobs`: application facilities;
 - `api`: your oRPC router, as an object or as `(o) => router`;
 - `middleware`: oRPC middleware applied to every procedure in the graph;
 - `realtime`: memory or Redis Publisher configuration;
@@ -36,10 +36,16 @@ Major optional groups:
 
 See [Configuration](/docs/configuration) for examples and defaults.
 
-`bunderstack()` only declares the backend. `backend.manifest` is available
-synchronously for Blueprint generation. Call `await backend.start({ env })` to
-materialize a production runtime, or `await backend.test()` to create an
-isolated test fixture owned by the current lexical scope.
+`bunderstack({ schema, env }, (env) => config)` only declares the backend. The
+first argument is the static half — the Drizzle schema and the environment
+schema — and the callback returns everything that depends on a validated value.
+The callback runs once per operation, never at import time.
+
+`backend.inspect({ env })` resolves the declaration and returns its manifest
+without opening a database, a bucket, a provider connection, or a worker.
+`await backend.start({ env })` materializes a production runtime, and
+`await backend.test()` creates an isolated test fixture owned by the current
+lexical scope.
 
 ## `BunderstackApp`
 
@@ -49,7 +55,7 @@ type BunderstackApp = {
   db: DbFor<TSchema>
   auth: AuthInstance
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacades<TMessaging>
   env: ValidatedEnv<TEnv>
   jobs: JobsFacade<TJobs>
   realtime: RealtimeFacade<TSchema>
@@ -69,7 +75,7 @@ type BunderstackApp = {
 ## API builder
 
 ```ts
-const o = defineApi({ schema, env: envSchema })
+const o = defineApi({ schema, env: envSchema, messaging })
 
 o.public // no session resolution
 o.protected // resolves the session, narrows context.user
@@ -77,8 +83,9 @@ o.webhook // public, preserves the exact raw body
 o.middleware(fn) // a standalone middleware over ApiContext
 ```
 
-`defineApi` infers `TSchema` and `TEnv` from the values it receives, so an
-application never writes `BunderstackApiBuilder<…>` by hand. It reads nothing
+`defineApi` infers `TSchema`, `TEnv`, and the channel record from the values it
+receives, so an application never writes `BunderstackApiBuilder<…>` by hand.
+`messaging` is optional; without it `context.messaging` stays open. It reads nothing
 at runtime and can be called at module scope. `createApiBuilder<TSchema,
 TEnv>()` remains available when you want to pass the generics explicitly.
 
@@ -90,7 +97,7 @@ type ApiContext = {
   db: DbFor<TSchema>
   env: ValidatedEnv<TEnv>
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacades<TMessaging>
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance

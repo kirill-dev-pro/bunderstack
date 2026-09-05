@@ -135,7 +135,7 @@ test('the built-in storage sweep is registered as an ordinary cron', async () =>
     { schema: {} },
     () =>
       ({
-database: { url: ':memory:', adapter: libsql() },
+        database: { url: ':memory:', adapter: libsql() },
         storage: {
           local: './uploads',
           defaultBucket: 'files',

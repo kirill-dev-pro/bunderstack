@@ -6,20 +6,18 @@ description: bunderstack declarations, runtime options, transports, adapters, an
 ## Application options
 
 ```ts
-const backend = bunderstack({
-  schema,
+const backend = bunderstack({ schema, env }, (env) => ({
   database: {
     adapter: libsql(),
-    url,
-    authToken,
+    url: env.DATABASE_URL,
+    authToken: env.DATABASE_AUTH_TOKEN,
     migrations: './migrations',
   },
   access,
   auth,
   authResolver,
   storage,
-  email,
-  env,
+  messaging,
   jobs: (j) => j.define({}),
   api,
   middleware: [instrumentation],
@@ -28,7 +26,7 @@ const backend = bunderstack({
   idempotency: { ttlMs: 86_400_000 },
   realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
   openapi: true,
-})
+}))
 
 const app = await backend.start()
 ```
@@ -74,17 +72,19 @@ publishing events that cannot reach another process.
 The adapter dialect must match the Drizzle schema. Import only the adapter you
 use so optional drivers stay outside the application dependency graph.
 
-## Email and storage adapters
+## Messaging and storage adapters
 
-Email defaults to the console provider in development. Use Resend directly or
-the optional SMTP adapter:
+`messaging` is a named record of channels. A channel without credentials
+captures to the message journal instead of sending; see
+[Messaging](/docs/messaging).
 
 ```ts
+import { resend } from 'bunderstack'
 import { smtp } from 'bunderstack/email-smtp'
 
-email: {
-  from: 'My app <hello@example.com>',
-  provider: smtp({ url: process.env.SMTP_URL! }),
+messaging: {
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'My app <hello@example.com>' }),
+  ops: smtp({ url: env.SMTP_URL, from: 'ops@example.com' }),
 }
 ```
 
@@ -99,8 +99,8 @@ and Publisher resources. `app.status`, `app.signal`, and
 `app.backgroundRunning` expose lifecycle state.
 
 `bunderstack()` is synchronous and side-effect-free. Deployment tooling imports
-the exported backend and reads `backend.manifest` without opening database or
-Redis connections. `backend.start({ env })` owns production runtime resources;
+the exported backend and calls `backend.inspect({ env })`, which resolves the
+declaration without opening database or Redis connections. `backend.start({ env })` owns production runtime resources;
 `backend.test()` creates an isolated, lexically owned test fixture.
 
 For test suites, declare reusable defaults and setup with

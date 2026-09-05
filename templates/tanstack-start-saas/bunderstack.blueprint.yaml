@@ -1,7 +1,7 @@
 version: 1
 generator:
   name: bunderstack
-  version: 0.23.0
+  version: 0.24.0
 application:
   framework: tanstack-start
   scripts:
@@ -10,24 +10,24 @@ application:
     worker: worker
 bunderstack:
   entry: src/bunderstack/backend.ts
-  manifestVersion: 3
+  manifestVersion: 4
 resources:
   database:
     dialect: sqlite
     migrationsDirectory: ./migrations
     migrationMode: migrations
     tables:
-      - exportName: _system.emailEvents
-        physicalName: _bunderstack_email_events
-        system: true
-      - exportName: _system.emails
-        physicalName: _bunderstack_emails
-        system: true
       - exportName: _system.idempotency
         physicalName: _bunderstack_idempotency
         system: true
       - exportName: _system.jobs
         physicalName: _bunderstack_jobs
+        system: true
+      - exportName: _system.messageEvents
+        physicalName: _bunderstack_message_events
+        system: true
+      - exportName: _system.messages
+        physicalName: _bunderstack_messages
         system: true
       - exportName: account
         physicalName: account
@@ -57,6 +57,11 @@ resources:
         visibility: private
   realtime:
     required: true
+  messaging:
+    channels:
+      - name: email
+        kind: email
+        provider: resend
 environment:
   - key: EMAIL_FROM
     required: false

@@ -2,7 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `bunderstack(envSchema, env => config)` with per-start resolution, explicit inspection, and blueprint shape probes while preserving the existing object form.
+**Goal:** Replace the object form with `bunderstack({ schema, env }, env => config)`, adding per-start resolution, explicit inspection, and blueprint shape probes.
+
+**Outcome (2026-09-05):** Implemented. The declaration's static half moved into
+the first argument after the two-argument form was found to break inference for
+every inline `jobs`, `api`, and `auth` builder; see the design's decision 1.
 
 **Architecture:** Store either a static config or an env schema plus pure config factory in backend internals. Route `start()`, `test()`, and `inspect()` through one materializer that validates env before resolving the factory. Build manifests from resolved configuration without starting runtime resources.
 
@@ -12,7 +16,7 @@
 
 ## Global Constraints
 
-- Existing `bunderstack(config)` and eager `backend.manifest` remain source-compatible.
+- The single-argument `bunderstack(config)` form and the eager `backend.manifest` property are removed.
 - Env-first factories are resolved independently for every inspection, start, and test fixture.
 - Inspection performs no database, storage, network, provider, or worker I/O.
 - Manifest errors and diffs never contain environment values.
@@ -34,7 +38,7 @@
 - Consumes: `EnvConfigInput`, `ValidatedEnv<TEnv>`, and `BunderstackDefinitionConfig`.
 - Produces: `EnvFirstBunderstackBackend<TApp>`, `StaticBunderstackBackend<TApp>`, and overloads for `bunderstack(config)` and `bunderstack(envSchema, factory)`.
 
-- [ ] **Step 1: Write compile-time and runtime failing tests**
+- [x] **Step 1: Write compile-time and runtime failing tests**
 
 Add an inference fixture equivalent to:
 
@@ -54,7 +58,7 @@ Add a runtime test asserting the factory is not called by module construction,
 is called once per `inspect()` invocation, and receives each invocation's
 validated value.
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 Run:
 
@@ -65,7 +69,7 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/confi
 Expected: TypeScript/runtime failure because the two-argument overload and
 `inspect` do not exist.
 
-- [ ] **Step 3: Add declaration unions and overloads**
+- [x] **Step 3: Add declaration unions and overloads**
 
 Represent internals explicitly:
 
@@ -88,7 +92,7 @@ Add the new overload before the implementation signature so contextual typing
 flows from `envSchema` into the callback. Keep the existing overload's return
 type exposing `readonly manifest`.
 
-- [ ] **Step 4: Run typecheck and focused tests**
+- [x] **Step 4: Run typecheck and focused tests**
 
 Run:
 
@@ -99,7 +103,7 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/confi
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/bunderstack/src/backend.ts packages/bunderstack/src/backend-internals.ts packages/bunderstack/src/backend.test.ts packages/bunderstack/src/config-env-inference.test.ts
@@ -123,14 +127,14 @@ git commit -m "feat: declare env-first backends"
 - Consumes: either backend declaration and a raw env source.
 - Produces: `inspectDeclaration(declaration, source): ResolvedDefinition` where `ResolvedDefinition` contains `config`, `jobsDefs`, `customApiRouter`, and `manifest`.
 
-- [ ] **Step 1: Write failing inspection isolation tests**
+- [x] **Step 1: Write failing inspection isolation tests**
 
 Assert that two calls with `{ TENANT: 'a' }` and `{ TENANT: 'b' }` produce the
 corresponding migration directories while retaining separate config objects.
 Use adapters with no connection side effects and assert their `connect` methods
 were never called.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```bash
 bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-env.test.ts
@@ -138,7 +142,7 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-e
 
 Expected: FAIL because inspection is still coupled to eager backend creation.
 
-- [ ] **Step 3: Implement the pure resolver**
+- [x] **Step 3: Implement the pure resolver**
 
 Move these declaration-time operations from `backend.ts` into `inspect.ts`:
 
@@ -163,14 +167,14 @@ return { config, jobsDefs, customApiRouter, manifest }
 Move provider-specific required-env checks out of the initial parse and perform
 them after config resolution without reparsing or changing values.
 
-- [ ] **Step 4: Make both backend forms use inspection**
+- [x] **Step 4: Make both backend forms use inspection**
 
 The static form inspects once and caches its immutable result. The env-first
 form calls `inspectDeclaration` for every `inspect()` and passes the returned
 resolved definition to `start()` without invoking the factory a second time in
 that operation.
 
-- [ ] **Step 5: Verify focused tests**
+- [x] **Step 5: Verify focused tests**
 
 ```bash
 bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-env.test.ts packages/bunderstack/src/config.test.ts
@@ -178,7 +182,7 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-e
 
 Expected: PASS and zero adapter connections during `inspect()`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/bunderstack/src/inspect.ts packages/bunderstack/src/backend.ts packages/bunderstack/src/config.ts packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-env.test.ts
@@ -202,7 +206,7 @@ git commit -m "feat: inspect resolved backend declarations"
 - Consumes: `ResolvedDefinition` from Task 2.
 - Produces: `materializeBunderstack(resolved, source, overrides)` without resolving jobs/API/config again.
 
-- [ ] **Step 1: Write failing multi-start and multi-fixture tests**
+- [x] **Step 1: Write failing multi-start and multi-fixture tests**
 
 Create one env-first backend and start two isolated test fixtures:
 
@@ -216,7 +220,7 @@ expect(second.app.env.TENANT).toBe('second')
 Add a counter proving one operation invokes the declaration factory exactly
 once and no configuration leaks between fixtures.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```bash
 bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/testing/fixture.test.ts
@@ -224,14 +228,14 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/testi
 
 Expected: FAIL until runtime consumes `ResolvedDefinition`.
 
-- [ ] **Step 3: Change the materialization boundary**
+- [x] **Step 3: Change the materialization boundary**
 
 Pass the already resolved config, jobs, API router, env, and manifest into
 runtime construction. Delete duplicate calls to `validateEnv`, jobs builders,
 and API builders along that path. Retain runtime-only database/storage/provider
 creation in `runtime.ts`.
 
-- [ ] **Step 4: Verify lifecycle tests**
+- [x] **Step 4: Verify lifecycle tests**
 
 ```bash
 bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/testing/fixture.test.ts packages/bunderstack/src/jobs/runtime.test.ts
@@ -239,7 +243,7 @@ bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/testi
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/bunderstack/src/backend.ts packages/bunderstack/src/runtime.ts packages/bunderstack/src/testing/fixture.ts packages/bunderstack/src/backend.test.ts packages/bunderstack/src/testing/fixture.test.ts
@@ -263,7 +267,7 @@ git commit -m "refactor: materialize inspected declarations"
 - Consumes: `backend.inspect({ env })` and normalized manifests.
 - Produces: `diffManifests(expected, actual): ManifestDifference[]` and generated probe sources that contain key names but no user values.
 
-- [ ] **Step 1: Write failing probe tests**
+- [x] **Step 1: Write failing probe tests**
 
 Cover a stable value-only factory and an unstable factory:
 
@@ -278,7 +282,7 @@ Cover a stable value-only factory and an unstable factory:
 Assert the unstable case fails with paths such as `realtime.required`, while
 the error contains neither probe values nor serialized configs.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```bash
 bun test packages/bunderstack/src/blueprint-generator.test.ts packages/bunderstack/src/manifest.test.ts
@@ -286,7 +290,7 @@ bun test packages/bunderstack/src/blueprint-generator.test.ts packages/bundersta
 
 Expected: FAIL because env-first backends cannot yet generate blueprints.
 
-- [ ] **Step 3: Implement deterministic probes**
+- [x] **Step 3: Implement deterministic probes**
 
 Build two raw sources from declared key names. Include valid base values in both:
 
@@ -310,13 +314,13 @@ validates, throw `BlueprintProbeError` naming only the env key and instructing
 the developer to provide a valid value while generating the blueprint. Never
 print candidates or the configured value.
 
-- [ ] **Step 4: Compare normalized manifests before writing**
+- [x] **Step 4: Compare normalized manifests before writing**
 
 Use the first manifest as the blueprint input only after every probe manifest
 matches. Render differences as sorted `added`, `removed`, and `changed` paths.
 Keep the generator's existing atomic file replacement behavior.
 
-- [ ] **Step 5: Verify blueprint tests**
+- [x] **Step 5: Verify blueprint tests**
 
 ```bash
 bun test packages/bunderstack/src/blueprint-generator.test.ts packages/bunderstack/src/blueprint.test.ts packages/bunderstack/src/manifest.test.ts
@@ -324,7 +328,7 @@ bun test packages/bunderstack/src/blueprint-generator.test.ts packages/bundersta
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/bunderstack/src/env-probe.ts packages/bunderstack/src/manifest-diff.ts packages/bunderstack/src/blueprint-generator.ts packages/bunderstack/src/blueprint-generator.test.ts packages/bunderstack/src/manifest.test.ts
@@ -350,14 +354,14 @@ git commit -m "feat: detect environment-dependent blueprint shape"
 - Produces: `bunderstack blueprint --hosted-check` and automatic
   `BUNDERSTACK_BLUEPRINT_PATH` checking before runtime materialization.
 
-- [ ] **Step 1: Write failing hosted-check tests**
+- [x] **Step 1: Write failing hosted-check tests**
 
 Add CLI tests for a matching contract, a mismatch with sorted structural paths,
 a missing blueprint, and an error that never contains supplied secret values.
 Add a backend test proving a final mismatch occurs before the database adapter's
 `connect()` method.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```bash
 bun test packages/bunderstack/src/cli.test.ts packages/bunderstack/src/backend.test.ts
@@ -365,7 +369,7 @@ bun test packages/bunderstack/src/cli.test.ts packages/bunderstack/src/backend.t
 
 Expected: FAIL because hosted checking does not exist.
 
-- [ ] **Step 3: Implement explicit hosted CLI checking**
+- [x] **Step 3: Implement explicit hosted CLI checking**
 
 Add `--hosted-check` as a mode mutually exclusive with `--check`. Import the
 backend, call `backend.inspect({ env: process.env })`, convert its manifest with
@@ -373,7 +377,7 @@ the existing blueprint conversion, normalize generator-only and migration-mode
 fields from the committed blueprint, and call `diffManifests`. Exit non-zero
 with added, removed, and changed paths on mismatch.
 
-- [ ] **Step 4: Enforce the embedded blueprint during start**
+- [x] **Step 4: Enforce the embedded blueprint during start**
 
 When the start source contains `BUNDERSTACK_BLUEPRINT_PATH`, read and parse that
 file, compare it with the already inspected definition, and only then call
@@ -381,7 +385,7 @@ file, compare it with the already inspected definition, and only then call
 metadata. A mismatch must happen before database, storage, auth, messaging,
 realtime, or worker construction.
 
-- [ ] **Step 5: Run hosted-check tests**
+- [x] **Step 5: Run hosted-check tests**
 
 ```bash
 bun test packages/bunderstack/src/cli.test.ts packages/bunderstack/src/backend.test.ts packages/bunderstack/src/blueprint-generator.test.ts
@@ -389,7 +393,7 @@ bun test packages/bunderstack/src/cli.test.ts packages/bunderstack/src/backend.t
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/bunderstack/src/cli.ts packages/bunderstack/src/cli.test.ts packages/bunderstack/src/blueprint-generator.ts packages/bunderstack/src/backend.ts packages/bunderstack/src/backend.test.ts packages/bunderstack/src/env.ts
@@ -413,13 +417,13 @@ git commit -m "feat: verify hosted blueprint contracts"
 - Consumes: completed env-first API.
 - Produces: published declarations and migration guidance.
 
-- [ ] **Step 1: Update documentation examples**
+- [x] **Step 1: Update documentation examples**
 
 Show both overloads, explain that the callback may run repeatedly, distinguish
 best-effort local probes from Bunderhost's deployment contract, and state that
 `inspect()` performs no I/O.
 
-- [ ] **Step 2: Regenerate generated documentation artifacts**
+- [x] **Step 2: Regenerate generated documentation artifacts**
 
 ```bash
 bun run website/scripts/gen-code-snippets.ts
@@ -428,7 +432,7 @@ bun run website/scripts/gen-code-snippets.ts
 Expected: generated snippets use the env-first form where runtime values are
 needed.
 
-- [ ] **Step 3: Run package verification**
+- [x] **Step 3: Run package verification**
 
 ```bash
 bun test packages/bunderstack/src/backend.test.ts packages/bunderstack/src/app-env.test.ts packages/bunderstack/src/blueprint-generator.test.ts packages/bunderstack/src/testing/fixture.test.ts
@@ -440,7 +444,7 @@ bun run typecheck:all
 Expected: all commands PASS and packed declarations retain the callback's exact
 env type.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add website/content/docs/getting-started.mdx website/content/docs/env.mdx website/content/docs/api-reference.mdx website/scripts/gen-code-snippets.ts website/src/lib/code-snippets.gen.json docs/MIGRATION-0.24.md

@@ -1,6 +1,6 @@
 # bunderstack
 
-The complete backend & full-stack framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, email, live views, and client bindings from one single file declaration.
+The complete backend & full-stack framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, messaging, live views, and client bindings from one single file declaration.
 
 ```sh
 bun add bunderstack better-auth drizzle-orm valibot @libsql/client
@@ -12,9 +12,8 @@ import { libsql } from 'bunderstack/libsql'
 import * as v from 'valibot'
 import * as schema from './schema'
 
-export const backend = bunderstack({
-  schema,
-  database: { adapter: libsql(), url: 'file:./data.db' },
+export const backend = bunderstack({ schema }, (env) => ({
+  database: { adapter: libsql(), url: env.DATABASE_URL },
   access: { posts: { crud: true } },
   realtime: true,
   api: {
@@ -23,7 +22,7 @@ export const backend = bunderstack({
       .input(v.optional(v.object({})))
       .handler(() => ({ ok: true })),
   },
-})
+}))
 
 export const app = await backend.start()
 Bun.serve({ fetch: app.handler })
@@ -42,7 +41,7 @@ await context.realtime.publish(schema.posts, 'update', post)
 ```
 
 Use the in-memory Publisher for one process or configure
-`realtime: { redis: process.env.REDIS_URL! }` for multi-process delivery and
+`realtime: { redis: env.REDIS_URL }` for multi-process delivery and
 replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 
 ## Package Subpaths (0.21+)
@@ -59,7 +58,8 @@ replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
 - `bunderstack/start` & `bunderstack/start-auth` — TanStack Start full-stack integration
 - `bunderstack/libsql`, `bunderstack/postgres-js`, `bunderstack/bun-sql`, `bunderstack/bun-sqlite`, `bunderstack/pglite` — Database adapters
 - `bunderstack/storage/*` — Storage adapters (`s3`, `disk`)
-- `bunderstack/email-smtp` — SMTP email adapter
+- `bunderstack/messaging` — Messaging channel descriptors (`resend`, `customEmail`, `telegram`)
+- `bunderstack/email-smtp` — SMTP email channel
 - `bunderstack/jobs/*` — Job queue adapters (`memory`, `redis`)
 
 See the [workspace documentation](https://github.com/kirill-dev-pro/bunderstack#readme) for webhooks, clients,
@@ -69,6 +69,7 @@ storage, collections, lifecycle, and complete examples.
 
 Every change is listed with before/after code in the migration guides, which live in full at:
 
+- [Migrating to 0.24](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.24.md)
 - [Migrating to 0.22](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.22.md)
 - [Migrating to 0.21](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.21.md)
 - [Migrating to 0.17](https://github.com/kirill-dev-pro/bunderstack/blob/main/docs/MIGRATION-0.17.md)

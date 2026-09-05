@@ -2,6 +2,61 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.0] - 2026-09-05
+
+### Changed
+
+- **Env-first declarations.** `bunderstack(config)` becomes
+  `bunderstack({ schema, env }, (env) => config)`. The first argument holds the
+  static half of the declaration; the callback receives the validated
+  environment and returns everything that depends on a value. `env` is no
+  longer a configuration key, and the callback is resolved once per `inspect()`,
+  `start()`, and test fixture. Resolving `schema` and `env` before the callback
+  runs is what keeps an inline `jobs`, `api`, or `auth` builder exactly typed.
+- **`backend.manifest` becomes `backend.inspect({ env })`.** A manifest depends
+  on the environment, so it is a call. Inspection validates the environment,
+  resolves the declaration, and builds the manifest without opening a database,
+  a bucket, a provider connection, or a worker.
+- **`email` becomes `messaging`.** Channels are named, each names one provider,
+  and each provider carries its own message type. `app.email.send()` becomes
+  `app.messaging.<channel>.send()`, `ctx.email` becomes `ctx.messaging`, and
+  `t.email.sent` becomes `t.messaging.<channel>.sent`. Providers are declared
+  with `resend()`, `smtp()`, `customEmail()`, and `telegram()`.
+- **Capture replaces the console provider.** A channel whose required
+  configuration is absent or empty writes the message to the journal instead of
+  sending, and prints it locally. On a host the body stays out of the logs. A
+  wrong key and a rejected request still raise.
+- **The message journal replaces the email log.** `_bunderstack_messages` and
+  `_bunderstack_message_events` replace `_bunderstack_emails` and
+  `_bunderstack_email_events`, and record the channel, provider, credential
+  source, status, recipients, content, and error. Applications with committed
+  migrations must run their `db:generate` command and apply the generated
+  migration after upgrading.
+- Manifest version 4 adds `messaging.channels`; the blueprint gains
+  `resources.messaging`. Neither carries a key, a token, or a sender address.
+
+### Added
+
+- **Managed messaging credentials.** `BUNDERSTACK_MESSAGING_CONFIG` supplies
+  provider-keyed defaults that every channel of that provider shares. A field
+  the channel declares itself wins field by field, and each journal row records
+  whether its credentials were `explicit`, `managed`, or `capture`.
+- **Blueprint shape probes.** Blueprint generation resolves the declaration
+  against two accepted environments and rejects a declaration whose shape
+  depends on a value, naming the differing paths and never a value.
+- **Hosted contract checking.** `bunderstack blueprint --hosted-check` compares
+  an inspected declaration with the committed blueprint. At runtime,
+  `BUNDERSTACK_BLUEPRINT_PATH` makes `start()` verify that contract before it
+  connects to anything.
+- `defineApi({ schema, env, messaging })` types `context.messaging` exactly for
+  a router declared in its own module.
+
+### Removed
+
+- The single-argument `bunderstack(config)` form, the `env` configuration key,
+  the eager `backend.manifest` property, the `email` configuration key,
+  `app.email`, `ctx.email`, and `t.email`. See `docs/MIGRATION-0.24.md`.
+
 ## [0.23.4] - 2026-09-01
 
 ### Fixed

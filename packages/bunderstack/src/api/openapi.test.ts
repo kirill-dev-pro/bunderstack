@@ -22,7 +22,7 @@ async function setupApp(
     { schema },
     () =>
       ({
-database: { adapter: pglite() },
+        database: { adapter: pglite() },
 
         access: {
           posts: {
