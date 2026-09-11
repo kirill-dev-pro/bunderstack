@@ -83,11 +83,14 @@ function baseApi(stream: FrameQueue): TodoApi {
   return {
     todos: {
       live: (_input, options) => stream.iterate(options?.signal) as never,
-      create: async ({ title }) => ({
-        ...todo('9', false),
-        title,
-      }),
-      update: async ({ id, done }) => todo(id, done),
+      create: async ({ title }) => {
+        if (title === undefined) throw new Error('title is required')
+        return { ...todo('9', false), title }
+      },
+      update: async ({ id, done }) => {
+        if (done === undefined) throw new Error('done is required')
+        return todo(id, done)
+      },
       delete: async () => undefined,
     },
   }
@@ -200,13 +203,13 @@ test('optimistic create is replaced by the backend-generated entity ID', async (
   stream.push({ type: 'snapshot', operationId, items: [created] })
   await result
   flush()
-  expect(store.items).toEqual([created])
+  expect([...store.items]).toEqual([created])
   dispose()
 })
 
 test('failed delete restores the confirmed row', async () => {
   const stream = new FrameQueue()
-  const deletion = deferred<void>()
+  const deletion = deferred<undefined>()
   const api = baseApi(stream)
   api.todos.delete = () => deletion.promise
   const { store, dispose } = mount(api)
@@ -219,6 +222,59 @@ test('failed delete restores the confirmed row', async () => {
   deletion.reject(new Error('delete failed'))
   await expect(result).rejects.toThrow('delete failed')
   flush()
-  expect(store.items).toEqual([todo('1', false)])
+  expect([...store.items]).toEqual([todo('1', false)])
   dispose()
 })
+
+for (const operation of ['toggle', 'remove'] as const) {
+  test(
+    operation + ' ignores a newly created row until its server ID arrives',
+    async () => {
+      const stream = new FrameQueue()
+      const creation = deferred<Todo>()
+      const api = baseApi(stream)
+      let operationId = ''
+      let invalidRequests = 0
+      api.todos.create = (_input, options) => {
+        operationId = options?.operationId ?? ''
+        return creation.promise
+      }
+      api.todos.update = async () => {
+        invalidRequests++
+        throw new Error('temporary ID reached server')
+      }
+      api.todos.delete = async () => {
+        invalidRequests++
+        throw new Error('temporary ID reached server')
+      }
+      const { store, dispose } = mount(api)
+      try {
+        stream.push({ type: 'snapshot', items: [] })
+        await settleUntil(() => store.ready)
+        const adding = store.add('new todo')
+        flush()
+        const pending = store.items[0]!
+        const result =
+          operation === 'toggle'
+            ? store.toggle(pending, true)
+            : store.remove(pending)
+        await result.catch(() => {})
+        flush()
+        const beforeAck = {
+          count: store.items.length,
+          done: store.items[0]?.done,
+        }
+        const created = { ...todo('42', false), title: 'new todo' }
+        creation.resolve(created)
+        stream.push({ type: 'snapshot', operationId, items: [created] })
+        await adding
+        flush()
+        expect(invalidRequests).toBe(0)
+        expect(beforeAck).toEqual({ count: 1, done: false })
+        expect([...store.items]).toEqual([created])
+      } finally {
+        dispose()
+      }
+    },
+  )
+}

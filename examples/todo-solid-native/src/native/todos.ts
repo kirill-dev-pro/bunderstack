@@ -1,9 +1,4 @@
-import {
-  createClient,
-  createLiveView,
-  type CallOptions,
-  type LiveViewFrame,
-} from 'bunderstack/client'
+import { createClient, createLiveView } from 'bunderstack/client'
 import { createLiveStore } from 'bunderstack/client-solid'
 import { action, createOptimisticStore, onCleanup } from 'solid-js'
 
@@ -11,52 +6,25 @@ import type { App } from '../bunderstack'
 
 const api = createClient<App>()
 
-export type Todo = {
-  id: string
-  title: string
-  done: boolean
-  createdAt: Date
+export type Todo = Awaited<ReturnType<typeof api.todos.create>> & {
   /** Exists only in Solid's optimistic action overlay. */
   pending?: boolean
 }
 
 export type TodoApi = {
-  todos: {
-    live: (
-      input: {
-        sort: 'createdAt' | 'done'
-        order: 'asc' | 'desc'
-        limit: number
-      },
-      options?: CallOptions,
-    ) =>
-      | AsyncIterable<LiveViewFrame<Todo>>
-      | Promise<AsyncIterable<LiveViewFrame<Todo>>>
-    create: (input: { title: string }, options?: CallOptions) => Promise<Todo>
-    update: (
-      input: { id: string; done: boolean },
-      options?: CallOptions,
-    ) => Promise<Todo>
-    delete: (input: { id: string }, options?: CallOptions) => Promise<void>
-  }
+  todos: Pick<typeof api.todos, 'live' | 'create' | 'update' | 'delete'>
 }
 
-export type TodoStore = {
-  readonly items: readonly Todo[]
-  readonly connected: boolean
-  readonly ready: boolean
-  readonly error: unknown
-  add(title: string): Promise<void>
-  toggle(todo: Todo, done: boolean): Promise<void>
-  remove(todo: Todo): Promise<void>
-  resync(): void
-}
+export type TodoStore = ReturnType<typeof createTodoStore>
+
+/** A new row cannot be addressed by the backend until creation is acknowledged. */
+export const isTemporaryTodo = (todo: Todo) => todo.id.startsWith('pending:')
 
 /**
  * The app-specific layer is now deliberately small: Bunderstack owns the
  * confirmed LiveView and transport lifecycle; Solid owns speculative state.
  */
-export function createTodoStore(todoApi: TodoApi = api): TodoStore {
+export function createTodoStore(todoApi: TodoApi = api) {
   const view = createLiveView<Todo>({
     subscribe: ({ signal }) =>
       todoApi.todos.live(
@@ -87,6 +55,7 @@ export function createTodoStore(todoApi: TodoApi = api): TodoStore {
   })
 
   const toggle = action(function* (todo: Todo, done: boolean) {
+    if (isTemporaryTodo(todo)) return
     setItems((draft) => {
       const current = draft.find((item) => item.id === todo.id)
       if (!current) return
@@ -100,14 +69,13 @@ export function createTodoStore(todoApi: TodoApi = api): TodoStore {
   })
 
   const remove = action(function* (todo: Todo) {
+    if (isTemporaryTodo(todo)) return
     setItems((draft) => draft.filter((item) => item.id !== todo.id))
     yield view.mutate(todoApi.todos.delete, { id: todo.id })
   })
 
   return {
-    get items() {
-      return items
-    },
+    items,
     get connected() {
       return confirmed.status === 'ready'
     },

@@ -9,6 +9,7 @@ into a keyed store, while Solid actions own the optimistic overlay.
 - `src/native/todos.ts` — the entire app data layer: one `LiveView` and three
   optimistic actions.
 - `src/TodoList.tsx` — UI and mutation-scoped error presentation.
+- `src/native/form.ts` — draft recovery that preserves newer edits and submissions.
 
 The database generates canonical Todo IDs. `bunderstack/client` generates an
 internal `operationId` for each mutation, sends it as a request header, and
@@ -26,3 +27,11 @@ authentication. It is not part of the oRPC graph.
 bun run test
 bun run dev
 ```
+
+New optimistic rows have disabled checkbox/delete controls until the server ID
+arrives. The actions also ignore temporary IDs. A rejected add restores its title
+only if the user has neither edited the input nor submitted another todo.
+
+Row pending is an optimistic affordance: the installed Solid 2 runtime does not
+mark optimistic writes themselves as pending reads. LiveView continues to own
+connection status and operation acknowledgement.
