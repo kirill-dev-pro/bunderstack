@@ -2,7 +2,7 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
-## Unreleased
+## [0.24.1] — 2026-09-14
 
 ### Fixed
 
