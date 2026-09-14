@@ -1,7 +1,7 @@
 version: 1
 generator:
   name: bunderstack
-  version: 0.23.0
+  version: 0.24.1
 application:
   framework: tanstack-start
   scripts:
@@ -10,24 +10,24 @@ application:
     worker: worker
 bunderstack:
   entry: src/bunderstack.ts
-  manifestVersion: 3
+  manifestVersion: 4
 resources:
   database:
     dialect: sqlite
     migrationsDirectory: ./migrations
     migrationMode: migrations
     tables:
-      - exportName: _system.emailEvents
-        physicalName: _bunderstack_email_events
-        system: true
-      - exportName: _system.emails
-        physicalName: _bunderstack_emails
-        system: true
       - exportName: _system.idempotency
         physicalName: _bunderstack_idempotency
         system: true
       - exportName: _system.jobs
         physicalName: _bunderstack_jobs
+        system: true
+      - exportName: _system.messageEvents
+        physicalName: _bunderstack_message_events
+        system: true
+      - exportName: _system.messages
+        physicalName: _bunderstack_messages
         system: true
       - exportName: agentCommitmentDependencies
         physicalName: agent_commitment_dependencies
@@ -46,6 +46,9 @@ resources:
         system: false
       - exportName: agentRequests
         physicalName: agent_requests
+        system: false
+      - exportName: agentRunSteps
+        physicalName: agent_run_steps
         system: false
       - exportName: agentRuns
         physicalName: agent_runs
@@ -78,11 +81,9 @@ resources:
         visibility: private
   realtime:
     required: true
+  messaging:
+    channels: []
 environment:
-  - key: AI_PROVIDER
-    required: false
-    scope: server
-    sensitive: false
   - key: AI_API_KEY
     required: false
     scope: server
@@ -95,11 +96,11 @@ environment:
     required: false
     scope: server
     sensitive: true
-  - key: OPENAI_API_KEY
+  - key: AI_PROVIDER
     required: false
     scope: server
     sensitive: true
-  - key: OPENAI_MODEL
+  - key: APP_URL
     required: false
     scope: server
     sensitive: true
@@ -112,6 +113,14 @@ environment:
     scope: server
     sensitive: true
   - key: IQDOC_MODEL
+    required: false
+    scope: server
+    sensitive: true
+  - key: OPENAI_API_KEY
+    required: false
+    scope: server
+    sensitive: true
+  - key: OPENAI_MODEL
     required: false
     scope: server
     sensitive: true
@@ -156,6 +165,11 @@ api:
       effect: mutation
       method: POST
       path: /api/agent/messages
+    - handle: stopRun
+      operationId: stopRun
+      effect: mutation
+      method: POST
+      path: /api/agent/runs/{id}/stop
     - handle: updateMemory
       operationId: updateMemory
       effect: mutation
@@ -171,5 +185,5 @@ background:
   cron: []
   maintenance:
     - name: storage-sweep
-      schedule: '0 4 * * *'
+      schedule: "0 4 * * *"
       timezone: UTC
