@@ -2,6 +2,16 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.2] — 2026-09-14
+
+### Fixed
+
+- Remove redundant `& Auth` intersection from `BunderstackAuth<TConfig>`.
+  The intersection forced TypeScript to evaluate the full Better Auth
+  `router<Options>` endpoint type (~4 000 lines) twice — once for the
+  concrete plugin configuration and once for the bare default — causing
+  `tsc` to hang or OOM in projects with many auth plugins.
+
 ## [0.24.1] — 2026-09-14
 
 ### Fixed
