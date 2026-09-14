@@ -17,9 +17,10 @@ the configured Bunderstack entry. Set `package.json#bunderstack.entry` when the
 entry is not `src/bunderstack.ts`. `bun run blueprint:check` must pass in CI so
 the committed declaration matches the application.
 
-Before production, generate and commit the Drizzle `migrations/` folder. With
-no migrations folder, `provision(app)` uses the development schema-push loop
-(and needs drizzle-kit). Once migrations are committed, it applies pending
-migrations without importing drizzle-kit. Keep the generated migrations,
-blueprint, tests, worker entry, API mount, and deployment scripts under version
-control; never commit secrets, databases, uploads, or build output.
+Before production, generate and commit the Drizzle `migrations/` folder.
+`provision(app)` from `bunderstack/provision` only applies committed
+migrations and never imports drizzle-kit. For the local schema-push loop, import
+`provision` from `bunderstack/provision-schema`; that development-only
+entrypoint requires drizzle-kit. Keep the generated migrations, blueprint,
+tests, worker entry, API mount, and deployment scripts under version control;
+never commit secrets, databases, uploads, or build output.

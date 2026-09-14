@@ -4,7 +4,7 @@ import { rm } from 'node:fs/promises'
 
 import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
-import { provision } from '../provision'
+import { provision } from '../provision-schema'
 
 const TMP_DIR = './.tmp-uploads-test'
 

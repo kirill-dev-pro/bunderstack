@@ -9,6 +9,5 @@ export const app = await backend.start()
 export const { db, auth, env } = app
 export type App = typeof app
 
-// Development pushes the schema until `migrations/` is committed, after which
-// this applies the committed migrations instead.
+// Apply the template's committed migrations without importing Drizzle Kit.
 await provision(app)

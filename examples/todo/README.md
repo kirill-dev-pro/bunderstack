@@ -32,9 +32,10 @@ at all.
 
 ## Notes
 
-- **Schema sync**: `provision(app)` pushes the schema on boot while there is
-  no `migrations/` folder. Generate migrations with drizzle-kit and commit
-  them, and the same call applies them instead (no drizzle-kit at runtime).
+- **Schema sync**: this migration-free example imports `provision(app)` from
+  `bunderstack/provision-schema` for its development schema-push loop.
+  Production applications generate and commit migrations, then import the
+  migration-only `bunderstack/provision` entrypoint.
 - **Database ownership**: [`src/bunderstack.ts`](src/bunderstack.ts) selects
   `libsql()` explicitly from `bunderstack/libsql`. The app owns that
   real client, so a standalone script or test that stops the app should call

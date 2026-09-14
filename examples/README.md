@@ -11,12 +11,13 @@ bun install
 
 ## Quick start
 
-Each example calls `provision(app)` on boot. With no `migrations/` folder it pushes the schema (including Bunderstack internal tables) — that's the dev loop. Once migrations are generated and committed, the same line applies them instead, without drizzle-kit:
+Examples with committed migrations use the production entrypoint. Examples
+without them use the explicit development schema-push entrypoint:
 
 ```ts
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import * as schema from './schema'
 
 export const backend = bunderstack({
@@ -26,6 +27,9 @@ export const backend = bunderstack({
 export const app = await backend.start()
 await provision(app)
 ```
+
+Before deployment, generate and commit migrations and switch the import to
+`bunderstack/provision`. That production entrypoint never imports Drizzle Kit.
 
 Each example imports its selected database adapter explicitly. Install only the
 corresponding optional peer (`@libsql/client`, `@electric-sql/pglite`, or

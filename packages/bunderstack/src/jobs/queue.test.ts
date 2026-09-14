@@ -9,7 +9,7 @@ import type { JobsDefs } from './define'
 import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackJobs, withInternalTables } from '../internal-tables'
-import { provisionSchema } from '../provision'
+import { provisionSchema } from '../provision-schema'
 import { enqueueJob } from './queue'
 
 let db: LibSQLDatabase<Record<string, never>>

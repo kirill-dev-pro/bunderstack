@@ -144,11 +144,18 @@ match.
 ```ts
 import { provision } from 'bunderstack/provision'
 
-await provision(app, { force: false })
+await provision(app)
 ```
 
-Without a migration journal, provisioning uses the development schema push.
-With committed migrations, it applies pending migrations.
+The production entrypoint only applies committed migrations and throws an
+actionable error when the journal is absent. Development schema push is
+explicit:
+
+```ts
+import { provision } from 'bunderstack/provision-schema'
+
+await provision(app, { force: false })
+```
 
 ## `bunderstack/client`
 

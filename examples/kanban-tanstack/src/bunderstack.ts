@@ -1,7 +1,7 @@
 import { organization } from 'better-auth/plugins'
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import * as v from 'valibot'
 
 import { access } from './access'
@@ -73,7 +73,7 @@ export const backend = bunderstack({
 
 export const app = await backend.start()
 
-// No migrations/ folder → dev push; committed migrations → applied on boot.
+// This example has no migrations folder and deliberately uses development push.
 await provision(app)
 
 export const { db, auth } = app

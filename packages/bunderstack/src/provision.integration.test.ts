@@ -6,10 +6,28 @@ import { join } from 'node:path'
 import { libsql } from './database/libsql'
 import { bunderstack } from './index'
 import { provision } from './provision'
+import { provision as provisionSchema } from './provision-schema'
 
 const widgets = sqliteTable('provision_widgets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   label: text('label').notNull(),
+})
+
+test('production provision requires committed migrations', async () => {
+  const app = await bunderstack({
+    schema: { widgets },
+    database: {
+      url: ':memory:',
+      migrations: './does-not-exist-migrations',
+      adapter: libsql(),
+    },
+  }).start()
+
+  try {
+    await expect(provision(app)).rejects.toThrow(/provision-schema/)
+  } finally {
+    await app.close()
+  }
 })
 
 test('provision pushes schema when no migrations folder exists', async () => {
@@ -22,7 +40,7 @@ test('provision pushes schema when no migrations folder exists', async () => {
     },
   }).start()
 
-  await provision(app, { force: true })
+  await provisionSchema(app, { force: true })
 
   const [row] = await app.db.insert(widgets).values({ label: 'ok' }).returning()
   expect(row?.label).toBe('ok')

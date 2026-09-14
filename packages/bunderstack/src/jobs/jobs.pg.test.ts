@@ -12,7 +12,7 @@ import { pglite } from '../database/pglite'
 import { createDb } from '../db'
 import { withInternalTables } from '../internal-tables'
 import { bunderstackJobsPg } from '../internal-tables-pg'
-import { provisionSchema } from '../provision'
+import { provisionSchema } from '../provision-schema'
 import { enqueueJob } from './queue'
 import { createJobRunner } from './worker'
 const marker = pgTable('jobs_pg_marker', { id: pgText('id').primaryKey() })

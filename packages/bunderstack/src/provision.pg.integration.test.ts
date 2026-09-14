@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { pglite } from './database/pglite'
 import { bunderstack } from './index'
 import { provision } from './provision'
+import { provision as provisionSchema } from './provision-schema'
 
 const widgets = pgTable('provision_pg_widgets', {
   id: serial('id').primaryKey(),
@@ -24,7 +25,7 @@ test('provision pushes a pg schema to PGlite when no migrations exist', async ()
     },
   }).start()
 
-  await provision(app, { force: true })
+  await provisionSchema(app, { force: true })
 
   const [row] = await app.db.insert(widgets).values({ label: 'ok' }).returning()
   expect(row?.label).toBe('ok')

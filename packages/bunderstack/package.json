@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, messaging, and validated env from one declaration.",
   "keywords": [
     "backend",
@@ -76,6 +76,10 @@
     "./provision": {
       "types": "./dist/provision.d.ts",
       "default": "./dist/provision.js"
+    },
+    "./provision-schema": {
+      "types": "./dist/provision-schema.d.ts",
+      "default": "./dist/provision-schema.js"
     },
     "./testing": {
       "types": "./dist/testing.d.ts",

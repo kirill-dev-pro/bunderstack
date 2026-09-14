@@ -41,9 +41,10 @@ MINIMAL APP
 
 The blueprint imports the backend declaration and never starts the runtime.
 Database adapters are imported from their own entry points: libsql(),
-pglite(), bunSql(), postgresJs(). Provisioning: `await provision(app)` pushes
-the schema in development and applies committed migrations once a migrations/
-folder exists.
+pglite(), bunSql(), postgresJs(). Production provisioning imports
+`provision(app)` from `bunderstack/provision` and requires committed migrations;
+that entrypoint never imports Drizzle Kit. Development schema push imports the
+same function name from `bunderstack/provision-schema` instead.
 
 DECLARING AN API
 

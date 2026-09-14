@@ -14,7 +14,7 @@ import { anonymous } from 'better-auth/plugins'
  */
 import { bunderstack, resend } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import { asTypeId } from 'bunderstack/typeid'
 import { and, eq, lt } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -126,5 +126,5 @@ export const app = await backend.start()
 /** Type handle for client inference — no server code in the bundle. */
 export type App = typeof app
 
-// No migrations/ folder → dev push; committed migrations → applied on boot.
+// This example has no migrations folder and deliberately uses development push.
 await provision(app)

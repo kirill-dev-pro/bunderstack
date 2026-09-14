@@ -96,7 +96,7 @@ const EDUCATIONAL_POSTS: Array<{
   {
     author: 'carol@example.com',
     title: 'One-line provisioning',
-    body: 'Call await provision(app) from bunderstack/provision. No migrations folder → dev push; committed migrations → applied on boot, no drizzle-kit needed.',
+    body: 'Use bunderstack/provision for committed migrations. Development-only schema push lives in bunderstack/provision-schema.',
   },
   {
     author: 'alice@example.com',

@@ -45,7 +45,7 @@ contract automatically.
 // bunderstack.ts
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import { count } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -86,10 +86,12 @@ The declaration is one object and it is pure: nothing connects until
 `database`, `storage`, `messaging`, and `realtime` also accept a function of
 the validated environment, and `auth` accepts a builder over `{ db, env }`.
 
-`provision(app)` pushes the schema while there is no migrations journal. Once
-you run `bunx drizzle-kit generate` and commit the migrations, the same call
-only applies pending migrations. Skip it when deployment manages migrations
-outside the application.
+This getting-started flow uses the development-only schema push from
+`bunderstack/provision-schema`, which requires Drizzle Kit. Before deployment,
+run `bunx drizzle-kit generate`, commit the journal, and switch the import to
+`bunderstack/provision`. The production entrypoint only applies committed
+migrations and never imports Drizzle Kit. Skip it when deployment manages
+migrations outside the application.
 
 ## Serve one handler
 

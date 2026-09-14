@@ -5,7 +5,7 @@ import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
-import { provision } from '../provision'
+import { provision } from '../provision-schema'
 
 const notes = sqliteTable('notes', {
   id: text('id').primaryKey(),

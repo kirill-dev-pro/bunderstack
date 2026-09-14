@@ -3,7 +3,7 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
-import { provision } from '../provision'
+import { provision } from '../provision-schema'
 
 /**
  * The schema key and the SQL table name differ here on purpose: every example

@@ -5,7 +5,7 @@ import type { AnyDb, Dialect } from './dialect'
 /**
  * Hidden handle connecting `bunderstack()` to the optional
  * `bunderstack/provision` entry. Lives in its own module so the main entry
- * never imports provision code (and its drizzle-kit reference).
+ * never imports provisioning code.
  */
 export const PROVISION_INTERNALS: unique symbol = Symbol.for(
   'bunderstack.provision-internals',

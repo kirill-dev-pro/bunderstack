@@ -55,25 +55,26 @@ export type App = typeof app
 
 All Bunderstack capabilities are imported directly from single-segment subpaths of `bunderstack`:
 
-| Subpath Import             | Purpose                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------- |
-| `bunderstack`              | Core backend builder (`bunderstack`, `defineApi`, `defineAccess`, `BunderstackError`) |
-| `bunderstack/libsql`       | libSQL / SQLite database adapter                                                      |
-| `bunderstack/postgres-js`  | postgres.js database adapter                                                          |
-| `bunderstack/bun-sql`      | `Bun.sql` Postgres adapter                                                            |
-| `bunderstack/pglite`       | PGlite in-memory / embedded Postgres adapter                                          |
-| `bunderstack/client`       | Framework-neutral typed client & `createLiveView`                                     |
-| `bunderstack/client-react` | React LiveView hook (`useLiveView`)                                                   |
-| `bunderstack/client-rest`  | Type-safe REST client                                                                 |
-| `bunderstack/query`        | TanStack Query integration (`createClient`, `syncRealtime`)                           |
-| `bunderstack/query-react`  | React-specific query helpers                                                          |
-| `bunderstack/sync`         | TanStack DB realtime sync collections                                                 |
-| `bunderstack/start`        | TanStack Start integration (`createApiHandlers`)                                      |
-| `bunderstack/start-auth`   | Better Auth client for TanStack Start                                                 |
-| `bunderstack/provision`    | Database schema provisioning (`provision(app)`)                                       |
-| `bunderstack/testing`      | Test fixture helpers                                                                  |
-| `bunderstack/schema`       | Internal system tables (`export * from 'bunderstack/schema'`)                         |
-| `bunderstack/typeid`       | TypeID column types & generators                                                      |
+| Subpath Import                 | Purpose                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| `bunderstack`                  | Core backend builder (`bunderstack`, `defineApi`, `defineAccess`, `BunderstackError`) |
+| `bunderstack/libsql`           | libSQL / SQLite database adapter                                                      |
+| `bunderstack/postgres-js`      | postgres.js database adapter                                                          |
+| `bunderstack/bun-sql`          | `Bun.sql` Postgres adapter                                                            |
+| `bunderstack/pglite`           | PGlite in-memory / embedded Postgres adapter                                          |
+| `bunderstack/client`           | Framework-neutral typed client & `createLiveView`                                     |
+| `bunderstack/client-react`     | React LiveView hook (`useLiveView`)                                                   |
+| `bunderstack/client-rest`      | Type-safe REST client                                                                 |
+| `bunderstack/query`            | TanStack Query integration (`createClient`, `syncRealtime`)                           |
+| `bunderstack/query-react`      | React-specific query helpers                                                          |
+| `bunderstack/sync`             | TanStack DB realtime sync collections                                                 |
+| `bunderstack/start`            | TanStack Start integration (`createApiHandlers`)                                      |
+| `bunderstack/start-auth`       | Better Auth client for TanStack Start                                                 |
+| `bunderstack/provision`        | Production provisioning from committed migrations                                     |
+| `bunderstack/provision-schema` | Development-only schema push through Drizzle Kit                                      |
+| `bunderstack/testing`          | Test fixture helpers                                                                  |
+| `bunderstack/schema`           | Internal system tables (`export * from 'bunderstack/schema'`)                         |
+| `bunderstack/typeid`           | TypeID column types & generators                                                      |
 
 ---
 
@@ -387,11 +388,12 @@ throw new BunderstackError('FORBIDDEN', 'Quota exceeded')
 ### Development vs. Production Lifecycle
 
 1. **Local Development (No Migrations Folder):**
-   - In dev, `await provision(app)` automatically pushes the schema to the SQLite/libSQL/Postgres database.
+   - Import `provision` from `bunderstack/provision-schema`; it pushes the schema to the SQLite/libSQL/Postgres database.
    - Developers can rapidly prototype and iterate on table schemas without generating migrations on every change.
 
 2. **Production & Bunderhost Deployments (MANDATORY Migrations):**
    - **Committed migrations are strictly mandatory for production deployments.**
+   - Import `provision` from `bunderstack/provision`; it contains no Drizzle Kit import edge and fails clearly when the migration journal is missing.
    - Bunderhost will **NOT** run schema push in production; deployment will fail if committed migrations in `migrations/` are missing or out of date.
 
 ### CRITICAL MIGRATION RULES

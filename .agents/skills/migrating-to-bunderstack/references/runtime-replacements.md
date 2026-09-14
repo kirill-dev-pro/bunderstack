@@ -255,9 +255,10 @@ with names and safe placeholders only.
 
 ## Provisioning, migrations, and blueprint
 
-`provision(app)` uses the development schema-push loop while no `migrations/`
-folder exists, and applies committed migrations once one does. Generate and
-commit migrations before production:
+`provision(app)` from `bunderstack/provision` applies committed migrations
+without importing Drizzle Kit and fails when the journal is absent. During
+local prototyping, import it from `bunderstack/provision-schema` to use the
+development schema-push loop. Generate and commit migrations before production:
 
 ```json
 {

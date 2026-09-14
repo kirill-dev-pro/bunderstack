@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { BunderstackBackend } from '../backend'
 import type { AnyBunderstackApp, BunderstackClient } from '../client/rpc-client'
 import type { TestDatabaseStrategy } from '../database/adapter'
-import type { TestSchemaMode } from '../provision'
+import type { TestSchemaMode } from '../provision-schema'
 import type { TestAuth, TestIdentity } from './auth'
 import type { TestLogs, TestLogMode } from './logs'
 import type { TestMessagingForApp } from './messaging'
@@ -15,7 +15,7 @@ import {
   BACKEND_INTERNALS,
   type RuntimeTestingHandle,
 } from '../backend-internals'
-import { provisionForTest } from '../provision'
+import { provisionForTest } from '../provision-schema'
 import { createTestAuth, createTestSessionRegistry } from './auth'
 import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'

@@ -1,7 +1,11 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 
 import type { TableAccessInput } from './access'
-import type { BunderstackConfig, RealtimeConfigInput } from './config'
+import type {
+  BetterAuthConfig,
+  BunderstackConfig,
+  RealtimeConfigInput,
+} from './config'
 import type { EnvConfigInput, ValidatedEnv } from './env'
 import type { BunderstackJobsBuilder, JobsDefs } from './jobs'
 import type { BunderstackManifest } from './manifest'
@@ -36,8 +40,16 @@ export type BunderstackDefinitionConfig<
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
   TRealtime = undefined,
   TMessaging extends MessagingConfig | undefined = undefined,
+  TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 > = Omit<
-  BunderstackConfig<TSchema, TAccess, TStorage, TEnv, TCustomApiRouter>,
+  BunderstackConfig<
+    TSchema,
+    TAccess,
+    TStorage,
+    TEnv,
+    TCustomApiRouter,
+    TAuthConfig
+  >,
   'realtime' | 'messaging' | 'api'
 > & {
   /**
@@ -112,6 +124,7 @@ export type BunderstackDeclaration<
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
   TRealtime = undefined,
   TMessaging extends MessagingConfig | undefined = undefined,
+  TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 > = Omit<
   BunderstackDefinitionConfig<
     TSchema,
@@ -121,7 +134,8 @@ export type BunderstackDeclaration<
     TJobsDefs,
     TCustomApiRouter,
     TRealtime,
-    TMessaging
+    TMessaging,
+    TAuthConfig
   >,
   'database' | 'storage' | 'messaging' | 'realtime'
 > & {
@@ -143,6 +157,7 @@ export function bunderstack<
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
   const TRealtime extends RealtimeConfigInput | undefined = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
+  const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 >(
   declaration: BunderstackDeclaration<
     TSchema,
@@ -152,7 +167,8 @@ export function bunderstack<
     TJobsDefs,
     TCustomApiRouter,
     TRealtime,
-    TMessaging
+    TMessaging,
+    TAuthConfig
   >,
 ): BunderstackBackend<
   BunderstackApp<
@@ -163,7 +179,8 @@ export function bunderstack<
     TJobsDefs,
     TCustomApiRouter,
     TRealtime,
-    TMessaging
+    TMessaging,
+    TAuthConfig
   >
 >
 export function bunderstack(
@@ -191,7 +208,7 @@ export function bunderstack(
     return inspectConfig(config as never, envSchema, env)
   }
 
-  type App = BunderstackApp<any, any, any, any, any, any, any, any>
+  type App = BunderstackApp<any, any, any, any, any, any, any, any, any>
 
   const start = async (
     source: Record<string, string | undefined>,

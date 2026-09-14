@@ -3,7 +3,7 @@
  * examples/todo-solid-2/src/provision.ts for why provisioning is a startup
  * step and not an import side effect.
  */
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 
 import { app, todos } from './bunderstack'
 

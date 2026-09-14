@@ -98,7 +98,8 @@ await writeFile(
         '@tanstack/query-db-collection': '1.1.0',
         '@tanstack/react-query': '^5.101.1',
         '@tanstack/react-start': '^1.168.26',
-        'better-auth': '^1.0.0',
+        '@better-auth/passkey': '1.6.29',
+        'better-auth': '1.6.29',
         'drizzle-orm': '^0.45.0',
         'drizzle-valibot': '0.4.2',
         react: '^19.0.0',
@@ -202,10 +203,13 @@ export const creditBalances = sqliteTable('credit_balances', {
 
 await writeFile(
   join(app, 'src/app.ts'),
-  `import { bunderstack, type ApiContext } from 'bunderstack'
+  `import { bunderstack, defineAuth, type ApiContext } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 import { generate } from 'bunderstack/typeid'
 import { os } from '@orpc/server'
+import { admin, mcp, organization } from 'better-auth/plugins'
+import { twoFactor } from 'better-auth/plugins/two-factor'
+import { passkey } from '@better-auth/passkey'
 import * as v from 'valibot'
 
 import * as schema from './schema'
@@ -215,10 +219,20 @@ const timing = os
   .$context<ApiContext<typeof schema>>()
   .middleware(async ({ next }) => next())
 
+const authConfig = defineAuth({
+  plugins: [
+    admin(),
+    organization(),
+    twoFactor(),
+    passkey(),
+    mcp({ loginPage: '/login' }),
+  ],
+})
+
 export const backend = bunderstack({
   schema,
   database: { adapter: libsql() },
-  auth: {},
+  auth: authConfig,
   realtime: true,
   access: {
     creditBalances: {
@@ -239,6 +253,18 @@ export const backend = bunderstack({
 })
 
 export type App = Awaited<ReturnType<typeof backend.start>>
+
+async function assertAuthTypes(app: App) {
+  void app.auth.api.listUsers
+  void app.auth.api.getFullOrganization
+  void app.auth.api.enableTwoFactor
+  void app.auth.api.listPasskeys
+  void app.auth.api.mcpOAuthAuthorize
+  void app.auth.api.generateOpenAPISchema
+  const result = await app.auth.api.getSession({ headers: new Headers() })
+  if (result && 'user' in result) void result.user.role
+}
+void assertAuthTypes
 `,
 )
 

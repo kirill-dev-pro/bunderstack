@@ -3,7 +3,7 @@ import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from './database/libsql'
 import { bunderstack } from './index'
-import { provision } from './provision'
+import { provision } from './provision-schema'
 
 const posts = sqliteTable('posts', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -258,7 +258,8 @@ even though this example configures no auth.
   which is not a real `Response` instance, and Solid's middleware rejects it —
   a 500 on RPC writes while REST reads keep working. `pgrep -fl vite` tells you
   which runtime you got.
-- **Provision outside the app module.** `src/provision.ts` calls
+- **Provision outside the app module.** `src/provision.ts` imports the
+  development-only `bunderstack/provision-schema` entrypoint and calls
   `provision(app)`; `src/bunderstack.ts` does not. Vite's dev server imports
   the app module to answer `/api`, and drizzle-kit — which the dev-time schema
   push needs — does not resolve inside Vite's module runner.

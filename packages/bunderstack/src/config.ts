@@ -47,9 +47,8 @@ export type AuthConfigContext<
 export type AuthConfigInput<
   TSchema extends Record<string, unknown>,
   TEnv extends EnvConfigInput | undefined = undefined,
-> =
-  | BetterAuthConfig
-  | ((ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig)
+  TConfig extends BetterAuthConfig = BetterAuthConfig,
+> = TConfig | ((ctx: AuthConfigContext<TSchema, TEnv>) => TConfig)
 
 /**
  * Identity helper for defining an auth config in a separate file with full
@@ -72,14 +71,25 @@ export type AuthConfigInput<
  * }))
  * ```
  */
-export function defineAuth(config: BetterAuthConfig): BetterAuthConfig
+export function defineAuth<const TConfig extends BetterAuthConfig>(
+  config: TConfig,
+): TConfig
 export function defineAuth<
   TSchema extends Record<string, unknown>,
+  TEnv extends EnvConfigInput | undefined,
+  const TConfig extends BetterAuthConfig,
+>(
+  context: { schema: TSchema; env: TEnv },
+  builder: (ctx: AuthConfigContext<TSchema, TEnv>) => TConfig,
+): (ctx: AuthConfigContext<TSchema, TEnv>) => TConfig
+export function defineAuth<
+  TSchema extends Record<string, unknown>,
+  const TConfig extends BetterAuthConfig,
   TEnv extends EnvConfigInput | undefined = undefined,
 >(
   schema: TSchema,
-  builder: (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig,
-): (ctx: AuthConfigContext<TSchema, TEnv>) => BetterAuthConfig
+  builder: (ctx: AuthConfigContext<TSchema, TEnv>) => TConfig,
+): (ctx: AuthConfigContext<TSchema, TEnv>) => TConfig
 export function defineAuth(
   schemaOrConfig: Record<string, unknown>,
   builder?: (ctx: any) => BetterAuthConfig,
@@ -149,6 +159,7 @@ export type BunderstackConfig<
     | undefined,
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
   TCustomApiRouter extends AnyRouter | undefined = AnyRouter | undefined,
+  TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 > = {
   schema: TSchema
   access?: TAccess
@@ -164,7 +175,7 @@ export type BunderstackConfig<
    * connection, so the application never opens a second one just to satisfy a
    * config that is built before the app exists.
    */
-  auth?: AuthConfigInput<NoInfer<TSchema>, NoInfer<TEnv>>
+  auth?: AuthConfigInput<NoInfer<TSchema>, NoInfer<TEnv>, TAuthConfig>
   /**
    * Reuse an application-owned session reader for the unified API while
    * keeping Bunderstack's auth handler available.
@@ -218,13 +229,15 @@ export function resolveConfig<
   TStorage extends StorageConfigInput | undefined = undefined,
   TEnv extends EnvConfigInput | undefined = undefined,
   TCustomApiRouter extends AnyRouter | undefined = undefined,
+  TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 >(
   options: BunderstackConfig<
     TSchema,
     TAccess,
     TStorage,
     TEnv,
-    TCustomApiRouter
+    TCustomApiRouter,
+    TAuthConfig
   >,
   env?: BaseEnv,
   // Platform-injected overrides (Bunderhost & co.) beat code-level config so

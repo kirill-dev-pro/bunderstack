@@ -32,12 +32,13 @@ the contract to keep honest. The application exposes one Web Standard
 
 ```sh
 bun add bunderstack better-auth drizzle-orm valibot @libsql/client
+bun add -d drizzle-kit
 ```
 
 ```ts
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import * as v from 'valibot'
 import * as schema from './schema'
 
@@ -71,6 +72,11 @@ Bun.serve({ fetch: app.handler })
 
 export type App = typeof app
 ```
+
+The quickstart uses the development-only schema-push entrypoint. Before
+deployment, generate and commit the Drizzle migration journal and switch the
+import to `bunderstack/provision`; that production entrypoint is migration-only
+and never imports Drizzle Kit.
 
 ## Package Architecture (0.21+)
 

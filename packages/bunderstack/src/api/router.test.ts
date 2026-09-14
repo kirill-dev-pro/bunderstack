@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { libsql } from '../database/libsql'
 import { bunderstack } from '../index'
-import { provision } from '../provision'
+import { provision } from '../provision-schema'
 import { createApiBuilder, defineApi } from './builder'
 import { buildApiRouter } from './router'
 

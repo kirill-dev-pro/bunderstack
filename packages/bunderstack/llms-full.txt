@@ -299,7 +299,8 @@ Major optional groups:
 
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
-- `storage`, `email`, `env`, and `jobs`: application facilities;
+- `env`: declared environment, validated before anything reads it;
+- `storage`, `messaging`, and `jobs`: application facilities;
 - `api`: your oRPC router, as an object or as `(o) => router`;
 - `middleware`: oRPC middleware applied to every procedure in the graph;
 - `realtime`: memory or Redis Publisher configuration;
@@ -307,10 +308,18 @@ Major optional groups:
 
 See [Configuration](/docs/configuration) for examples and defaults.
 
-`bunderstack()` only declares the backend. `backend.manifest` is available
-synchronously for Blueprint generation. Call `await backend.start({ env })` to
-materialize a production runtime, or `await backend.test()` to create an
-isolated test fixture owned by the current lexical scope.
+`bunderstack(config)` only declares the backend. `database`, `storage`,
+`messaging`, and `realtime` also accept a function of the validated
+environment, and `auth` accepts a builder over `{ db, env }`. Those functions
+run once per operation — never at import time — and must supply values, not
+shapes: blueprint generation rejects a declaration whose shape depends on a
+value.
+
+`backend.inspect({ env })` resolves the declaration and returns its manifest
+without opening a database, a bucket, a provider connection, or a worker.
+`await backend.start({ env })` materializes a production runtime, and
+`await backend.test()` creates an isolated test fixture owned by the current
+lexical scope.
 
 ## `BunderstackApp`
 
@@ -320,7 +329,7 @@ type BunderstackApp = {
   db: DbFor<TSchema>
   auth: AuthInstance
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacades<TMessaging>
   env: ValidatedEnv<TEnv>
   jobs: JobsFacade<TJobs>
   realtime: RealtimeFacade<TSchema>
@@ -340,7 +349,7 @@ type BunderstackApp = {
 ## API builder
 
 ```ts
-const o = defineApi({ schema, env: envSchema })
+const o = defineApi({ schema, env: envSchema, messaging })
 
 o.public // no session resolution
 o.protected // resolves the session, narrows context.user
@@ -348,8 +357,9 @@ o.webhook // public, preserves the exact raw body
 o.middleware(fn) // a standalone middleware over ApiContext
 ```
 
-`defineApi` infers `TSchema` and `TEnv` from the values it receives, so an
-application never writes `BunderstackApiBuilder<…>` by hand. It reads nothing
+`defineApi` infers `TSchema`, `TEnv`, and the channel record from the values it
+receives, so an application never writes `BunderstackApiBuilder<…>` by hand.
+`messaging` is optional; without it `context.messaging` stays open. It reads nothing
 at runtime and can be called at module scope. `createApiBuilder<TSchema,
 TEnv>()` remains available when you want to pass the generics explicitly.
 
@@ -361,7 +371,7 @@ type ApiContext = {
   db: DbFor<TSchema>
   env: ValidatedEnv<TEnv>
   storage: StorageFacade
-  email: EmailFacade
+  messaging: MessagingFacades<TMessaging>
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
@@ -405,11 +415,18 @@ match.
 ```ts
 import { provision } from 'bunderstack/provision'
 
-await provision(app, { force: false })
+await provision(app)
 ```
 
-Without a migration journal, provisioning uses the development schema push.
-With committed migrations, it applies pending migrations.
+The production entrypoint only applies committed migrations and throws an
+actionable error when the journal is absent. Development schema push is
+explicit:
+
+```ts
+import { provision } from 'bunderstack/provision-schema'
+
+await provision(app, { force: false })
+```
 
 ## `bunderstack/client`
 
@@ -572,10 +589,8 @@ Bunderstack uses [BetterAuth](https://www.better-auth.com) under the hood. Auth 
 ```ts
 bunderstack({
   schema,
-  auth: {
-    emailAndPassword: { enabled: true },
-    secret: process.env.AUTH_SECRET,
-  },
+  database,
+  auth: { emailAndPassword: { enabled: true } },
 })
 ```
 
@@ -594,18 +609,21 @@ curl -X POST /api/auth/sign-in/email \
 ```ts
 bunderstack({
   schema,
-  auth: {
+  database,
+  env: envSchema,
+  // The builder form receives the validated env, and `db` with it.
+  auth: ({ env }) => ({
     socialProviders: {
       github: {
-        clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        clientId: env.GITHUB_CLIENT_ID,
+        clientSecret: env.GITHUB_CLIENT_SECRET,
       },
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
     },
-  },
+  }),
 })
 ```
 
@@ -715,7 +733,7 @@ const backend = bunderstack({
         input: v.object({ userId: v.string() }),
         retries: 3,
         handler: async ({ userId }, ctx) => {
-          // ctx.db, ctx.email, ctx.storage, ctx.jobs, ctx.realtime, ctx.env
+          // ctx.db, ctx.messaging, ctx.storage, ctx.jobs, ctx.realtime, ctx.env
         },
       }),
       dailyReport: j.cron({
@@ -773,6 +791,29 @@ bun run worker
 `app.backgroundRunning` reports whether the current process runs the loop.
 `app.startWorker()` is useful for an explicitly embedded worker;
 `app.runWorker()` owns a dedicated worker process until shutdown.
+
+### Concurrency
+
+Queue jobs run in a continuous per-type pool. With one worker, omitted
+`concurrency` gives that type 10 execution slots.
+
+```ts
+generateAnswer: j.job({
+  concurrency: 32,
+  timeout: 120_000,
+  handler: async (input, ctx) => {},
+})
+```
+
+The worker claims rows in internal batches of at most 10 until all 32 slots are
+full. Ten is a database batch size, not a concurrency ceiling. When one handler
+finishes, the worker fills that slot immediately without waiting for the other
+handlers that started beside it.
+
+Across several worker processes, the current database-observed capacity check
+is best effort and can race; `concurrency` is not a strict provider-wide
+semaphore. Use an application/provider limiter when several workers share one
+external quota.
 
 ## Cron
 
@@ -845,7 +886,7 @@ configure a shared Redis transport in both:
 ```ts
 const backend = bunderstack({
   schema,
-  realtime: { redis: process.env.REDIS_URL! },
+  realtime: (env) => ({ redis: env.REDIS_URL }),
   jobs: (j) =>
     j.define({
       generateImage: j.job({
@@ -897,7 +938,7 @@ export async function generateResume(
   ctx: BunderstackJobContext,
 ) {
   const url = await ctx.storage.getUrl(`adaptations/${adaptationId}/resume.pdf`)
-  await ctx.email.send({ ... })
+  await ctx.messaging.email.send({ ... })
 }
 ```
 
@@ -918,18 +959,13 @@ CONFIGURATION
 ```ts
 const backend = bunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url,
-    authToken,
-    migrations: './migrations',
-  },
+  env,
+  database: { adapter: libsql(), migrations: './migrations' },
   access,
   auth,
   authResolver,
   storage,
-  email,
-  env,
+  messaging,
   jobs: (j) => j.define({}),
   api,
   middleware: [instrumentation],
@@ -984,17 +1020,19 @@ publishing events that cannot reach another process.
 The adapter dialect must match the Drizzle schema. Import only the adapter you
 use so optional drivers stay outside the application dependency graph.
 
-## Email and storage adapters
+## Messaging and storage adapters
 
-Email defaults to the console provider in development. Use Resend directly or
-the optional SMTP adapter:
+`messaging` is a named record of channels. A channel without credentials
+captures to the message journal instead of sending; see
+[Messaging](/docs/messaging).
 
 ```ts
+import { resend } from 'bunderstack'
 import { smtp } from 'bunderstack/email-smtp'
 
-email: {
-  from: 'My app <hello@example.com>',
-  provider: smtp({ url: process.env.SMTP_URL! }),
+messaging: {
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'My app <hello@example.com>' }),
+  ops: smtp({ url: env.SMTP_URL, from: 'ops@example.com' }),
 }
 ```
 
@@ -1009,8 +1047,8 @@ and Publisher resources. `app.status`, `app.signal`, and
 `app.backgroundRunning` expose lifecycle state.
 
 `bunderstack()` is synchronous and side-effect-free. Deployment tooling imports
-the exported backend and reads `backend.manifest` without opening database or
-Redis connections. `backend.start({ env })` owns production runtime resources;
+the exported backend and calls `backend.inspect({ env })`, which resolves the
+declaration without opening database or Redis connections. `backend.start({ env })` owns production runtime resources;
 `backend.test()` creates an isolated, lexically owned test fixture.
 
 For test suites, declare reusable defaults and setup with
@@ -1383,160 +1421,6 @@ for.
 The endpoint is public, so results carry a fixed set of codes and never a driver
 message, a connection string, or a stack trace.
 
-EMAIL
-
-Bunderstack includes an email facade with pluggable providers. Add an `email`
-key to your config and use `app.email.send()` anywhere on the server.
-
-## Configuration
-
-```ts
-import { bunderstack } from 'bunderstack'
-import { libsql } from 'bunderstack/libsql'
-import * as schema from './schema'
-
-export const backend = bunderstack({
-  schema,
-  database: {
-    adapter: libsql(),
-    url: 'file:./data.db',
-  },
-  auth: { emailAndPassword: { enabled: true } },
-  email: {
-    from: 'noreply@example.com',
-    provider: 'resend', // or 'console' or a custom adapter
-  },
-})
-
-export const app = await backend.start()
-```
-
-## Providers
-
-### Resend
-
-```bash
-RESEND_API_KEY=re_xxx bun run server.ts
-```
-
-```ts
-email: {
-  from: 'noreply@example.com',
-  provider: 'resend',
-}
-```
-
-Uses the [Resend API](https://resend.com). Set `RESEND_API_KEY` in your
-environment. Bunderstack validates it at boot when `provider: 'resend'`.
-
-### SMTP
-
-```bash
-SMTP_URL=smtps://user:pass@smtp.example.com:465 bun run server.ts
-```
-
-```ts
-import { smtp } from 'bunderstack/email-smtp'
-
-email: {
-  from: 'noreply@example.com',
-  provider: smtp({ url: process.env.SMTP_URL! }),
-}
-```
-
-Uses [nodemailer](https://nodemailer.com) under the hood. Install it as an
-optional peer:
-
-```bash
-bun add nodemailer
-```
-
-The SMTP integration is isolated to this subpath, so projects that do not use
-it do not load Nodemailer.
-
-### Console (development default)
-
-When no provider is specified in development, emails are logged to the console
-instead of being sent. In production, omitting a provider throws at boot.
-
-```ts
-email: {
-  from: 'noreply@example.com'
-}
-// provider defaults to 'console' in development — logs to stdout
-```
-
-### Custom adapter
-
-Pass a full `EmailAdapter` or just a `send` function:
-
-```ts
-email: {
-  from: 'noreply@example.com',
-  provider: {
-    async send(msg) {
-      // msg has `from` already resolved
-      await mySendService(msg)
-      return { id: 'msg_123' }
-    },
-  },
-}
-```
-
-Or the function shorthand:
-
-```ts
-email: {
-  from: 'noreply@example.com',
-  provider: async (msg) => {
-    await fetch('https://my-email-api.com/send', {
-      method: 'POST',
-      body: JSON.stringify(msg),
-    })
-    return {}
-  },
-}
-```
-
-## Sending
-
-```ts
-await app.email.send({
-  to: 'user@example.com',
-  subject: 'Welcome!',
-  html: '<h1>Hello</h1>',
-  text: 'Hello',
-})
-```
-
-All fields except `subject` and one of `html`/`text` are optional. The `from`
-field defaults to the config's `from` but can be overridden per-message.
-
-```ts
-await app.email.send({
-  to: ['alice@a.com', 'bob@b.com'],
-  subject: 'Team update',
-  html: '<p>Hi team</p>',
-  from: 'team@example.com', // overrides config default
-  replyTo: 'support@example.com',
-  cc: 'manager@example.com',
-  bcc: 'archive@example.com',
-})
-```
-
-Returns `{ id?: string }` — the provider-specific message ID when available.
-
-## BetterAuth auto-wiring
-
-When you configure an `email` key, Bunderstack automatically wires it into
-BetterAuth for email verification and password reset flows. No extra config
-needed — just add `email` to `bunderstack`.
-
-## Without email
-
-If you don't need email, omit the `email` key entirely. `app.email` is still
-present on the app, but calling `send()` throws with a descriptive error.
-
 ENVIRONMENT VALIDATION
 
 Bunderstack validates environment values before the application starts.
@@ -1561,7 +1445,11 @@ export const env = {
   },
 }
 
-export const backend = bunderstack({ schema, database, env })
+export const backend = bunderstack({
+  schema,
+  env,
+  database,
+})
 export const app = await backend.start()
 ```
 
@@ -1597,6 +1485,48 @@ is an error. Descriptions are static prose, at most 200 characters.
 Values never reach the blueprint. Only the key name, whether it is required, its
 scope, its secrecy, and its description do.
 
+## Read validated values inside the declaration
+
+The declaration stays one object. The slots that hold credentials —
+`database`, `storage`, `messaging`, and `realtime` — also accept a function of
+the validated environment, and `auth` has taken a builder over `{ db, env }`
+since 0.22. Nothing else needs the environment: a procedure or a job reads
+`ctx.env`.
+
+```ts
+export const backend = bunderstack({
+  schema,
+  env,
+  database: { adapter: libsql() }, // url comes from DATABASE_URL
+  auth: ({ env }) => ({ baseURL: env.PUBLIC_APP_URL }),
+  messaging: (env) => ({ email: resend({ apiKey: env.RESEND_API_KEY }) }),
+})
+```
+
+Those functions are pure and may run more than once — once per `inspect()`,
+once per `start()`, once per test fixture — so they must not open connections,
+read files, or hold state. Two fixtures with different values stay independent
+because each resolves the declaration for itself.
+
+A slot supplies a value, never a shape. `backend.inspect({ env })` resolves the
+declaration and returns its manifest without any I/O, and blueprint generation
+resolves it against two probe environments and rejects a declaration whose
+_shape_ differs between them:
+
+```ts
+// Rejected: the blueprint would differ per environment.
+bunderstack({
+  schema,
+  env,
+  database,
+  realtime: (env) => env.FEATURE_FLAG === 'enabled',
+})
+```
+
+The error names the differing path, such as `realtime.required`, and never the
+probe values. That check is what lets a host provision from the committed
+blueprint alone, before any value exists.
+
 ## Use validated values
 
 ```ts
@@ -1627,7 +1557,7 @@ export const clientEnv = createClientEnv({
 
 ## Built-in values
 
-Bunderstack also understands database, auth, Redis, email, and storage
+Bunderstack also understands database, auth, Redis, messaging, and storage
 variables used by its own facilities. Production requires a secure
 `AUTH_SECRET`. Database URLs have adapter-specific development defaults; Redis
 is required when separate worker processes publish realtime changes.
@@ -1636,7 +1566,11 @@ is required when separate worker processes publish realtime changes.
 import { BunderstackEnvError } from 'bunderstack'
 
 try {
-  await bunderstack({ schema, database, env }).start()
+  await bunderstack({
+    schema,
+    env,
+    database,
+  }).start()
 } catch (error) {
   if (error instanceof BunderstackEnvError) {
     console.error(error.issues)
@@ -1649,6 +1583,11 @@ FRAMEWORK PORTABILITY
 `app.handler(req: Request): Promise<Response>` — every modern TypeScript framework knows this Web Standard shape.
 
 Bunderstack runs in any environment supporting standard Web Requests and Responses. Below are the recommended integration patterns, configuration files, and deployment setups for each supported framework.
+
+The examples use `bunderstack/provision`, which only applies committed
+migrations and keeps Drizzle Kit out of production bundles. Generate and commit
+the migration journal before starting them. For local schema push, import from
+`bunderstack/provision-schema` instead.
 
 ---
 
@@ -1677,10 +1616,7 @@ import * as schema from './schema'
 export const backend = bunderstack({
   schema,
   access,
-  database: {
-    adapter: libsql(),
-    url: process.env.DATABASE_URL || 'file:./data.db',
-  },
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
   realtime: true,
 })
@@ -1754,10 +1690,7 @@ import * as schema from './schema'
 
 export const backend = bunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url: process.env.DATABASE_URL || 'file:./data.db',
-  },
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
   realtime: true,
 })
@@ -1863,10 +1796,7 @@ import * as schema from './schema'
 
 export const backend = bunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url: process.env.DATABASE_URL || 'file:./data.db',
-  },
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
   realtime: true,
 })
@@ -1941,10 +1871,7 @@ import * as schema from './schema'
 
 export const backend = bunderstack({
   schema,
-  database: {
-    adapter: libsql(),
-    url: process.env.DATABASE_URL || 'file:./data.db',
-  },
+  database: { adapter: libsql() },
   auth: { emailAndPassword: { enabled: true } },
   realtime: true,
 })
@@ -2129,7 +2056,7 @@ contract automatically.
 // bunderstack.ts
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 import { count } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -2138,7 +2065,7 @@ import * as schema from './schema'
 
 export const backend = bunderstack({
   schema,
-  database: { adapter: libsql(), url: 'file:./data.db' },
+  database: { adapter: libsql() },
   access: {
     posts: {
       ownerColumn: 'userId',
@@ -2164,10 +2091,18 @@ export type App = typeof app
 await provision(app)
 ```
 
-`provision(app)` pushes the schema while there is no migrations journal. Once
-you run `bunx drizzle-kit generate` and commit the migrations, the same call
-only applies pending migrations. Skip it when deployment manages migrations
-outside the application.
+The declaration is one object and it is pure: nothing connects until
+`backend.start()`. `database.url` is omitted here because it defaults to
+`DATABASE_URL`. When a slot does need a value — an API key, a custom URL —
+`database`, `storage`, `messaging`, and `realtime` also accept a function of
+the validated environment, and `auth` accepts a builder over `{ db, env }`.
+
+This getting-started flow uses the development-only schema push from
+`bunderstack/provision-schema`, which requires Drizzle Kit. Before deployment,
+run `bunx drizzle-kit generate`, commit the journal, and switch the import to
+`bunderstack/provision`. The production entrypoint only applies committed
+migrations and never imports Drizzle Kit. Skip it when deployment manages
+migrations outside the application.
 
 ## Serve one handler
 
@@ -2337,11 +2272,12 @@ There is no general-purpose router to configure alongside them.
 ## Batteries, without a platform
 
 Bunderstack includes database provisioning, Better Auth, access-controlled
-CRUD, file storage and transforms, email, validated environment variables,
+CRUD, file storage and transforms, messaging channels, validated environment
+variables,
 background jobs, rate limiting, idempotency, and realtime publication.
 
 It remains a library inside your application. `app.db` is Drizzle,
-`app.auth` is Better Auth, and `app.storage`, `app.email`, `app.jobs`, and
+`app.auth` is Better Auth, and `app.storage`, `app.messaging`, `app.jobs`, and
 `app.realtime` are available in every procedure context. Your schema and data
 stay in your repository and infrastructure.
 
@@ -2354,6 +2290,252 @@ ArkType, and other Standard Schema implementations work too.
 Start with [Getting Started](/docs/getting-started), then follow the primary
 path through [Auto CRUD](/docs/crud), [API Procedures](/docs/api-procedures),
 [Query Client](/docs/query-client), and [Sync & Realtime](/docs/sync-collections).
+
+MESSAGING
+
+`messaging` is a named record of channels. Each channel names one provider, and
+each provider carries its own message type. Send through
+`app.messaging.<channel>.send()` on the server, or `ctx.messaging.<channel>`
+inside a procedure or a job.
+
+## Declaration
+
+```ts
+import { bunderstack, resend, telegram } from 'bunderstack'
+import { libsql } from 'bunderstack/libsql'
+import * as v from 'valibot'
+
+import * as schema from './schema'
+
+export const backend = bunderstack({
+  schema,
+  env: {
+    server: {
+      RESEND_API_KEY: v.optional(v.string()),
+      TELEGRAM_BOT_TOKEN: v.optional(v.string()),
+    },
+  },
+  database: { adapter: libsql() },
+  // `messaging` holds credentials, so it also accepts a function of the
+  // validated environment. Which channels exist must not depend on a value.
+  messaging: (env) => ({
+    email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
+    billing: resend({
+      apiKey: env.RESEND_API_KEY,
+      from: 'billing@example.com',
+    }),
+    ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
+  }),
+})
+
+export const app = await backend.start()
+```
+
+Two channels can name the same provider with a different sender. Only the
+channel names and provider kinds reach the manifest and the blueprint; a key,
+a token, and a sender address never do.
+
+## Sending
+
+An email channel takes an email message:
+
+```ts
+await app.messaging.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome',
+  html: '<h1>Hello</h1>',
+  text: 'Hello',
+})
+```
+
+A message needs `html` or `text`. Everything else except `to` and `subject` is
+optional, and a per-message `from` overrides the channel's own sender.
+
+```ts
+await app.messaging.billing.send({
+  to: ['alice@a.com', 'bob@b.com'],
+  subject: 'Invoice 41',
+  text: 'Attached.',
+  replyTo: 'support@example.com',
+  cc: 'manager@example.com',
+  bcc: 'archive@example.com',
+})
+```
+
+A Telegram channel takes a different message, and TypeScript enforces it:
+
+```ts
+await app.messaging.ops.send({
+  to: '@release_channel',
+  text: '*Deploy finished*',
+  parseMode: 'MarkdownV2',
+})
+```
+
+`send()` returns `{ id, providerId? }`. `id` is the journal row; `providerId`
+is the provider's own identifier when the provider returns one.
+
+## Capture
+
+A channel whose required configuration is absent or empty captures instead of
+sending. Capture is not an error state and not a separate provider: every
+channel has it.
+
+- Locally, a captured message is written to the journal and printed to the
+  console.
+- On a host (`BUNDERHOST_ENVIRONMENT_ID` is set), it is written to the journal
+  only. The body never reaches the production logs.
+
+A key that is present but wrong is not capture. So is a provider that rejects
+the request: both raise, and the journal row records `failed`.
+
+For Resend that means `apiKey` and `from`, for Telegram `botToken`, and for a
+custom adapter the adapter itself plus `from`.
+
+## Providers
+
+### Resend
+
+```ts
+messaging: (env) => ({
+  email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
+})
+```
+
+### SMTP
+
+```ts
+import { smtp } from 'bunderstack/email-smtp'
+
+messaging: (env) => ({
+  email: smtp({ url: env.SMTP_URL, from: 'app@example.com' }),
+})
+```
+
+SMTP uses [nodemailer](https://nodemailer.com) through its own subpath, so an
+application that does not declare it never loads it:
+
+```bash
+bun add nodemailer
+```
+
+### Telegram
+
+```ts
+messaging: (env) => ({
+  ops: telegram({ botToken: env.TELEGRAM_BOT_TOKEN }),
+})
+```
+
+`to` accepts a chat ID or an `@channel` name.
+
+### Custom email
+
+Pass a full adapter or one `send` function:
+
+```ts
+import { customEmail } from 'bunderstack'
+
+messaging: {
+  email: customEmail({
+    from: 'app@example.com',
+    adapter: async (message) => {
+      // `from` is already resolved on the message.
+      await mySendService(message)
+      return { id: 'msg_123' }
+    },
+  }),
+}
+```
+
+## Managed credentials
+
+A host can supply credentials through the reserved
+`BUNDERSTACK_MESSAGING_CONFIG` variable, a JSON object keyed by provider:
+
+```json
+{ "resend": { "apiKey": "re_managed" }, "telegram": { "botToken": "123:abc" } }
+```
+
+Every channel of one provider shares that connection. A field the channel
+declares itself wins over the managed value, field by field, so a channel can
+take the managed key and keep its own `from`. Each journal row records where
+the credentials came from: `explicit`, `managed`, or `capture`.
+
+## Auth emails
+
+Better Auth verification and password-reset mail goes through the channel named
+`email`, and only that one, when its provider is an email provider. A channel
+named anything else is never selected for it.
+
+## The journal
+
+Every channel writes to `_bunderstack_messages`, with delivery attempts in
+`_bunderstack_message_events`. A row carries the channel, the provider kind, the
+credential source, the status (`captured`, `sending`, `sent`, or `failed`), the
+recipients, the content, and the provider's message ID once it exists.
+
+## Testing
+
+A test fixture substitutes an isolated capture for every declared channel, so
+nothing leaves the process and no fixture sees another fixture's messages:
+
+```ts
+await using t = await backend.test()
+
+await t.app.messaging.email.send({
+  to: 'user@example.com',
+  subject: 'Welcome',
+  text: 'Hello',
+})
+
+expect(t.messaging.email.sent).toHaveLength(1)
+expect(t.messaging.ops.sent).toEqual([])
+```
+
+Each `sent` array is typed by its own channel, so a Telegram capture never
+type-checks against an email message.
+
+## Sending outside the app
+
+Code that runs before or beside the started app — a Better Auth builder sending
+an invitation, a script, a one-off worker — builds the same facades with
+`createMessaging`:
+
+```ts
+import { createMessaging, defineAuth, resend } from 'bunderstack'
+
+export const auth = defineAuth(schema, ({ db, env }) => {
+  const messaging = createMessaging(
+    { email: resend({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }) },
+    { env, db },
+  )
+  return {
+    /* … */
+  }
+})
+```
+
+Pass `db` so those messages reach the same journal the application writes.
+Capture, managed credentials, and provider errors behave exactly as they do on
+`app.messaging`.
+
+## Exact channel types in a separate module
+
+An inline `jobs` or `api` builder receives an open messaging type, because
+TypeScript cannot infer the channel record and type a sibling callback in the
+same pass. Declare the builder in its own module to get the exact type:
+
+```ts
+import type { BunderstackJobsBuilder } from 'bunderstack'
+import type { ResendDescriptor } from 'bunderstack/messaging'
+
+export const defineJobs = (
+  jobs: BunderstackJobsBuilder<typeof schema, AppEnv, { email: ResendDescriptor }>,
+) => jobs.define({ ... })
+```
+
+`defineApi({ schema, env, messaging })` does the same for procedures.
 
 MIDDLEWARE
 
@@ -2480,7 +2662,11 @@ bun add bunderstack @tanstack/react-query
 
 ```ts
 // bunderstack.ts — server
-export const backend = bunderstack({ schema, access, api: (o) => ({}) })
+export const backend = bunderstack({
+  schema,
+  access,
+  api: (o) => ({}),
+})
 export const app = await backend.start()
 export type App = typeof app
 ```
@@ -2655,13 +2841,17 @@ bunderstack({
 ## Local storage
 
 ```ts
-bunderstack({ schema, storage: { local: './uploads' } })
+bunderstack({
+  schema,
+  storage: { local: './uploads' },
+})
 ```
 
 ## S3 / R2 / MinIO
 
 ```ts
-bunderstack({ schema, storage: { s3: true } })
+bunderstack({
+  schema, storage: { s3: true } })
 # Set S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY in .env
 # For R2/MinIO also set S3_ENDPOINT
 ```

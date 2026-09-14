@@ -34,7 +34,7 @@ import {
   bunderstackIdempotencyPg,
   bunderstackJobsPg,
 } from './internal-tables-pg'
-import { provisionSchema } from './provision'
+import { provisionSchema } from './provision-schema'
 
 // --- table name resolution ---
 

@@ -2,6 +2,17 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.1] — 2026-09-14
+
+### Fixed
+
+- Preserve the exact Better Auth configuration through `defineAuth()`,
+  `bunderstack()`, and `BunderstackApp`, so plugin APIs and session fields
+  remain available on `app.auth`.
+- Keep `drizzle-kit` out of the production `bunderstack/provision` bundle.
+  Production provisioning now requires committed migrations; development
+  schema push lives in `bunderstack/provision-schema`.
+
 ## [0.24.0] - 2026-09-05
 
 ### Changed

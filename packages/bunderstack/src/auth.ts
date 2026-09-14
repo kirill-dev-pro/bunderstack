@@ -1,5 +1,5 @@
 // src/auth.ts
-import { betterAuth, type Auth } from 'better-auth'
+import { betterAuth, type Auth, type BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI } from 'better-auth/plugins'
 
@@ -8,25 +8,43 @@ import type { BetterAuthConfig } from './config'
 import type { AnyDb, Dialect } from './dialect'
 import type { EmailFacade } from './email'
 
+type ConfiguredAuthPlugins<TConfig extends BetterAuthConfig> = TConfig extends {
+  plugins: infer TPlugins extends readonly BetterAuthPlugin[]
+}
+  ? TPlugins
+  : []
+
+type WithBunderstackAuthDefaults<TConfig extends BetterAuthConfig> = Omit<
+  BetterAuthConfig,
+  'plugins'
+> &
+  Omit<TConfig, 'plugins'> & {
+    plugins: [...ConfiguredAuthPlugins<TConfig>, ReturnType<typeof openAPI>]
+  }
+
 /**
- * Returns better-auth's plain `Auth`, not the plugin-parameterised type its
- * builder infers: declaration emit would otherwise inline that whole inferred
- * options object into the published `.d.ts`, where it no longer satisfies
- * better-auth's own `BetterAuthOptions` constraint. Plugin-specific endpoints
- * are reached through runtime checks (see the OpenAPI schema lookup in
- * `index.ts`), so nothing depends on the wider type.
+ * The public Better Auth instance retains every endpoint and model field from
+ * the declared config. Bunderstack always installs OpenAPI at runtime, so its
+ * endpoints are part of the public type even when the app omitted the plugin.
  */
-export function createAuth(
+export type BunderstackAuth<
+  TConfig extends BetterAuthConfig = BetterAuthConfig,
+> = Auth<WithBunderstackAuthDefaults<TConfig>> & Auth
+
+/**
+ * Build Better Auth while exposing its named plugin-aware public type. The
+ * implementation accepts the resolved runtime config, while `TConfig` carries
+ * the declaration that produced it; their relationship is asserted once here.
+ */
+export function createAuth<TConfig extends BetterAuthConfig = BetterAuthConfig>(
   db: AnyDb,
   cfg: BetterAuthConfig,
   dialect: Dialect,
   userSchema?: Record<string, unknown>,
-): Auth {
+): BunderstackAuth<TConfig> {
   const hasOpenApi = cfg.plugins?.some((p: any) => p.id === 'open-api')
   const plugins = hasOpenApi ? cfg.plugins : [...(cfg.plugins || []), openAPI()]
 
-  // Type-only narrowing: the value is unchanged, but the published signature
-  // stays a type better-auth itself can name.
   return betterAuth({
     ...cfg,
     plugins,
@@ -34,7 +52,7 @@ export function createAuth(
       provider: dialect === 'pg' ? 'pg' : 'sqlite',
       ...(userSchema ? { schema: userSchema } : {}),
     }),
-  }) as unknown as Auth
+  }) as unknown as BunderstackAuth<TConfig>
 }
 
 /**
@@ -63,9 +81,7 @@ export function missingAuthModels(
  * Keeping this adapter here means internal modules never depend on better-auth's
  * evolving types.
  */
-export function toAuthSessionResolver(
-  auth: ReturnType<typeof createAuth>,
-): AuthSessionResolver {
+export function toAuthSessionResolver(auth: Auth): AuthSessionResolver {
   return {
     api: {
       async getSession({ headers }) {

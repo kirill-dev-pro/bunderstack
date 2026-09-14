@@ -7,6 +7,11 @@ description: Mount app.handler in TanStack Start, React SPA, Solid 2, Bun SSR, N
 
 Bunderstack runs in any environment supporting standard Web Requests and Responses. Below are the recommended integration patterns, configuration files, and deployment setups for each supported framework.
 
+The examples use `bunderstack/provision`, which only applies committed
+migrations and keeps Drizzle Kit out of production bundles. Generate and commit
+the migration journal before starting them. For local schema push, import from
+`bunderstack/provision-schema` instead.
+
 ---
 
 ## TanStack Start (Full-Stack SSR)

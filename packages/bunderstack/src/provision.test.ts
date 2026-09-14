@@ -3,7 +3,8 @@ import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
 
 import { libsql } from './database/libsql'
 import { createDb } from './db'
-import { provision, provisionSchema } from './provision'
+import { provision } from './provision'
+import { provisionSchema } from './provision-schema'
 
 const widgets = sqliteTable('provision_test_widgets', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -1,5 +1,6 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 // src/runtime.ts
+import type { Auth } from 'better-auth'
 
 import { SmartCoercionHandlerPlugin } from '@orpc/json-schema'
 import { OpenAPIGenerator, OpenAPIGeneratorError } from '@orpc/openapi'
@@ -45,11 +46,16 @@ import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
 import {
   createAuth,
+  type BunderstackAuth,
   missingAuthModels,
   toAuthSessionResolver,
   withEmailAuthDefaults,
 } from './auth'
-import { resolveConfig, type BunderstackConfig } from './config'
+import {
+  resolveConfig,
+  type BetterAuthConfig,
+  type BunderstackConfig,
+} from './config'
 import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
@@ -85,7 +91,8 @@ import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
 import { sweepOrphans } from './storage/sweep'
 
-export type AuthInstance = ReturnType<typeof createAuth>
+/** Base Better Auth contract used by framework internals and API context. */
+export type AuthInstance = Auth
 
 export type RuntimeOverrides = {
   database?: DatabaseConnection
@@ -187,10 +194,11 @@ export type BunderstackApp<
   TCustomApiRouter extends AnyORPCRouter | undefined = undefined,
   TRealtime = undefined,
   TMessaging extends MessagingConfig | undefined = undefined,
+  TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 > = {
   handler: (req: Request) => Promise<Response>
   db: DbFor<TSchema>
-  auth: AuthInstance
+  auth: BunderstackAuth<TAuthConfig>
   storage: StorageFacade
   /** Validated env: bunderstack's base vars plus the config's `env` extension. */
   env: ValidatedEnv<TEnv>
@@ -248,13 +256,15 @@ export function materializeBunderstack<
     TCustomApiRouter
   >['realtime'] = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
+  const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 >(
   options: BunderstackConfig<
     TSchema,
     TAccess,
     TStorage,
     TEnv,
-    TCustomApiRouter
+    TCustomApiRouter,
+    TAuthConfig
   > & {
     realtime?: TRealtime
     messaging?: TMessaging
@@ -276,7 +286,8 @@ export function materializeBunderstack<
     TJobsDefs,
     TCustomApiRouter,
     TRealtime,
-    TMessaging
+    TMessaging,
+    TAuthConfig
   >
 >
 export async function materializeBunderstack<
@@ -294,13 +305,15 @@ export async function materializeBunderstack<
     TCustomApiRouter
   >['realtime'] = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
+  const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
 >(
   options: BunderstackConfig<
     TSchema,
     TAccess,
     TStorage,
     TEnv,
-    TCustomApiRouter
+    TCustomApiRouter,
+    TAuthConfig
   > & {
     realtime?: TRealtime
     messaging?: TMessaging
@@ -322,7 +335,8 @@ export async function materializeBunderstack<
     JobsDefs | undefined,
     TCustomApiRouter,
     TRealtime,
-    TMessaging
+    TMessaging,
+    TAuthConfig
   >
 > {
   const logger = overrides.logger ?? consoleLogger
@@ -377,7 +391,7 @@ export async function materializeBunderstack<
       options.messaging?.email?.kind === 'email'
         ? ((messaging as Record<string, unknown>).email as EmailFacade)
         : undefined
-    const auth = createAuth(
+    const auth = createAuth<TAuthConfig>(
       db,
       withEmailAuthDefaults(
         authConfig,
@@ -849,7 +863,8 @@ export async function materializeBunderstack<
       JobsDefs | undefined,
       TCustomApiRouter,
       TRealtime,
-      TMessaging
+      TMessaging,
+      TAuthConfig
     > = {
       handler,
       // Internal tables live on the runtime db but stay out of the public type.

@@ -3,7 +3,7 @@ import { test, expect, beforeAll } from 'bun:test'
 import { libsql } from '../database/libsql'
 import { createDb } from '../db'
 import { bunderstackFiles, INTERNAL_TABLES } from '../internal-tables'
-import { provisionSchema } from '../provision'
+import { provisionSchema } from '../provision-schema'
 import {
   insertPendingFile,
   insertReadyFile,

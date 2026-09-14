@@ -10,10 +10,10 @@
  * Vite's module runner. Provisioning is a startup step, not an import side
  * effect.
  *
- * With no migrations/ folder this pushes the schema; once migrations are
- * generated and committed, the same call applies them instead.
+ * This example has no migrations folder and deliberately uses development
+ * schema push.
  */
-import { provision } from 'bunderstack/provision'
+import { provision } from 'bunderstack/provision-schema'
 
 import { app, todos } from './bunderstack'
 
