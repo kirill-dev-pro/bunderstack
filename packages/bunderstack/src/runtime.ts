@@ -420,7 +420,7 @@ export async function materializeBunderstack<
     }
     const declaredAuthResolver =
       options.authResolver ??
-      (missingModels.length === 0 ? toAuthSessionResolver(auth) : undefined)
+      (missingModels.length === 0 ? toAuthSessionResolver(auth as unknown as Auth) : undefined)
     const authResolver = overrides.authResolver
       ? {
           api: {
@@ -813,7 +813,7 @@ export async function materializeBunderstack<
           messaging,
           jobs,
           realtime,
-          auth,
+          auth: auth as unknown as AuthInstance,
           authResolver,
           logger,
         },

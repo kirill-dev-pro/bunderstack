@@ -29,7 +29,7 @@ type WithBunderstackAuthDefaults<TConfig extends BetterAuthConfig> = Omit<
  */
 export type BunderstackAuth<
   TConfig extends BetterAuthConfig = BetterAuthConfig,
-> = Auth<WithBunderstackAuthDefaults<TConfig>> & Auth
+> = Auth<WithBunderstackAuthDefaults<TConfig>>
 
 /**
  * Build Better Auth while exposing its named plugin-aware public type. The
