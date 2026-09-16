@@ -285,7 +285,7 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.23.4",
+      "version": "0.24.3",
       "bin": {
         "bunderstack": "./dist/cli.js",
       },

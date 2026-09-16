@@ -2,6 +2,15 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.3] — 2026-09-16
+
+### Fixed
+
+- Prefer the configured `APP_URL` when resolving relative API URLs during
+  server-side rendering. Internal HTTP reverse-proxy requests no longer
+  override the public HTTPS origin and cause unhandled redirects in RPC
+  clients. Browser requests and the request-origin fallback are unchanged.
+
 ## [0.24.2] — 2026-09-14
 
 ### Fixed
