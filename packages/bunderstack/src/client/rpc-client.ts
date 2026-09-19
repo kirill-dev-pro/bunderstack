@@ -1,4 +1,4 @@
-import type { StandardUrl } from '@orpc/client/standard'
+import type { StandardUrl } from '@orpc/client'
 import type { AnyRouter, RouterClient } from '@orpc/server'
 
 import { createORPCClient } from '@orpc/client'

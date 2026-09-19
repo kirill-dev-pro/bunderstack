@@ -784,12 +784,12 @@ export async function materializeBunderstack<
               : {}),
         }
       },
-      fetchInterceptors: [
+      interceptors: [
         async (options) => {
           const res = await options.next()
-          if (res.matched && options.context.resHeaders) {
+          if (options.context.resHeaders) {
             options.context.resHeaders.forEach((v: string, k: string) =>
-              res.response.headers.set(k, v),
+              (res.headers[k] = v),
             )
           }
           return res

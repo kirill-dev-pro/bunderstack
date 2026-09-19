@@ -2,6 +2,19 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.5] — 2026-09-19
+
+### Security
+
+- Upgrade the synchronized oRPC dependency set to `2.0.0-beta.37`, which fixes
+  the RPC serializer metadata denial-of-service vulnerability described in
+  GHSA-4p2c-m292-ghmh.
+
+### Fixed
+
+- Adapt response-header propagation and RPC client URL typing to the updated
+  oRPC handler and client contracts.
+
 ## [0.24.4] — 2026-09-19
 
 ### Fixed

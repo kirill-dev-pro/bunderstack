@@ -76,6 +76,26 @@ test('mounts custom api endpoint, RPC transport, and OpenAPI JSON', async () => 
   await app.close()
 })
 
+test('forwards context response headers through the OpenAPI handler', async () => {
+  const app = await setupApp((o: any) => ({
+    headers: o.public
+      .route({ method: 'GET', path: '/api/headers' })
+      .input(v.optional(v.object({})))
+      .handler(({ context }: any) => {
+        context.resHeaders.set('x-bunderstack-test', 'forwarded')
+        return { ok: true }
+      }),
+  }))
+
+  const response = await app.handler(
+    new Request('http://localhost/api/headers'),
+  )
+  expect(response.status).toBe(200)
+  expect(response.headers.get('x-bunderstack-test')).toBe('forwarded')
+
+  await app.close()
+})
+
 test('custom route colliding with CRUD prevents application construction', async () => {
   await expect(
     setupApp((o: any) => ({

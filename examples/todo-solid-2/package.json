@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@orpc/client": "2.0.0-beta.26",
-    "@orpc/server": "2.0.0-beta.26",
-    "@orpc/tanstack-query": "2.0.0-beta.26",
+    "@orpc/client": "2.0.0-beta.37",
+    "@orpc/server": "2.0.0-beta.37",
+    "@orpc/tanstack-query": "2.0.0-beta.37",
     "@solidjs/web": "2.0.0-rc.0",
     "@standardserver/core": "0.7.1",
     "@tanstack/query-core": "^5.101.1",

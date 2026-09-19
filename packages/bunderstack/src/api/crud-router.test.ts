@@ -196,7 +196,9 @@ test('buildCrudApiRouter validates input shapes on update and produces concrete 
   const requestBody = patchOperation?.requestBody
   expect(requestBody).toBeDefined()
   if (requestBody && 'content' in requestBody) {
-    const requestBodySchema = requestBody.content?.['application/json']?.schema
+    const mediaType = requestBody.content?.['application/json']
+    const requestBodySchema =
+      mediaType && 'schema' in mediaType ? mediaType.schema : undefined
     expect(requestBodySchema).toBeDefined()
   }
 })

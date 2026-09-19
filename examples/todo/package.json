@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@orpc/server": "2.0.0-beta.26",
+    "@orpc/server": "2.0.0-beta.37",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
