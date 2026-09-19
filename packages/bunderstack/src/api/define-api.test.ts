@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
+import { defineSessionUser } from '../access'
 import { defineApi } from './builder'
 import { createApiContext } from './context'
 
@@ -71,4 +72,50 @@ test('defineApi works without an env schema', async () => {
   })
 
   expect(await client(undefined)).toEqual({ url: 'file:./x.db' })
+})
+
+test('defineApi carries mapped session user fields into procedure context', async () => {
+  const session = defineSessionUser({
+    mapUser(user) {
+      return { clinicId: String(user.clinicId) }
+    },
+  })
+  const o = defineApi({ schema, session })
+
+  const procedure = o.public.handler(async ({ context }) => {
+    const user = (await context.getSession()).user
+    const clinicId: string | undefined = user?.clinicId
+    const emailVerified: boolean | undefined = user?.emailVerified
+    return { clinicId, emailVerified }
+  })
+  o.protected.handler(({ context }) => {
+    const clinicId: string = context.user.clinicId
+    return { clinicId }
+  })
+
+  const client = createProcedureClient(procedure, {
+    context: createApiContext(
+      {
+        ...createTestDeps(),
+        authResolver: {
+          api: {
+            getSession: async () => ({
+              user: {
+                id: 'u1',
+                email: 'a@b.c',
+                emailVerified: true,
+                clinicId: 'clinic-1',
+              },
+            }),
+          },
+        },
+      },
+      new Request('http://localhost/api/t'),
+    ),
+  })
+
+  expect(await client(undefined)).toEqual({
+    clinicId: 'clinic-1',
+    emailVerified: true,
+  })
 })

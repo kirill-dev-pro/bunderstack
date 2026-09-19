@@ -69,6 +69,7 @@ export type {
   WorkerHandle,
 } from './jobs/index'
 export {
+  defineSessionUser,
   defineAccess,
   validateAndResolveAccess,
   checkAccess,
@@ -79,6 +80,10 @@ export type {
   OperationRule,
   AccessContext,
   AccessUser,
+  AccessUserBase,
+  SessionUserConfig,
+  SessionUserExtraOf,
+  SessionUserSource,
 } from './access'
 export {
   typeid,

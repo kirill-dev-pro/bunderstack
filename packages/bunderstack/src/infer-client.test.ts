@@ -2,7 +2,7 @@ import { describe, it, expect } from 'bun:test'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import { defineAccess } from './access'
+import { defineAccess, defineSessionUser } from './access'
 import { libsql } from './database/libsql'
 import { bunderstack, MAX_LIST_LIMIT } from './index'
 
@@ -108,5 +108,28 @@ describe('client type inference carriers', () => {
       trpc: () => ({}),
     }).start()
     expect(true).toBe(true)
+  })
+
+  it('infers mapped session fields in an inline API builder', () => {
+    const session = defineSessionUser({
+      mapUser(user) {
+        return { clinicId: String(user.clinicId) }
+      },
+    })
+
+    const backend = bunderstack({
+      schema,
+      database: { url: ':memory:', adapter: libsql() },
+      session,
+      api: (o) => ({
+        viewer: o.public.handler(async ({ context }) => {
+          const resolved = await context.getSession()
+          const clinicId: string | undefined = resolved.user?.clinicId
+          return { clinicId }
+        }),
+      }),
+    })
+
+    expect(backend.inspect().api.operations).toHaveLength(1)
   })
 })

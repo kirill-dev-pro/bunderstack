@@ -1,6 +1,10 @@
 import type { AnyRouter as AnyORPCRouter } from '@orpc/server'
 
-import type { TableAccessInput } from './access'
+import type {
+  SessionUserConfig,
+  SessionUserExtraOf,
+  TableAccessInput,
+} from './access'
 import type {
   BetterAuthConfig,
   BunderstackConfig,
@@ -41,6 +45,8 @@ export type BunderstackDefinitionConfig<
   TRealtime = undefined,
   TMessaging extends MessagingConfig | undefined = undefined,
   TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  TSession extends SessionUserConfig<Record<string, unknown>> | undefined =
+    undefined,
 > = Omit<
   BunderstackConfig<
     TSchema,
@@ -48,7 +54,8 @@ export type BunderstackDefinitionConfig<
     TStorage,
     TEnv,
     TCustomApiRouter,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   >,
   'realtime' | 'messaging' | 'api'
 > & {
@@ -69,7 +76,8 @@ export type BunderstackDefinitionConfig<
         builder: import('./api/builder').BunderstackApiBuilder<
           TSchema,
           ValidatedEnv<TEnv>,
-          MessagingConfig
+          MessagingConfig,
+          SessionUserExtraOf<TSession>
         >,
       ) => TCustomApiRouter)
   jobs?:
@@ -125,6 +133,8 @@ export type BunderstackDeclaration<
   TRealtime = undefined,
   TMessaging extends MessagingConfig | undefined = undefined,
   TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  TSession extends SessionUserConfig<Record<string, unknown>> | undefined =
+    undefined,
 > = Omit<
   BunderstackDefinitionConfig<
     TSchema,
@@ -135,7 +145,8 @@ export type BunderstackDeclaration<
     TCustomApiRouter,
     TRealtime,
     TMessaging,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   >,
   'database' | 'storage' | 'messaging' | 'realtime'
 > & {
@@ -158,6 +169,9 @@ export function bunderstack<
   const TRealtime extends RealtimeConfigInput | undefined = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
   const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  const TSession extends
+    | SessionUserConfig<Record<string, unknown>>
+    | undefined = undefined,
 >(
   declaration: BunderstackDeclaration<
     TSchema,
@@ -168,7 +182,8 @@ export function bunderstack<
     TCustomApiRouter,
     TRealtime,
     TMessaging,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   >,
 ): BunderstackBackend<
   BunderstackApp<

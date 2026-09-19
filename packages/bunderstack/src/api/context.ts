@@ -13,6 +13,7 @@ export interface ApiContextDeps<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
   TMessaging extends MessagingConfig | undefined = MessagingConfig,
+  TSessionUser extends Record<string, unknown> = Record<never, never>,
 > {
   db: DbFor<TSchema>
   env: TEnv
@@ -21,7 +22,7 @@ export interface ApiContextDeps<
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
-  authResolver?: AuthSessionResolver
+  authResolver?: AuthSessionResolver<TSessionUser>
   logger?: BunderstackLogger
 }
 
@@ -29,6 +30,7 @@ export interface ApiContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
   TMessaging extends MessagingConfig | undefined = MessagingConfig,
+  TSessionUser extends Record<string, unknown> = Record<never, never>,
 > {
   db: DbFor<TSchema>
   env: TEnv
@@ -42,7 +44,7 @@ export interface ApiContext<
   resHeaders: Headers
   getRawBody: () => Promise<string>
   getSession: () => Promise<{
-    user: AccessUser | null
+    user: AccessUser<TSessionUser> | null
     activeOrganizationId: string | null
   }>
   /**
@@ -52,7 +54,10 @@ export interface ApiContext<
    * Use it for observability only. Never use it for authorization.
    */
   peekSession: () =>
-    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | {
+        user: AccessUser<TSessionUser> | null
+        activeOrganizationId: string | null
+      }
     | undefined
 }
 
@@ -60,19 +65,26 @@ export function createApiContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
   TMessaging extends MessagingConfig | undefined = MessagingConfig,
+  TSessionUser extends Record<string, unknown> = Record<never, never>,
 >(
-  deps: ApiContextDeps<TSchema, TEnv, TMessaging>,
+  deps: ApiContextDeps<TSchema, TEnv, TMessaging, TSessionUser>,
   request: Request,
-): ApiContext<TSchema, TEnv, TMessaging> {
+): ApiContext<TSchema, TEnv, TMessaging, TSessionUser> {
   // Reserve the body stream before a transport codec consumes `request`.
   const rawBodyRequest = request.clone()
   let rawBodyPromise: Promise<string> | undefined
   let sessionPromise:
-    | Promise<{ user: AccessUser | null; activeOrganizationId: string | null }>
+    | Promise<{
+        user: AccessUser<TSessionUser> | null
+        activeOrganizationId: string | null
+      }>
     | undefined
 
   let settledSession:
-    | { user: AccessUser | null; activeOrganizationId: string | null }
+    | {
+        user: AccessUser<TSessionUser> | null
+        activeOrganizationId: string | null
+      }
     | undefined
 
   const getSession = () => {

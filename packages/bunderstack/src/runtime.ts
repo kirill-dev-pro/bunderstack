@@ -8,8 +8,8 @@ import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { RPCHandler } from '@orpc/server/fetch'
 import { ValibotToJsonSchemaConverter } from '@orpc/valibot'
 
+import type { AuthSessionResolver, SessionUserConfig } from './access'
 import type { TableAccessInput } from './access'
-import type { AuthSessionResolver } from './access'
 import type { RealtimeApiRouter } from './api/realtime-router'
 import type {
   CrudApiRouterFor,
@@ -257,6 +257,9 @@ export function materializeBunderstack<
   >['realtime'] = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
   const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  const TSession extends
+    | SessionUserConfig<Record<string, unknown>>
+    | undefined = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -264,7 +267,8 @@ export function materializeBunderstack<
     TStorage,
     TEnv,
     TCustomApiRouter,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   > & {
     realtime?: TRealtime
     messaging?: TMessaging
@@ -306,6 +310,9 @@ export async function materializeBunderstack<
   >['realtime'] = undefined,
   const TMessaging extends MessagingConfig | undefined = undefined,
   const TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  const TSession extends
+    | SessionUserConfig<Record<string, unknown>>
+    | undefined = undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -313,7 +320,8 @@ export async function materializeBunderstack<
     TStorage,
     TEnv,
     TCustomApiRouter,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   > & {
     realtime?: TRealtime
     messaging?: TMessaging
@@ -420,7 +428,9 @@ export async function materializeBunderstack<
     }
     const declaredAuthResolver =
       options.authResolver ??
-      (missingModels.length === 0 ? toAuthSessionResolver(auth as unknown as Auth) : undefined)
+      (missingModels.length === 0
+        ? toAuthSessionResolver(auth as unknown as Auth, options.session)
+        : undefined)
     const authResolver = overrides.authResolver
       ? {
           api: {
@@ -956,6 +966,7 @@ export type {
   WorkerHandle,
 } from './jobs/index'
 export {
+  defineSessionUser,
   defineAccess,
   validateAndResolveAccess,
   checkAccess,
@@ -966,6 +977,10 @@ export type {
   OperationRule,
   AccessContext,
   AccessUser,
+  AccessUserBase,
+  SessionUserConfig,
+  SessionUserExtraOf,
+  SessionUserSource,
 } from './access'
 export {
   typeid,

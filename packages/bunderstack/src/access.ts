@@ -11,11 +11,41 @@ export const AUTH_TABLE_NAMES = new Set([
 
 const EXPOSEABLE_AUTH_TABLES = new Set(['user'])
 
-export type AccessUser = {
+export type AccessUserBase = {
   id: string
   email: string
+  emailVerified?: boolean
   name?: string
   role?: string
+}
+
+export type SessionUserSource = {
+  id: string
+  email: string
+  emailVerified?: boolean
+  name?: string
+  role?: string
+} & Record<string, unknown>
+
+export type SessionUserConfig<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+> = {
+  mapUser: (user: SessionUserSource) => TExtra
+}
+
+export type SessionUserExtraOf<TSession> =
+  TSession extends SessionUserConfig<infer TExtra>
+    ? TExtra
+    : Record<never, never>
+
+export type AccessUser<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+> = AccessUserBase & Omit<TExtra, keyof AccessUserBase>
+
+export function defineSessionUser<const TExtra extends Record<string, unknown>>(
+  config: SessionUserConfig<TExtra>,
+): SessionUserConfig<TExtra> {
+  return config
 }
 
 export type AccessContext = {
@@ -489,41 +519,63 @@ export function sanitizeWriteBody(
   return out
 }
 
-export type AuthSessionResolver = {
+export type AuthSessionResolver<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+> = {
   api: {
     getSession: (opts: { headers: Headers }) => Promise<{
-      user: { id: string; email: string; name?: string; role?: string } | null
+      user:
+        | ({
+            id: string
+            email: string
+            emailVerified?: boolean
+            name?: string
+            role?: string
+          } & TExtra)
+        | null
       session?: { activeOrganizationId?: string | null } | null
     } | null>
   }
 }
 
-export async function resolveAccessUser(
-  auth: AuthSessionResolver | undefined,
+export async function resolveAccessUser<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+>(
+  auth: AuthSessionResolver<TExtra> | undefined,
   headers: Headers,
-): Promise<AccessUser | null> {
+): Promise<AccessUser<TExtra> | null> {
   if (!auth) return null
   const session = await auth.api.getSession({ headers })
   if (!session?.user) return null
-  return {
+  const user = {
+    ...session.user,
     id: session.user.id,
     email: session.user.email,
+    emailVerified: session.user.emailVerified === true,
     name: session.user.name,
     role: session.user.role,
   }
+  return user as AccessUser<TExtra>
 }
 
-export async function resolveSession(
-  auth: AuthSessionResolver | undefined,
+export async function resolveSession<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+>(
+  auth: AuthSessionResolver<TExtra> | undefined,
   headers: Headers,
-): Promise<{ user: AccessUser | null; activeOrganizationId: string | null }> {
+): Promise<{
+  user: AccessUser<TExtra> | null
+  activeOrganizationId: string | null
+}> {
   if (!auth) return { user: null, activeOrganizationId: null }
   const session = await auth.api.getSession({ headers })
   if (!session?.user) return { user: null, activeOrganizationId: null }
   return {
     user: {
+      ...session.user,
       id: session.user.id,
       email: session.user.email,
+      emailVerified: session.user.emailVerified === true,
       name: session.user.name,
       role: session.user.role,
     },

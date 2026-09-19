@@ -28,6 +28,7 @@ Major optional groups:
 
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
+- `session`: an explicit projection of extra authenticated-user fields;
 - `env`: declared environment, validated before anything reads it;
 - `storage`, `messaging`, and `jobs`: application facilities;
 - `api`: your oRPC router, as an object or as `(o) => router`;
@@ -121,6 +122,30 @@ type ApiContext = {
 `o.protected` adds non-null `context.user` and the active organization session
 to handlers. Inputs and optional outputs accept Standard Schema.
 
+`AccessUser` includes Better Auth's `emailVerified` field. Session resolution
+normalizes it fail-closed: only the literal value `true` is treated as verified.
+Use `defineSessionUser` to expose additional application fields without copying
+the complete Better Auth user into every procedure:
+
+```ts
+const session = defineSessionUser({
+  mapUser: (user) => ({ clinicId: String(user.clinicId) }),
+})
+
+const o = defineApi({ schema, session })
+
+const backend = bunderstack({
+  schema,
+  database,
+  session,
+  api,
+})
+```
+
+The mapped fields are inferred on `getSession().user` and `o.protected`'s
+`context.user`. `id`, `email`, `emailVerified`, `name`, and `role` remain
+framework-owned and cannot be overridden by the mapper.
+
 `peekSession()` exists for graph-wide middleware, which runs before
 authentication. Use it for observability only, never for authorization — see
 [Middleware](/docs/middleware#reading-the-caller).
@@ -130,6 +155,7 @@ authentication. Use it for observability only, never for authorization — see
 | Export                       | Purpose                                                   |
 | ---------------------------- | --------------------------------------------------------- |
 | `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
+| `defineSessionUser(config)`  | A typed, explicit projection of extra session user fields |
 | `listSpec(table, options)`   | Input schema and handler for a list endpoint outside CRUD |
 | `BunderstackError`           | Typed error for code outside a handler                    |
 | `BunderstackDb<TSchema>`     | The database type for a helper parameter                  |

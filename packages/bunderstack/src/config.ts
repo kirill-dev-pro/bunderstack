@@ -4,7 +4,12 @@ import type { AnyMiddleware, AnyRouter } from '@orpc/server'
 import { betterAuth } from 'better-auth'
 import * as v from 'valibot'
 
-import type { AuthSessionResolver, TableAccessInput } from './access'
+import type {
+  AuthSessionResolver,
+  SessionUserConfig,
+  SessionUserExtraOf,
+  TableAccessInput,
+} from './access'
 import type { BunderstackApiBuilder } from './api/builder'
 import type { DatabaseAdapter } from './database/adapter'
 import type { DbFor } from './db'
@@ -160,6 +165,8 @@ export type BunderstackConfig<
   TEnv extends EnvConfigInput | undefined = EnvConfigInput | undefined,
   TCustomApiRouter extends AnyRouter | undefined = AnyRouter | undefined,
   TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  TSession extends SessionUserConfig<Record<string, unknown>> | undefined =
+    undefined,
 > = {
   schema: TSchema
   access?: TAccess
@@ -180,7 +187,9 @@ export type BunderstackConfig<
    * Reuse an application-owned session reader for the unified API while
    * keeping Bunderstack's auth handler available.
    */
-  authResolver?: AuthSessionResolver
+  authResolver?: AuthSessionResolver<SessionUserExtraOf<TSession>>
+  /** Explicitly project application fields from Better Auth into API users. */
+  session?: TSession
   storage?: TStorage
   background?: { autoStart?: boolean }
   messaging?: MessagingConfig
@@ -193,7 +202,12 @@ export type BunderstackConfig<
   api?:
     | TCustomApiRouter
     | ((
-        builder: BunderstackApiBuilder<TSchema, ValidatedEnv<TEnv>>,
+        builder: BunderstackApiBuilder<
+          TSchema,
+          ValidatedEnv<TEnv>,
+          MessagingConfig,
+          SessionUserExtraOf<TSession>
+        >,
       ) => TCustomApiRouter)
   /**
    * Middleware applied to every procedure in the graph: generated CRUD,
@@ -230,6 +244,8 @@ export function resolveConfig<
   TEnv extends EnvConfigInput | undefined = undefined,
   TCustomApiRouter extends AnyRouter | undefined = undefined,
   TAuthConfig extends BetterAuthConfig = BetterAuthConfig,
+  TSession extends SessionUserConfig<Record<string, unknown>> | undefined =
+    undefined,
 >(
   options: BunderstackConfig<
     TSchema,
@@ -237,7 +253,8 @@ export function resolveConfig<
     TStorage,
     TEnv,
     TCustomApiRouter,
-    TAuthConfig
+    TAuthConfig,
+    TSession
   >,
   env?: BaseEnv,
   // Platform-injected overrides (Bunderhost & co.) beat code-level config so

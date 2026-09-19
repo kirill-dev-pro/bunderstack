@@ -6,6 +6,7 @@ import {
   type Middleware,
 } from '@orpc/server'
 
+import type { SessionUserConfig, SessionUserExtraOf } from '../access'
 import type { EnvConfigInput, ValidatedEnv } from '../env'
 import type { MessagingConfig } from '../messaging'
 import type { ApiContext } from './context'
@@ -21,9 +22,10 @@ export function createApiBuilder<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
   TEnv = Record<string, unknown>,
   TMessaging extends MessagingConfig | undefined = MessagingConfig,
+  TSessionUser extends Record<string, unknown> = Record<never, never>,
 >() {
   const base = os
-    .$context<ApiContext<TSchema, TEnv, TMessaging>>()
+    .$context<ApiContext<TSchema, TEnv, TMessaging, TSessionUser>>()
     .errors(BUNDERSTACK_ERRORS)
     .use(mapBunderstackErrors)
 
@@ -56,7 +58,7 @@ export function createApiBuilder<
      */
     middleware: base.middleware.bind(base) as <TOutContext extends Context>(
       middleware: Middleware<
-        ApiContext<TSchema, TEnv, TMessaging>,
+        ApiContext<TSchema, TEnv, TMessaging, TSessionUser>,
         TOutContext,
         unknown,
         unknown,
@@ -75,15 +77,29 @@ export function defineApi<
   TSchema extends Record<string, unknown>,
   TEnv extends EnvConfigInput | undefined = undefined,
   TMessaging extends MessagingConfig = MessagingConfig,
->(_options: { schema: TSchema; env?: TEnv; messaging?: TMessaging }) {
-  return createApiBuilder<TSchema, ValidatedEnv<TEnv>, TMessaging>()
+  const TSession extends
+    | SessionUserConfig<Record<string, unknown>>
+    | undefined = undefined,
+>(_options: {
+  schema: TSchema
+  env?: TEnv
+  messaging?: TMessaging
+  session?: TSession
+}) {
+  return createApiBuilder<
+    TSchema,
+    ValidatedEnv<TEnv>,
+    TMessaging,
+    SessionUserExtraOf<TSession>
+  >()
 }
 
 export type BunderstackApiBuilder<
   TSchema extends Record<string, unknown>,
   TEnv = Record<string, unknown>,
   TMessaging extends MessagingConfig | undefined = MessagingConfig,
-> = ReturnType<typeof createApiBuilder<TSchema, TEnv, TMessaging>>
+  TSessionUser extends Record<string, unknown> = Record<never, never>,
+> = ReturnType<typeof createApiBuilder<TSchema, TEnv, TMessaging, TSessionUser>>
 
 export type ApiFactory<
   TSchema extends Record<string, unknown>,

@@ -3,7 +3,12 @@ import { betterAuth, type Auth, type BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI } from 'better-auth/plugins'
 
-import type { AuthSessionResolver } from './access'
+import type {
+  AccessUserBase,
+  AuthSessionResolver,
+  SessionUserConfig,
+  SessionUserSource,
+} from './access'
 import type { BetterAuthConfig } from './config'
 import type { AnyDb, Dialect } from './dialect'
 import type { EmailFacade } from './email'
@@ -81,7 +86,12 @@ export function missingAuthModels(
  * Keeping this adapter here means internal modules never depend on better-auth's
  * evolving types.
  */
-export function toAuthSessionResolver(auth: Auth): AuthSessionResolver {
+export function toAuthSessionResolver<
+  TExtra extends Record<string, unknown> = Record<never, never>,
+>(
+  auth: Auth,
+  sessionUser?: SessionUserConfig<TExtra>,
+): AuthSessionResolver<Omit<TExtra, keyof AccessUserBase>> {
   return {
     api: {
       async getSession({ headers }) {
@@ -98,10 +108,23 @@ export function toAuthSessionResolver(auth: Auth): AuthSessionResolver {
             'role' in result.user && typeof result.user.role === 'string'
               ? result.user.role
               : undefined
+          const emailVerified =
+            'emailVerified' in result.user && result.user.emailVerified === true
+          const mapped = sessionUser?.mapUser(
+            result.user as SessionUserSource,
+          ) as Record<string, unknown> | undefined
+          const extras = { ...(mapped ?? {}) }
+          delete extras.id
+          delete extras.email
+          delete extras.emailVerified
+          delete extras.name
+          delete extras.role
           return {
             user: {
+              ...extras,
               id: result.user.id,
               email: result.user.email,
+              emailVerified,
               name: result.user.name,
               ...(role ? { role } : {}),
             },
@@ -111,7 +134,7 @@ export function toAuthSessionResolver(auth: Auth): AuthSessionResolver {
         return null
       },
     },
-  }
+  } as AuthSessionResolver<Omit<TExtra, keyof AccessUserBase>>
 }
 
 /**

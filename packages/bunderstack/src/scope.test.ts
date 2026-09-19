@@ -65,13 +65,23 @@ describe('resolveSession', () => {
     const auth = {
       api: {
         getSession: async () => ({
-          user: { id: 'u_1', email: 'a@b.c', name: 'A' },
+          user: {
+            id: 'u_1',
+            email: 'a@b.c',
+            name: 'A',
+            emailVerified: true,
+          },
           session: { activeOrganizationId: 'org_1' },
         }),
       },
     }
     expect(await resolveSession(auth as never, new Headers())).toEqual({
-      user: { id: 'u_1', email: 'a@b.c', name: 'A' },
+      user: {
+        id: 'u_1',
+        email: 'a@b.c',
+        name: 'A',
+        emailVerified: true,
+      },
       activeOrganizationId: 'org_1',
     })
   })

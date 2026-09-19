@@ -13,15 +13,56 @@ const fakeAuth = (session: unknown) =>
 test('maps a bare better-auth session to the resolver shape', async () => {
   const resolver = toAuthSessionResolver(
     fakeAuth({
-      user: { id: 'u1', email: 'a@b.c', name: 'Ann' },
+      user: {
+        id: 'u1',
+        email: 'a@b.c',
+        name: 'Ann',
+        emailVerified: true,
+      },
       session: { activeOrganizationId: 'org1' },
     }),
   )
   const r = await resolver.api.getSession({ headers: new Headers() })
   expect(r).toEqual({
-    user: { id: 'u1', email: 'a@b.c', name: 'Ann' },
+    user: {
+      id: 'u1',
+      email: 'a@b.c',
+      name: 'Ann',
+      emailVerified: true,
+    },
     session: { activeOrganizationId: 'org1' },
   })
+})
+
+test('normalizes missing email verification to false', async () => {
+  const resolver = toAuthSessionResolver(
+    fakeAuth({
+      user: { id: 'u1', email: 'a@b.c', name: 'Ann' },
+      session: {},
+    }),
+  )
+
+  const result = await resolver.api.getSession({ headers: new Headers() })
+
+  expect(result?.user?.emailVerified).toBe(false)
+})
+
+test('preserves false email verification', async () => {
+  const resolver = toAuthSessionResolver(
+    fakeAuth({
+      user: {
+        id: 'u1',
+        email: 'a@b.c',
+        name: 'Ann',
+        emailVerified: false,
+      },
+      session: {},
+    }),
+  )
+
+  const user = await resolveAccessUser(resolver, new Headers())
+
+  expect(user?.emailVerified).toBe(false)
 })
 
 test('preserves an application role from the authenticated user', async () => {
@@ -48,6 +89,61 @@ test('passes an application role into Bunderstack access context', async () => {
   const user = await resolveAccessUser(resolver, new Headers())
 
   expect(user?.role).toBe('admin')
+})
+
+test('maps explicitly selected application user fields into access context', async () => {
+  const resolver = toAuthSessionResolver(
+    fakeAuth({
+      user: {
+        id: 'u1',
+        email: 'a@b.c',
+        name: 'Ann',
+        emailVerified: true,
+        clinicId: 'clinic-1',
+      },
+      session: {},
+    }),
+    {
+      mapUser(user) {
+        return { clinicId: String(user.clinicId) }
+      },
+    },
+  )
+
+  const user = await resolveAccessUser(resolver, new Headers())
+
+  expect(user?.clinicId).toBe('clinic-1')
+})
+
+test('does not let mapped fields override framework-owned identity', async () => {
+  const resolver = toAuthSessionResolver(
+    fakeAuth({
+      user: {
+        id: 'u1',
+        email: 'a@b.c',
+        name: 'Ann',
+        emailVerified: false,
+      },
+      session: {},
+    }),
+    {
+      mapUser() {
+        return {
+          id: 'spoofed',
+          emailVerified: true,
+          clinicId: 'clinic-1',
+        } as never
+      },
+    },
+  )
+
+  const user = await resolveAccessUser(resolver, new Headers())
+
+  expect(user).toMatchObject({
+    id: 'u1',
+    emailVerified: false,
+    clinicId: 'clinic-1',
+  })
 })
 
 test('returns null when there is no session', async () => {

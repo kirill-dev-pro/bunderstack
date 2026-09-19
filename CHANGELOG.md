@@ -2,6 +2,21 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.4] — 2026-09-19
+
+### Fixed
+
+- Preserve Better Auth's `emailVerified` value in `context.getSession()` and
+  normalize a missing or malformed value to `false`, so applications can
+  enforce verified-email access without patching Bunderstack.
+
+### Added
+
+- Add `defineSessionUser({ mapUser })` and the `session` declaration option for
+  explicitly projecting application user fields into public and protected API
+  contexts with inferred TypeScript types. Framework-owned identity fields
+  cannot be overridden by the mapper.
+
 ## [0.24.3] — 2026-09-16
 
 ### Fixed
