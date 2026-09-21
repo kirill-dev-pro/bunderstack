@@ -181,13 +181,17 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['postgres']).toBeDefined()
 
     expect(Object.keys(core.dependencies).sort()).toEqual([
-      '@orpc/client',
-      '@orpc/server',
       '@standard-schema/spec',
       '@standardserver/core',
       'valibot',
       'yaml',
     ])
+
+    expect(
+      Object.keys(core.dependencies).filter((name) =>
+        name.startsWith('@orpc/'),
+      ),
+    ).toEqual([])
 
     const rootManifest = await Bun.file(join(repoRoot, 'package.json')).json()
     expect(rootManifest.devDependencies.nodemailer).toBe('^9.0.3')

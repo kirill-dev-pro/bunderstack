@@ -2,6 +2,15 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.24.6] — 2026-09-21
+
+### Fixed
+
+- Keep `@orpc/server` and `@orpc/client` peer-owned so Bunderstack, application
+  middleware, and `@orpc/openapi` share one oRPC runtime instance. This prevents
+  `.route()` from disappearing when Bun would otherwise install an isolated
+  server copy below `bunderstack`.
+
 ## [0.24.5] — 2026-09-19
 
 ### Security
