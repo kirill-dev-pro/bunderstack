@@ -2,6 +2,21 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.1] — 2026-09-25
+
+### Fixed
+
+- Apps whose schema declares no Better Auth `user` and `session` tables no
+  longer build or run a Better Auth instance. With better-auth 1.7.6 or later,
+  such apps failed every request, or failed to start with `openapi: true`,
+  with `BetterAuthError: Drizzle schema mismatch`. They now serve no
+  `/api/auth/*` routes and no auth OpenAPI paths. `app.auth` and `ctx.auth`
+  still build the instance on first use.
+
+### Changed
+
+- The repository tests against better-auth 1.7.6.
+
 ## [0.25.0] — 2026-09-25
 
 ### Added

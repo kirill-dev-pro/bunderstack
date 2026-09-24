@@ -79,6 +79,31 @@ export function missingAuthModels(
 }
 
 /**
+ * Defer building better-auth until someone touches the instance. From 1.7.6 on,
+ * constructing it starts a schema check that logs, and every `auth.api` call
+ * throws, when the auth tables are missing. An app without auth models never
+ * builds one, yet `app.auth` / `ctx.auth` still work for code that reaches for
+ * it on purpose. A proxy, not a getter: oRPC middleware and access scopes
+ * spread the context, which would read a getter on every request.
+ */
+export function lazyAuth<TAuth extends object>(create: () => TAuth): TAuth {
+  let instance: TAuth | undefined
+  const resolve = () => {
+    instance ??= create()
+    return instance
+  }
+  return new Proxy({} as TAuth, {
+    get: (_, key) => Reflect.get(resolve(), key),
+    has: (_, key) => Reflect.has(resolve(), key),
+    ownKeys: () => Reflect.ownKeys(resolve()),
+    getOwnPropertyDescriptor: (_, key) => {
+      const descriptor = Reflect.getOwnPropertyDescriptor(resolve(), key)
+      return descriptor ? { ...descriptor, configurable: true } : undefined
+    },
+  })
+}
+
+/**
  * Adapt the raw better-auth instance to our internal {@link AuthSessionResolver}
  * contract. better-auth's `getSession` has a union return (a bare session, or a
  * `{ headers, response }` wrapper when `returnHeaders` is set); we only ever
@@ -113,7 +138,7 @@ export function toAuthSessionResolver<
           const mapped = sessionUser?.mapUser(
             result.user as SessionUserSource,
           ) as Record<string, unknown> | undefined
-          const extras = { ...(mapped ?? {}) }
+          const extras = { ...mapped }
           delete extras.id
           delete extras.email
           delete extras.emailVerified

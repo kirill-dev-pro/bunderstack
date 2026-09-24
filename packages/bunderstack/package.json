@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, messaging, and validated env from one declaration.",
   "keywords": [
     "backend",
@@ -204,7 +204,7 @@
     "@tanstack/react-start": "^1.168.26",
     "@types/nodemailer": "^6",
     "@types/react": "^19.0.0",
-    "better-auth": "^1.0.0",
+    "better-auth": "^1.7.6",
     "drizzle-kit": "^0.30.0",
     "drizzle-orm": "^0.45.0",
     "drizzle-valibot": "0.4.2",

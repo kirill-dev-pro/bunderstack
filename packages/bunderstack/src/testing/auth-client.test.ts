@@ -27,7 +27,6 @@ const session = sqliteTable('session', {
 })
 const account = sqliteTable('account', {
   id: text('id').primaryKey(),
-  issuer: text('issuer').notNull(),
   accountId: text('accountId').notNull(),
   providerId: text('providerId').notNull(),
   userId: text('userId').notNull(),

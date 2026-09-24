@@ -742,6 +742,11 @@ latest captured verification link for that user's email.
 Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.
 Copy full definitions from `examples/standalone/schema.ts`.
 
+An app whose schema has no `user` and `session` tables runs without Better Auth:
+every session resolves to `null`, `/api/auth/*` answers 404, and the OpenAPI
+document has no auth paths. Declaring `auth` without those tables logs a
+warning at startup.
+
 BACKGROUND JOBS AND CRON
 
 Everything in the background is a row in one table. A job is a type, a payload,

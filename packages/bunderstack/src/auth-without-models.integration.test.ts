@@ -54,6 +54,44 @@ test('an app that declares no auth models ignores a stale session cookie', async
   expect(response.status).toBe(200)
 })
 
+/**
+ * better-auth 1.7.6 checks the drizzle schema before every `auth.api` call and
+ * throws on missing tables. An app without auth models must never reach it —
+ * not through the OpenAPI spec, not through `/api/auth/*`.
+ */
+test('an app that declares no auth models serves OpenAPI and requests', async () => {
+  const backend = bunderstack({
+    schema: { notes },
+    access: { notes: { crud: true, list: 'public' } },
+    database: { adapter: libsql() },
+    openapi: true,
+  })
+  await using fixture = await backend.test({ database: { schema: 'push' } })
+
+  const list = await fixture.app.handler(
+    new Request('http://localhost/api/rpc/notes/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ json: {} }),
+    }),
+  )
+  expect(list.status).toBe(200)
+
+  const spec = await fixture.app.handler(
+    new Request('http://localhost/api/openapi.json'),
+  )
+  expect(spec.status).toBe(200)
+  const { paths } = (await spec.json()) as { paths: Record<string, unknown> }
+  expect(
+    Object.keys(paths).filter((path) => path.startsWith('/api/auth/')),
+  ).toEqual([])
+
+  const session = await fixture.app.handler(
+    new Request('http://localhost/api/auth/get-session'),
+  )
+  expect(session.status).toBe(404)
+})
+
 test('declaring auth without its models warns at startup', async () => {
   const backend = bunderstack({
     schema: { notes },

@@ -47,6 +47,7 @@ import { buildStorageApiRouter } from './api/storage-router'
 import {
   createAuth,
   type BunderstackAuth,
+  lazyAuth,
   missingAuthModels,
   toAuthSessionResolver,
   withEmailAuthDefaults,
@@ -405,36 +406,40 @@ export async function materializeBunderstack<
       options.messaging?.email?.kind === 'email'
         ? ((messaging as Record<string, unknown>).email as EmailFacade)
         : undefined
-    const auth = createAuth<TAuthConfig>(
-      db,
-      withEmailAuthDefaults(
-        authConfig,
-        authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
-        Boolean(authEmail),
-      ),
-      dialect,
-      options.schema as Record<string, unknown>,
-    )
+    const buildAuth = () =>
+      createAuth<TAuthConfig>(
+        db,
+        withEmailAuthDefaults(
+          authConfig,
+          authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
+          Boolean(authEmail),
+        ),
+        dialect,
+        options.schema as Record<string, unknown>,
+      )
     // Internal routers consume the narrow AuthSessionResolver contract, not the
     // raw better-auth instance. app.auth still exposes `auth` unchanged. An app
-    // whose schema declares no better-auth models gets no resolver at all, so
-    // every session resolves to null instead of hitting the drizzle adapter.
+    // whose schema declares no better-auth models runs no better-auth at all: no
+    // resolver (every session is null), no `/api/auth` routes, no auth OpenAPI,
+    // and the instance behind `app.auth` is only built if something touches it.
     const missingModels = missingAuthModels(
       options.schema as Record<string, unknown>,
       authConfig,
     )
-    if (missingModels.length > 0 && options.auth !== undefined) {
+    const authEnabled = missingModels.length === 0
+    if (!authEnabled && options.auth !== undefined) {
       logger.warn(
         `[bunderstack] auth is configured, but the schema is ` +
           `missing better-auth tables: ${missingModels
             .map((model) => `\`${model}\``)
-            .join(', ')}. Every session resolves to null until they are ` +
-          `part of the schema.`,
+            .join(', ')}. Every session resolves to null and /api/auth is ` +
+          `not served until they are part of the schema.`,
       )
     }
+    const auth = authEnabled ? buildAuth() : lazyAuth(buildAuth)
     const declaredAuthResolver =
       options.authResolver ??
-      (missingModels.length === 0
+      (authEnabled
         ? toAuthSessionResolver(auth as unknown as Auth, options.session)
         : undefined)
     const authResolver = overrides.authResolver
@@ -704,6 +709,7 @@ export async function materializeBunderstack<
 
     const authOpenAPISpecRaw =
       options.openapi &&
+      authEnabled &&
       auth.api &&
       'generateOpenAPISchema' in auth.api &&
       typeof auth.api.generateOpenAPISchema === 'function'
@@ -795,8 +801,8 @@ export async function materializeBunderstack<
         async (options) => {
           const res = await options.next()
           if (options.context.resHeaders) {
-            options.context.resHeaders.forEach((v: string, k: string) =>
-              (res.headers[k] = v),
+            options.context.resHeaders.forEach(
+              (v: string, k: string) => (res.headers[k] = v),
             )
           }
           return res
@@ -852,7 +858,7 @@ export async function materializeBunderstack<
     }
 
     const handler = buildHandler({
-      authHandler: (req) => auth.handler(req),
+      authHandler: authEnabled ? (req) => auth.handler(req) : undefined,
       apiHandler,
       rateLimit: options.rateLimit,
     })

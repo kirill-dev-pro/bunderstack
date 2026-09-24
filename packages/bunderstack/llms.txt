@@ -307,7 +307,9 @@ AUTH
 auth takes Better Auth options directly, or defineAuth(schema, ({ db, env }) =>
 options) when database hooks need the app's own connection. Better Auth owns
 /api/auth/*. context.user carries id, email, name, and role. authResolver
-replaces session reading with your own implementation.
+replaces session reading with your own implementation. Without user and
+session tables in the schema, the app runs no Better Auth: sessions are null
+and /api/auth/* answers 404.
 
 BACKGROUND JOBS
 
