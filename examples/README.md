@@ -217,7 +217,7 @@ Auto-CRUD routes are secured by default:
 
 - BetterAuth tables are never exposed via `/api/*`
 - Tables with a `userId` column get owner-scoped update/delete (public read/create)
-- Other tables need explicit `access` config (see `examples/standalone/server.ts` for `authorId`)
+- Other tables need explicit `access` config (see `examples/kanban-tanstack/src/access.ts` for `authorId`)
 - File uploads require authentication by default; delete is owner-only
 
 ## bunderstack/query

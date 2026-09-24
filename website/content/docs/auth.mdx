@@ -135,7 +135,16 @@ latest captured verification link for that user's email.
 ## Required schema tables
 
 Include `user`, `session`, `account`, `verification` from BetterAuth in your schema.
-Copy full definitions from `examples/standalone/schema.ts`.
+Generate them with `npx auth generate`, or copy the definitions from the
+[SaaS template](https://github.com/kirill-dev-pro/bunderstack/blob/main/templates/tanstack-start-saas/src/bunderstack/schema/auth.ts).
+
+Better Auth 1.7.6 and later check these tables when the app starts and before
+every auth call. A missing table or column, or a required column that Better
+Auth never writes, fails the request with `Drizzle schema mismatch`. Apps
+created with Better Auth 1.7.0–1.7.2 may still have a required
+`account.issuer` column; follow the
+[1.7 upgrade guide](https://www.better-auth.com/docs/guides/1-7-upgrade-guide)
+before removing it.
 
 An app whose schema has no `user` and `session` tables runs without Better Auth:
 every session resolves to `null`, `/api/auth/*` answers 404, and the OpenAPI
