@@ -299,6 +299,7 @@ Major optional groups:
 
 - `access`: generated CRUD exposure, ownership, filters, sorting, and guards;
 - `auth` / `authResolver`: Better Auth and custom session resolution;
+- `session`: an explicit projection of extra authenticated-user fields;
 - `env`: declared environment, validated before anything reads it;
 - `storage`, `messaging`, and `jobs`: application facilities;
 - `api`: your oRPC router, as an object or as `(o) => router`;
@@ -392,6 +393,30 @@ type ApiContext = {
 `o.protected` adds non-null `context.user` and the active organization session
 to handlers. Inputs and optional outputs accept Standard Schema.
 
+`AccessUser` includes Better Auth's `emailVerified` field. Session resolution
+normalizes it fail-closed: only the literal value `true` is treated as verified.
+Use `defineSessionUser` to expose additional application fields without copying
+the complete Better Auth user into every procedure:
+
+```ts
+const session = defineSessionUser({
+  mapUser: (user) => ({ clinicId: String(user.clinicId) }),
+})
+
+const o = defineApi({ schema, session })
+
+const backend = bunderstack({
+  schema,
+  database,
+  session,
+  api,
+})
+```
+
+The mapped fields are inferred on `getSession().user` and `o.protected`'s
+`context.user`. `id`, `email`, `emailVerified`, `name`, and `role` remain
+framework-owned and cannot be overridden by the mapper.
+
 `peekSession()` exists for graph-wide middleware, which runs before
 authentication. Use it for observability only, never for authorization — see
 [Middleware](/docs/middleware#reading-the-caller).
@@ -401,6 +426,7 @@ authentication. Use it for observability only, never for authorization — see
 | Export                       | Purpose                                                   |
 | ---------------------------- | --------------------------------------------------------- |
 | `defineApi({ schema, env })` | The procedure builder, with generics inferred from values |
+| `defineSessionUser(config)`  | A typed, explicit projection of extra session user fields |
 | `listSpec(table, options)`   | Input schema and handler for a list endpoint outside CRUD |
 | `BunderstackError`           | Typed error for code outside a handler                    |
 | `BunderstackDb<TSchema>`     | The database type for a helper parameter                  |
@@ -815,6 +841,80 @@ is best effort and can race; `concurrency` is not a strict provider-wide
 semaphore. Use an application/provider limiter when several workers share one
 external quota.
 
+## Deduplication
+
+A `dedupeKey` collapses enqueues of the same job type into one row. The second
+call returns the existing row's id instead of inserting another:
+
+```ts
+await app.jobs.enqueue('syncPerson', { personId }, { dedupeKey: personId })
+```
+
+`dedupeUntil` on the job declaration decides how long the key collapses new
+enqueues:
+
+- **`'finish'` (default)** — the key is held until the job succeeds or finally
+  fails. An enqueue while the job runs returns the running row. Right for "at
+  most one of these at a time" work.
+- **`'start'`** — the key is released when a worker claims the job. A burst of
+  enqueues before the claim still collapses into one row, but an enqueue during
+  the run creates one more row that runs after it and reads the newer state.
+  Right for debounced sync, reindexing, and cache rebuilds.
+
+```ts
+syncPerson: j.job({
+  input: v.object({ personId: v.string() }),
+  dedupeUntil: 'start',
+  retries: 5,
+  handler: async ({ personId }, ctx) => {
+    // Read the latest state, then push it.
+  },
+})
+```
+
+With `'start'`, a job that fails and waits for a retry no longer holds its key,
+so a newer row can exist beside it and both run. `'start'` also does not
+serialize runs per key: two workers can run an older and a newer row at the
+same time. Keep the default, or take a lock in the handler, when runs for one
+key must never overlap.
+
+Cron tasks reject `dedupeUntil`; their slot ownership depends on the retained
+key.
+
+## Transactional enqueue
+
+Pass `tx` to insert the job row through your own Drizzle transaction. The job
+becomes visible to workers only when the transaction commits, and a rollback
+removes it. Your data and the work that follows from it are written atomically,
+so you do not need an outbox table:
+
+```ts
+await context.db.transaction(async (tx) => {
+  const person = await mergePerson(tx, event)
+  await context.jobs.enqueue(
+    'syncPerson',
+    { personId: person.id },
+    { tx, dedupeKey: `sync:${person.id}` },
+  )
+})
+```
+
+`tx` works on `app.jobs`, on `context.jobs` in procedures, on `ctx.jobs` in job
+handlers, and on `fixture.app.jobs` in tests. It must be a transaction on the
+app's own database. A transaction of the other dialect throws; a transaction
+from an unrelated connection of the same dialect is not supported.
+
+- **Postgres:** an enqueue whose `dedupeKey` conflicts with a row that another
+  open transaction inserted waits for that transaction to end. Two transactions
+  that enqueue the same key therefore run one after the other. Keep such
+  transactions short.
+- **SQLite and libSQL:** a write transaction already holds the database write
+  lock, so `tx` adds no contention.
+
+Delivery stays at-least-once. `tx` removes lost jobs (a crash between commit and
+enqueue) and phantom jobs (an enqueue whose transaction rolled back). It does
+not make handlers exactly-once.
+
 ## Cron
 
 `j.cron()` uses a five-field UTC schedule. Each due minute is materialized as a
@@ -964,6 +1064,7 @@ const backend = bunderstack({
   access,
   auth,
   authResolver,
+  session,
   storage,
   messaging,
   jobs: (j) => j.define({}),

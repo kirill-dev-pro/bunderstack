@@ -325,6 +325,27 @@ One table, one loop. A cron is a job created on a schedule.
 Enqueue with app.jobs.enqueue(name, input, { dedupeKey }). The background loop
 starts on its own, gated by BUNDERSTACK_ROLE: all (default), web, or worker.
 
+Pass { tx } to insert the job row through your own Drizzle transaction. The job
+becomes visible to workers only when the transaction commits; a rollback
+removes it. Use it instead of an application outbox table:
+
+  await context.db.transaction(async (tx) => {
+    const person = await mergePerson(tx, event)
+    await context.jobs.enqueue('syncPerson', { personId: person.id },
+      { tx, dedupeKey: `sync:${person.id}` })
+  })
+
+The tx must belong to the app's own database; a tx of the other dialect
+throws. On Postgres, two open transactions that enqueue the same dedupeKey
+serialize on it. Delivery stays at-least-once.
+
+dedupeKey collapses enqueues until the job finishes (dedupeUntil: 'finish', the
+default). Declare dedupeUntil: 'start' on j.job() to release the key when a
+worker claims the job: a burst before the claim still collapses into one row,
+and an enqueue during the run creates one more row that reads the newer state.
+Use it for debounced sync, reindex, and cache rebuilds. 'start' does not
+serialize runs per key. j.cron() rejects dedupeUntil.
+
 STORAGE
 
   storage: {

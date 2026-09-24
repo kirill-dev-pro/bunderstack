@@ -1,9 +1,12 @@
 import { test, expect } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { pgTable, text as pgText } from 'drizzle-orm/pg-core'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import { libsql } from '../database/libsql'
+import { pglite } from '../database/pglite'
+import { createDb } from '../db'
 import { bunderstack } from '../index'
 import { provision } from '../provision-schema'
 
@@ -247,4 +250,211 @@ test('runWorker accepts configured redis realtime without throwing', async () =>
     }),
   ).resolves.toBeUndefined()
   expect(app.status).toBe('closed')
+})
+
+const txEvents = sqliteTable('tx_events', { id: text('id').primaryKey() })
+// libSQL replaces an in-memory database with a fresh one after the first
+// interactive transaction, so transactional tests run on a temporary file.
+const pushOptions = {
+  database: { schema: 'push' as const, mode: 'temporary' as const },
+}
+
+function transactionalBackend(ran: string[]) {
+  return bunderstack({
+    schema: { txEvents },
+    database: { adapter: libsql() },
+    jobs: (j) =>
+      j.define({
+        record: j.job({
+          input: v.object({ id: v.string() }),
+          handler: ({ id }) => {
+            ran.push(id)
+          },
+        }),
+        fanOut: j.job({
+          input: v.object({ id: v.string() }),
+          handler: async ({ id }, ctx) => {
+            await ctx.db.transaction(async (tx) => {
+              await tx.insert(txEvents).values({ id })
+              await ctx.jobs.enqueue('record', { id }, { tx })
+            })
+          },
+        }),
+      }),
+  })
+}
+
+test('libsql: enqueue with tx is claimable after commit and gone after rollback', async () => {
+  const ran: string[] = []
+  await using t = await transactionalBackend(ran).test(pushOptions)
+
+  await t.app.db.transaction(async (tx) => {
+    await tx.insert(txEvents).values({ id: 'committed' })
+    await t.app.jobs.enqueue('record', { id: 'committed' }, { tx })
+  })
+  await expect(
+    t.app.db.transaction(async (tx) => {
+      await tx.insert(txEvents).values({ id: 'rolled-back' })
+      await t.app.jobs.enqueue('record', { id: 'rolled-back' }, { tx })
+      throw new Error('rollback on purpose')
+    }),
+  ).rejects.toThrow('rollback on purpose')
+
+  const report = await t.jobs.runUntilIdle()
+  expect(ran).toEqual(['committed'])
+  expect(report.ran).toBe(1)
+  expect(await t.jobs.inspect()).toHaveLength(1)
+
+  // Type-level check: `tx` is the app's transaction type, not any object.
+  // @ts-expect-error a string is not a transaction
+  const _badTx = () => t.app.jobs.enqueue('record', { id: 'x' }, { tx: 'nope' })
+  void _badTx
+})
+
+test('libsql: dedupe inside a transaction collapses with an existing pending row', async () => {
+  const ran: string[] = []
+  await using t = await transactionalBackend(ran).test(pushOptions)
+
+  const first = await t.app.jobs.enqueue(
+    'record',
+    { id: 'first' },
+    { dedupeKey: 'k' },
+  )
+  const [inside, again] = await t.app.db.transaction(async (tx) => [
+    await t.app.jobs.enqueue(
+      'record',
+      { id: 'second' },
+      { tx, dedupeKey: 'k' },
+    ),
+    await t.app.jobs.enqueue('record', { id: 'third' }, { tx, dedupeKey: 'k' }),
+  ])
+  expect(inside.id).toBe(first.id)
+  expect(again.id).toBe(first.id)
+
+  await t.jobs.runUntilIdle()
+  expect(ran).toEqual(['first'])
+})
+
+test('libsql: job handlers enqueue through ctx.jobs inside their own transaction', async () => {
+  const ran: string[] = []
+  await using t = await transactionalBackend(ran).test(pushOptions)
+
+  await t.app.jobs.enqueue('fanOut', { id: 'child' })
+  const report = await t.jobs.runUntilIdle()
+  expect(report.ran).toBe(2)
+  expect(ran).toEqual(['child'])
+  expect(await t.app.db.select().from(txEvents)).toEqual([{ id: 'child' }])
+})
+
+test('enqueue rejects a transaction from a different database dialect', async () => {
+  const ran: string[] = []
+  await using t = await transactionalBackend(ran).test(pushOptions)
+  const marker = pgTable('tx_dialect_marker', { id: pgText('id').primaryKey() })
+  const pg = await createDb(
+    { marker },
+    { url: 'memory://', dialect: 'pg', adapter: pglite() },
+  )
+  try {
+    await pg.db.transaction(async (tx) => {
+      await expect(
+        t.app.jobs.enqueue('record', { id: 'x' }, { tx: tx as never }),
+      ).rejects.toThrow(
+        '[bunderstack] enqueue tx belongs to a different database dialect',
+      )
+    })
+  } finally {
+    await pg.close?.()
+  }
+  expect(await t.jobs.inspect()).toHaveLength(0)
+})
+
+function dedupeWindowBackend(
+  dedupeUntil: 'start' | 'finish' | undefined,
+  seen: number[],
+  ids: string[],
+) {
+  return bunderstack({
+    schema: {},
+    database: { adapter: libsql() },
+    jobs: (j) =>
+      j.define({
+        sync: j.job({
+          input: v.object({ version: v.number() }),
+          ...(dedupeUntil ? { dedupeUntil } : {}),
+          handler: async ({ version }, ctx) => {
+            seen.push(version)
+            if (version === 1) {
+              const { id } = await ctx.jobs.enqueue(
+                'sync',
+                { version: 2 },
+                { dedupeKey: 'p1' },
+              )
+              ids.push(id)
+            }
+          },
+        }),
+      }),
+  })
+}
+
+test("libsql: dedupeUntil 'start' queues a newer row while the first runs", async () => {
+  const seen: number[] = []
+  const ids: string[] = []
+  await using t = await dedupeWindowBackend('start', seen, ids).test(
+    pushOptions,
+  )
+
+  const first = await t.app.jobs.enqueue(
+    'sync',
+    { version: 1 },
+    { dedupeKey: 'p1' },
+  )
+  // A burst before the claim still collapses into the pending row.
+  const burst = await t.app.jobs.enqueue(
+    'sync',
+    { version: 0 },
+    { dedupeKey: 'p1' },
+  )
+  expect(burst.id).toBe(first.id)
+
+  const report = await t.jobs.runUntilIdle()
+  expect(seen).toEqual([1, 2])
+  expect(ids).toHaveLength(1)
+  expect(ids[0]).not.toBe(first.id)
+  expect(report.ran).toBe(2)
+})
+
+test("libsql: dedupeUntil 'finish' collapses into the running row", async () => {
+  const seen: number[] = []
+  const ids: string[] = []
+  await using t = await dedupeWindowBackend('finish', seen, ids).test(
+    pushOptions,
+  )
+
+  const first = await t.app.jobs.enqueue(
+    'sync',
+    { version: 1 },
+    { dedupeKey: 'p1' },
+  )
+  const report = await t.jobs.runUntilIdle()
+  expect(seen).toEqual([1])
+  expect(ids).toEqual([first.id])
+  expect(report.ran).toBe(1)
+})
+
+test('libsql: default dedupe window keeps collapsing into the running row', async () => {
+  const seen: number[] = []
+  const ids: string[] = []
+  await using t = await dedupeWindowBackend(undefined, seen, ids).test(
+    pushOptions,
+  )
+
+  const first = await t.app.jobs.enqueue(
+    'sync',
+    { version: 1 },
+    { dedupeKey: 'p1' },
+  )
+  await t.jobs.runUntilIdle()
+  expect(seen).toEqual([1])
+  expect(ids).toEqual([first.id])
 })

@@ -192,3 +192,37 @@ test('backoffMs applies jitter within the expected band', () => {
   expect(Math.max(...samples)).toBeLessThanOrEqual(1200)
   expect(new Set(samples).size).toBeGreaterThan(1)
 })
+
+test('queue jobs accept dedupeUntil start and finish', () => {
+  const defs = j.define({
+    latest: j.job({ dedupeUntil: 'start', handler: () => {} }),
+    exclusive: j.job({ dedupeUntil: 'finish', handler: () => {} }),
+  })
+  expect(defs.latest.dedupeUntil).toBe('start')
+  expect(defs.exclusive.dedupeUntil).toBe('finish')
+  expect(() =>
+    validateBackgroundDefs({
+      bad: { kind: 'job', dedupeUntil: 'later', handler: () => {} } as never,
+    }),
+  ).toThrow(/dedupeUntil must be 'start' or 'finish'/)
+})
+
+test('cron definitions reject dedupeUntil', () => {
+  expect(() =>
+    j.cron({
+      schedule: '* * * * *',
+      dedupeUntil: 'start',
+      handler: () => {},
+    } as never),
+  ).toThrow(/cron tasks retain their slot key/)
+  expect(() =>
+    validateBackgroundDefs({
+      nightly: {
+        kind: 'cron',
+        schedule: '0 0 * * *',
+        dedupeUntil: 'finish',
+        handler: () => {},
+      } as never,
+    }),
+  ).toThrow(/dedupeUntil is not supported for cron/)
+})

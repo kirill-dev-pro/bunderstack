@@ -127,6 +127,14 @@ function terminalPatch(def: AnyBackgroundDefinition) {
   return def.kind === 'cron' ? {} : { dedupeKey: null }
 }
 
+/** `dedupeUntil: 'start'` releases the key at claim; everything else keeps it
+ *  until a terminal state, so the claim patch stays unchanged for them. */
+function claimPatch(def: AnyBackgroundDefinition) {
+  return def.kind === 'job' && def.dedupeUntil === 'start'
+    ? { dedupeKey: null }
+    : {}
+}
+
 export function createJobRunner(deps: {
   db: AnyDb
   defs: JobsDefs
@@ -358,6 +366,7 @@ export function createJobRunner(deps: {
   /** Atomically claim up to `limit` runnable jobs of one type. */
   async function claim(
     type: string,
+    def: AnyBackgroundDefinition,
     limit: number,
     now: number,
     leaseUntil: number,
@@ -383,6 +392,7 @@ export function createJobRunner(deps: {
         status: 'running',
         lockedUntil: leaseUntil,
         attempts: sql`${t.attempts} + 1`,
+        ...claimPatch(def),
       })
       .where(and(inArray(t.id, sub), eq(t.status, 'pending')))
       .returning({
@@ -411,7 +421,7 @@ export function createJobRunner(deps: {
     const work: ClaimedWork[] = []
     while (available > 0) {
       const limit = Math.min(CLAIM_BATCH, available)
-      const rows = await claim(type, limit, now, leaseUntil)
+      const rows = await claim(type, def, limit, now, leaseUntil)
       for (const row of rows) {
         work.push({
           row,

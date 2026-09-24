@@ -3,7 +3,8 @@
 // TSchema/TEnvResult typing into inline callbacks and extracted files.
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
-import type { DbFor } from '../db'
+import type { BunderstackTx, DbFor } from '../db'
+import type { AnyDb } from '../dialect'
 import type { MessagingConfig, MessagingFacadesFor } from '../messaging'
 import type { StorageFacade } from '../runtime'
 
@@ -28,14 +29,51 @@ export function leaseDurationFor<T extends BackgroundTiming>(def: T): number {
   return def.leaseDuration ?? def.timeout ?? DEFAULT_LEASE_DURATION_MS
 }
 
+/**
+ * Structural view of a Drizzle database or transaction handle that `enqueue`
+ * can insert through. The loose runtime facade accepts any handle of the app's
+ * dialect; `app.jobs` narrows it to the app's `BunderstackTx`.
+ */
+export type EnqueueTransaction = AnyDb
+
 export type EnqueueOptions = {
-  /** Collapse duplicate enqueues while the queue row is non-terminal. */
+  /**
+   * Collapse duplicate enqueues while the queue row holds its key: until a
+   * terminal state by default, or until it is claimed with
+   * `dedupeUntil: 'start'`.
+   */
   dedupeKey?: string
   /** Milliseconds from now until the job becomes claimable. */
   delay?: number
   /** Absolute time the job becomes claimable; wins over `delay`. */
   runAt?: Date | number
+  /**
+   * Insert the job row through this transaction. The job becomes visible to
+   * workers only when the transaction commits; a rollback removes it. Must be
+   * a transaction on the app's own database.
+   */
+  tx?: EnqueueTransaction
 }
+
+/** `EnqueueOptions` with `tx` narrowed to the app schema's transaction type. */
+export type TypedEnqueueOptions<TSchema extends Record<string, unknown>> = Omit<
+  EnqueueOptions,
+  'tx'
+> & {
+  /**
+   * Insert the job row through this transaction. The job becomes visible to
+   * workers only when the transaction commits; a rollback removes it.
+   */
+  tx?: BunderstackTx<TSchema>
+}
+
+/**
+ * How long a queue job's `dedupeKey` collapses new enqueues.
+ * - `'finish'` (default): until the job reaches a terminal state.
+ * - `'start'`: until a worker claims the job; later enqueues create a new row
+ *   that runs after it and reads the newer state.
+ */
+export type DedupeUntil = 'start' | 'finish'
 
 export type TickResult = {
   /** Rows moved from pending to running this tick. */
@@ -98,6 +136,12 @@ export type QueueJobDefinition<
   backoff?: ((attempt: number) => number) | { baseMs?: number; factor?: number }
   /** Max simultaneous `running` rows of this type, enforced per worker. */
   concurrency?: number
+  /**
+   * When a `dedupeKey` stops collapsing new enqueues. Default `'finish'`:
+   * held until a terminal state. `'start'`: released when a worker claims the
+   * job, so an enqueue during the run schedules one more run.
+   */
+  dedupeUntil?: DedupeUntil
   handler: (
     input: TInput,
     ctx: JobContext<TSchema, TEnvResult, TMessaging>,
@@ -209,6 +253,7 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
     }
     if (def.kind === 'cron') {
       parseCron(def.schedule)
+      assertCronHasNoDedupeUntil(def, `cron "${name}"`)
       if ((def as { concurrency?: number }).concurrency !== undefined) {
         throw new Error(
           `[bunderstack] cron "${name}": concurrency is not supported for cron tasks — slots are already unique`,
@@ -229,6 +274,24 @@ export function validateBackgroundDefs(defs: BackgroundDefs): void {
         `[bunderstack] job "${name}": concurrency must be a positive integer`,
       )
     }
+    if (
+      def.dedupeUntil !== undefined &&
+      def.dedupeUntil !== 'start' &&
+      def.dedupeUntil !== 'finish'
+    ) {
+      throw new Error(
+        `[bunderstack] job "${name}": dedupeUntil must be 'start' or 'finish'`,
+      )
+    }
+  }
+}
+
+/** Cron slot ownership depends on the retained dedupe key. */
+function assertCronHasNoDedupeUntil(def: object, label: string): void {
+  if ((def as { dedupeUntil?: unknown }).dedupeUntil !== undefined) {
+    throw new Error(
+      `[bunderstack] ${label}: dedupeUntil is not supported for cron tasks — cron tasks retain their slot key`,
+    )
   }
 }
 
@@ -278,6 +341,7 @@ export function createJobsBuilder<
       >,
     ): CronDefinition<TSchema, TEnvResult, TSchedule, TMessaging> {
       parseCron(def.schedule)
+      assertCronHasNoDedupeUntil(def, 'cron')
       return { kind: 'cron', ...def }
     },
     /** Identity with validation: returns the defs map, typed. */
@@ -310,14 +374,20 @@ type JobInputOf<TDef> =
  * methods instead would make TS treat them as overloaded, so the loose
  * `(name: string, ...)` signature would still accept any name.
  */
-export type JobsFacade<TDefs extends JobsDefs> = Omit<
-  JobsRuntimeFacade,
-  'enqueue'
-> & {
+export type JobsFacade<
+  TDefs extends JobsDefs,
+  TSchema extends Record<string, unknown> | undefined = undefined,
+> = Omit<JobsRuntimeFacade, 'enqueue'> & {
   enqueue<K extends QueueJobKeys<TDefs>>(
     name: K,
     ...rest: JobInputOf<TDefs[K]> extends undefined
-      ? [input?: undefined, opts?: EnqueueOptions]
-      : [input: JobInputOf<TDefs[K]>, opts?: EnqueueOptions]
+      ? [input?: undefined, opts?: JobsFacadeEnqueueOptions<TSchema>]
+      : [input: JobInputOf<TDefs[K]>, opts?: JobsFacadeEnqueueOptions<TSchema>]
   ): Promise<{ id: string }>
 }
+
+type JobsFacadeEnqueueOptions<
+  TSchema extends Record<string, unknown> | undefined,
+> = [TSchema] extends [Record<string, unknown>]
+  ? TypedEnqueueOptions<TSchema>
+  : EnqueueOptions

@@ -62,7 +62,12 @@ import { detectDialect } from './dialect'
 import { type EnvConfigInput, type ValidatedEnv } from './env'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
-import { createJobRunner, enqueueJob, startJobWorker } from './jobs/index'
+import {
+  createJobRunner,
+  enqueueJob,
+  enqueueTarget,
+  startJobWorker,
+} from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import { consoleLogger, type BunderstackLogger } from './logging'
 import { createMessaging } from './messaging/runtime'
@@ -206,7 +211,8 @@ export type BunderstackApp<
   messaging: MessagingFacadesFor<TMessaging>
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<
-    TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>
+    TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>,
+    TSchema
   >
   /** Typed custom row publication; enabled=false/no-op when realtime is off. */
   realtime: RealtimeFacade<TSchema>
@@ -580,12 +586,13 @@ export async function materializeBunderstack<
             '[bunderstack] no jobs configured — add a `jobs` key to bunderstack',
           )
         }
+        const { tx, ...enqueueOptions } = opts ?? {}
         const result = await enqueueJob(
-          db,
+          enqueueTarget(db, tx),
           resolvedDefs,
           name,
           input,
-          opts,
+          enqueueOptions,
           enqueueNow,
         )
         return result
@@ -953,7 +960,9 @@ export type {
   BackgroundDefs,
   CronDefinition,
   CronInvocation,
+  DedupeUntil,
   EnqueueOptions,
+  EnqueueTransaction,
   JobContext,
   JobDefinition,
   JobsDefs,
@@ -961,6 +970,7 @@ export type {
   JobsRuntimeFacade,
   QueueJobDefinition,
   QueueJobKeys,
+  TypedEnqueueOptions,
   RunWorkerOptions,
   StartWorkerOptions,
   WorkerHandle,

@@ -15,18 +15,21 @@ export type {
   BackgroundDefs,
   BunderstackJobContext,
   BunderstackJobsBuilder,
+  DedupeUntil,
   EnqueueOptions,
+  EnqueueTransaction,
   JobContext,
   JobDefinition,
   QueueJobDefinition,
   CronDefinition,
   CronInvocation,
   QueueJobKeys,
+  TypedEnqueueOptions,
   JobsDefs,
   JobsFacade,
   JobsRuntimeFacade,
 } from './define'
-export { enqueueJob } from './queue'
+export { enqueueJob, enqueueTarget } from './queue'
 export { createJobRunner } from './worker'
 export { startJobWorker } from './runtime'
 export type {

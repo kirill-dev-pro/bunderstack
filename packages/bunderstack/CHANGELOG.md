@@ -2,6 +2,25 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.0] — 2026-09-25
+
+### Added
+
+- `jobs.enqueue(name, input, { tx })` inserts the job row through the caller's
+  Drizzle transaction on `app.jobs`, `context.jobs`, job handler `ctx.jobs`,
+  and test fixtures. The job becomes visible to workers only when the
+  transaction commits, and a rollback removes it, so applications no longer
+  need an outbox table to schedule work atomically with their writes. `app.jobs`
+  types `tx` as the app's `BunderstackTx`; a transaction of the other database
+  dialect throws. Delivery stays at-least-once.
+- `dedupeUntil: 'start' | 'finish'` on `j.job()` declarations. The default
+  `'finish'` keeps today's behavior: a `dedupeKey` collapses enqueues until the
+  job reaches a terminal state. `'start'` releases the key when a worker claims
+  the job, so an enqueue during the run schedules one more run that reads the
+  newer state. Cron declarations reject `dedupeUntil`.
+- Export the `DedupeUntil`, `EnqueueTransaction`, and `TypedEnqueueOptions`
+  types.
+
 ## [0.24.6] — 2026-09-21
 
 ### Fixed
