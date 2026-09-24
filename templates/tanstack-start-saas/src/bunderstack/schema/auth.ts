@@ -41,7 +41,6 @@ export const account = sqliteTable('account', {
   id: typeid('account')
     .primaryKey()
     .$defaultFn(() => generateTypeId('account')),
-  issuer: text('issuer').notNull(),
   accountId: text('accountId').notNull(),
   providerId: text('providerId').notNull(),
   userId: typeid('user')

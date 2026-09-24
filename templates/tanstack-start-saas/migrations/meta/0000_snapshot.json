@@ -466,13 +466,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "issuer": {
-          "name": "issuer",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "accountId": {
           "name": "accountId",
           "type": "text",

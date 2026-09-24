@@ -75,7 +75,6 @@ CREATE INDEX `bmsg_channel_status` ON `_bunderstack_messages` (`channel`,`status
 CREATE UNIQUE INDEX `bmsg_provider_id` ON `_bunderstack_messages` (`provider`,`provider_id`);--> statement-breakpoint
 CREATE TABLE `account` (
 	`id` text PRIMARY KEY NOT NULL,
-	`issuer` text NOT NULL,
 	`accountId` text NOT NULL,
 	`providerId` text NOT NULL,
 	`userId` text NOT NULL,
