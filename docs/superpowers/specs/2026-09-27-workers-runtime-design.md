@@ -44,7 +44,7 @@ therefore not possible.
 - `bun dev` stays the one local command, and it starts everything.
 - The database is libsql over HTTP: Turso on Cloudflare, sqld locally, sqld or
   Turso on a VPS.
-- Image transforms use one WASM implementation on all targets.
+- Image transforms use one WASM implementation on all targets (stage 1b).
 - Files use an R2 binding on both targets. S3 keys to the same bucket are
   optional and enable presigned uploads.
 - The frontend is an SPA served by static assets. SSR is out of scope.
@@ -126,9 +126,13 @@ Changes in the core:
   use proxy mode.
 - `storage/thumbnails.ts`: WASM replaces `Bun.Image`. Derivatives stay cached
   in the bucket under `__transforms/`.
-- Passwords: new hashes use PBKDF2-SHA256 through WebCrypto. The verifier also
-  accepts the BetterAuth scrypt format, computed in plain JS, so users of
-  migrated apps can still sign in.
+- Passwords: the hash format stays the BetterAuth scrypt format
+  (`salt:key`, N=16384, r=16, p=1, 64-byte key). BetterAuth picks
+  `node:crypto` scrypt through the `workerd` and `node` export conditions, and
+  celld does not implement it. bunderstack therefore sets
+  `emailAndPassword.password` to its own `hash` and `verify`. They use native
+  `node:crypto` scrypt when it works, and `@noble/hashes` scrypt when it does
+  not. Existing hashes stay valid, and no migration is necessary.
 - `hosted-contract.ts`: `Bun.file` is replaced. The blueprint check reads
   through an injected function, or it is skipped in a Worker.
 - Database adapters: `libsql` is the runtime adapter. `bun-sqlite` and
@@ -290,8 +294,8 @@ celld and wrangler bundle the Worker with esbuild.
 - `storage.local` and the S3 backend config become an R2 binding plus optional
   S3 keys.
 - Only libsql at runtime. No Postgres, no SMTP.
-- New password hashes are PBKDF2. Old scrypt hashes still verify, at about
-  100 to 300 ms CPU per sign-in.
+- Passwords do not change. On celld, sign-in uses scrypt in plain JS, at
+  about 100 to 300 ms CPU.
 
 A migration guide and an updated `migrating-to-bunderstack` skill ship with
 the beta. FikFlix is the first app to migrate.
@@ -309,8 +313,11 @@ Each stage has its own implementation plan.
 
 1. Core: `Platform` and the in-memory platform, `typeid`, rate limit store,
    injected publisher, `jobs.notify` and `nextDueAt`, removal of the worker
-   loop and Redis, the storage interface with SigV4 presign, passwords, WASM
-   transforms, `hosted-contract` without `Bun.file`.
+   loop and Redis, the S3 adapter on `fetch` with SigV4, passwords,
+   `hosted-contract` without `Bun.file`.
+1b. WASM image transforms. A short probe selects the library first: it must
+   load in `bun test`, workerd, and celld, and it must decode and encode the
+   four formats of today (`webp`, `jpeg`, `png`, `avif`).
 2. `bunderstack/workers`: `createWorker`, the three Durable Objects, the R2
    adapter, `bunderstack wrangler`, and the integration suite on celld and
    workerd.
@@ -328,8 +335,8 @@ Each stage has its own implementation plan.
 - How does celld handle secrets in production? Its documentation shows only
   `vars` and `.dev.vars`. Verify before stage 5.
 - What are the CPU and memory limits of the WASM image transform on a large
-  photo? Is avif supported? Verify in stage 1.
-- What is the CPU cost of the scrypt verify in plain JS on Cloudflare? Verify
-  in stage 1.
+  photo? Is avif supported? Verify in stage 1b.
+- What is the CPU cost of the scrypt verify in plain JS on celld? Verify in
+  stage 2.
 - The bunderstack API logged a 401 response as "500 Internal Server Error" in
   the spike. Check this under Bun, outside this project.
