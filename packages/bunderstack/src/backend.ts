@@ -14,6 +14,7 @@ import type { EnvConfigInput, ValidatedEnv } from './env'
 import type { BunderstackJobsBuilder, JobsDefs } from './jobs'
 import type { BunderstackManifest } from './manifest'
 import type { MessagingConfig } from './messaging'
+import type { Platform } from './platform'
 import type { BunderstackApp, BucketNamesOf, RuntimeOverrides } from './runtime'
 import type { StorageConfigInput } from './storage/buckets'
 import type { TestMethod, TestOptions } from './testing/fixture'
@@ -26,6 +27,8 @@ import { materializeBunderstack } from './runtime'
 
 export type StartOptions = {
   env?: Record<string, string | undefined>
+  /** Host services. Missing ones use in-memory defaults. */
+  platform?: Partial<Platform>
 }
 
 export type BunderstackBackend<TApp> = {
@@ -262,8 +265,11 @@ export function bunderstack(
     inspect: ({ env } = {}) =>
       inspect(env ?? (process.env as Record<string, string | undefined>))
         .manifest,
-    start: async ({ env } = {}) =>
-      await start(env ?? (process.env as Record<string, string | undefined>)),
+    start: async ({ env, platform } = {}) =>
+      await start(
+        env ?? (process.env as Record<string, string | undefined>),
+        { platform },
+      ),
     test,
     [BACKEND_INTERNALS]: {
       envSchema,

@@ -15,6 +15,14 @@ export type {
   BunderstackApp,
   StorageFacade,
 } from './runtime'
+export type {
+  JobsPlatform,
+  Platform,
+  RateLimitHit,
+  RateLimitStore,
+  StorageAdapterFactory,
+} from './platform'
+export { createMemoryRateLimitStore, resolvePlatform } from './platform'
 export { listSpec } from './api/list-spec'
 export type { ListSpecOptions } from './api/list-spec'
 export type { BunderstackDb, BunderstackTx } from './db'

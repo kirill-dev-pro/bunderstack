@@ -31,10 +31,11 @@ export function createAdapter(backend: ResolvedBackend): StorageAdapter {
 
 export function createBucketStorages(
   resolved: ResolvedStorageBuckets,
+  factory: (backend: ResolvedBackend) => StorageAdapter = createAdapter,
 ): BucketStorageRegistry {
   const registry: BucketStorageRegistry = new Map()
   for (const [name, bucket] of resolved.buckets) {
-    registry.set(name, { bucket, adapter: createAdapter(bucket.backend) })
+    registry.set(name, { bucket, adapter: factory(bucket.backend) })
   }
   return registry
 }

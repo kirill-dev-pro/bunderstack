@@ -72,6 +72,7 @@ import {
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import { consoleLogger, type BunderstackLogger } from './logging'
 import { createMessaging } from './messaging/runtime'
+import { resolvePlatform, type Platform } from './platform'
 import {
   PROVISION_INTERNALS,
   type WithProvisionInternals,
@@ -108,6 +109,8 @@ export type RuntimeOverrides = {
   backgroundAutoStart?: false
   authResolver?: AuthSessionResolver
   logger?: BunderstackLogger
+  /** Host services; see src/platform.ts. */
+  platform?: Partial<Platform>
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
 }
@@ -355,6 +358,7 @@ export async function materializeBunderstack<
   >
 > {
   const logger = overrides.logger ?? consoleLogger
+  const platform = resolvePlatform(overrides.platform)
   const dialect = detectDialect(options.schema)
   const jobsDefs = options.jobs as JobsDefs | undefined
   if (!inspectedEnv) {
@@ -503,7 +507,7 @@ export async function materializeBunderstack<
       runtimeRealtimeTransport,
       options.schema,
     )
-    const registry = createBucketStorages(config.storage)
+    const registry = createBucketStorages(config.storage, platform.storage)
     const storageOperations = createStorageOperations({
       registry,
       db,
