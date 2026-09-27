@@ -84,8 +84,17 @@ export function workerStorageFactory(env: WorkerEnv): StorageAdapterFactory {
     const s3 = backend.type === 's3' ? new S3StorageAdapter(backend) : undefined
     if (binding) return new R2StorageAdapter(binding, s3)
     if (s3) return s3
+    // The core builds an adapter for every resolved bucket at start, even the
+    // implicit default one; fail on use, not on start.
+    return missingBinding(bucket.name)
+  }
+}
+
+function missingBinding(bucketName: string): StorageAdapter {
+  const fail = async (): Promise<never> => {
     throw new Error(
-      `[bunderstack] storage bucket "${bucket.name}" needs the R2 binding ${bucketBindingName(bucket.name)}`,
+      `[bunderstack] storage bucket "${bucketName}" needs the R2 binding ${bucketBindingName(bucketName)}`,
     )
   }
+  return { upload: fail, get: fail, delete: fail, exists: fail }
 }

@@ -86,12 +86,13 @@ test('workerStorageFactory uses the R2 binding and S3 keys for presign', () => {
   ).toBeDefined()
 })
 
-test('workerStorageFactory falls back to S3 on fetch, and rejects local without R2', () => {
+test('workerStorageFactory falls back to S3 on fetch, and rejects local without R2 on use', async () => {
   const factory = workerStorageFactory({})
   expect(factory(s3Backend, bucket('docs', s3Backend))).toBeInstanceOf(
     S3StorageAdapter,
   )
-  expect(() => factory(localBackend, bucket('docs', localBackend))).toThrow(
+  const missing = factory(localBackend, bucket('docs', localBackend))
+  await expect(missing.get('docs/a.txt')).rejects.toThrow(
     'storage bucket "docs" needs the R2 binding BUCKET_DOCS',
   )
 })
