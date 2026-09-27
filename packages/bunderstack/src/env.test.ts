@@ -8,7 +8,6 @@ test('base schema applies dev defaults with empty source', () => {
   const env = validateEnv(undefined, { source: {} })
   expect(env.DATABASE_URL).toBe('file:./data.db')
   expect(env.AUTH_SECRET).toBe('dev-secret-change-in-prod')
-  expect(env.REDIS_URL).toBeUndefined()
 })
 
 test('base schema reads values from source', () => {
@@ -17,13 +16,11 @@ test('base schema reads values from source', () => {
       DATABASE_URL: 'libsql://x.turso.io',
       DATABASE_AUTH_TOKEN: 'tok',
       AUTH_SECRET: 's3cret',
-      REDIS_URL: 'redis://localhost',
     },
   })
   expect(env.DATABASE_URL).toBe('libsql://x.turso.io')
   expect(env.DATABASE_AUTH_TOKEN).toBe('tok')
   expect(env.AUTH_SECRET).toBe('s3cret')
-  expect(env.REDIS_URL).toBe('redis://localhost')
 })
 
 test('AUTH_SECRET is required in production', () => {

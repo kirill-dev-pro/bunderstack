@@ -133,12 +133,6 @@ const RuntimeOptionsSchema = v.object({
       v.object({
         bufferSize: v.optional(v.number()),
         resumeSeconds: v.optional(v.number()),
-        redis: v.optional(
-          v.union([
-            v.string(),
-            v.object({ url: v.string(), token: v.optional(v.string()) }),
-          ]),
-        ),
       }),
     ]),
   ),
@@ -151,7 +145,6 @@ export type RealtimeConfigInput =
   | {
       bufferSize?: number
       resumeSeconds?: number
-      redis?: string | { url: string; token?: string }
     }
 
 export type BunderstackConfig<
@@ -315,28 +308,4 @@ export function resolveAuthConfig(
   ctx: { db: AnyDb; env: BaseEnv },
 ): BetterAuthConfig {
   return typeof auth === 'function' ? auth(ctx) : auth
-}
-
-export function resolveRealtimeRedisUrl(
-  realtime: ResolvedConfig['realtime'],
-  env?: BaseEnv,
-  platformSource: Record<string, string | undefined> = process.env as Record<
-    string,
-    string | undefined
-  >,
-): string | undefined {
-  const platformRedis = platformSource['REDIS_URL']
-  if (platformRedis) return platformRedis
-
-  const envRedis = env?.REDIS_URL
-  if (envRedis) return envRedis
-
-  const fromConfig =
-    typeof realtime === 'object' && realtime.redis
-      ? typeof realtime.redis === 'string'
-        ? realtime.redis
-        : realtime.redis.url
-      : undefined
-
-  return fromConfig ?? undefined
 }

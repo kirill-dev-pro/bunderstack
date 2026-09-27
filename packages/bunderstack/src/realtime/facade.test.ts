@@ -92,7 +92,7 @@ describe('RealtimeFacade', () => {
 
   test.each([
     ['memory', 'memory'],
-    ['redis', 'redis'],
+    ['platform', 'platform'],
   ] satisfies [
     import('./facade').RealtimeTransport,
     import('./facade').RealtimeTransport,

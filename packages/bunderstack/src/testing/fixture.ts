@@ -172,7 +172,6 @@ export async function createTestApp<TApp extends TestableApp>(
         messagingAdapters: testMessaging.adapters,
         authResolver: sessions.resolver,
         logger,
-        forceMemoryRealtime: true,
         backgroundAutoStart: false,
         captureTestingHandle: (handle) => {
           testingHandle = handle

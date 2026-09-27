@@ -8,7 +8,6 @@ import {
   defineAuth,
   resolveAuthConfig,
   resolveConfig,
-  resolveRealtimeRedisUrl,
   type BunderstackConfig,
 } from './config'
 import { validateEnv } from './env'
@@ -171,43 +170,6 @@ test('without platform vars, code-level database config still wins over env', ()
   expect(cfg.database.url).toBe('file:./hardcoded.db')
 })
 
-test('resolveRealtimeRedisUrl precedence: platformSource > env > code config > undefined', () => {
-  const codeRealtime = { redis: 'redis://code-level' }
-  const envWithRedis = validateEnv(undefined, {
-    source: { REDIS_URL: 'redis://env-level' },
-  })
-
-  // 1. platformSource.REDIS_URL beats everything
-  expect(
-    resolveRealtimeRedisUrl(codeRealtime, envWithRedis, {
-      REDIS_URL: 'redis://platform-level',
-    }),
-  ).toBe('redis://platform-level')
-
-  // 2. env.REDIS_URL beats code-level realtime.redis when platformSource is empty
-  expect(resolveRealtimeRedisUrl(codeRealtime, envWithRedis, {})).toBe(
-    'redis://env-level',
-  )
-
-  // 3. realtime.redis used when neither platformSource nor env has REDIS_URL
-  expect(resolveRealtimeRedisUrl(codeRealtime, undefined, {})).toBe(
-    'redis://code-level',
-  )
-
-  // 4. undefined when no REDIS_URL or realtime.redis exists
-  expect(resolveRealtimeRedisUrl(undefined, undefined, {})).toBe(undefined)
-})
-
-test('Bunderhost-injected REDIS_URL overrides hardcoded application Redis URL', () => {
-  const codeRealtime = { redis: { url: 'redis://app-hardcoded:6379' } }
-
-  const resolved = resolveRealtimeRedisUrl(codeRealtime, undefined, {
-    REDIS_URL: 'redis://bunderhost-injected:6379',
-  })
-
-  expect(resolved).toBe('redis://bunderhost-injected:6379')
-})
-
 test('resolveConfig still reads database overrides from options', () => {
   const resolved = resolveConfig(
     {
@@ -232,15 +194,12 @@ test('resolveConfig still passes realtime through', () => {
     {
       schema: {},
       database: { adapter: { dialect: 'sqlite' } as never },
-      realtime: { resumeSeconds: 300, redis: 'redis://localhost:6379' },
+      realtime: { resumeSeconds: 300 },
     } as never,
     { DATABASE_URL: 'file::memory:' } as never,
     {},
   )
-  expect(resolved.realtime).toEqual({
-    resumeSeconds: 300,
-    redis: 'redis://localhost:6379',
-  })
+  expect(resolved.realtime).toEqual({ resumeSeconds: 300 })
 })
 
 test('a malformed realtime option still throws', () => {

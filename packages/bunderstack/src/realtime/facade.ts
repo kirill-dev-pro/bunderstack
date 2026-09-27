@@ -7,7 +7,7 @@ import {
 
 import type { RealtimeAction, RealtimePublisher } from './publisher'
 
-export type RealtimeTransport = 'disabled' | 'memory' | 'redis'
+export type RealtimeTransport = 'disabled' | 'memory' | 'platform'
 
 export type SchemaTable<TSchema extends Record<string, unknown>> = Extract<
   TSchema[keyof TSchema],

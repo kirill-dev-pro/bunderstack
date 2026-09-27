@@ -42,7 +42,6 @@ export type BaseEnv = {
   DATABASE_URL: string
   DATABASE_AUTH_TOKEN?: string
   AUTH_SECRET: string
-  REDIS_URL?: string
   RESEND_API_KEY?: string
   BUNDERSTACK_MESSAGING_CONFIG?: string
   BUNDERSTACK_BLUEPRINT_PATH?: string
@@ -133,7 +132,6 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
       source.DATABASE_URL ?? options.defaultDatabaseUrl ?? 'file:./data.db',
     DATABASE_AUTH_TOKEN: source.DATABASE_AUTH_TOKEN,
     AUTH_SECRET: source.AUTH_SECRET ?? DEV_AUTH_SECRET,
-    REDIS_URL: source.REDIS_URL,
     RESEND_API_KEY: source.RESEND_API_KEY,
     BUNDERSTACK_MESSAGING_CONFIG: source.BUNDERSTACK_MESSAGING_CONFIG,
     BUNDERSTACK_BLUEPRINT_PATH: source.BUNDERSTACK_BLUEPRINT_PATH,

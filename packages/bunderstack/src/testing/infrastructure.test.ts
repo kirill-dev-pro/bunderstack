@@ -17,7 +17,7 @@ test('fixtures replace email storage and realtime infrastructure', async () => {
       defaultBucket: 'files',
       buckets: { files: { visibility: 'private' } },
     },
-    realtime: { redis: 'redis://production.invalid:6379' },
+    realtime: true,
   })
 
   await using t = await backend.test({ database: { schema: 'push' } })

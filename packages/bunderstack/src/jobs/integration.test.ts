@@ -234,24 +234,6 @@ test('runWorker allows an explicit process-local realtime override', async () =>
   }
 })
 
-test('runWorker accepts configured redis realtime without throwing', async () => {
-  const app = await bunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    realtime: { redis: 'redis://localhost:6379' },
-    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  }).start()
-  await provision(app, { force: true })
-
-  await expect(
-    app.runWorker({
-      signal: AbortSignal.abort(),
-      pollIntervalMs: 1,
-    }),
-  ).resolves.toBeUndefined()
-  expect(app.status).toBe('closed')
-})
-
 const txEvents = sqliteTable('tx_events', { id: text('id').primaryKey() })
 // libSQL replaces an in-memory database with a fresh one after the first
 // interactive transaction, so transactional tests run on a temporary file.

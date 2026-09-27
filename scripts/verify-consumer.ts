@@ -86,7 +86,6 @@ await writeFile(
       dependencies: {
         ...overrides,
         '@libsql/client': '>=0.14.0',
-        '@orpc/bun': '2.0.0-beta.37',
         '@orpc/client': '2.0.0-beta.37',
         '@orpc/json-schema': '2.0.0-beta.37',
         '@orpc/openapi': '2.0.0-beta.37',

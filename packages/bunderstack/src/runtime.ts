@@ -57,7 +57,7 @@ import {
   type BetterAuthConfig,
   type BunderstackConfig,
 } from './config'
-import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
+import { resolveAuthConfig } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { type EnvConfigInput, type ValidatedEnv } from './env'
@@ -84,10 +84,7 @@ import {
   type RealtimeFacade,
   type RealtimeTransport,
 } from './realtime/facade'
-import {
-  createMemoryRealtimePublisher,
-  createRedisRealtimePublisher,
-} from './realtime/publisher'
+import { createMemoryRealtimePublisher } from './realtime/publisher'
 import {
   STORAGE_SWEEP_JOB_NAME,
   STORAGE_SWEEP_SCHEDULE,
@@ -105,7 +102,6 @@ export type RuntimeOverrides = {
   database?: DatabaseConnection
   resolvedStorage?: ResolvedStorageBuckets
   messagingAdapters?: Record<string, MessagingAdapter>
-  forceMemoryRealtime?: boolean
   backgroundAutoStart?: false
   authResolver?: AuthSessionResolver
   logger?: BunderstackLogger
@@ -471,36 +467,17 @@ export async function materializeBunderstack<
       typeof config.realtime === 'object'
         ? config.realtime.resumeSeconds
         : undefined
-    const configuredRedisUrl = config.realtime
-      ? resolveRealtimeRedisUrl(config.realtime, env, source)
-      : undefined
-    const redisUrl = overrides.forceMemoryRealtime
-      ? undefined
-      : configuredRedisUrl
     const publisher = config.realtime
-      ? redisUrl
-        ? (() => {
-            const redis = new Bun.RedisClient(redisUrl)
-            const subscriber = redis.duplicate()
-            lifecycle.add(async () => {
-              redis.close()
-              ;(await subscriber).close()
-            })
-            return createRedisRealtimePublisher(redis, subscriber, {
-              prefix: source.BUNDERSTACK_REALTIME_PREFIX ?? 'bunderstack:',
-              maxBufferedEvents: realtimeBufferSize,
-              resumeSeconds: realtimeResumeSeconds,
-            })
-          })()
-        : createMemoryRealtimePublisher({
-            maxBufferedEvents: realtimeBufferSize,
-            resumeSeconds: realtimeResumeSeconds,
-          })
+      ? (platform.realtime ??
+        createMemoryRealtimePublisher({
+          maxBufferedEvents: realtimeBufferSize,
+          resumeSeconds: realtimeResumeSeconds,
+        }))
       : undefined
     const runtimeRealtimeTransport: RealtimeTransport = !publisher
       ? 'disabled'
-      : redisUrl
-        ? 'redis'
+      : platform.realtime
+        ? 'platform'
         : 'memory'
     const realtime = createRealtimeFacade<TSchema>(
       publisher,

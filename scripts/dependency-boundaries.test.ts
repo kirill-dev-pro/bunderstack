@@ -170,7 +170,6 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['@orpc/server']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['@orpc/client']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['@orpc/publisher']).toBe('2.0.0-beta.37')
-    expect(core.peerDependencies['@orpc/bun']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['@orpc/valibot']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['drizzle-valibot']).toBeDefined()
 
@@ -212,7 +211,6 @@ describe('published dependency boundaries', () => {
     for (const dependency of [
       '@orpc/openapi',
       '@orpc/server',
-      '@orpc/bun',
       '@orpc/publisher',
       '@orpc/valibot',
       'drizzle-valibot',
