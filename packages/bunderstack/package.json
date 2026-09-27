@@ -180,6 +180,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "^2.3.0",
     "@standard-schema/spec": "1.1.0",
     "@standardserver/core": "0.7.1",
     "valibot": "1.4.2",

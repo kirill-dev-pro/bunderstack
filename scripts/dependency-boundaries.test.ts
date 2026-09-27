@@ -180,6 +180,7 @@ describe('published dependency boundaries', () => {
     expect(core.peerDependencies['postgres']).toBeDefined()
 
     expect(Object.keys(core.dependencies).sort()).toEqual([
+      '@noble/hashes',
       '@standard-schema/spec',
       '@standardserver/core',
       'valibot',

@@ -49,6 +49,7 @@ import {
   missingAuthModels,
   toAuthSessionResolver,
   withEmailAuthDefaults,
+  withPasswordDefaults,
 } from './auth'
 import {
   resolveConfig,
@@ -369,7 +370,7 @@ export async function materializeBunderstack<
       createAuth<TAuthConfig>(
         db,
         withEmailAuthDefaults(
-          authConfig,
+          withPasswordDefaults(authConfig),
           authEmail ?? ({ send: async () => ({}) } satisfies EmailFacade),
           Boolean(authEmail),
         ),

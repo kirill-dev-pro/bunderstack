@@ -207,3 +207,5 @@ export function withEmailAuthDefaults(
 
   return out
 }
+
+export { withPasswordDefaults } from './auth-password'
