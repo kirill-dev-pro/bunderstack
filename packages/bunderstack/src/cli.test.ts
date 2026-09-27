@@ -112,3 +112,65 @@ test('skills keeps the rest of an existing AGENTS.md', async () => {
 
   await rm(cwd, { recursive: true, force: true })
 })
+
+test('wrangler CLI generates, then reports current, then catches drift', async () => {
+  const dir = join(tmpdir(), `bunderstack-wrangler-${crypto.randomUUID()}`)
+  await mkdir(join(dir, 'src'), { recursive: true })
+  try {
+    await writeFile(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: '@acme/Probe_App' }),
+    )
+    const index = join(import.meta.dir, 'index.ts')
+    const libsql = join(import.meta.dir, 'database/libsql.ts')
+    // The temp app has no node_modules; point it at the package's own copies.
+    const sqliteCore = Bun.resolveSync(
+      'drizzle-orm/sqlite-core',
+      import.meta.dir,
+    )
+    await writeFile(
+      join(dir, 'src/bunderstack.ts'),
+      [
+        `import { sqliteTable, text } from ${JSON.stringify(sqliteCore)}`,
+        `import { bunderstack } from ${JSON.stringify(index)}`,
+        `import { libsql } from ${JSON.stringify(libsql)}`,
+        `const notes = sqliteTable('notes', { id: text('id').primaryKey() })`,
+        `export const backend = bunderstack({ schema: { notes }, database: { adapter: libsql() } })`,
+      ].join('\n'),
+    )
+    const output: string[] = []
+    const errors: string[] = []
+    const io = {
+      stdout: (line: string) => output.push(line),
+      stderr: (line: string) => errors.push(line),
+    }
+    expect(await runCli(['wrangler', dir], io), errors.join('\n')).toBe(0)
+    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(0)
+    expect(output).toEqual([
+      'Generated wrangler.json',
+      'wrangler.json is current',
+    ])
+    const config = JSON.parse(
+      await readFile(join(dir, 'wrangler.json'), 'utf8'),
+    )
+    expect(config.name).toBe('probe-app')
+    expect(config.main).toBe('src/worker.ts')
+
+    await writeFile(join(dir, 'wrangler.json'), '{}\n')
+    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(1)
+    expect(errors.at(-1)).toContain('is out of date')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('wrangler CLI rejects invalid syntax', async () => {
+  const errors: string[] = []
+  expect(
+    await runCli(['wrangler', '--name'], {
+      stdout: () => {},
+      stderr: (line) => errors.push(line),
+    }),
+  ).toBe(2)
+  expect(errors[0]).toContain('missing value for --name')
+})

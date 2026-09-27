@@ -14,6 +14,7 @@ export type CliIo = {
 const help = `Usage:
   bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check|--hosted-check]
   bunderstack skills [--dir <path>] [--check]
+  bunderstack wrangler [directory] [--entry <path>] [--name <name>] [--assets <dir>] [--output <path>] [--check]
 
 blueprint  Generate a committed deployment declaration for a TanStack Start
            application. Entry precedence: --entry,
@@ -21,7 +22,11 @@ blueprint  Generate a committed deployment declaration for a TanStack Start
 
 skills     Install the Bunderstack agent skills that match this version into
            .agents/skills, and point AGENTS.md at them so an agent loads them
-           before touching the API. --check reports drift without writing.`
+           before touching the API. --check reports drift without writing.
+
+wrangler   Generate wrangler.json for Cloudflare and celld from the backend:
+           Durable Objects, R2 buckets, static assets, and Cron Triggers.
+           --check reports drift without writing.`
 
 export async function runCli(
   args: string[],
@@ -65,6 +70,61 @@ export async function runCli(
       return 2
     }
     return installSkills(options, io)
+  }
+
+  if (args[0] === 'wrangler') {
+    const options: {
+      directory: string
+      entry?: string
+      name?: string
+      assets?: string
+      output?: string
+      check?: boolean
+    } = { directory: process.cwd() }
+    const valued = {
+      '--entry': 'entry',
+      '--name': 'name',
+      '--assets': 'assets',
+      '--output': 'output',
+    } as const
+    let directorySet = false
+    for (let index = 1; index < args.length; index++) {
+      const argument = args[index]!
+      if (argument === '--check') {
+        options.check = true
+        continue
+      }
+      if (argument in valued) {
+        const value = args[++index]
+        if (!value || value.startsWith('--')) {
+          io.stderr(`[bunderstack] missing value for ${argument}`)
+          return 2
+        }
+        options[valued[argument as keyof typeof valued]] = value
+        continue
+      }
+      if (argument.startsWith('-')) {
+        io.stderr(`[bunderstack] unknown option: ${argument}`)
+        return 2
+      }
+      if (directorySet) {
+        io.stderr('[bunderstack] only one application directory is allowed')
+        return 2
+      }
+      options.directory = argument
+      directorySet = true
+    }
+    try {
+      const { runWranglerCommand } = await import('./workers/wrangler')
+      const result = await runWranglerCommand(options)
+      io.stdout(
+        result.changed ? 'Generated wrangler.json' : 'wrangler.json is current',
+      )
+      return 0
+    } catch (error) {
+      io.stderr(error instanceof Error ? error.message : String(error))
+      return 1
+    }
   }
 
   if (args[0] !== 'blueprint') {

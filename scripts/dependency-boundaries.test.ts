@@ -119,7 +119,9 @@ describe('published dependency boundaries', () => {
       for (const path of await sourceFiles(
         join(repoRoot, 'packages', name, 'src'),
       )) {
+        // CLI tools that load the application's own entry by path.
         if (path.endsWith('/blueprint-generator.ts')) continue
+        if (path.endsWith('/workers/wrangler.ts')) continue
         const source = await Bun.file(path).text()
         const imports = source.matchAll(/\bimport\s*\(([^)]*)\)/gs)
         for (const match of imports) {
