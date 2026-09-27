@@ -266,10 +266,9 @@ export function bunderstack(
       inspect(env ?? (process.env as Record<string, string | undefined>))
         .manifest,
     start: async ({ env, platform } = {}) =>
-      await start(
-        env ?? (process.env as Record<string, string | undefined>),
-        { platform },
-      ),
+      await start(env ?? (process.env as Record<string, string | undefined>), {
+        platform,
+      }),
     test,
     [BACKEND_INTERNALS]: {
       envSchema,

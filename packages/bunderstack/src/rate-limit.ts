@@ -1,15 +1,10 @@
+import { createMemoryRateLimitStore, type RateLimitStore } from './platform'
+
 export type RateLimitConfig = {
   windowMs?: number
   max?: number
   skip?: (req: Request) => boolean
 }
-
-type Bucket = {
-  count: number
-  resetAt: number
-}
-
-const buckets = new Map<string, Bucket>()
 
 function resolveConfig(
   config: boolean | RateLimitConfig | undefined,
@@ -20,6 +15,8 @@ function resolveConfig(
 }
 
 function clientKey(req: Request): string {
+  const cloudflare = req.headers.get('cf-connecting-ip')
+  if (cloudflare) return cloudflare
   const forwarded = req.headers.get('x-forwarded-for')
   if (forwarded) return forwarded.split(',')[0]!.trim()
   return req.headers.get('x-real-ip') ?? 'local'
@@ -27,6 +24,7 @@ function clientKey(req: Request): string {
 
 export function createRateLimiter(
   config: boolean | RateLimitConfig | undefined,
+  store: RateLimitStore = createMemoryRateLimitStore(),
 ): (req: Request) => Promise<Response | null> {
   const resolved = resolveConfig(config)
   if (!resolved) {
@@ -41,31 +39,22 @@ export function createRateLimiter(
 
     const key = `${clientKey(req)}:${new URL(req.url).pathname}`
     const now = Date.now()
-    let bucket = buckets.get(key)
+    const { allowed, resetAt } = await store.hit(key, windowMs, max, now)
+    if (allowed) return null
 
-    if (!bucket || bucket.resetAt <= now) {
-      bucket = { count: 0, resetAt: now + windowMs }
-      buckets.set(key, bucket)
-    }
-
-    bucket.count += 1
-    if (bucket.count > max) {
-      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000)
-      return new Response(
-        JSON.stringify({
-          error: 'Too many requests',
-          code: 'TOO_MANY_REQUESTS',
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': String(retryAfter),
-          },
+    const retryAfter = Math.max(1, Math.ceil((resetAt - now) / 1000))
+    return new Response(
+      JSON.stringify({
+        error: 'Too many requests',
+        code: 'TOO_MANY_REQUESTS',
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': String(retryAfter),
         },
-      )
-    }
-
-    return null
+      },
+    )
   }
 }

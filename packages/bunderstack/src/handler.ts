@@ -1,16 +1,22 @@
 // src/handler.ts
+import type { RateLimitStore } from './platform'
+
 import { createRateLimiter, type RateLimitConfig } from './rate-limit'
 
 interface HandlerParts {
   authHandler?: (req: Request) => Promise<Response>
   apiHandler?: (req: Request) => Promise<Response | null>
   rateLimit?: boolean | RateLimitConfig
+  rateLimitStore?: RateLimitStore
 }
 
 export function buildHandler(
   parts: HandlerParts,
 ): (req: Request) => Promise<Response> {
-  const checkRateLimit = createRateLimiter(parts.rateLimit)
+  const checkRateLimit = createRateLimiter(
+    parts.rateLimit,
+    parts.rateLimitStore,
+  )
 
   return async (req: Request): Promise<Response> => {
     const limited = await checkRateLimit(req)

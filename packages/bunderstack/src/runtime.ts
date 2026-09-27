@@ -865,6 +865,7 @@ export async function materializeBunderstack<
       authHandler: authEnabled ? (req) => auth.handler(req) : undefined,
       apiHandler,
       rateLimit: options.rateLimit,
+      rateLimitStore: platform.rateLimit,
     })
 
     // Topology is a deployment concern: the role decides whether this process
