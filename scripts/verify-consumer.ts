@@ -364,7 +364,7 @@ const smoke = await run(
   [
     'bun',
     '-e',
-    "const m = await import('./src/app.ts'); const app = await m.backend.start({ env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' } }); console.log('handler:' + typeof app.handler); await app.close()",
+    "const m = await import('./src/app.ts'); const app = await m.backend.start({ env: { DATABASE_URL: ':memory:' } }); console.log('handler:' + typeof app.handler); await app.close()",
   ],
   app,
 )

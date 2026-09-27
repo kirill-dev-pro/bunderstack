@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+
 import type { BunderstackManifest } from './manifest'
 
 import { parseBlueprintYaml } from './blueprint'
@@ -51,9 +53,11 @@ export async function assertHostedBlueprintFile(
   manifest: BunderstackManifest,
   path: string,
 ): Promise<void> {
-  const file = Bun.file(path)
-  if (!(await file.exists())) {
+  let source: string
+  try {
+    source = await readFile(path, 'utf8')
+  } catch {
     throw new Error(`[bunderstack] hosted blueprint does not exist: ${path}`)
   }
-  assertManifestMatchesBlueprint(manifest, await file.text())
+  assertManifestMatchesBlueprint(manifest, source)
 }

@@ -2,6 +2,26 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [Unreleased] — 1.0.0 (branch `next`)
+
+### Changed
+
+- `backend.start({ env, platform })` takes host services: `jobs.notify`,
+  `realtime`, `rateLimit`, and `storage`. Missing ones use in-memory defaults.
+- `app.jobs.nextDueAt(now?, until?)` tells a host scheduler when the next
+  background work is due. Each enqueue calls `platform.jobs.notify(runAt)`.
+- TypeIDs, S3 storage, password hashing, and the hosted blueprint check no
+  longer use Bun APIs, so the core runs in workerd and celld. The password hash
+  format does not change.
+
+### Removed
+
+- The Redis realtime transport, `REDIS_URL`, and `realtime.redis`. A host
+  passes an oRPC `Publisher` as `platform.realtime`.
+- The in-process worker: `app.startWorker()`, `app.runWorker()`,
+  `app.backgroundRunning`, the `background` config key, and
+  `BUNDERSTACK_ROLE`. A host calls `app.jobs.tick()`.
+
 ## [0.25.2] — 2026-09-27
 
 ### Fixed

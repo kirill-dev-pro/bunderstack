@@ -47,6 +47,32 @@ describe('published dependency boundaries', () => {
     }
   })
 
+  test('runtime sources call no Bun API outside the Bun-only allowlist', async () => {
+    // Build tools, local-disk storage, Bun database drivers, and testing run
+    // only under Bun. Everything else must run in workerd and celld.
+    const allowed = [
+      /\/src\/cli(-skills)?\.ts$/,
+      /\/src\/blueprint-generator\.ts$/,
+      /\/src\/provision-runtime\.ts$/,
+      /\/src\/storage\/local\.ts$/,
+      /\/src\/storage\/thumbnails\.ts$/, // stage 1b replaces Bun.Image
+      /\/src\/database\/bun-[a-z-]+\.ts$/,
+      /\/src\/testing(\/|\.ts$)/,
+    ]
+    const forbidden = [/\bBun\.[A-Za-z]/, /from ['"]bun['"]/]
+    const offenders: string[] = []
+    for (const path of await sourceFiles(
+      join(repoRoot, 'packages', 'bunderstack', 'src'),
+    )) {
+      if (allowed.some((pattern) => pattern.test(path))) continue
+      const source = await Bun.file(path).text()
+      // Comments may name Bun APIs; only code counts.
+      const code = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+      if (forbidden.some((pattern) => pattern.test(code))) offenders.push(path)
+    }
+    expect(offenders).toEqual([])
+  })
+
   test('canonical docs show an explicit database adapter', async () => {
     for (const path of [
       'README.md',
