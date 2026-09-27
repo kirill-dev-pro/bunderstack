@@ -2,9 +2,9 @@
 //
 // Zero-dependency TypeID implementation (https://github.com/jetify-com/typeid).
 // Stripe-style prefixed, k-sortable identifiers: `prefix_<26-char base32 UUIDv7>`.
-// The only runtime primitive we need is the raw UUIDv7 bytes, which Bun gives us
-// natively via `Bun.randomUUIDv7("buffer")` — so we don't pull in the `uuid` dep
-// that the reference `typeid-js` package relies on.
+// The only runtime primitive we need is UUIDv7 bytes. `uuidv7Bytes` builds them
+// from WebCrypto, so the same code runs in Bun, workerd, and celld without the
+// `uuid` dependency that the reference `typeid-js` package relies on.
 
 import { customType } from 'drizzle-orm/sqlite-core'
 
@@ -58,11 +58,42 @@ function bytesToUuid(bytes: Uint8Array): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
+// Monotonic state: RFC 9562 method 1, a 12-bit counter in rand_a. Seeded with
+// random bits below its top bit on each new millisecond, so it can grow.
+let lastMs = -1
+let counter = 0
+
+export function uuidv7Bytes(now: number = Date.now()): Uint8Array {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  if (now > lastMs) {
+    lastMs = now
+    counter = ((bytes[6]! & 0x07) << 8) | bytes[7]!
+  } else {
+    counter += 1
+    if (counter > 0xfff) {
+      // Counter overflow: borrow the next millisecond, keep the order.
+      lastMs += 1
+      counter = 0
+    }
+  }
+  const ms = lastMs
+  bytes[0] = Math.floor(ms / 2 ** 40) & 0xff
+  bytes[1] = Math.floor(ms / 2 ** 32) & 0xff
+  bytes[2] = Math.floor(ms / 2 ** 24) & 0xff
+  bytes[3] = Math.floor(ms / 2 ** 16) & 0xff
+  bytes[4] = Math.floor(ms / 2 ** 8) & 0xff
+  bytes[5] = ms & 0xff
+  bytes[6] = 0x70 | ((counter >> 8) & 0x0f)
+  bytes[7] = counter & 0xff
+  bytes[8] = 0x80 | (bytes[8]! & 0x3f)
+  return bytes
+}
+
 /** Generate a new, branded TypeID for the given prefix. */
 export function generate<P extends string>(prefix: P): TypeId<P> {
   if (!isValidPrefix(prefix))
     throw new Error(`Invalid typeid prefix: "${prefix}"`)
-  const bytes = Bun.randomUUIDv7('buffer')
+  const bytes = uuidv7Bytes()
   return `${prefix}_${encode(bytes)}` as TypeId<P>
 }
 

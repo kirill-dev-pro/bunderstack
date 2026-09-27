@@ -11,6 +11,7 @@ import {
   parse,
   asTypeId,
   typeid,
+  uuidv7Bytes,
 } from './typeid'
 
 // Official TypeID spec test vector (encode/decode the raw 16-byte UUID).
@@ -152,4 +153,25 @@ test('typeid() can explicitly generate a prefixed id with $defaultFn', async () 
 
 test('typeid() throws at definition time for an invalid prefix', () => {
   expect(() => typeid('Bad_')).toThrow()
+})
+
+test('uuidv7Bytes sets version 7 and the RFC variant', () => {
+  const bytes = uuidv7Bytes()
+  expect(bytes.length).toBe(16)
+  expect(bytes[6]! >> 4).toBe(7)
+  expect(bytes[8]! >> 6).toBe(0b10)
+})
+
+test('uuidv7Bytes puts the millisecond timestamp in the first 48 bits', () => {
+  const now = Date.UTC(2026, 8, 27, 12, 0, 0, 123)
+  const bytes = uuidv7Bytes(now)
+  let ms = 0
+  for (let i = 0; i < 6; i++) ms = ms * 256 + bytes[i]!
+  expect(ms).toBeGreaterThanOrEqual(now)
+})
+
+test('generate stays sortable inside one millisecond', () => {
+  const ids = Array.from({ length: 5000 }, () => generate('job'))
+  expect([...ids].sort()).toEqual(ids)
+  expect(new Set(ids).size).toBe(ids.length)
 })
