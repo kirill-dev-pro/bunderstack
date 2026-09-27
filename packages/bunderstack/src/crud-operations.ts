@@ -39,6 +39,7 @@ import {
   type ListParamsInput,
   type ListResult,
 } from './list-query'
+import { consoleLogger } from './logging'
 import { buildScopeWhere } from './scope'
 
 export interface CrudExecutionContext {
@@ -338,12 +339,7 @@ export function createCrudOperations<
         throw error
       }
       const created = rows[0] as Record<string, unknown>
-      void realtime?.publish(
-        table as never,
-        'create',
-        created as never,
-        operationMetadata(ctx.request),
-      )
+      await broadcast(realtime, table, 'create', created, ctx.request)
 
       if (idempotency && trimmedKey) {
         await storeIdempotency(
@@ -433,12 +429,7 @@ export function createCrudOperations<
         throw new CrudOperationError(404, ErrorCode.NOT_FOUND, 'Not found')
       }
       const updated = rows[0] as Record<string, unknown>
-      void realtime?.publish(
-        table as never,
-        'update',
-        updated as never,
-        operationMetadata(ctx.request),
-      )
+      await broadcast(realtime, table, 'update', updated, ctx.request)
       return updated
     },
 
@@ -475,13 +466,33 @@ export function createCrudOperations<
       }
 
       await db.delete(table).where(eq(idCol, id))
-      void realtime?.publish(
-        table as never,
-        'delete',
-        existingRow as never,
-        operationMetadata(ctx.request),
-      )
+      await broadcast(realtime, table, 'delete', existingRow, ctx.request)
     },
+  }
+}
+
+/**
+ * Broadcast-on-write, best effort: the write has committed, so a failed
+ * publish only logs. Awaited, because a Worker cancels I/O that is still
+ * pending after the response, and the event would never reach the hub.
+ */
+async function broadcast(
+  realtime: RealtimeFacade<any> | undefined,
+  table: unknown,
+  action: 'create' | 'update' | 'delete',
+  record: Record<string, unknown>,
+  request: Request,
+): Promise<void> {
+  if (!realtime) return
+  try {
+    await realtime.publish(
+      table as never,
+      action,
+      record as never,
+      operationMetadata(request),
+    )
+  } catch (error) {
+    consoleLogger.error('[bunderstack] realtime publish failed:', error)
   }
 }
 
