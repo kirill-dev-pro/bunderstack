@@ -47,6 +47,27 @@ test('a publish from one publisher reaches a subscriber of another', async () =>
   await unsubscribe()
 })
 
+// Live routes validate records against the table's select schema, so a
+// timestamp column must arrive as a Date, not as its JSON string.
+test('records keep Date values through the hub', async () => {
+  const { publisher } = setup()
+  const p = publisher()
+  const seen: RealtimeChange[] = []
+  const stop = await p.subscribe('change', (event) => {
+    seen.push(event)
+  })
+  const createdAt = new Date('2026-09-28T10:00:00Z')
+  await p.publish('change', {
+    table: 'notes',
+    action: 'create',
+    record: { id: 'n1', createdAt },
+  })
+  await until(() => seen.length === 1)
+  expect(seen[0]!.record.createdAt).toBeInstanceOf(Date)
+  expect(seen[0]!.record.createdAt).toEqual(createdAt)
+  await stop()
+})
+
 test('a subscriber resumes after lastEventId', async () => {
   const { publisher } = setup()
   const p = publisher()

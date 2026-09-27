@@ -1,10 +1,13 @@
 // src/workers/realtime-hub.ts — realtime fan-out for one app. The hub holds a
 // MemoryPublisher with resume; Workers reach it over a line-delimited stream.
+// Payloads cross as oRPC's RPC JSON, as with the Redis publisher, so Date and
+// BigInt values survive; the hub itself never looks inside them.
 import type {
   PublisherOptions,
   PublisherSubscribeListenerOptions,
 } from '@orpc/publisher'
 
+import { RPCJsonSerializer } from '@orpc/client'
 import { Publisher } from '@orpc/publisher'
 import { MemoryPublisher } from '@orpc/publisher/memory'
 import { getEventMeta, withEventMeta } from '@orpc/server'
@@ -82,13 +85,18 @@ export class HubPublisher extends Publisher<RealtimeEvents> {
     super(options)
   }
 
+  private readonly serializer = new RPCJsonSerializer()
+
   async publish<K extends keyof RealtimeEvents & string>(
     event: K,
     payload: RealtimeEvents[K],
   ): Promise<void> {
     const res = await this.hub().fetch('https://hub/publish', {
       method: 'POST',
-      body: JSON.stringify({ event, payload }),
+      body: JSON.stringify({
+        event,
+        payload: this.serializer.serialize(payload),
+      }),
     })
     if (!res.ok) {
       throw new Error(
@@ -129,7 +137,9 @@ export class HubPublisher extends Publisher<RealtimeEvents> {
             if (!text) continue
             const line = JSON.parse(text) as HubLine
             if (line.type !== 'event') continue
-            const payload = line.payload as RealtimeEvents[K]
+            const payload = this.serializer.deserialize(
+              line.payload as Parameters<RPCJsonSerializer['deserialize']>[0],
+            ) as RealtimeEvents[K]
             listener(
               line.id ? withEventMeta(payload, { id: line.id }) : payload,
             )
