@@ -67,6 +67,7 @@ test('memory rate limit store allows max hits per window, then resets', async ()
 
 test('start uses the platform storage factory for every bucket', async () => {
   const seen: ResolvedBackend[] = []
+  const names: string[] = []
   const app = await bunderstack({
     schema: { notes },
     database: { adapter: libsql() },
@@ -78,8 +79,9 @@ test('start uses the platform storage factory for every bucket', async () => {
   }).start({
     env: { DATABASE_URL: ':memory:' },
     platform: {
-      storage: (backend) => {
+      storage: (backend, bucket) => {
         seen.push(backend)
+        names.push(bucket.name)
         return new MemoryAdapter()
       },
     },
@@ -87,6 +89,7 @@ test('start uses the platform storage factory for every bucket', async () => {
   try {
     expect(seen.length).toBe(2)
     expect(seen.every((backend) => backend.type === 'local')).toBe(true)
+    expect(names.sort()).toEqual(['docs', 'media'])
   } finally {
     await app.close()
   }

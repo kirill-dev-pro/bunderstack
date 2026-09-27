@@ -1,4 +1,5 @@
 // src/storage/registry.ts
+import type { StorageAdapterFactory } from '../platform'
 import type {
   ResolvedBackend,
   ResolvedBucket,
@@ -31,11 +32,11 @@ export function createAdapter(backend: ResolvedBackend): StorageAdapter {
 
 export function createBucketStorages(
   resolved: ResolvedStorageBuckets,
-  factory: (backend: ResolvedBackend) => StorageAdapter = createAdapter,
+  factory: StorageAdapterFactory = createAdapter,
 ): BucketStorageRegistry {
   const registry: BucketStorageRegistry = new Map()
   for (const [name, bucket] of resolved.buckets) {
-    registry.set(name, { bucket, adapter: factory(bucket.backend) })
+    registry.set(name, { bucket, adapter: factory(bucket.backend, bucket) })
   }
   return registry
 }

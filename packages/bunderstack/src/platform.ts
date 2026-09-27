@@ -1,7 +1,7 @@
 // src/platform.ts — the services a host supplies to the core. A Worker gives
 // Durable Object backed ones; tests and Bun tooling get these defaults.
 import type { RealtimePublisher } from './realtime/publisher'
-import type { ResolvedBackend } from './storage/buckets'
+import type { ResolvedBackend, ResolvedBucket } from './storage/buckets'
 import type { StorageAdapter } from './storage/index'
 
 import { createAdapter } from './storage/registry'
@@ -22,7 +22,10 @@ export interface RateLimitStore {
   ): Promise<RateLimitHit>
 }
 
-export type StorageAdapterFactory = (backend: ResolvedBackend) => StorageAdapter
+export type StorageAdapterFactory = (
+  backend: ResolvedBackend,
+  bucket: ResolvedBucket,
+) => StorageAdapter
 
 export interface Platform {
   jobs: JobsPlatform
