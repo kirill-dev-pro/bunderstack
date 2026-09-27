@@ -50,3 +50,19 @@ export function slotsDue(args: {
   }
   return slots
 }
+
+/**
+ * The first slot matching `cron` in `(after, until]`, or null. A scheduler
+ * uses it to set its next alarm; `until` bounds the search.
+ */
+export function nextCronSlot(
+  cron: ParsedCron,
+  after: number,
+  until: number,
+): number | null {
+  const last = floorSlot(until)
+  for (let s = floorSlot(after) + SLOT_MS; s <= last; s += SLOT_MS) {
+    if (cronMatches(cron, s)) return s
+  }
+  return null
+}

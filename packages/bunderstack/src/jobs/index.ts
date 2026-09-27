@@ -29,7 +29,7 @@ export type {
   JobsFacade,
   JobsRuntimeFacade,
 } from './define'
-export { enqueueJob, enqueueTarget } from './queue'
+export { enqueueJob, enqueueTarget, resolveRunAt } from './queue'
 export { createJobRunner } from './worker'
 export { startJobWorker } from './runtime'
 export type {
@@ -39,6 +39,12 @@ export type {
   WorkerHandle,
 } from './runtime'
 export { parseCron, cronMatches } from './cron'
-export { slotsDue, floorSlot, CRON_PREFIX, SLOT_MS } from './slots'
+export {
+  slotsDue,
+  floorSlot,
+  nextCronSlot,
+  CRON_PREFIX,
+  SLOT_MS,
+} from './slots'
 export type { CatchUp } from './slots'
 export type { TickResult } from './define'

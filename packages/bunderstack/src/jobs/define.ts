@@ -96,6 +96,11 @@ export type JobsRuntimeFacade = {
   ): Promise<{ id: string }>
   /** Run one poll cycle deterministically (tests). `now` defaults to Date.now(). */
   tick(now?: number): Promise<TickResult>
+  /**
+   * When the next background work is due, for a host scheduler. Never earlier
+   * than `now`; null when nothing is due before `until` (default: 24 h later).
+   */
+  nextDueAt(now?: number, until?: number): Promise<number | null>
 }
 
 import type { RealtimeFacade } from '../realtime/facade'

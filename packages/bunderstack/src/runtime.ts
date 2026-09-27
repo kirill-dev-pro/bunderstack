@@ -67,6 +67,7 @@ import {
   createJobRunner,
   enqueueJob,
   enqueueTarget,
+  resolveRunAt,
   startJobWorker,
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
@@ -581,12 +582,25 @@ export async function materializeBunderstack<
           enqueueOptions,
           enqueueNow,
         )
+        const runAt = resolveRunAt(enqueueOptions, enqueueNow ?? Date.now())
+        try {
+          await platform.jobs.notify(runAt)
+        } catch (error) {
+          // The row is committed; a host that missed this wake still finds the
+          // job through nextDueAt on its next safety tick.
+          logger.error('[bunderstack] jobs.notify failed:', error)
+        }
         return result
       },
       tick(now?: number) {
         return jobRunner
           ? jobRunner.tick(now)
           : Promise.resolve({ claimed: 0, ran: 0, failed: 0 })
+      },
+      nextDueAt(now: number = Date.now(), until: number = now + 86_400_000) {
+        return jobRunner
+          ? jobRunner.nextDueAt(now, until)
+          : Promise.resolve(null)
       },
     }
     if (jobRunner) jobRunner.setJobsFacade(jobs)

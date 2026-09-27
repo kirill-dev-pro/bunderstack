@@ -28,7 +28,13 @@ import { validateStandardSchema } from '../standard-schema'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
 import { enqueueJob } from './queue'
-import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
+import {
+  CRON_PREFIX,
+  floorSlot,
+  nextCronSlot,
+  slotsDue,
+  SLOT_MS,
+} from './slots'
 
 const CLAIM_BATCH = 10
 const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
@@ -666,6 +672,36 @@ export function createJobRunner(deps: {
     },
     pump,
     drain,
+    /**
+     * The earliest time that has work: a pending run_at, a running lease end,
+     * or a cron slot not yet materialized. Never earlier than `now`; null when
+     * nothing is due before `until`.
+     */
+    async nextDueAt(now: number, until: number): Promise<number | null> {
+      const candidates: number[] = []
+      const [pending] = await db
+        .select({ at: sql<number | string | null>`min(${t.runAt})` })
+        .from(t)
+        .where(eq(t.status, 'pending'))
+      if (pending?.at != null) candidates.push(Number(pending.at))
+      const [running] = await db
+        .select({ at: sql<number | string | null>`min(${t.lockedUntil})` })
+        .from(t)
+        .where(eq(t.status, 'running'))
+      if (running?.at != null) candidates.push(Number(running.at))
+      for (const [name, def] of Object.entries(defs)) {
+        if (def.kind !== 'cron') continue
+        const cursor = await cronCursor(`${CRON_PREFIX}${name}`, now)
+        const slot = nextCronSlot(
+          parseCron(def.schedule),
+          cursor.checkedThrough,
+          until,
+        )
+        if (slot !== null) candidates.push(slot)
+      }
+      if (candidates.length === 0) return null
+      return Math.max(now, Math.min(...candidates))
+    },
     async inspect(now: number) {
       const runnableRows = await db
         .select({ id: t.id })

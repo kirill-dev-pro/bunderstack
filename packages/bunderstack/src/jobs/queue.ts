@@ -34,6 +34,12 @@ export function enqueueTarget(db: AnyDb, tx: AnyDb | undefined): AnyDb {
   return tx
 }
 
+export function resolveRunAt(opts: EnqueueOptions, now: number): number {
+  return opts.runAt !== undefined
+    ? new Date(opts.runAt).getTime()
+    : now + (opts.delay ?? 0)
+}
+
 export async function enqueueJob(
   db: AnyDb,
   defs: JobsDefs,
@@ -55,10 +61,7 @@ export async function enqueueJob(
       ? validateStandardSchema(def.input, input, `job "${name}" input`)
       : null
   const t = jobsTableFor(db)
-  const runAt =
-    opts.runAt !== undefined
-      ? new Date(opts.runAt).getTime()
-      : now + (opts.delay ?? 0)
+  const runAt = resolveRunAt(opts, now)
 
   // Two rounds cover the race where the deduping row reaches a terminal state
   // (clearing its key) between our failed insert and our read.

@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test'
 
 import { parseCron } from './cron'
-import { floorSlot, slotsDue, SLOT_MS } from './slots'
+import { floorSlot, nextCronSlot, slotsDue, SLOT_MS } from './slots'
 
 const T = (iso: string) => Date.parse(iso)
 
@@ -92,4 +92,26 @@ test('defaults to latest when catchUp is omitted', () => {
     to: T('2026-08-07T10:03:00Z'),
   })
   expect(slots).toEqual([T('2026-08-07T10:03:00Z')])
+})
+
+test('nextCronSlot finds the first matching slot after a timestamp', () => {
+  const cron = parseCron('*/5 * * * *')
+  const after = Date.UTC(2026, 0, 1, 0, 1, 30)
+  expect(nextCronSlot(cron, after, after + 3_600_000)).toBe(
+    Date.UTC(2026, 0, 1, 0, 5),
+  )
+})
+
+test('nextCronSlot excludes the slot that equals after', () => {
+  const cron = parseCron('*/5 * * * *')
+  const slot = Date.UTC(2026, 0, 1, 0, 5)
+  expect(nextCronSlot(cron, slot, slot + 3_600_000)).toBe(
+    Date.UTC(2026, 0, 1, 0, 10),
+  )
+})
+
+test('nextCronSlot returns null when no slot is inside the horizon', () => {
+  const cron = parseCron('0 0 1 1 *')
+  const after = Date.UTC(2026, 0, 2)
+  expect(nextCronSlot(cron, after, after + 86_400_000)).toBeNull()
 })

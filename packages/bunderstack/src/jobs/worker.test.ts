@@ -36,6 +36,8 @@ function runner(
   r.setJobsFacade({
     enqueue: (name, input, opts) => enqueueJob(db, defs, name, input, opts),
     tick: (now) => r.tick(now),
+    nextDueAt: (now, until) =>
+      r.nextDueAt(now ?? Date.now(), until ?? Date.now() + 86_400_000),
   })
   return r
 }
