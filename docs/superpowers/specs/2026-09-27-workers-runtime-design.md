@@ -152,8 +152,10 @@ This is the only module that knows about Workers.
   - It builds `Platform` from bindings.
   - It serves `/api/*` through `app.handler`. Static assets serve all other
     paths, with SPA fallback to `index.html`.
-- Durable Object classes that the app re-exports: `Scheduler`, `RealtimeHub`,
-  `RateLimiter`.
+- Durable Object classes: `Scheduler`, `RealtimeHub`, `RateLimiter`.
+  `createWorker(backend)` returns `{ handler, durableObjects }`. The
+  `Scheduler` needs the backend, so the classes come from this call, and the
+  app exports them by name.
 - Fixed binding names: `SCHEDULER`, `REALTIME`, `RATE_LIMITER`, `ASSETS`, and
   one R2 binding per storage bucket (`BUCKET_<NAME>`).
 - Vars and secrets: `BUNDERSTACK_DATABASE_URL`,
@@ -165,10 +167,12 @@ App entry:
 ```ts
 // src/worker.ts
 import { createWorker } from 'bunderstack/workers'
+
 import { backend } from './bunderstack'
 
-export { Scheduler, RealtimeHub, RateLimiter } from 'bunderstack/workers'
-export default createWorker(backend)
+const worker = createWorker(backend)
+export const { Scheduler, RealtimeHub, RateLimiter } = worker.durableObjects
+export default worker.handler
 ```
 
 ### Jobs: `Scheduler`
@@ -182,10 +186,15 @@ There is one instance per app, with the name `main`.
   2. If the alarm came from `notify` and the tick claimed nothing, it retries
      once after 1 s. This covers an enqueue in a transaction that has not
      committed yet.
-  3. Sets the next alarm to `min(nextDueAt, now + 5 min)`. The cap is a safety
+  3. Sets the next alarm to `min(nextDueAt, now + 1 h)`. The cap is a safety
      net for a lost `notify`.
 - Handlers run in the `Scheduler`. Leases, retries, and `onFailed` stay as
   they are.
+- `wrangler.json` has `triggers.crons` with the declared cron schedules (and
+  the storage sweep when there are buckets). The `scheduled` handler notifies
+  the `Scheduler`, so cron runs even when the app gets no traffic. More than
+  five schedules collapse to `* * * * *`. The safety cap is 1 hour, not
+  5 minutes.
 - The documentation gives the maximum `maxRuntime` for each target. It comes
   from the alarm limits of Cloudflare and celld.
 

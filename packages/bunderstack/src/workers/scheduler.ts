@@ -11,7 +11,20 @@ export const NOTIFY_RETRY_MS = 1_000
 export const SAFETY_MS = 3_600_000
 export const MIN_GAP_MS = 1_000
 
-export function createSchedulerClass(backend: BunderstackBackend<any>) {
+export interface SchedulerObject {
+  fetch(request: Request): Promise<Response>
+  alarm(): Promise<void>
+}
+
+export type SchedulerClass = new (
+  state: DurableObjectStateLike,
+  env: WorkerEnv,
+) => SchedulerObject
+
+// An explicit return type keeps the private members out of the emitted .d.ts.
+export function createSchedulerClass(
+  backend: BunderstackBackend<any>,
+): SchedulerClass {
   return class Scheduler {
     private notified = false
     private retried = false

@@ -85,6 +85,10 @@
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
     },
+    "./workers": {
+      "types": "./dist/workers/index.d.ts",
+      "default": "./dist/workers/index.js"
+    },
     "./schema": {
       "types": "./dist/schema-export.d.ts",
       "default": "./dist/schema-export.js"
