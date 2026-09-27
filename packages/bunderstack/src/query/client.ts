@@ -123,7 +123,7 @@ function attachFileHelpers<T extends object>(
           throw new Error(`File upload failed (${uploaded.status})`)
         }
         const result = await procedures.confirmUpload!.call({
-          id: prepared.fileId,
+          id: relativeId(property, prepared.fileId),
         })
         return { ...result, url: url(result.fileId), name: file.name }
       }

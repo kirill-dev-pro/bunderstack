@@ -2,6 +2,16 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.2] — 2026-09-27
+
+### Fixed
+
+- `files.<bucket>.upload(file)` from the query client no longer fails with
+  `NOT_FOUND` for buckets that use presigned uploads (S3, Tigris). The client
+  sent the full file id (`media/<uuid>.jpg`) to `confirmUpload`, and the server
+  added the bucket name again. The client now sends the bucket-relative id.
+  Proxy uploads (local storage) were not affected.
+
 ## [0.25.1] — 2026-09-25
 
 ### Fixed
