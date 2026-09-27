@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "test": "bun run --parallel --filter './packages/*' test && bun test scripts/",
+    "test:workers": "bun scripts/workers-integration.ts",
     "test:orpc-contract": "bun test packages/bunderstack/src/api/openapi-client-generation.test.ts && bunx tsc --noEmit -p packages/bunderstack/tsconfig.json",
     "test:boundaries": "bun test scripts/dependency-boundaries.test.ts",
     "test:bundles": "bun test scripts/bundle-boundaries.test.ts",
@@ -39,6 +40,7 @@
     "@types/bun": "^1.3.14",
     "better-auth": "^1.7.6",
     "drizzle-orm": "^0.45.0",
+    "esbuild": "^0.28.2",
     "nodemailer": "^9.0.3",
     "openapi-typescript": "7.13.0",
     "oxfmt": "^0.56.0",

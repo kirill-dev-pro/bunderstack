@@ -4,8 +4,18 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ## [Unreleased] — 1.0.0 (branch `next`)
 
+### Added
+
+- `bunderstack/workers`: `createWorker(backend)` runs an app as a Worker on
+  Cloudflare or celld, with the `Scheduler`, `RealtimeHub`, and `RateLimiter`
+  Durable Objects and an R2 storage adapter.
+- `bunderstack wrangler` generates `wrangler.json` from the backend, with
+  Cron Triggers for the declared cron schedules.
+
 ### Changed
 
+- CRUD writes wait for their realtime publish before they respond. A failed
+  publish only logs; the write still succeeds.
 - `backend.start({ env, platform })` takes host services: `jobs.notify`,
   `realtime`, `rateLimit`, and `storage`. Missing ones use in-memory defaults.
 - `app.jobs.nextDueAt(now?, until?)` tells a host scheduler when the next

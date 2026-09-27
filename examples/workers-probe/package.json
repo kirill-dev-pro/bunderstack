@@ -1,0 +1,17 @@
+{
+  "name": "workers-probe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wrangler": "bun ../../packages/bunderstack/src/cli.ts wrangler . --assets public"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@orpc/publisher": "2.0.0-beta.37",
+    "@orpc/server": "2.0.0-beta.37",
+    "better-auth": "^1.7.6",
+    "bunderstack": "workspace:*",
+    "drizzle-orm": "^0.45.0",
+    "valibot": "1.4.2"
+  }
+}
