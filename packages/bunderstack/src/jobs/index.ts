@@ -31,13 +31,6 @@ export type {
 } from './define'
 export { enqueueJob, enqueueTarget, resolveRunAt } from './queue'
 export { createJobRunner } from './worker'
-export { startJobWorker } from './runtime'
-export type {
-  StartWorkerOptions,
-  RunWorkerOptions,
-  WorkerCycleResult,
-  WorkerHandle,
-} from './runtime'
 export { parseCron, cronMatches } from './cron'
 export {
   slotsDue,

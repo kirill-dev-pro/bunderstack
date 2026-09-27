@@ -25,8 +25,6 @@ import type {
   EnqueueOptions,
   JobsDefs,
   JobsFacade,
-  StartWorkerOptions,
-  WorkerHandle,
 } from './jobs/index'
 import type { MessagingConfig, MessagingFacadesFor } from './messaging'
 import type { MessagingAdapter } from './messaging/runtime'
@@ -68,7 +66,6 @@ import {
   enqueueJob,
   enqueueTarget,
   resolveRunAt,
-  startJobWorker,
 } from './jobs/index'
 import { Lifecycle, type LifecycleStatus } from './lifecycle'
 import { consoleLogger, type BunderstackLogger } from './logging'
@@ -103,36 +100,12 @@ export type RuntimeOverrides = {
   database?: DatabaseConnection
   resolvedStorage?: ResolvedStorageBuckets
   messagingAdapters?: Record<string, MessagingAdapter>
-  backgroundAutoStart?: false
   authResolver?: AuthSessionResolver
   logger?: BunderstackLogger
   /** Host services; see src/platform.ts. */
   platform?: Partial<Platform>
   /** Private callback used by backend.test(); never exposed on the app. */
   captureTestingHandle?: (handle: RuntimeTestingHandle) => void
-}
-
-function waitForWorkerShutdown(
-  signal: AbortSignal,
-  installProcessListeners: boolean,
-): Promise<void> {
-  if (signal.aborted) return Promise.resolve()
-
-  return new Promise((resolve) => {
-    const done = () => {
-      signal.removeEventListener('abort', done)
-      if (installProcessListeners) {
-        process.removeListener('SIGINT', done)
-        process.removeListener('SIGTERM', done)
-      }
-      resolve()
-    }
-    signal.addEventListener('abort', done, { once: true })
-    if (installProcessListeners) {
-      process.once('SIGINT', done)
-      process.once('SIGTERM', done)
-    }
-  })
 }
 
 /** Default age before an unconfirmed `pending` file is treated as an orphan. */
@@ -174,16 +147,6 @@ export interface StorageFacade {
   ): Promise<void>
 }
 
-export type AppStartWorkerOptions = Omit<StartWorkerOptions, 'tick' | 'drain'>
-export type AppRunWorkerOptions = AppStartWorkerOptions & {
-  /**
-   * Permit process-local realtime in a standalone worker.
-   *
-   * Use only when job handlers never call ctx.realtime.publish(). Publications
-   * made through the memory broker cannot reach SSE clients in another process.
-   */
-  allowProcessLocalRealtime?: boolean
-}
 /** Bucket names declared in a storage config; `string` when unknowable. */
 export type BucketNamesOf<TStorage> = TStorage extends {
   buckets: infer B extends Record<string, unknown>
@@ -217,12 +180,7 @@ export type BunderstackApp<
   >
   /** Typed custom row publication; enabled=false/no-op when realtime is off. */
   realtime: RealtimeFacade<TSchema>
-  startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
-  /** Run a queue worker until aborted, then close the application. */
-  runWorker(options?: AppRunWorkerOptions): Promise<void>
   close(): Promise<void>
-  /** True when this process is running the background tick loop. */
-  readonly backgroundRunning: boolean
   readonly status: LifecycleStatus
   readonly signal: AbortSignal
   /**
@@ -619,54 +577,6 @@ export async function materializeBunderstack<
           ? jobRunner.inspect(now)
           : Promise.resolve({ runnable: 0, failed: [], jobs: [] }),
     })
-    const startWorker = async (
-      options: AppStartWorkerOptions = {},
-    ): Promise<WorkerHandle> => {
-      if (!jobRunner) {
-        throw new Error('[bunderstack] no queue jobs configured')
-      }
-      if (lifecycle.status !== 'ready') {
-        throw new Error('[bunderstack] application lifecycle is closed')
-      }
-      const signal = options.signal
-        ? AbortSignal.any([lifecycle.signal, options.signal])
-        : lifecycle.signal
-      const handle = startJobWorker({
-        ...options,
-        signal,
-        tick: (now) => jobRunner.pump(now),
-        drain: () => jobRunner.drain(),
-      })
-      const unregister = lifecycle.add(() => handle.close())
-      void handle.closed.finally(unregister)
-      return handle
-    }
-    const runWorker = async (
-      options: AppRunWorkerOptions = {},
-    ): Promise<void> => {
-      if (
-        realtime.transport === 'memory' &&
-        !options.allowProcessLocalRealtime
-      ) {
-        throw new Error(
-          '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker. Configure REDIS_URL or realtime.redis, embed the worker with startWorker(), or pass allowProcessLocalRealtime: true only when jobs never publish realtime.',
-        )
-      }
-      const {
-        allowProcessLocalRealtime: _allowProcessLocalRealtime,
-        ...workerOptions
-      } = options
-      const handle = await startWorker(workerOptions)
-      try {
-        const signal = workerOptions.signal
-          ? AbortSignal.any([lifecycle.signal, workerOptions.signal])
-          : lifecycle.signal
-        await waitForWorkerShutdown(signal, !workerOptions.signal)
-      } finally {
-        await handle.close()
-        await lifecycle.close()
-      }
-    }
     const crudApiRouter = buildCrudApiRouter<
       TSchema,
       TAccess,
@@ -859,21 +769,6 @@ export async function materializeBunderstack<
       rateLimitStore: platform.rateLimit,
     })
 
-    // Topology is a deployment concern: the role decides whether this process
-    // runs background work, so application code never has to.
-    const roleWantsWorker =
-      env.BUNDERSTACK_ROLE === 'all' || env.BUNDERSTACK_ROLE === 'worker'
-    const autoStart =
-      overrides.backgroundAutoStart === false
-        ? false
-        : (options.background?.autoStart ??
-          (roleWantsWorker && resolvedDefs !== undefined))
-    let backgroundRunning = false
-    if (autoStart) {
-      await startWorker()
-      backgroundRunning = true
-    }
-
     const app: BunderstackApp<
       TSchema,
       TAccess,
@@ -897,10 +792,7 @@ export async function materializeBunderstack<
       // narrows `enqueue` per-app from the declared job defs — same relationship
       // as `userDb` above.
       jobs: jobs as never,
-      startWorker,
-      runWorker,
       close: () => lifecycle.close(),
-      backgroundRunning,
       get status() {
         return lifecycle.status
       },
@@ -973,9 +865,6 @@ export type {
   QueueJobDefinition,
   QueueJobKeys,
   TypedEnqueueOptions,
-  RunWorkerOptions,
-  StartWorkerOptions,
-  WorkerHandle,
 } from './jobs/index'
 export {
   defineSessionUser,

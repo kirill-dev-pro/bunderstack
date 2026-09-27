@@ -67,7 +67,6 @@ const typedApp = await bunderstack({
 }).start({
   env: {
     DATABASE_URL: 'memory://',
-    BUNDERSTACK_ROLE: 'web',
   },
 })
 

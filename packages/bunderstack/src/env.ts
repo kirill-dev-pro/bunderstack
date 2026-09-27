@@ -32,10 +32,6 @@ export type EnvConfigInput = {
   meta?: Record<string, EnvVarMeta>
 }
 
-export type BunderstackRole = 'all' | 'web' | 'worker'
-
-const ROLES: readonly BunderstackRole[] = ['all', 'web', 'worker']
-
 /** Vars bunderstack itself consumes, always validated. */
 export type BaseEnv = {
   NODE_ENV?: string
@@ -48,7 +44,6 @@ export type BaseEnv = {
   BUNDERHOST_ENVIRONMENT_ID?: string
   /** Deployed commit SHA, injected by the platform. Reported by readiness. */
   BUNDERSTACK_REVISION?: string
-  BUNDERSTACK_ROLE: BunderstackRole
 }
 
 type InferVars<T> =
@@ -137,18 +132,9 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     BUNDERSTACK_BLUEPRINT_PATH: source.BUNDERSTACK_BLUEPRINT_PATH,
     BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
     BUNDERSTACK_REVISION: source.BUNDERSTACK_REVISION,
-    BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
   }
   if (isProduction && !source.AUTH_SECRET) {
     issues.push('AUTH_SECRET: required in production')
-  }
-  if (
-    source.BUNDERSTACK_ROLE !== undefined &&
-    !ROLES.includes(source.BUNDERSTACK_ROLE as BunderstackRole)
-  ) {
-    issues.push(
-      `BUNDERSTACK_ROLE: must be one of ${ROLES.join(', ')} (got "${String(source.BUNDERSTACK_ROLE)}")`,
-    )
   }
   const userVars: Record<string, unknown> = {}
   validateSection(envConfig?.server, 'server', source, issues, userVars)

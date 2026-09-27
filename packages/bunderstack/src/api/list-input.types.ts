@@ -30,7 +30,7 @@ const app = await bunderstack({
       sortableColumns: ['id', 'likes'],
     },
   },
-}).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
+}).start({ env: { DATABASE_URL: 'memory://' } })
 
 type Api = NonNullable<(typeof app)['$inferClient']>['api']
 type ListInput = InferRouterInputs<Api>['posts']['list']

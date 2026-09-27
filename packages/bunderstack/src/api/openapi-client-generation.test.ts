@@ -99,7 +99,6 @@ async function setupApp() {
   }).start({
     env: {
       DATABASE_URL: 'memory://',
-      BUNDERSTACK_ROLE: 'web',
     },
   })
 }

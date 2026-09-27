@@ -82,7 +82,6 @@ type TestableApp = {
 const defaultTestEnv = {
   NODE_ENV: 'test',
   AUTH_SECRET: 'bunderstack-test-secret',
-  BUNDERSTACK_ROLE: 'web',
 } satisfies Record<string, string | undefined>
 
 function mergeTestOptions(
@@ -172,7 +171,6 @@ export async function createTestApp<TApp extends TestableApp>(
         messagingAdapters: testMessaging.adapters,
         authResolver: sessions.resolver,
         logger,
-        backgroundAutoStart: false,
         captureTestingHandle: (handle) => {
           testingHandle = handle
         },

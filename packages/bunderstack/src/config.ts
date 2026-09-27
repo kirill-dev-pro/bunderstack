@@ -184,7 +184,6 @@ export type BunderstackConfig<
   /** Explicitly project application fields from Better Auth into API users. */
   session?: TSession
   storage?: TStorage
-  background?: { autoStart?: boolean }
   messaging?: MessagingConfig
   /**
    * The application's oRPC router. Pass the finished router object, or a

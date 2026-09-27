@@ -68,7 +68,7 @@ test('generated route map carries literals plus typed phantoms', async () => {
     },
     realtime: true,
     openapi: true,
-  }).start({ env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' } })
+  }).start({ env: { DATABASE_URL: 'memory://' } })
   const response = await app.handler(
     new Request('http://test/api/openapi.json'),
   )

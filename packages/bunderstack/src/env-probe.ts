@@ -22,7 +22,6 @@ const BASE_SOURCE = {
   NODE_ENV: 'production',
   AUTH_SECRET: 'bunderstack-blueprint-probe-secret',
   DATABASE_URL: 'file:./bunderstack-blueprint-probe.db',
-  BUNDERSTACK_ROLE: 'all',
 } satisfies Record<string, string | undefined>
 
 export class BlueprintProbeError extends Error {

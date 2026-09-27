@@ -8,8 +8,6 @@ export type {
   TelegramMessage,
 } from './messaging'
 export type {
-  AppRunWorkerOptions,
-  AppStartWorkerOptions,
   AuthInstance,
   BucketNamesOf,
   BunderstackApp,
@@ -75,9 +73,6 @@ export type {
   QueueJobDefinition,
   QueueJobKeys,
   TypedEnqueueOptions,
-  RunWorkerOptions,
-  StartWorkerOptions,
-  WorkerHandle,
 } from './jobs/index'
 export {
   defineSessionUser,

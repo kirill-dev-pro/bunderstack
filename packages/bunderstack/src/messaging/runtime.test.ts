@@ -7,7 +7,6 @@ import { telegram } from './telegram'
 const env = {
   DATABASE_URL: ':memory:',
   AUTH_SECRET: 'test',
-  BUNDERSTACK_ROLE: 'web' as const,
 }
 
 function ok(body: unknown) {

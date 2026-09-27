@@ -81,7 +81,7 @@ async function setupApp(
     auth,
     openapi,
   } as any).start({
-    env: { DATABASE_URL: 'memory://', BUNDERSTACK_ROLE: 'web' },
+    env: { DATABASE_URL: 'memory://' },
   })
 }
 

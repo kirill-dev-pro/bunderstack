@@ -15,25 +15,10 @@ const notes = sqliteTable('notes', {
   body: text('body').notNull(),
 })
 
-async function waitFor(check: () => boolean) {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    if (check()) return
-    await new Promise((resolve) => setTimeout(resolve, 1))
-  }
-  throw new Error('condition was not reached')
-}
-
 test('app.jobs enqueues without implicit execution and explicit worker runs the handler', async () => {
   const app = await bunderstack({
     schema: { notes },
     database: { url: ':memory:', adapter: libsql() },
-    // BUNDERSTACK_ROLE defaults to 'all', which auto-starts a worker whenever
-    // jobs are defined. Without turning that off, the "nothing ran yet"
-    // assertion below is only a race against that worker's 1s poll — it passes
-    // when the sleep really is 20ms and fails once the machine is loaded enough
-    // to overshoot a poll. Disabling autoStart is what makes "no worker means
-    // no execution" an actual claim rather than a timing accident.
-    background: { autoStart: false },
     jobs: (j) =>
       j.define({
         writeNote: j.job({
@@ -54,14 +39,8 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
     [],
   )
 
-  const worker = await app.startWorker({ pollIntervalMs: 1 })
-  let rows: { body: string }[] = []
-  for (let i = 0; i < 50 && rows.length === 0; i++) {
-    rows = await app.db.select().from(notes).where(eq(notes.id, 'n1'))
-    if (rows.length === 0)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-  }
-  await worker.close()
+  await app.jobs.tick()
+  const rows = await app.db.select().from(notes).where(eq(notes.id, 'n1'))
   expect(rows[0]?.body).toBe('from a job')
   await app.close()
 
@@ -72,44 +51,6 @@ test('app.jobs enqueues without implicit execution and explicit worker runs the 
   const _badInput = () => app.jobs.enqueue('writeNote', { id: 42 })
   void _bad
   void _badInput
-})
-
-test('embedded worker refills one slot without waiting for its active peers', async () => {
-  const started: number[] = []
-  const releases = new Map<number, () => void>()
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    background: { autoStart: false },
-    jobs: (j) =>
-      j.define({
-        controlled: j.job({
-          input: v.object({ n: v.number() }),
-          concurrency: 2,
-          handler: async ({ n }) => {
-            started.push(n)
-            await new Promise<void>((resolve) => releases.set(n, resolve))
-          },
-        }),
-      }),
-  }).start()
-  await provision(app, { force: true })
-  for (let n = 1; n <= 3; n++) {
-    await app.jobs.enqueue('controlled', { n }, { runAt: n })
-  }
-
-  const worker = await app.startWorker({ pollIntervalMs: 60_000 })
-  await waitFor(() => started.length === 2)
-  expect(started).toEqual([1, 2])
-
-  releases.get(1)?.()
-  await waitFor(() => started.length === 3)
-  expect(started).toEqual([1, 2, 3])
-
-  releases.get(2)?.()
-  releases.get(3)?.()
-  await worker.close()
-  await app.close()
 })
 
 test('oRPC context exposes the jobs facade', async () => {
@@ -151,25 +92,6 @@ test('the built-in storage sweep is registered as an ordinary cron', async () =>
   )
 })
 
-test('runWorker owns the application lifecycle until its signal aborts', async () => {
-  const controller = new AbortController()
-  const app = await bunderstack({
-    schema: { notes },
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-  }).start()
-  await provision(app, { force: true })
-
-  const running = app.runWorker({
-    signal: controller.signal,
-    pollIntervalMs: 1,
-  })
-  controller.abort()
-
-  await running
-  expect(app.status).toBe('closed')
-})
-
 test('an app without jobs still has a facade; enqueue throws', async () => {
   const app = await bunderstack({
     schema: { notes },
@@ -181,57 +103,6 @@ test('an app without jobs still has a facade; enqueue throws', async () => {
     ).enqueue('x'),
   ).rejects.toThrow(/no jobs configured/)
   await app.jobs.tick() // no-op, must not throw
-})
-
-test('runWorker rejects process-local realtime by default', async () => {
-  const prevRedis = process.env.REDIS_URL
-  delete process.env.REDIS_URL
-  try {
-    const app = await bunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-      realtime: true,
-      jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-    }).start()
-    await provision(app, { force: true })
-
-    await expect(
-      app.runWorker({ signal: AbortSignal.abort(), pollIntervalMs: 1 }),
-    ).rejects.toThrow(
-      '[bunderstack] runWorker() cannot deliver realtime events through the in-memory broker',
-    )
-    expect(app.status).toBe('ready')
-    await app.close()
-  } finally {
-    if (prevRedis !== undefined) process.env.REDIS_URL = prevRedis
-    else delete process.env.REDIS_URL
-  }
-})
-
-test('runWorker allows an explicit process-local realtime override', async () => {
-  const prevRedis = process.env.REDIS_URL
-  delete process.env.REDIS_URL
-  try {
-    const app = await bunderstack({
-      schema: { notes },
-      database: { url: ':memory:', adapter: libsql() },
-      realtime: true,
-      jobs: (j) => j.define({ noop: j.job({ handler: async () => {} }) }),
-    }).start()
-    await provision(app, { force: true })
-
-    await expect(
-      app.runWorker({
-        signal: AbortSignal.abort(),
-        pollIntervalMs: 1,
-        allowProcessLocalRealtime: true,
-      }),
-    ).resolves.toBeUndefined()
-    expect(app.status).toBe('closed')
-  } finally {
-    if (prevRedis !== undefined) process.env.REDIS_URL = prevRedis
-    else delete process.env.REDIS_URL
-  }
 })
 
 const txEvents = sqliteTable('tx_events', { id: text('id').primaryKey() })
@@ -439,4 +310,29 @@ test('libsql: default dedupe window keeps collapsing into the running row', asyn
   await t.jobs.runUntilIdle()
   expect(seen).toEqual([1])
   expect(ids).toEqual([first.id])
+})
+
+test('start never runs background work; a host drives it with tick', async () => {
+  let ran = 0
+  const app = await bunderstack({
+    schema: { notes },
+    database: { url: ':memory:', adapter: libsql() },
+    jobs: (j) =>
+      j.define({
+        count: j.job({ handler: async () => void ran++ }),
+      }),
+  }).start()
+  try {
+    await provision(app, { force: true })
+    await app.jobs.enqueue('count', undefined)
+    await new Promise((resolve) => setTimeout(resolve, 1_200))
+    expect(ran).toBe(0)
+    expect('startWorker' in app).toBe(false)
+    expect('runWorker' in app).toBe(false)
+    const result = await app.jobs.tick()
+    expect(result.ran).toBe(1)
+    expect(ran).toBe(1)
+  } finally {
+    await app.close()
+  }
 })

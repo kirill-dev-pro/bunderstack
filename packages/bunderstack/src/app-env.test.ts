@@ -5,7 +5,6 @@ import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import type { DatabaseAdapter } from './database/adapter'
-import type { BunderstackJobsBuilder } from './jobs/define'
 
 import { libsql } from './database/libsql'
 import { BunderstackEnvError } from './env'
@@ -172,52 +171,6 @@ test('backend.inspect describes the declaration', () => {
   ])
 })
 
-test('role=all starts the background loop', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({
-        beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
-      }),
-  } as never).start({
-    env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
-  })
-  expect(app.backgroundRunning).toBe(true)
-  await app.close()
-})
-
-test('role=web does not start the background loop', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({
-        beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
-      }),
-  } as never).start({
-    env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'web' },
-  })
-  expect(app.backgroundRunning).toBe(false)
-  await app.close()
-})
-
-test('background.autoStart false wins over role=all', async () => {
-  const app = await bunderstack({
-    schema: {},
-    database: { url: ':memory:', adapter: libsql() },
-    jobs: (j: BunderstackJobsBuilder<Record<string, never>>) =>
-      j.define({
-        beat: j.cron({ schedule: '* * * * *', handler: () => {} }),
-      }),
-    background: { autoStart: false },
-  } as never).start({
-    env: { DATABASE_URL: ':memory:', BUNDERSTACK_ROLE: 'all' },
-  })
-  expect(app.backgroundRunning).toBe(false)
-  await app.close()
-})
-
 test('start env feeds platform overrides as well as env vars', async () => {
   const app = await bunderstack({
     schema: {},
@@ -226,10 +179,10 @@ test('start env feeds platform overrides as well as env vars', async () => {
     env: {
       DATABASE_URL: 'file::memory:',
       BUNDERSTACK_DATABASE_URL: 'file::memory:',
-      BUNDERSTACK_ROLE: 'web',
+      BUNDERSTACK_REVISION: 'r1',
     },
   })
-  expect(app.env.BUNDERSTACK_ROLE).toBe('web')
+  expect(app.env.BUNDERSTACK_REVISION).toBe('r1')
   await app.close()
 })
 
@@ -237,9 +190,9 @@ test('envSource is no longer accepted', async () => {
   const app = await bunderstack({
     schema: {},
     database: { adapter: libsql() },
-    envSource: { BUNDERSTACK_ROLE: 'worker' },
+    envSource: { BUNDERSTACK_REVISION: 'from-env-source' },
   } as never).start({ env: { DATABASE_URL: 'file::memory:' } })
-  // envSource is ignored entirely; the role falls back to its default.
-  expect(app.env.BUNDERSTACK_ROLE).toBe('all')
+  // envSource is ignored entirely.
+  expect(app.env.BUNDERSTACK_REVISION).toBeUndefined()
   await app.close()
 })
