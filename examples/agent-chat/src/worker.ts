@@ -1,3 +1,7 @@
-import { app } from './bunderstack'
+import { createWorker } from 'bunderstack/workers'
 
-await app.runWorker()
+import { backend } from './bunderstack'
+
+const worker = createWorker(backend)
+export const { Scheduler, RealtimeHub, RateLimiter } = worker.durableObjects
+export default worker.handler

@@ -1,10 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { marked } from 'marked'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { app } from '~/bunderstack'
 import { ApprovalPanel } from '~/components/ApprovalPanel'
 import { LoginGate } from '~/components/LoginGate'
 import { MemoryPanel } from '~/components/MemoryPanel'
@@ -13,18 +11,15 @@ import { SaveAgentPanel } from '~/components/SaveAgentPanel'
 import { StreamingMessage } from '~/components/StreamingMessage'
 import { useAgentChat } from '~/hooks/useAgentChat'
 
-const getAppName = createServerFn({ method: 'GET' }).handler(
-  () => app.env.PUBLIC_APP_NAME,
-)
+// A build-time value: vite.config.ts exposes PUBLIC_* variables to the SPA.
+const appName = import.meta.env.PUBLIC_APP_NAME ?? 'Agent Desk'
 
 export const Route = createFileRoute('/')({
-  loader: async () => ({ appName: await getAppName() }),
   component: HomePage,
 })
 
 function HomePage() {
   const { user } = Route.useRouteContext()
-  const { appName } = Route.useLoaderData()
   if (!user) return <LoginGate />
   return (
     <AgentDesk

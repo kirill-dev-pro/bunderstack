@@ -40,6 +40,31 @@ export const session = sqliteTable('session', {
     .references(() => user.id, { onDelete: 'cascade' }),
 })
 
+export const account = sqliteTable('account', {
+  id: typeid('account').primaryKey().$defaultFn(() => generateTypeId('account')),
+  accountId: text('accountId').notNull(),
+  providerId: text('providerId').notNull(),
+  userId: typeid('user').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  accessToken: text('accessToken'),
+  refreshToken: text('refreshToken'),
+  idToken: text('idToken'),
+  accessTokenExpiresAt: integer('accessTokenExpiresAt', { mode: 'timestamp' }),
+  refreshTokenExpiresAt: integer('refreshTokenExpiresAt', { mode: 'timestamp' }),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
+})
+
+export const verification = sqliteTable('verification', {
+  id: typeid('verification').primaryKey().$defaultFn(() => generateTypeId('verification')),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' }),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' }),
+})
+
 export const agentThreads = sqliteTable('agent_threads', {
   id: typeid('athread')
     .primaryKey()

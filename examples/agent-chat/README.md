@@ -10,8 +10,10 @@ From the repository root:
 
 ```bash
 bun install
-cp examples/agent-chat/.env.example examples/agent-chat/.env
 ```
+
+Copy `.env.example` to `.env` only if configuring an AI provider. The local
+responder needs no API key.
 
 Run the example:
 
@@ -19,7 +21,10 @@ Run the example:
 bun run dev:agent-chat
 ```
 
-The default `all` role auto-starts the embedded queue worker, so job publications and SSE use the same in-memory realtime transport. Open <http://localhost:3007>.
+`bunderstack dev` starts sqld, celld with the Worker, and Vite. On first run it
+downloads pinned local binaries. Open the URL Vite prints. The Worker handles
+the API, jobs, and realtime updates; Vite serves the SPA. `bun run build`
+creates `dist/client`, and `bun run wrangler` regenerates `wrangler.json`.
 
 ### Anonymous-first Entry and Account Upgrade
 

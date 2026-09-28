@@ -50,6 +50,13 @@
       "when": 1788119847965,
       "tag": "0006_cool_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790586891465,
+      "tag": "0007_green_harry_osborn",
+      "breakpoints": true
     }
   ]
 }

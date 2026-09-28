@@ -2,7 +2,6 @@ import { type } from 'arktype'
 import { anonymous } from 'better-auth/plugins'
 import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
-import { provision } from 'bunderstack/provision'
 
 import { access } from './access'
 import { transferAnonymousAgentData } from './agent/auth-transfer'
@@ -90,11 +89,8 @@ export const backend = bunderstack({
   api,
 })
 
-export const app = await backend.start()
+// The Worker (src/worker.ts) starts the backend; its Scheduler Durable Object
+// runs the jobs. `bunderstack dev` pushes the schema.
 
-export type App = typeof app
-
-await provision(app)
-
-// BUNDERSTACK_ROLE defaults to `all`, so backend.start() already owns the
-// embedded queue worker. A split deployment uses `web`/`worker` roles and Redis.
+/** Type handle for client inference — no server code reaches the bundle. */
+export type App = Awaited<ReturnType<typeof backend.start>>
