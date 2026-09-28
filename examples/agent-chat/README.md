@@ -170,7 +170,7 @@ To keep the experiment focused, this example deliberately does **not** include:
 
 ## Deployment Notes
 
-For multi-process or production deployments:
-
-- Configure Redis realtime for cross-process SSE event fan-out. It is required when the web process and queue worker are separate; the database remains canonical, while Redis carries live invalidations between processes.
-- Run queue workers in dedicated worker processes (`bun run --cwd examples/agent-chat worker`) instead of embedding the worker in the web server process.
+Deploy `src/worker.ts` with the generated `wrangler.json`. The Scheduler
+Durable Object runs queued jobs and the RealtimeHub Durable Object publishes
+SSE updates. Configure a production libSQL URL and `AUTH_SECRET` as Worker
+secrets, and apply the committed migrations before serving traffic.
