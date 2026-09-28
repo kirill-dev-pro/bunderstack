@@ -52,6 +52,7 @@ describe('published dependency boundaries', () => {
     // only under Bun. Everything else must run in workerd and celld.
     const allowed = [
       /\/src\/cli(-skills)?\.ts$/,
+      /\/src\/dev\//, // bunderstack dev and build
       /\/src\/blueprint-generator\.ts$/,
       /\/src\/provision-runtime\.ts$/,
       /\/src\/storage\/local\.ts$/,
@@ -122,6 +123,7 @@ describe('published dependency boundaries', () => {
         // CLI tools that load the application's own entry by path.
         if (path.endsWith('/blueprint-generator.ts')) continue
         if (path.endsWith('/workers/wrangler.ts')) continue
+        if (path.endsWith('/dev/push.ts')) continue
         const source = await Bun.file(path).text()
         const imports = source.matchAll(/\bimport\s*\(([^)]*)\)/gs)
         for (const match of imports) {
@@ -211,6 +213,8 @@ describe('published dependency boundaries', () => {
       '@noble/hashes',
       '@standard-schema/spec',
       '@standardserver/core',
+      // celld bundles the Worker with it under `bunderstack dev`.
+      'esbuild',
       'valibot',
       'yaml',
     ])

@@ -15,6 +15,8 @@ const help = `Usage:
   bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check|--hosted-check]
   bunderstack skills [--dir <path>] [--check]
   bunderstack wrangler [directory] [--entry <path>] [--name <name>] [--assets <dir>] [--output <path>] [--check]
+  bunderstack dev [directory] [--port <port>]
+  bunderstack build [directory]
 
 blueprint  Generate a committed deployment declaration for a TanStack Start
            application. Entry precedence: --entry,
@@ -26,12 +28,31 @@ skills     Install the Bunderstack agent skills that match this version into
 
 wrangler   Generate wrangler.json for Cloudflare and celld from the backend:
            Durable Objects, R2 buckets, static assets, and Cron Triggers.
-           --check reports drift without writing.`
+           --check reports drift without writing.
+
+dev        Start the app locally: sqld, celld with the Worker, and Vite with
+           the API proxy. Pushes the schema and regenerates wrangler.json on
+           each change under src/. Ctrl+C stops everything.
+           BUNDERSTACK_CELLD_BIN and BUNDERSTACK_SQLD_BIN select system
+           binaries instead of the pinned downloads.
+
+build      Build the SPA into dist/client with Vite and check wrangler.json.`
+
+type AppCommands = {
+  dev(options: { directory: string; port?: number }): Promise<number>
+  build(options: { directory: string }): Promise<number>
+}
+
+const appCommands: AppCommands = {
+  dev: async (options) => (await import('./dev/index')).runDev(options),
+  build: async (options) => (await import('./dev/index')).runBuild(options),
+}
 
 export async function runCli(
   args: string[],
   io: CliIo,
   generate: typeof generateBlueprint = generateBlueprint,
+  commands: AppCommands = appCommands,
 ): Promise<number> {
   if (args[0] === '--help' || args[0] === '-h') {
     io.stdout(help)
@@ -70,6 +91,37 @@ export async function runCli(
       return 2
     }
     return installSkills(options, io)
+  }
+
+  if (args[0] === 'dev' || args[0] === 'build') {
+    const command = args[0]
+    let directory: string | undefined
+    let port: number | undefined
+    for (let index = 1; index < args.length; index++) {
+      const argument = args[index]!
+      if (command === 'dev' && argument === '--port') {
+        const value = Number(args[++index])
+        if (!Number.isInteger(value) || value <= 0) {
+          io.stderr('[bunderstack] --port needs a port number')
+          return 2
+        }
+        port = value
+        continue
+      }
+      if (argument.startsWith('-')) {
+        io.stderr(`[bunderstack] unknown option: ${argument}`)
+        return 2
+      }
+      if (directory !== undefined) {
+        io.stderr('[bunderstack] only one application directory is allowed')
+        return 2
+      }
+      directory = argument
+    }
+    directory ??= process.cwd()
+    return command === 'dev'
+      ? commands.dev({ directory, ...(port ? { port } : {}) })
+      : commands.build({ directory })
   }
 
   if (args[0] === 'wrangler') {

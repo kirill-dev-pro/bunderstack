@@ -156,6 +156,10 @@ test('wrangler CLI generates, then reports current, then catches drift', async (
     expect(config.name).toBe('probe-app')
     expect(config.main).toBe('src/worker.ts')
 
+    // An --assets directory stays when a later run passes none.
+    expect(await runCli(['wrangler', dir, '--assets', 'public'], io)).toBe(0)
+    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(0)
+
     await writeFile(join(dir, 'wrangler.json'), '{}\n')
     expect(await runCli(['wrangler', dir, '--check'], io)).toBe(1)
     expect(errors.at(-1)).toContain('is out of date')
@@ -173,4 +177,37 @@ test('wrangler CLI rejects invalid syntax', async () => {
     }),
   ).toBe(2)
   expect(errors[0]).toContain('missing value for --name')
+})
+
+test('dev and build CLI pass the directory and port to the commands', async () => {
+  const calls: unknown[] = []
+  const commands = {
+    dev: async (options: unknown) => (calls.push(['dev', options]), 0),
+    build: async (options: unknown) => (calls.push(['build', options]), 0),
+  }
+  const io = { stdout: () => {}, stderr: () => {} }
+  expect(
+    await runCli(['dev', 'app', '--port', '4000'], io, undefined, commands),
+  ).toBe(0)
+  expect(await runCli(['build'], io, undefined, commands)).toBe(0)
+  expect(calls).toEqual([
+    ['dev', { directory: 'app', port: 4000 }],
+    ['build', { directory: process.cwd() }],
+  ])
+})
+
+test('dev CLI rejects invalid syntax', async () => {
+  const errors: string[] = []
+  const io = { stdout: () => {}, stderr: (line: string) => errors.push(line) }
+  const commands = { dev: async () => 0, build: async () => 0 }
+  expect(await runCli(['dev', '--port', 'x'], io, undefined, commands)).toBe(2)
+  expect(await runCli(['dev', '--open'], io, undefined, commands)).toBe(2)
+  expect(await runCli(['build', '--port', '1'], io, undefined, commands)).toBe(
+    2,
+  )
+  expect(errors).toEqual([
+    '[bunderstack] --port needs a port number',
+    '[bunderstack] unknown option: --open',
+    '[bunderstack] unknown option: --port',
+  ])
 })

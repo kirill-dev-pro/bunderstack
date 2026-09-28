@@ -7,6 +7,8 @@ export type ProcessSpec = {
   cmd: string[]
   cwd: string
   env?: Record<string, string>
+  /** Rewrites an output line; `undefined` drops it. */
+  filter?: (line: string) => string | undefined
 }
 
 const COLORS = [36, 35, 33, 32, 34]
@@ -59,18 +61,29 @@ export class ProcessGroup {
       cwd: spec.cwd,
       env: { ...process.env, ...spec.env },
       stdin: 'ignore',
+      // Own process group, so stop() reaches the child's children too.
+      detached: true,
       stdout: 'pipe',
       stderr: 'pipe',
     })
     this.children.push(child)
+    const emit = (line: string) => {
+      const shown = spec.filter ? spec.filter(line) : line
+      if (shown !== undefined) this.log(spec.name, shown)
+    }
     const pump = async (stream: ReadableStream<Uint8Array>) => {
       let pending = ''
-      for await (const chunk of stream.pipeThrough(new TextDecoderStream())) {
+      const decoder = new TextDecoder()
+      const reader = stream.getReader()
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
         const result = prefixLines(chunk, pending)
         pending = result.pending
-        for (const line of result.lines) this.log(spec.name, line)
+        for (const line of result.lines) emit(line)
       }
-      if (pending) this.log(spec.name, pending)
+      if (pending) emit(pending)
     }
     const output = Promise.all([pump(child.stdout), pump(child.stderr)])
     void child.exited.then(async (code) => {
@@ -79,14 +92,28 @@ export class ProcessGroup {
     })
   }
 
+  /**
+   * SIGINT to each child's process group, as Ctrl+C in a terminal does, then
+   * SIGKILL to the groups after 3 s. `celld dev` runs a node process that
+   * ignores SIGTERM, so a signal to the leader alone leaves it running.
+   */
   async stop() {
     this.stopping = true
-    const running = this.children.filter((child) => child.exitCode === null)
-    for (const child of running) child.kill('SIGTERM')
-    const timer = setTimeout(() => {
-      for (const child of running) child.kill('SIGKILL')
-    }, 3_000)
-    await Promise.allSettled(running.map((child) => child.exited))
-    clearTimeout(timer)
+    const signal = (sig: NodeJS.Signals) => {
+      for (const child of this.children) {
+        try {
+          process.kill(-child.pid, sig)
+        } catch {
+          // The group is gone already.
+        }
+      }
+    }
+    signal('SIGINT')
+    await Promise.race([
+      Promise.allSettled(this.children.map((child) => child.exited)),
+      Bun.sleep(3_000),
+    ])
+    signal('SIGKILL')
+    await Promise.allSettled(this.children.map((child) => child.exited))
   }
 }

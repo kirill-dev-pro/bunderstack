@@ -86,6 +86,24 @@ export class WranglerCheckError extends Error {
   }
 }
 
+/**
+ * Imports the app's backend. Entry precedence: the argument,
+ * package.json#bunderstack.entry, src/bunderstack.ts.
+ */
+export async function loadBackend(directory: string, entry?: string) {
+  const pkg = JSON.parse(
+    await readFile(join(directory, 'package.json'), 'utf8'),
+  ) as { name?: string; bunderstack?: { entry?: string } }
+  const path = entry ?? pkg.bunderstack?.entry ?? 'src/bunderstack.ts'
+  const module = (await import(pathToFileURL(join(directory, path)).href)) as {
+    backend?: unknown
+  }
+  if (!isBunderstackBackend(module.backend)) {
+    throw new Error(`[bunderstack] ${path} must export backend`)
+  }
+  return { pkg, backend: module.backend }
+}
+
 export async function runWranglerCommand(options: {
   directory: string
   entry?: string
@@ -95,35 +113,27 @@ export async function runWranglerCommand(options: {
   check?: boolean
 }): Promise<{ path: string; changed: boolean }> {
   const directory = resolve(options.directory)
-  const pkg = JSON.parse(
-    await readFile(join(directory, 'package.json'), 'utf8'),
-  ) as { name?: string; bunderstack?: { entry?: string } }
-  const entry = options.entry ?? pkg.bunderstack?.entry ?? 'src/bunderstack.ts'
-  const module = (await import(pathToFileURL(join(directory, entry)).href)) as {
-    backend?: unknown
-  }
-  if (!isBunderstackBackend(module.backend)) {
-    throw new Error(`[bunderstack] ${entry} must export backend`)
-  }
+  const { pkg, backend } = await loadBackend(directory, options.entry)
   const path = join(directory, options.output ?? 'wrangler.json')
   const existing = await readFile(path, 'utf8').catch(() => undefined)
   const previous = existing
-    ? (JSON.parse(existing) as { compatibility_date?: string })
+    ? (JSON.parse(existing) as {
+        compatibility_date?: string
+        assets?: { directory?: string }
+      })
     : undefined
   const name = (options.name ?? pkg.name ?? 'app')
     .replace(/^@[^/]+\//, '')
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')
-  const config = buildWranglerConfig(
-    module.backend.inspect({ env: process.env }),
-    {
-      name,
-      // Keep the date once chosen, so --check stays stable across days.
-      compatibilityDate:
-        previous?.compatibility_date ?? new Date().toISOString().slice(0, 10),
-      assetsDirectory: options.assets,
-    },
-  )
+  const config = buildWranglerConfig(backend.inspect({ env: process.env }), {
+    name,
+    // Keep the date once chosen, so --check stays stable across days.
+    compatibilityDate:
+      previous?.compatibility_date ?? new Date().toISOString().slice(0, 10),
+    // Keep a directory set once with --assets; `bunderstack dev` passes none.
+    assetsDirectory: options.assets ?? previous?.assets?.directory,
+  })
   const text = `${JSON.stringify(config, null, 2)}\n`
   if (options.check) {
     if (existing !== text) throw new WranglerCheckError(path)

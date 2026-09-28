@@ -28,6 +28,26 @@ test('children log with a prefix, and exited names the first to end', async () =
   expect(lines.some((line) => /\[quick\]\s+hello/.test(line))).toBe(true)
 })
 
+// celld dev runs a node process that outlives a signal to celld alone.
+test('stop ends a grandchild that ignores SIGINT', async () => {
+  const lines: string[] = []
+  const group = new ProcessGroup((line) => lines.push(line))
+  group.start({
+    name: 'parent',
+    cmd: ['sh', '-c', 'trap "" INT TERM; sleep 30 & echo "pid $!"; wait'],
+    cwd: import.meta.dir,
+  })
+  while (!lines.some((line) => line.includes('pid '))) await Bun.sleep(10)
+  const pid = Number(
+    lines
+      .find((line) => line.includes('pid '))!
+      .split(' ')
+      .at(-1),
+  )
+  await group.stop()
+  expect(() => process.kill(pid, 0)).toThrow()
+}, 10_000)
+
 test('stop ends running children', async () => {
   const group = new ProcessGroup(() => {})
   group.start({

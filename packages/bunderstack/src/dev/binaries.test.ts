@@ -30,7 +30,7 @@ function fakeFetch(body: Uint8Array) {
   const calls: string[] = []
   const fetch = async (url: string) => {
     calls.push(url)
-    return new Response(body)
+    return new Response(new Uint8Array(body))
   }
   return { fetch, calls }
 }
