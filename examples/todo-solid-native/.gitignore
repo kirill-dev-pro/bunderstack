@@ -1,4 +1,5 @@
 dist
-.output
-data.db
-data.db-*
+.bunderstack
+.celld
+.wrangler
+.dev.vars

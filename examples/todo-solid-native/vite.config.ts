@@ -1,13 +1,9 @@
 import solid from '@solidjs/vite-plugin'
-import { nitro } from 'nitro/vite'
+import { bunderstack } from 'bunderstack/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [
-    solid({ start: { middleware: './src/middleware.ts' }, ssr: true }),
-    nitro({ serverEntry: false, preset: 'bun' }),
-  ],
-  server: {
-    fs: { allow: ['../..'] },
-  },
+  // An SPA: the Worker serves dist/client as static assets, and
+  // `bunderstack dev` proxies /api from Vite to celld.
+  plugins: [solid(), bunderstack()],
 })

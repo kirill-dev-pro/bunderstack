@@ -23,10 +23,17 @@ Better Auth is served by the same `app.handler` under `/api/auth/*`, but is
 deliberately consumed through Better Auth's own Solid client when an app needs
 authentication. It is not part of the oRPC graph.
 
+The app is an SPA on the Workers runtime. `src/worker.ts` is the Worker, and
+the frontend is static assets from `dist/client`.
+
 ```sh
 bun run test
-bun run dev
+bun run dev     # sqld, celld with the Worker, and Vite; one command
+bun run build   # dist/client, and a check of wrangler.json
 ```
+
+The first `bun run dev` downloads celld and sqld to `~/.cache/bunderstack`.
+Deploy with `wrangler deploy` (Cloudflare) or `celld deploy` (your server).
 
 New optimistic rows have disabled checkbox/delete controls until the server ID
 arrives. The actions also ignore temporary IDs. A rejected add restores its title

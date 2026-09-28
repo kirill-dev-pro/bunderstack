@@ -12,6 +12,25 @@
       "runtimeExecutable": "bun",
       "runtimeArgs": ["run", "--cwd", "website", "preview", "--port", "3011"],
       "port": 3011
+    },
+    {
+      "name": "todo-solid-native",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--cwd", "examples/todo-solid-native", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "agent-chat",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "--cwd",
+        "examples/agent-chat",
+        "dev",
+        "--port",
+        "3007"
+      ],
+      "port": 3007
     }
   ]
 }
