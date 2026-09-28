@@ -331,7 +331,11 @@ Each stage has its own implementation plan.
    adapter, `bunderstack wrangler`, and the integration suite on celld and
    workerd.
 3. CLI `bunderstack dev` and `build`. The examples and the SaaS template move
-   to SPA.
+   to SPA. In this stage, only `todo-solid-native` and `agent-chat` move;
+   the other examples and SaaS template retain their current entry points.
+   The two SPAs use `bunderstack/vite` for the development API proxy. The
+   pinned binaries can be overridden with `BUNDERSTACK_CELLD_BIN` and
+   `BUNDERSTACK_SQLD_BIN`, and their cache with `BUNDERSTACK_CACHE_DIR`.
 4. Release 1.0.0-beta.1, the migration guide, and the FikFlix migration.
 5. Bunderhost: first the free celld VPS target, which does not depend on
    Workers for Platforms, then the paid Cloudflare target.

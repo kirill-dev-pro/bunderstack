@@ -6,6 +6,9 @@ All notable changes to `bunderstack` will be documented in this file.
 
 ### Added
 
+- `bunderstack dev` starts sqld, celld, and Vite for SPA development;
+  `bunderstack build` creates `dist/client`; `bunderstack/vite` proxies API
+  requests during development.
 - `bunderstack/workers`: `createWorker(backend)` runs an app as a Worker on
   Cloudflare or celld, with the `Scheduler`, `RealtimeHub`, and `RateLimiter`
   Durable Objects and an R2 storage adapter.
