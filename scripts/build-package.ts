@@ -12,7 +12,7 @@
  * Usage: bun scripts/build-package.ts <package-name>
  */
 import { existsSync } from 'node:fs'
-import { cp, readdir, rm } from 'node:fs/promises'
+import { chmod, cp, readdir, rm } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 
 const repoRoot = new URL('..', import.meta.url).pathname
@@ -108,6 +108,15 @@ if (problems.length) {
   throw new Error(
     `${name}: emitted imports that resolve to nothing:\n  ${problems.join('\n  ')}`,
   )
+}
+
+// npm marks bins executable on install, but a workspace link points straight
+// at dist, so `bunderstack dev` in an example needs the mode set here.
+const manifest = (await Bun.file(join(packageDir, 'package.json')).json()) as {
+  bin?: Record<string, string>
+}
+for (const bin of Object.values(manifest.bin ?? {})) {
+  await chmod(join(packageDir, bin), 0o755)
 }
 
 // The agent skills are authored once in .agents/skills, where this repo's own

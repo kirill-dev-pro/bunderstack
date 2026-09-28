@@ -1,6 +1,18 @@
 import { expect, test } from 'bun:test'
+import { createServer } from 'node:net'
 
-import { celldLine, planDev } from './index'
+import { celldLine, firstFreePort, planDev } from './index'
+
+test('firstFreePort skips a port that is taken on 127.0.0.1', async () => {
+  const server = createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const taken = (server.address() as { port: number }).port
+  try {
+    expect(await firstFreePort(taken)).toBeGreaterThan(taken)
+  } finally {
+    server.close()
+  }
+})
 
 test('celldLine keeps Worker output, warnings, and the summary', () => {
   expect(

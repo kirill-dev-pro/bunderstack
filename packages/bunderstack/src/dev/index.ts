@@ -132,6 +132,28 @@ async function freePort(): Promise<number> {
   })
 }
 
+function canListen(port: number, hostname: string): boolean {
+  try {
+    Bun.listen({ hostname, port, socket: { data() {} } }).stop(true)
+    return true
+  } catch (error) {
+    // No IPv6 on this machine: nothing can take the port there either.
+    return (error as { code?: string }).code === 'EADDRNOTAVAIL'
+  }
+}
+
+/**
+ * The first port from `start` that is free on 127.0.0.1 and on ::1. The
+ * browser opens `localhost`, which can resolve to either; Vite on ::1 next to
+ * another server on 127.0.0.1 would answer only some requests.
+ */
+export async function firstFreePort(start: number): Promise<number> {
+  for (let port = start; port < start + 100; port++) {
+    if (canListen(port, '127.0.0.1') && canListen(port, '::1')) return port
+  }
+  throw new Error(`[bunderstack] no free port from ${start}`)
+}
+
 async function waitForHealth(
   url: string,
   timeoutMs: number,
@@ -183,7 +205,12 @@ export async function runDev(options: {
     userEnv,
     hasVite: await hasViteConfig(directory),
     ports: {
-      app: options.port ?? Number(process.env.PORT ?? 5173),
+      // An explicit port is kept, and Vite fails when it is taken.
+      app:
+        options.port ??
+        (process.env.PORT
+          ? Number(process.env.PORT)
+          : await firstFreePort(5173)),
       api: await freePort(),
       db: await freePort(),
     },
