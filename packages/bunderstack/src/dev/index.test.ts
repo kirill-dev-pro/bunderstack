@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
-import { celldLine, firstFreePort, planDev } from './index'
+import { generateBlueprint } from '../blueprint-generator'
+import { runWranglerCommand } from '../workers/wrangler'
+import { celldLine, firstFreePort, planDev, runBuild } from './index'
 
 test('firstFreePort skips a port that is taken on 127.0.0.1', async () => {
   const server = createServer()
@@ -84,4 +89,40 @@ test('a database URL from .env replaces sqld', () => {
   })
   expect(plan.sqld).toBeUndefined()
   expect(plan.databaseUrl).toBe('libsql://team.turso.io')
+})
+
+test('runBuild checks both wrangler.json and bunderstack.blueprint.yaml', async () => {
+  const tempRoot = await realpath(tmpdir())
+  const directory = await mkdtemp(join(tempRoot, 'bunderstack-build-'))
+  await mkdir(join(directory, 'src'), { recursive: true })
+  const index = join(import.meta.dir, '..', 'index.ts')
+  const libsql = join(import.meta.dir, '..', 'database', 'libsql.ts')
+  await writeFile(
+    join(directory, 'package.json'),
+    JSON.stringify({
+      name: 'probe-worker',
+      scripts: { build: 'bunderstack build' },
+      dependencies: { bunderstack: 'workspace:*' },
+    }),
+  )
+  await writeFile(
+    join(directory, 'src/bunderstack.ts'),
+    [
+      `import { bunderstack } from ${JSON.stringify(index)}`,
+      `import { libsql } from ${JSON.stringify(libsql)}`,
+      `export const backend = bunderstack({ schema: {}, database: { adapter: libsql() } })`,
+    ].join('\n'),
+  )
+  try {
+    await runWranglerCommand({ directory })
+    expect(await runBuild({ directory })).toBe(1)
+
+    await generateBlueprint({ directory })
+    expect(await runBuild({ directory })).toBe(0)
+
+    await writeFile(join(directory, 'bunderstack.blueprint.yaml'), 'stale\n')
+    expect(await runBuild({ directory })).toBe(1)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })

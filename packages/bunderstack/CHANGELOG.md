@@ -2,6 +2,13 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [1.0.0-beta.2] — 2026-09-29
+
+### Added
+
+- `bunderstack blueprint` supports Worker applications (`application.runtime: "worker"`), requiring only the `build` script in `package.json`.
+- `bunderstack dev` updates both `wrangler.json` and `bunderstack.blueprint.yaml`, and `bunderstack build` checks both committed files for drift.
+
 ## [1.0.0-beta.1] — 2026-09-28
 
 ### Added

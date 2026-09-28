@@ -1,0 +1,57 @@
+version: 1
+generator:
+  name: bunderstack
+  version: 1.0.0-beta.2
+application:
+  runtime: worker
+  framework: solid
+  scripts:
+    build: build
+bunderstack:
+  entry: src/bunderstack.ts
+  manifestVersion: 4
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: push
+    tables:
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: _system.messageEvents
+        physicalName: _bunderstack_message_events
+        system: true
+      - exportName: _system.messages
+        physicalName: _bunderstack_messages
+        system: true
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: todos
+        physicalName: todos
+        system: false
+  storage:
+    defaultBucket: default
+    buckets:
+      - name: default
+        visibility: private
+  realtime:
+    required: true
+  messaging:
+    channels: []
+environment: []
+api:
+  operations: []
+background:
+  worker:
+    required: false
+  jobs: []
+  cron: []
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC

@@ -7,6 +7,8 @@ import { pathToFileURL } from 'node:url'
 import type { BunderstackManifest } from '../manifest'
 
 import { isBunderstackBackend } from '../backend'
+import { BACKEND_INTERNALS } from '../backend-internals'
+import { createEnvProbeSources } from '../env-probe'
 import { bucketBindingName } from './r2'
 
 /** Cloudflare's per-Worker Cron Trigger limit on the free plan. */
@@ -126,7 +128,11 @@ export async function runWranglerCommand(options: {
     .replace(/^@[^/]+\//, '')
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')
-  const config = buildWranglerConfig(backend.inspect({ env: process.env }), {
+  const [probeEnv] = createEnvProbeSources(
+    backend[BACKEND_INTERNALS].envSchema,
+    process.env as Record<string, string | undefined>,
+  )
+  const config = buildWranglerConfig(backend.inspect({ env: probeEnv }), {
     name,
     // Keep the date once chosen, so --check stays stable across days.
     compatibilityDate:

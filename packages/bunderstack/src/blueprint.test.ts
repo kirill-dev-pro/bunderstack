@@ -262,3 +262,45 @@ test('the blueprint carries application operations and survives their absence', 
   const { api: _api, ...legacy } = withApi
   expect(parseBlueprint(legacy).api).toBeUndefined()
 })
+
+test('blueprint supports worker runtime without start or companion worker scripts', () => {
+  const workerBlueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '1.0.0-beta.2',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+    runtime: 'worker',
+  })
+
+  expect(workerBlueprint.application).toEqual({
+    runtime: 'worker',
+    framework: 'tanstack-start',
+    scripts: { build: 'build' },
+  })
+  expect(workerBlueprint.background.worker).toEqual({ required: true })
+
+  const yaml = serializeBlueprint(workerBlueprint)
+  expect(yaml).toContain('runtime: worker')
+  expect(yaml).not.toContain('start: start')
+  expect(parseBlueprintYaml(yaml)).toEqual(workerBlueprint)
+
+  expect(() =>
+    parseBlueprint({
+      ...workerBlueprint,
+      application: {
+        ...workerBlueprint.application,
+        scripts: { build: 'build', start: 'start' },
+      },
+    }),
+  ).toThrow(/worker runtime blueprint must only declare the build script/)
+
+  expect(() =>
+    parseBlueprint({
+      ...workerBlueprint,
+      application: {
+        framework: 'tanstack-start',
+        scripts: { build: 'build' },
+      },
+    }),
+  ).toThrow(/server runtime blueprint must declare the start script/)
+})

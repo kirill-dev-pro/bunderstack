@@ -1,12 +1,13 @@
 // `bunderstack dev` and `bunderstack build`. dev starts sqld, celld, and Vite
 // with one command; build writes the SPA to dist/client and checks
-// wrangler.json.
+// wrangler.json and bunderstack.blueprint.yaml.
 import { watch } from 'node:fs'
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { generateBlueprint } from '../blueprint-generator'
 import { runWranglerCommand } from '../workers/wrangler'
 import { resolveBinary } from './binaries'
 import { devSecret, devVars, readUserEnv } from './env'
@@ -324,6 +325,8 @@ export async function runBuild(options: {
   try {
     await runWranglerCommand({ directory, check: true })
     console.log('wrangler.json is current')
+    await generateBlueprint({ directory, check: true })
+    console.log('bunderstack.blueprint.yaml is current')
     return 0
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))

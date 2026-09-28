@@ -204,3 +204,67 @@ export const backend = bunderstack({
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('generateBlueprint emits a worker blueprint when package.json has no start script and never serializes secret values', async () => {
+  const tempRoot = await realpath(tmpdir())
+  const directory = await mkdtemp(
+    join(tempRoot, 'bunderstack-blueprint-worker-'),
+  )
+  const entryPath = join(directory, 'src/bunderstack.ts')
+  await mkdir(join(entryPath, '..'), { recursive: true })
+  await Bun.write(
+    join(directory, 'package.json'),
+    JSON.stringify({
+      scripts: { build: 'bunderstack build' },
+      dependencies: { bunderstack: '^1.0.0-beta.2' },
+    }),
+  )
+  await Bun.write(
+    entryPath,
+    `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
+const secret = { '~standard': { version: 1, vendor: 'test', validate(value) {
+  return typeof value === 'string' && value.length > 0
+    ? { value }
+    : { issues: [{ message: 'expected secret' }] }
+} } }
+export const backend = bunderstack({
+  schema: {},
+  env: {
+    server: { OPENAI_API_KEY: secret },
+    meta: { OPENAI_API_KEY: { description: 'Provider key' } },
+  },
+  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+  jobs: (j) => j.define({
+    agentTurn: j.job({ handler() {} }),
+  }),
+})`,
+  )
+  const previousSecret = process.env.OPENAI_API_KEY
+  process.env.OPENAI_API_KEY = 'sk-super-secret-live-value'
+  try {
+    const result = await generateBlueprint({ directory })
+    expect(result.blueprint.application).toEqual({
+      runtime: 'worker',
+      framework: 'bun-ssr',
+      scripts: { build: 'build' },
+    })
+    expect(result.blueprint.background.worker).toEqual({ required: true })
+    expect(result.blueprint.environment).toEqual([
+      {
+        key: 'OPENAI_API_KEY',
+        required: true,
+        scope: 'server',
+        sensitive: true,
+        description: 'Provider key',
+      },
+    ])
+    expect(result.source).not.toContain('sk-super-secret-live-value')
+    await expect(
+      generateBlueprint({ directory, check: true }),
+    ).resolves.toMatchObject({ changed: false })
+  } finally {
+    if (previousSecret === undefined) delete process.env.OPENAI_API_KEY
+    else process.env.OPENAI_API_KEY = previousSecret
+    await rm(directory, { recursive: true, force: true })
+  }
+})

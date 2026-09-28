@@ -31,12 +31,14 @@ wrangler   Generate wrangler.json for Cloudflare and celld from the backend:
            --check reports drift without writing.
 
 dev        Start the app locally: sqld, celld with the Worker, and Vite with
-           the API proxy. Pushes the schema and regenerates wrangler.json on
-           each change under src/. Ctrl+C stops everything.
+           the API proxy. Pushes the schema and regenerates wrangler.json and
+           bunderstack.blueprint.yaml on each change under src/. Ctrl+C stops
+           everything.
            BUNDERSTACK_CELLD_BIN and BUNDERSTACK_SQLD_BIN select system
            binaries instead of the pinned downloads.
 
-build      Build the SPA into dist/client with Vite and check wrangler.json.`
+build      Build the SPA into dist/client with Vite and check wrangler.json and
+           bunderstack.blueprint.yaml.`
 
 type AppCommands = {
   dev(options: { directory: string; port?: number }): Promise<number>

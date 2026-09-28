@@ -130,7 +130,7 @@ export async function generateBlueprint(
     framework = 'solid'
   }
   requireScript(pkg, 'build', true)
-  requireScript(pkg, 'start', true)
+  const hasStartScript = requireScript(pkg, 'start', false)
 
   const configuredEntry = pkg.bunderstack?.entry
   const entry = requireRelativePath(
@@ -191,7 +191,9 @@ export async function generateBlueprint(
   }
   const manifest = firstManifest
   const workerRequired = manifest.background.jobs.length > 0
-  requireScript(pkg, 'worker', workerRequired)
+  if (hasStartScript) {
+    requireScript(pkg, 'worker', workerRequired)
+  }
   const migrationsDirectory = normalizeProjectPath(
     directory,
     manifest.database.migrationsDirectory,
@@ -214,6 +216,7 @@ export async function generateBlueprint(
     entry,
     migrationMode,
     framework,
+    ...(hasStartScript ? {} : { runtime: 'worker' }),
   })
   const source = serializeBlueprint(blueprint)
   const existing = (await Bun.file(outputPath).exists())

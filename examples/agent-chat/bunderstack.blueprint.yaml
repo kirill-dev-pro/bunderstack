@@ -1,0 +1,194 @@
+version: 1
+generator:
+  name: bunderstack
+  version: 1.0.0-beta.2
+application:
+  runtime: worker
+  framework: bun-ssr
+  scripts:
+    build: build
+bunderstack:
+  entry: src/bunderstack.ts
+  manifestVersion: 4
+resources:
+  database:
+    dialect: sqlite
+    migrationsDirectory: ./migrations
+    migrationMode: migrations
+    tables:
+      - exportName: _system.idempotency
+        physicalName: _bunderstack_idempotency
+        system: true
+      - exportName: _system.jobs
+        physicalName: _bunderstack_jobs
+        system: true
+      - exportName: _system.messageEvents
+        physicalName: _bunderstack_message_events
+        system: true
+      - exportName: _system.messages
+        physicalName: _bunderstack_messages
+        system: true
+      - exportName: account
+        physicalName: account
+        system: false
+      - exportName: agentCommitmentDependencies
+        physicalName: agent_commitment_dependencies
+        system: false
+      - exportName: agentCommitments
+        physicalName: agent_commitments
+        system: false
+      - exportName: agentInbox
+        physicalName: agent_inbox
+        system: false
+      - exportName: agentMemory
+        physicalName: agent_memory
+        system: false
+      - exportName: agentMessages
+        physicalName: agent_messages
+        system: false
+      - exportName: agentRequests
+        physicalName: agent_requests
+        system: false
+      - exportName: agentRunSteps
+        physicalName: agent_run_steps
+        system: false
+      - exportName: agentRuns
+        physicalName: agent_runs
+        system: false
+      - exportName: agentThreads
+        physicalName: agent_threads
+        system: false
+      - exportName: agentToolCalls
+        physicalName: agent_tool_calls
+        system: false
+      - exportName: agentToolGrants
+        physicalName: agent_tool_grants
+        system: false
+      - exportName: _system.files
+        physicalName: bunderstack_file_meta
+        system: true
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: tasks
+        physicalName: tasks
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+      - exportName: verification
+        physicalName: verification
+        system: false
+  storage:
+    defaultBucket: default
+    buckets:
+      - name: default
+        visibility: private
+  realtime:
+    required: true
+  messaging:
+    channels: []
+environment:
+  - key: AI_API_KEY
+    required: false
+    scope: server
+    sensitive: true
+  - key: AI_BASE_URL
+    required: false
+    scope: server
+    sensitive: true
+  - key: AI_MODEL
+    required: false
+    scope: server
+    sensitive: true
+  - key: AI_PROVIDER
+    required: false
+    scope: server
+    sensitive: true
+  - key: APP_URL
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_API_KEY
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_BASE_URL
+    required: false
+    scope: server
+    sensitive: true
+  - key: IQDOC_MODEL
+    required: false
+    scope: server
+    sensitive: true
+  - key: OPENAI_API_KEY
+    required: false
+    scope: server
+    sensitive: true
+  - key: OPENAI_MODEL
+    required: false
+    scope: server
+    sensitive: true
+  - key: PUBLIC_APP_NAME
+    required: false
+    scope: client
+    sensitive: false
+api:
+  operations:
+    - handle: cancelCommitment
+      operationId: cancelCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/cancel
+    - handle: deleteMemory
+      operationId: deleteMemory
+      effect: mutation
+      method: DELETE
+      path: /api/agent/memory/{id}
+    - handle: pauseCommitment
+      operationId: pauseCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/pause
+    - handle: resolveApproval
+      operationId: resolveApproval
+      effect: mutation
+      method: POST
+      path: /api/agent/approvals/{id}
+    - handle: resumeCommitment
+      operationId: resumeCommitment
+      effect: mutation
+      method: POST
+      path: /api/agent/commitments/{id}/resume
+    - handle: revokeGrant
+      operationId: revokeGrant
+      effect: mutation
+      method: POST
+      path: /api/agent/grants/{id}/revoke
+    - handle: sendMessage
+      operationId: sendMessage
+      effect: mutation
+      method: POST
+      path: /api/agent/messages
+    - handle: stopRun
+      operationId: stopRun
+      effect: mutation
+      method: POST
+      path: /api/agent/runs/{id}/stop
+    - handle: updateMemory
+      operationId: updateMemory
+      effect: mutation
+      method: PATCH
+      path: /api/agent/memory/{id}
+background:
+  worker:
+    required: true
+  jobs:
+    - name: agentCommitment
+    - name: agentReminder
+    - name: agentTurn
+  cron: []
+  maintenance:
+    - name: storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC

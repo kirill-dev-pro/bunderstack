@@ -7,6 +7,7 @@ import { parseCron } from './jobs/cron'
 import { validateStandardSchema } from './standard-schema'
 
 export type MigrationMode = 'migrations' | 'push'
+export type ApplicationRuntime = 'server' | 'worker'
 export type ApplicationFramework =
   | 'tanstack-start'
   | 'solid'
@@ -29,8 +30,9 @@ export type BunderstackBlueprint = {
   version: 1
   generator: { name: 'bunderstack'; version: string }
   application: {
+    runtime?: ApplicationRuntime
     framework: ApplicationFramework
-    scripts: { build: 'build'; start: 'start'; worker?: 'worker' }
+    scripts: { build: 'build'; start?: 'start'; worker?: 'worker' }
   }
   bunderstack: { entry: string; manifestVersion: 4 }
   resources: {
@@ -84,10 +86,11 @@ const blueprintSchema = open({
     version: nonEmpty,
   }),
   application: open({
+    runtime: v.optional(v.picklist(['server', 'worker'])),
     framework: v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom']),
     scripts: open({
       build: v.literal('build'),
-      start: v.literal('start'),
+      start: v.optional(v.literal('start')),
       worker: v.optional(v.literal('worker')),
     }),
   }),
@@ -232,16 +235,33 @@ export function parseBlueprint(value: unknown): BunderstackBlueprint {
       '[bunderstack] storage defaultBucket must be declared in storage buckets',
     )
   }
+  const runtime = blueprint.application.runtime ?? 'server'
   const workerRequired = blueprint.background.jobs.length > 0
   if (blueprint.background.worker.required !== workerRequired) {
     throw new Error(
       '[bunderstack] background worker.required must match declared queue jobs',
     )
   }
-  if (Boolean(blueprint.application.scripts.worker) !== workerRequired) {
-    throw new Error(
-      '[bunderstack] application worker script must match declared queue jobs',
-    )
+  if (runtime === 'worker') {
+    if (
+      blueprint.application.scripts.start !== undefined ||
+      blueprint.application.scripts.worker !== undefined
+    ) {
+      throw new Error(
+        '[bunderstack] worker runtime blueprint must only declare the build script',
+      )
+    }
+  } else {
+    if (blueprint.application.scripts.start !== 'start') {
+      throw new Error(
+        '[bunderstack] server runtime blueprint must declare the start script',
+      )
+    }
+    if (Boolean(blueprint.application.scripts.worker) !== workerRequired) {
+      throw new Error(
+        '[bunderstack] application worker script must match declared queue jobs',
+      )
+    }
   }
   return blueprint
 }
@@ -260,18 +280,24 @@ export function blueprintFromManifest(args: {
   entry: string
   migrationMode: MigrationMode
   framework?: ApplicationFramework
+  runtime?: ApplicationRuntime
 }): BunderstackBlueprint {
+  const runtime = args.runtime ?? 'server'
   const workerRequired = args.manifest.background.jobs.length > 0
   return parseBlueprint({
     version: 1,
     generator: { name: 'bunderstack', version: args.generatorVersion },
     application: {
+      ...(args.runtime ? { runtime: args.runtime } : {}),
       framework: args.framework ?? 'tanstack-start',
-      scripts: {
-        build: 'build',
-        start: 'start',
-        ...(workerRequired ? { worker: 'worker' } : {}),
-      },
+      scripts:
+        runtime === 'worker'
+          ? { build: 'build' }
+          : {
+              build: 'build',
+              start: 'start',
+              ...(workerRequired ? { worker: 'worker' } : {}),
+            },
     },
     bunderstack: { entry: args.entry, manifestVersion: 4 },
     resources: {

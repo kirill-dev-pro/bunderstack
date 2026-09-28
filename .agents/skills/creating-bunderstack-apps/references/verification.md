@@ -15,7 +15,10 @@ bun run blueprint:check
 `bun run blueprint` generates the committed `bunderstack.blueprint.yaml` from
 the configured Bunderstack entry. Set `package.json#bunderstack.entry` when the
 entry is not `src/bunderstack.ts`. `bun run blueprint:check` must pass in CI so
-the committed declaration matches the application.
+the committed declaration matches the application. Worker applications commit
+both `wrangler.json` and `bunderstack.blueprint.yaml`; `bunderstack dev`
+updates both files on startup and rebuild, and `bunderstack build` verifies
+both are current.
 
 Before production, generate and commit the Drizzle `migrations/` folder.
 `provision(app)` from `bunderstack/provision` only applies committed
