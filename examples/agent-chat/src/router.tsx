@@ -19,6 +19,20 @@ export type RouterContext = {
   } | null
 }
 
+export const agentChatRealtimeTables = [
+  'agentThreads',
+  'agentMessages',
+  'agentRuns',
+  'agentRunSteps',
+  'agentToolCalls',
+  'agentCommitments',
+  'agentMemory',
+  'agentInbox',
+  'agentRequests',
+  'agentToolGrants',
+  'tasks',
+]
+
 export function getRouter() {
   const queryClient = createQueryClient()
   const api = createApi(queryClient)
@@ -27,18 +41,7 @@ export function getRouter() {
     syncRealtime({
       api,
       queryClient,
-      tables: [
-        'agentThreads',
-        'agentMessages',
-        'agentRuns',
-        'agentToolCalls',
-        'agentCommitments',
-        'agentMemory',
-        'agentInbox',
-        'agentRequests',
-        'agentToolGrants',
-        'tasks',
-      ],
+      tables: agentChatRealtimeTables,
     })
   }
 
