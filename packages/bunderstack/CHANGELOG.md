@@ -2,7 +2,7 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
-## [Unreleased] — 1.0.0 (branch `next`)
+## [1.0.0-beta.1] — 2026-09-28
 
 ### Added
 

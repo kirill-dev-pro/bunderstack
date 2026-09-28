@@ -33,13 +33,28 @@ export function shouldPublish(
   return Bun.semver.order(localVersion, registryVersion) === 1
 }
 
-async function registryVersion(name: string): Promise<string | null> {
+export function distTagForVersion(version: string): string {
+  if (!version.includes('-')) return 'latest'
+  return version.split('-')[1]?.split('.')[0] || 'beta'
+}
+
+async function registryVersion(
+  name: string,
+  tag = 'latest',
+): Promise<string | null> {
   const res = await fetch(`${REGISTRY}/${name}`)
   if (res.status === 404) return null
   if (!res.ok)
     throw new Error(`registry lookup for ${name} failed: HTTP ${res.status}`)
-  const data = (await res.json()) as { 'dist-tags'?: { latest?: string } }
-  return data['dist-tags']?.latest ?? null
+  const data = (await res.json()) as {
+    'dist-tags'?: Record<string, string>
+  }
+  const latest = data['dist-tags']?.latest ?? null
+  const tagged = data['dist-tags']?.[tag] ?? null
+  if (latest && tagged) {
+    return Bun.semver.order(tagged, latest) === 1 ? tagged : latest
+  }
+  return tagged ?? latest
 }
 
 async function main() {
@@ -55,8 +70,9 @@ async function main() {
 
   for (const name of PUBLISH_ORDER) {
     const { dir, pkg } = packages.get(name)!
+    const tag = distTagForVersion(pkg.version)
 
-    const published = await registryVersion(name)
+    const published = await registryVersion(name, tag)
     if (published === null) {
       throw new Error(
         `${name} has never been published. Trusted publishing cannot create a ` +

@@ -8,7 +8,7 @@ on:
       - 'scripts/publish-changed.ts'
       - '.github/workflows/publish.yml'
   push:
-    branches: [main]
+    branches: [main, next]
     paths:
       - 'packages/**'
       - 'scripts/publish-changed.ts'
