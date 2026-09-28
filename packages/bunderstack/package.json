@@ -89,6 +89,10 @@
       "types": "./dist/workers/index.d.ts",
       "default": "./dist/workers/index.js"
     },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
     "./schema": {
       "types": "./dist/schema-export.d.ts",
       "default": "./dist/schema-export.js"

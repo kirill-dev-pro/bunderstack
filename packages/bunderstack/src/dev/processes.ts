@@ -54,6 +54,7 @@ export class ProcessGroup {
   }
 
   start(spec: ProcessSpec) {
+    this.width = Math.max(this.width, spec.name.length)
     const child = Bun.spawn(spec.cmd, {
       cwd: spec.cwd,
       env: { ...process.env, ...spec.env },
