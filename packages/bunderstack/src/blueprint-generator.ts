@@ -8,15 +8,17 @@ import {
 } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parse } from 'yaml'
 
 import { isBunderstackBackend } from './backend'
 import { BACKEND_INTERNALS } from './backend-internals'
 import {
   blueprintFromManifest,
+  parseWorkerBlueprintYaml,
   serializeBlueprint,
-  type BunderstackBlueprint,
+  type WorkerBlueprint,
+  type WorkerSettings,
 } from './blueprint'
-import { parseBlueprintYaml } from './blueprint'
 import { createEnvProbeSources } from './env-probe'
 import { assertManifestMatchesBlueprint } from './hosted-contract'
 import { parseManifest } from './manifest'
@@ -28,11 +30,13 @@ export type GenerateBlueprintOptions = {
   output?: string
   check?: boolean
   hostedCheck?: boolean
+  /** UTC date for a new compatibilityDate; tests pin it. */
+  today?: string
 }
 
 export type GenerateBlueprintResult = {
   path: string
-  blueprint: BunderstackBlueprint
+  blueprint: WorkerBlueprint
   source: string
   changed: boolean
 }
@@ -94,7 +98,7 @@ function normalizeProjectPath(
 
 function requireScript(
   pkg: AppPackage,
-  name: 'build' | 'start' | 'worker',
+  name: 'build',
   required: boolean,
 ): boolean {
   const value = pkg.scripts?.[name]
@@ -104,6 +108,52 @@ function requireScript(
       `[bunderstack] package.json requires a non-empty "${name}" script`,
     )
   return false
+}
+
+async function readText(path: string): Promise<string | undefined> {
+  return readFile(path, 'utf8').catch(() => undefined)
+}
+
+/**
+ * Worker settings survive regeneration: the committed blueprint wins, then an
+ * old wrangler.json (apps from beta.1 and beta.2), then the defaults.
+ */
+async function workerSettings(
+  directory: string,
+  existing: string | undefined,
+  today: string,
+): Promise<WorkerSettings> {
+  let fromBlueprint: Partial<WorkerSettings> = {}
+  try {
+    const raw = parse(existing ?? '') as {
+      application?: { worker?: Partial<WorkerSettings> }
+    } | null
+    fromBlueprint = raw?.application?.worker ?? {}
+  } catch {}
+  let fromWrangler: Partial<WorkerSettings> = {}
+  try {
+    const raw = JSON.parse(
+      (await readText(join(directory, 'wrangler.json'))) ?? 'null',
+    ) as {
+      main?: string
+      compatibility_date?: string
+      assets?: { directory?: string }
+    } | null
+    fromWrangler = {
+      main: raw?.main,
+      compatibilityDate: raw?.compatibility_date,
+      assets: raw?.assets?.directory,
+    }
+  } catch {}
+  const pick = (key: keyof WorkerSettings, fallback: string) => {
+    const value = fromBlueprint[key] ?? fromWrangler[key]
+    return typeof value === 'string' && value ? value : fallback
+  }
+  return {
+    main: pick('main', 'src/worker.ts'),
+    compatibilityDate: pick('compatibilityDate', today),
+    assets: pick('assets', 'dist/client'),
+  }
 }
 
 async function packageVersion(): Promise<string> {
@@ -130,7 +180,6 @@ export async function generateBlueprint(
     framework = 'solid'
   }
   requireScript(pkg, 'build', true)
-  const hasStartScript = requireScript(pkg, 'start', false)
 
   const configuredEntry = pkg.bunderstack?.entry
   const entry = requireRelativePath(
@@ -169,7 +218,7 @@ export async function generateBlueprint(
     assertManifestMatchesBlueprint(manifest, source)
     return {
       path: outputPath,
-      blueprint: parseBlueprintYaml(source),
+      blueprint: parseWorkerBlueprintYaml(source),
       source,
       changed: false,
     }
@@ -190,10 +239,6 @@ export async function generateBlueprint(
     )
   }
   const manifest = firstManifest
-  const workerRequired = manifest.background.jobs.length > 0
-  if (hasStartScript) {
-    requireScript(pkg, 'worker', workerRequired)
-  }
   const migrationsDirectory = normalizeProjectPath(
     directory,
     manifest.database.migrationsDirectory,
@@ -207,6 +252,7 @@ export async function generateBlueprint(
   const migrationMode = (await Bun.file(migrationJournal).exists())
     ? 'migrations'
     : 'push'
+  const existing = await readText(outputPath)
   const blueprint = blueprintFromManifest({
     manifest: {
       ...manifest,
@@ -216,17 +262,13 @@ export async function generateBlueprint(
     entry,
     migrationMode,
     framework,
-    // Task 4 replaces this bridge with settings kept from the committed file.
-    worker: {
-      main: 'src/worker.ts',
-      compatibilityDate: new Date().toISOString().slice(0, 10),
-      assets: 'dist/client',
-    },
+    worker: await workerSettings(
+      directory,
+      existing,
+      options.today ?? new Date().toISOString().slice(0, 10),
+    ),
   })
   const source = serializeBlueprint(blueprint)
-  const existing = (await Bun.file(outputPath).exists())
-    ? await Bun.file(outputPath).text()
-    : undefined
   if (options.check) {
     if (existing !== source) throw new BlueprintCheckError()
     return { path: outputPath, blueprint, source, changed: false }
