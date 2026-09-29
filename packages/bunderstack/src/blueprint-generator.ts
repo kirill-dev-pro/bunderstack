@@ -216,7 +216,12 @@ export async function generateBlueprint(
     entry,
     migrationMode,
     framework,
-    ...(hasStartScript ? {} : { runtime: 'worker' }),
+    // Task 4 replaces this bridge with settings kept from the committed file.
+    worker: {
+      main: 'src/worker.ts',
+      compatibilityDate: new Date().toISOString().slice(0, 10),
+      assets: 'dist/client',
+    },
   })
   const source = serializeBlueprint(blueprint)
   const existing = (await Bun.file(outputPath).exists())

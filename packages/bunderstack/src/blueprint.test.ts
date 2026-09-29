@@ -7,6 +7,7 @@ import {
   isSensitiveEnvVar,
   parseBlueprint,
   parseBlueprintYaml,
+  parseWorkerBlueprint,
   serializeBlueprint,
 } from './blueprint'
 
@@ -58,17 +59,56 @@ const manifest: BunderstackManifest = {
   },
 }
 
+const WORKER = {
+  main: 'src/worker.ts',
+  compatibilityDate: '2026-09-28',
+  assets: 'dist/client',
+}
+
+const legacySource = {
+  version: 1,
+  generator: { name: 'bunderstack', version: '0.25.2' },
+  application: {
+    framework: 'tanstack-start',
+    scripts: { build: 'build', start: 'start', worker: 'worker' },
+  },
+  bunderstack: { entry: 'src/bunderstack.ts', manifestVersion: 4 },
+  resources: {
+    database: {
+      dialect: 'sqlite',
+      migrationsDirectory: 'migrations',
+      migrationMode: 'migrations',
+      tables: [],
+    },
+    storage: {
+      defaultBucket: 'images',
+      buckets: [{ name: 'images', visibility: 'private' }],
+    },
+    messaging: { channels: [] },
+  },
+  environment: [],
+  background: {
+    worker: { required: true },
+    jobs: [{ name: 'work' }],
+    cron: [],
+    maintenance: [],
+  },
+}
+
 test('blueprint converts a manifest to canonical YAML', () => {
   const blueprint = blueprintFromManifest({
     manifest,
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
   })
   const yaml = serializeBlueprint(blueprint)
 
   expect(blueprint.resources.realtime).toEqual({ required: true })
-  expect(blueprint.background.worker).toEqual({ required: true })
+  expect(blueprint.version).toBe(2)
+  expect(blueprint.application.worker).toEqual(WORKER)
+  expect('worker' in blueprint.background).toBe(false)
   expect(yaml).toEndWith('\n')
   expect(yaml).toContain('schedule: "* * * * *"')
   expect(yaml).not.toContain('DATABASE_URL')
@@ -82,6 +122,7 @@ test('blueprint parser rejects unsafe and duplicate declarations', () => {
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'push',
+    worker: WORKER,
   })
   expect(() =>
     parseBlueprint({
@@ -102,9 +143,8 @@ test('blueprint parser rejects unsafe and duplicate declarations', () => {
         ...blueprint.application,
         scripts: { build: 'build', start: 'start' },
       },
-      background: { ...blueprint.background, worker: { required: false } },
     }),
-  ).toThrow(/worker/)
+  ).toThrow(/only the build script/)
   expect(() =>
     parseBlueprint({
       ...blueprint,
@@ -122,6 +162,7 @@ test('blueprint accepts solid and bun-ssr framework declarations', () => {
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
     framework: 'solid',
   })
   expect(solidBlueprint.application.framework).toBe('solid')
@@ -136,6 +177,7 @@ test('parseBlueprint keeps sections a newer generator added', () => {
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
   })
   const forward = {
     ...blueprint,
@@ -162,6 +204,7 @@ test('an unknown section survives a serialize round-trip', () => {
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
   })
   const forward = { ...blueprint, telemetry: { sampleRate: 1 } }
 
@@ -176,6 +219,7 @@ test('open objects still require declared keys', () => {
     generatorVersion: '0.13.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
   })
   const broken = {
     ...blueprint,
@@ -209,6 +253,7 @@ test('blueprint environment entries expose secrecy with a scope default', () => 
       generatorVersion: '0.23.0',
       entry: 'src/bunderstack.ts',
       migrationMode: 'migrations',
+      worker: WORKER,
     }),
   )
 
@@ -254,6 +299,7 @@ test('the blueprint carries application operations and survives their absence', 
     generatorVersion: '0.23.0',
     entry: 'src/bunderstack.ts',
     migrationMode: 'migrations',
+    worker: WORKER,
   })
 
   expect(withApi.api?.operations[0]?.effect).toBe('mutation')
@@ -263,44 +309,79 @@ test('the blueprint carries application operations and survives their absence', 
   expect(parseBlueprint(legacy).api).toBeUndefined()
 })
 
-test('blueprint supports worker runtime without start or companion worker scripts', () => {
-  const workerBlueprint = blueprintFromManifest({
-    manifest,
-    generatorVersion: '1.0.0-beta.2',
-    entry: 'src/bunderstack.ts',
-    migrationMode: 'migrations',
-    runtime: 'worker',
-  })
+test('a 0.25.x version 1 blueprint still parses as the legacy contract', () => {
+  const legacy = parseBlueprint(legacySource)
+  expect(legacy.version).toBe(1)
+  if (legacy.version !== 1) throw new Error('unreachable')
+  expect(legacy.application.scripts.start).toBe('start')
+  expect(legacy.background.worker).toEqual({ required: true })
+  expect(parseBlueprintYaml(serializeBlueprint(legacy))).toEqual(legacy)
+})
 
-  expect(workerBlueprint.application).toEqual({
-    runtime: 'worker',
-    framework: 'tanstack-start',
-    scripts: { build: 'build' },
-  })
-  expect(workerBlueprint.background.worker).toEqual({ required: true })
+test('parseWorkerBlueprint rejects a version 1 blueprint with the upgrade step', () => {
+  expect(() => parseWorkerBlueprint(legacySource)).toThrow(
+    /run `bunderstack dev` or `bunderstack blueprint`/,
+  )
+})
 
-  const yaml = serializeBlueprint(workerBlueprint)
-  expect(yaml).toContain('runtime: worker')
-  expect(yaml).not.toContain('start: start')
-  expect(parseBlueprintYaml(yaml)).toEqual(workerBlueprint)
-
+test('a beta.2 version 1 blueprint with runtime: worker must be regenerated', () => {
   expect(() =>
     parseBlueprint({
-      ...workerBlueprint,
+      ...legacySource,
       application: {
-        ...workerBlueprint.application,
-        scripts: { build: 'build', start: 'start' },
-      },
-    }),
-  ).toThrow(/worker runtime blueprint must only declare the build script/)
-
-  expect(() =>
-    parseBlueprint({
-      ...workerBlueprint,
-      application: {
-        framework: 'tanstack-start',
+        runtime: 'worker',
+        framework: 'solid',
         scripts: { build: 'build' },
       },
     }),
-  ).toThrow(/server runtime blueprint must declare the start script/)
+  ).toThrow(/regenerate the blueprint with bunderstack 1.0.0-beta.3/)
+})
+
+test('version 2 requires application.worker with safe paths and a date', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '1.0.0-beta.3',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+    worker: WORKER,
+  })
+  const { worker: _worker, ...application } = blueprint.application
+  expect(() => parseBlueprint({ ...blueprint, application })).toThrow()
+  for (const worker of [
+    { ...WORKER, main: '../worker.ts' },
+    { ...WORKER, assets: '/abs' },
+    { ...WORKER, compatibilityDate: '28.09.2026' },
+  ]) {
+    expect(() =>
+      parseBlueprint({
+        ...blueprint,
+        application: { ...blueprint.application, worker },
+      }),
+    ).toThrow()
+  }
+  expect(() =>
+    parseBlueprint({
+      ...blueprint,
+      application: {
+        ...blueprint.application,
+        scripts: { build: 'build', start: 'start' },
+      },
+    }),
+  ).toThrow(/version 2 blueprint declares only the build script/)
+})
+
+test('version 2 serializes the worker section and round-trips', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '1.0.0-beta.3',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'push',
+    framework: 'solid',
+    worker: WORKER,
+  })
+  const yaml = serializeBlueprint(blueprint)
+  expect(yaml).toStartWith('version: 2\n')
+  expect(yaml).toMatch(/compatibilityDate: "?2026-09-28"?\n/)
+  expect(yaml).not.toContain('runtime:')
+  expect(parseWorkerBlueprint(parseBlueprintYaml(yaml))).toEqual(blueprint)
 })

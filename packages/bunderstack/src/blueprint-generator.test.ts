@@ -205,7 +205,7 @@ export const backend = bunderstack({
   }
 })
 
-test('generateBlueprint emits a worker blueprint when package.json has no start script and never serializes secret values', async () => {
+test('generateBlueprint emits a version 2 blueprint and never serializes secret values', async () => {
   const tempRoot = await realpath(tmpdir())
   const directory = await mkdtemp(
     join(tempRoot, 'bunderstack-blueprint-worker-'),
@@ -243,12 +243,12 @@ export const backend = bunderstack({
   process.env.OPENAI_API_KEY = 'sk-super-secret-live-value'
   try {
     const result = await generateBlueprint({ directory })
-    expect(result.blueprint.application).toEqual({
-      runtime: 'worker',
+    expect(result.blueprint.version).toBe(2)
+    expect(result.blueprint.application).toMatchObject({
       framework: 'bun-ssr',
       scripts: { build: 'build' },
     })
-    expect(result.blueprint.background.worker).toEqual({ required: true })
+    expect('worker' in result.blueprint.background).toBe(false)
     expect(result.blueprint.environment).toEqual([
       {
         key: 'OPENAI_API_KEY',
