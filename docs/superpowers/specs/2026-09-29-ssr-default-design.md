@@ -188,8 +188,10 @@ celld is not started. The `/api` proxy part of `bunderstack/vite` is removed.
 1. Fail on a missing or stale blueprint.
 2. Write `wrangler.json`.
 3. `vite build`.
-4. Delete `dist/client/.assetsignore`.
-5. Fail if any `.dev.vars` exists under `dist/`.
+4. Delete `dist/client/.assetsignore` and every `.dev.vars` under `dist/`. The
+   Cloudflare plugin copies the local `.dev.vars` into `dist/server/` on every
+   build, so a local build after `bunderstack dev` always has one; hosts refuse
+   an artifact that still contains it.
 
 The pinned celld binary stays for `test:workers` only.
 
@@ -228,7 +230,7 @@ Unit:
   no handler is registered.
 - Server entries: `/api/*` to bunderstack, other paths to Start (SSR) or
   `ASSETS` (SPA), `scheduled` to the Scheduler, the three named exports.
-- `bunderstack build`: removes `.assetsignore`; fails on `dist/**/.dev.vars`.
+- `bunderstack build`: removes `.assetsignore` and `dist/**/.dev.vars`.
 
 Integration (`bun run test:workers`, celld and workerd, on the built artifact):
 
