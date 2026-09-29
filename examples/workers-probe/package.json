@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "wrangler": "bun ../../packages/bunderstack/src/cli.ts wrangler . --assets public"
+    "wrangler": "bun ../../packages/bunderstack/src/cli.ts wrangler .",
+    "build": "bunderstack build"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

@@ -1,12 +1,15 @@
-version: 1
+version: 2
 generator:
   name: bunderstack
   version: 1.0.0-beta.2
 application:
-  runtime: worker
   framework: bun-ssr
   scripts:
     build: build
+  worker:
+    main: src/worker.ts
+    compatibilityDate: 2026-09-28
+    assets: dist/client
 bunderstack:
   entry: src/bunderstack.ts
   manifestVersion: 4
@@ -181,8 +184,6 @@ api:
       method: PATCH
       path: /api/agent/memory/{id}
 background:
-  worker:
-    required: true
   jobs:
     - name: agentCommitment
     - name: agentReminder

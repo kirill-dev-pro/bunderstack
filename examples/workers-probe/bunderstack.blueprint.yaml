@@ -3,13 +3,13 @@ generator:
   name: bunderstack
   version: 1.0.0-beta.2
 application:
-  framework: solid
+  framework: bun-ssr
   scripts:
     build: build
   worker:
     main: src/worker.ts
-    compatibilityDate: 2026-09-28
-    assets: dist/client
+    compatibilityDate: 2026-09-27
+    assets: public
 bunderstack:
   entry: src/bunderstack.ts
   manifestVersion: 4
@@ -31,27 +31,58 @@ resources:
       - exportName: _system.messages
         physicalName: _bunderstack_messages
         system: true
+      - exportName: account
+        physicalName: account
+        system: false
       - exportName: _system.files
         physicalName: bunderstack_file_meta
         system: true
-      - exportName: todos
-        physicalName: todos
+      - exportName: events
+        physicalName: events
+        system: false
+      - exportName: notes
+        physicalName: notes
+        system: false
+      - exportName: session
+        physicalName: session
+        system: false
+      - exportName: user
+        physicalName: user
+        system: false
+      - exportName: verification
+        physicalName: verification
         system: false
   storage:
-    defaultBucket: default
+    defaultBucket: media
     buckets:
-      - name: default
+      - name: media
         visibility: private
   realtime:
     required: true
   messaging:
     channels: []
-environment: []
+environment:
+  - key: APP_URL
+    required: false
+    scope: server
+    sensitive: true
 api:
-  operations: []
+  operations:
+    - handle: enqueueNote
+      operationId: enqueueNote
+      effect: mutation
+      method: POST
+      path: /api/probe/enqueue
 background:
-  jobs: []
-  cron: []
+  jobs:
+    - name: noteCreated
+  cron:
+    - name: bunderstack:storage-sweep
+      schedule: "0 4 * * *"
+      timezone: UTC
+    - name: everyMinute
+      schedule: "* * * * *"
+      timezone: UTC
   maintenance:
     - name: storage-sweep
       schedule: "0 4 * * *"

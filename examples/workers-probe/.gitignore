@@ -2,3 +2,4 @@
 .wrangler/
 .dev.vars
 .bunderstack/
+wrangler.json

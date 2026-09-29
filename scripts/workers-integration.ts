@@ -103,6 +103,11 @@ async function setup() {
     20_000,
   )
 
+  // wrangler.json is generated from the committed blueprint, as in `bunderstack dev`.
+  const { runWranglerCommand } =
+    await import('../packages/bunderstack/src/workers/wrangler')
+  await runWranglerCommand({ directory: probe })
+
   // Migrations run on the host, as Bunderhost does before a deploy.
   const { backend } = await import('../examples/workers-probe/src/bunderstack')
   // Resolve from the probe, so provision and the backend share one instance.

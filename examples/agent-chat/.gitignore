@@ -11,3 +11,4 @@ data.db-wal
 .celld
 .wrangler
 .dev.vars
+wrangler.json

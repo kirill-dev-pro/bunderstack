@@ -3,3 +3,4 @@ dist
 .celld
 .wrangler
 .dev.vars
+wrangler.json
