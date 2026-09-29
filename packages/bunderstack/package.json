@@ -173,6 +173,18 @@
       "types": "./dist/start/index.d.ts",
       "default": "./dist/start/index.js"
     },
+    "./start/worker": {
+      "types": "./dist/start/create-start-worker.d.ts",
+      "default": "./dist/start/create-start-worker.js"
+    },
+    "./start/server-entry": {
+      "types": "./dist/start/server-entry.d.ts",
+      "default": "./dist/start/server-entry.js"
+    },
+    "./workers/entry": {
+      "types": "./dist/workers/entry.d.ts",
+      "default": "./dist/workers/entry.js"
+    },
     "./start-auth": {
       "types": "./dist/start/auth-client.d.ts",
       "default": "./dist/start/auth-client.js"

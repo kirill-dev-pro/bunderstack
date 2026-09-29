@@ -6,6 +6,7 @@ import type { ExecutionContextLike, WorkerEnv } from './types'
 import { appFor, notifyScheduler } from './app'
 import { RateLimiter } from './rate-limiter'
 import { RealtimeHub } from './realtime-hub'
+import { registerWorker, rememberWorkerEnv } from './registry'
 import { createSchedulerClass } from './scheduler'
 
 export function createWorker(backend: BunderstackBackend<any>) {
@@ -15,6 +16,7 @@ export function createWorker(backend: BunderstackBackend<any>) {
       env: WorkerEnv,
       _ctx: ExecutionContextLike,
     ): Promise<Response> {
+      rememberWorkerEnv(env)
       const app = await appFor(backend, env, 'fetch')
       const response = await app.handler(request)
       // A path that reached the Worker but has no route: let the SPA answer.
@@ -31,6 +33,8 @@ export function createWorker(backend: BunderstackBackend<any>) {
         ctx.waitUntil(notifyScheduler(env.SCHEDULER, Date.now()))
     },
   }
+  // Start server code in this isolate calls the API through it.
+  registerWorker(handler)
   return {
     handler,
     durableObjects: {
@@ -47,6 +51,12 @@ export {
   type SchedulerObject,
 } from './scheduler'
 export { HubPublisher, RealtimeHub } from './realtime-hub'
+export {
+  registeredWorker,
+  registerWorker,
+  rememberWorkerEnv,
+  type RegisteredWorker,
+} from './registry'
 export { durableRateLimitStore, RateLimiter } from './rate-limiter'
 export { bucketBindingName, R2StorageAdapter } from './r2'
 export type * from './types'
