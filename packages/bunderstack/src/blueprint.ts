@@ -420,3 +420,9 @@ export function serializeBlueprint(value: BunderstackBlueprint): string {
     },
   )
 }
+
+export {
+  bucketBindingName,
+  workerPlanFromBlueprint,
+  type WorkerPlan,
+} from './worker-plan'

@@ -9,10 +9,9 @@ import type {
 import type { R2BucketLike, WorkerEnv } from './types'
 
 import { S3StorageAdapter } from '../storage/s3'
+import { bucketBindingName } from '../worker-plan'
 
-export function bucketBindingName(bucketName: string): string {
-  return `BUCKET_${bucketName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`
-}
+export { bucketBindingName }
 
 export class R2StorageAdapter implements StorageAdapter {
   presignPut?: (key: string, opts: PresignPutOptions) => Promise<string>
