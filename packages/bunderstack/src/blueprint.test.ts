@@ -60,6 +60,7 @@ const manifest: BunderstackManifest = {
 }
 
 const WORKER = {
+  render: 'spa' as const,
   main: 'src/worker.ts',
   compatibilityDate: '2026-09-28',
   assets: 'dist/client',
@@ -384,4 +385,67 @@ test('version 2 serializes the worker section and round-trips', () => {
   expect(yaml).toMatch(/compatibilityDate: "?2026-09-28"?\n/)
   expect(yaml).not.toContain('runtime:')
   expect(parseWorkerBlueprint(parseBlueprintYaml(yaml))).toEqual(blueprint)
+})
+
+test('version 2 requires render and accepts ssr and spa', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '1.0.0-beta.4',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+    worker: {
+      ...WORKER,
+      render: 'ssr',
+      main: 'bunderstack/start/server-entry',
+    },
+  })
+  expect(blueprint.application.worker.render).toBe('ssr')
+  const { render: _render, ...withoutRender } = blueprint.application.worker
+  expect(() =>
+    parseBlueprint({
+      ...blueprint,
+      application: { ...blueprint.application, worker: withoutRender },
+    }),
+  ).toThrow(/regenerate the blueprint with bunderstack 1.0.0-beta.4/)
+  expect(() =>
+    parseBlueprint({
+      ...blueprint,
+      application: {
+        ...blueprint.application,
+        worker: { ...blueprint.application.worker, render: 'isr' },
+      },
+    }),
+  ).toThrow()
+})
+
+test('main is a relative path or a known package entry', () => {
+  const blueprint = blueprintFromManifest({
+    manifest,
+    generatorVersion: '1.0.0-beta.4',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'migrations',
+    worker: WORKER,
+  })
+  const withMain = (main: string) => ({
+    ...blueprint,
+    application: {
+      ...blueprint.application,
+      worker: { ...blueprint.application.worker, main },
+    },
+  })
+  for (const main of [
+    'src/server.ts',
+    'bunderstack/start/server-entry',
+    'bunderstack/workers/entry',
+  ]) {
+    expect(parseBlueprint(withMain(main)).version).toBe(2)
+  }
+  for (const main of [
+    'bunderstack/other',
+    '@acme/entry',
+    '../x.ts',
+    '/abs.ts',
+  ]) {
+    expect(() => parseBlueprint(withMain(main))).toThrow()
+  }
 })

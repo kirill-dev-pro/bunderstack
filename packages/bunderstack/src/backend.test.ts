@@ -112,6 +112,7 @@ test('hosted blueprint mismatch fails before connecting to the database', async 
     entry: 'src/bunderstack.ts',
     migrationMode: 'push',
     worker: {
+      render: 'spa',
       main: 'src/worker.ts',
       compatibilityDate: '2026-09-28',
       assets: 'dist/client',

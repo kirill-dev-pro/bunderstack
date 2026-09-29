@@ -17,10 +17,12 @@ export type WranglerConfig = ReturnType<typeof toWranglerConfig>
 export function toWranglerConfig(
   plan: WorkerPlan,
   names: { name: string; bucketName: (logical: string) => string },
+  /** artifact: main and assets of the build output instead of the source. */
+  options: { artifact?: boolean } = {},
 ) {
   return {
     name: names.name,
-    main: plan.main,
+    main: options.artifact ? plan.artifact.main : plan.main,
     compatibility_date: plan.compatibilityDate,
     compatibility_flags: [...plan.compatibilityFlags],
     durable_objects: {
@@ -38,10 +40,14 @@ export function toWranglerConfig(
       bucket_name: names.bucketName(bucket.name),
     })),
     assets: {
-      directory: plan.assets.directory,
+      directory: options.artifact
+        ? plan.artifact.assets
+        : plan.assets.directory,
       binding: 'ASSETS',
-      not_found_handling: 'single-page-application',
-      run_worker_first: [...plan.assets.runWorkerFirst],
+      not_found_handling: plan.assets.notFoundHandling,
+      ...(plan.assets.runWorkerFirst.length > 0
+        ? { run_worker_first: [...plan.assets.runWorkerFirst] }
+        : {}),
     },
     ...(plan.crons.length > 0 ? { triggers: { crons: [...plan.crons] } } : {}),
   }

@@ -23,6 +23,7 @@ function blueprint(
       framework: 'solid',
       scripts: { build: 'build' },
       worker: {
+        render: 'spa',
         main: 'src/worker.ts',
         compatibilityDate: '2026-09-28',
         assets: 'dist/client',
@@ -68,6 +69,7 @@ function blueprint(
 
 test('the plan carries the Worker settings, DOs, buckets, routes, and crons', () => {
   expect(workerPlanFromBlueprint(blueprint())).toEqual({
+    render: 'spa',
     main: 'src/worker.ts',
     compatibilityDate: '2026-09-28',
     compatibilityFlags: ['nodejs_compat'],
@@ -91,7 +93,13 @@ test('the plan carries the Worker settings, DOs, buckets, routes, and crons', ()
     crons: ['0 4 * * *', '0 8 * * *'],
     assets: {
       directory: 'dist/client',
+      notFoundHandling: 'single-page-application',
       runWorkerFirst: ['/api/*', '/webhooks/*'],
+    },
+    artifact: {
+      main: 'dist/server/index.js',
+      assets: 'dist/client',
+      modules: true,
     },
   })
 })
@@ -134,4 +142,24 @@ test('the plan is a fresh object each time', () => {
   const plan = workerPlanFromBlueprint(source)
   plan.crons.push('mutated')
   expect(workerPlanFromBlueprint(source).crons).not.toContain('mutated')
+})
+
+test('ssr sends every path without a file to the Worker', () => {
+  const source = blueprint()
+  const plan = workerPlanFromBlueprint({
+    ...source,
+    application: {
+      ...source.application,
+      worker: {
+        ...source.application.worker,
+        render: 'ssr',
+        main: 'bunderstack/start/server-entry',
+      },
+    },
+  })
+  expect(plan.render).toBe('ssr')
+  expect(plan.main).toBe('bunderstack/start/server-entry')
+  expect(plan.assets.notFoundHandling).toBe('none')
+  expect(plan.assets.runWorkerFirst).toEqual([])
+  expect(plan.artifact.main).toBe('dist/server/index.js')
 })

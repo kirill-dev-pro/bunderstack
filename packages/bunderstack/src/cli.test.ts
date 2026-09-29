@@ -140,6 +140,7 @@ test('wrangler CLI renders wrangler.json from the blueprint without app code', a
     entry: 'src/bunderstack.ts',
     migrationMode: 'push',
     worker: {
+      render: 'spa',
       main: 'src/worker.ts',
       compatibilityDate: '2026-09-28',
       assets: 'public',

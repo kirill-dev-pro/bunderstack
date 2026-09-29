@@ -4,6 +4,7 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
@@ -16,7 +17,9 @@ import {
   blueprintFromManifest,
   parseWorkerBlueprintYaml,
   serializeBlueprint,
+  WORKER_PACKAGE_ENTRIES,
   type WorkerBlueprint,
+  type WorkerRender,
   type WorkerSettings,
 } from './blueprint'
 import { createEnvProbeSources } from './env-probe'
@@ -118,10 +121,18 @@ async function readText(path: string): Promise<string | undefined> {
  * Worker settings survive regeneration: the committed blueprint wins, then an
  * old wrangler.json (apps from beta.1 and beta.2), then the defaults.
  */
+async function exists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false,
+  )
+}
+
 async function workerSettings(
   directory: string,
   existing: string | undefined,
   today: string,
+  hasStart: boolean,
 ): Promise<WorkerSettings> {
   let fromBlueprint: Partial<WorkerSettings> = {}
   try {
@@ -149,8 +160,30 @@ async function workerSettings(
     const value = fromBlueprint[key] ?? fromWrangler[key]
     return typeof value === 'string' && value ? value : fallback
   }
+  const render: WorkerRender =
+    fromBlueprint.render === 'ssr' || fromBlueprint.render === 'spa'
+      ? fromBlueprint.render
+      : hasStart
+        ? 'ssr'
+        : 'spa'
+  // An old wrangler.json names src/worker.ts; keep it only while it exists.
+  if (
+    fromWrangler.main &&
+    !(WORKER_PACKAGE_ENTRIES as readonly string[]).includes(
+      fromWrangler.main,
+    ) &&
+    !(await exists(join(directory, fromWrangler.main)))
+  ) {
+    fromWrangler.main = undefined
+  }
+  const defaultMain = (await exists(join(directory, 'src/server.ts')))
+    ? 'src/server.ts'
+    : render === 'ssr'
+      ? 'bunderstack/start/server-entry'
+      : 'bunderstack/workers/entry'
   return {
-    main: pick('main', 'src/worker.ts'),
+    render,
+    main: pick('main', defaultMain),
     compatibilityDate: pick('compatibilityDate', today),
     assets: pick('assets', 'dist/client'),
   }
@@ -266,6 +299,7 @@ export async function generateBlueprint(
       directory,
       existing,
       options.today ?? new Date().toISOString().slice(0, 10),
+      typeof allDependencies['@tanstack/react-start'] === 'string',
     ),
   })
   const source = serializeBlueprint(blueprint)

@@ -25,7 +25,15 @@ export type BlueprintEnvVar = {
   description?: string
 }
 
+export const WORKER_PACKAGE_ENTRIES = [
+  'bunderstack/start/server-entry',
+  'bunderstack/workers/entry',
+] as const
+export type WorkerRender = 'ssr' | 'spa'
+
 export type WorkerSettings = {
+  render: WorkerRender
+  /** A relative path inside the package, or one of WORKER_PACKAGE_ENTRIES. */
   main: string
   compatibilityDate: string
   assets: string
@@ -106,6 +114,19 @@ function open<TEntries extends v.ObjectEntries>(entries: TEntries) {
 const compatibilityDate = v.pipe(
   v.string(),
   v.regex(/^\d{4}-\d{2}-\d{2}$/, 'compatibilityDate must be YYYY-MM-DD'),
+)
+const workerMain = v.pipe(
+  nonEmpty,
+  v.check(
+    (value) =>
+      (WORKER_PACKAGE_ENTRIES as readonly string[]).includes(value) ||
+      (!value.startsWith('bunderstack/') &&
+        !value.startsWith('@') &&
+        !value.startsWith('/') &&
+        !value.includes('\\') &&
+        value.split('/').every((part) => part !== '' && part !== '..')),
+    'main must be a relative path inside the package or a bunderstack entry',
+  ),
 )
 const framework = v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom'])
 
@@ -218,7 +239,8 @@ const workerSchema = open({
     framework,
     scripts: open({ build: v.literal('build') }),
     worker: open({
-      main: relativePath,
+      render: v.picklist(['ssr', 'spa']),
+      main: workerMain,
       compatibilityDate,
       assets: relativePath,
     }),
@@ -250,6 +272,14 @@ export function parseBlueprint(value: unknown): BunderstackBlueprint {
   if (raw?.version === 1 && raw.application?.runtime === 'worker') {
     throw new Error(
       '[bunderstack] this version 1 blueprint declares runtime: worker; regenerate the blueprint with bunderstack 1.0.0-beta.3',
+    )
+  }
+  const worker = (
+    raw?.application as { worker?: { render?: unknown } } | undefined
+  )?.worker
+  if (raw?.version === 2 && worker && worker.render === undefined) {
+    throw new Error(
+      '[bunderstack] application.worker.render is missing; regenerate the blueprint with bunderstack 1.0.0-beta.4',
     )
   }
   const blueprint = validateStandardSchema(

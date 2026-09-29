@@ -19,7 +19,7 @@ async function fixture(
     join(directory, 'package.json'),
     JSON.stringify({
       scripts: { build: 'vite build' },
-      dependencies: { '@tanstack/react-start': '^1.0.0' },
+      dependencies: {},
       ...(entry === 'src/bunderstack.ts' ? {} : { bunderstack: { entry } }),
     }),
   )
@@ -271,7 +271,8 @@ test('generateBlueprint writes version 2 with default Worker settings', async ()
     const result = await generateBlueprint({ directory, today: '2026-09-29' })
     expect(result.blueprint.version).toBe(2)
     expect(result.blueprint.application.worker).toEqual({
-      main: 'src/worker.ts',
+      render: 'spa',
+      main: 'bunderstack/workers/entry',
       compatibilityDate: '2026-09-29',
       assets: 'dist/client',
     })
@@ -286,12 +287,13 @@ test('generateBlueprint keeps Worker settings from the committed blueprint', asy
   try {
     const first = await generateBlueprint({ directory, today: '2026-09-29' })
     const edited = first.source
-      .replace('main: src/worker.ts', 'main: src/entry/worker.ts')
+      .replace('main: bunderstack/workers/entry', 'main: src/entry/worker.ts')
       .replace('assets: dist/client', 'assets: public')
     await Bun.write(join(directory, 'bunderstack.blueprint.yaml'), edited)
     const later = await generateBlueprint({ directory, today: '2030-01-01' })
     expect(later.changed).toBe(false)
     expect(later.blueprint.application.worker).toEqual({
+      render: 'spa',
       main: 'src/entry/worker.ts',
       compatibilityDate: '2026-09-29',
       assets: 'public',
@@ -316,8 +318,10 @@ test('generateBlueprint adopts compatibility_date and assets from an old wrangle
       }),
     )
     const result = await generateBlueprint({ directory, today: '2026-09-29' })
+    // src/worker.ts does not exist in the fixture, so its main is dropped.
     expect(result.blueprint.application.worker).toEqual({
-      main: 'src/worker.ts',
+      render: 'spa',
+      main: 'bunderstack/workers/entry',
       compatibilityDate: '2026-09-01',
       assets: 'public',
     })
@@ -339,6 +343,34 @@ test('generateBlueprint replaces a version 1 blueprint with version 2', async ()
     const result = await generateBlueprint({ directory, today: '2026-09-29' })
     expect(result.changed).toBe(true)
     expect(result.blueprint.version).toBe(2)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('generateBlueprint picks ssr for a TanStack Start app and spa otherwise', async () => {
+  const directory = await fixture()
+  try {
+    const spa = await generateBlueprint({ directory, today: '2026-09-29' })
+    expect(spa.blueprint.application.worker).toMatchObject({
+      render: 'spa',
+      main: 'bunderstack/workers/entry',
+    })
+    await rm(join(directory, 'bunderstack.blueprint.yaml'))
+    const pkg = JSON.parse(
+      await Bun.file(join(directory, 'package.json')).text(),
+    )
+    pkg.dependencies['@tanstack/react-start'] = '^1.168.0'
+    await Bun.write(join(directory, 'package.json'), JSON.stringify(pkg))
+    const ssr = await generateBlueprint({ directory, today: '2026-09-29' })
+    expect(ssr.blueprint.application.worker).toMatchObject({
+      render: 'ssr',
+      main: 'bunderstack/start/server-entry',
+    })
+    await Bun.write(join(directory, 'src/server.ts'), 'export default {}')
+    await rm(join(directory, 'bunderstack.blueprint.yaml'))
+    const custom = await generateBlueprint({ directory, today: '2026-09-29' })
+    expect(custom.blueprint.application.worker.main).toBe('src/server.ts')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
