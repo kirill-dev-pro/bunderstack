@@ -235,6 +235,7 @@
     "vue": "^3.5.0"
   },
   "peerDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.0",
     "@electric-sql/pglite": ">=0.3.0",
     "@libsql/client": ">=0.14.0",
     "@orpc/client": "2.0.0-beta.37",
@@ -258,9 +259,13 @@
     "react": ">=18",
     "solid-js": ">=2.0.0-rc.0",
     "typescript": ">=5",
-    "vue": ">=3.5"
+    "vue": ">=3.5",
+    "wrangler": "^4.143.0"
   },
   "peerDependenciesMeta": {
+    "@cloudflare/vite-plugin": {
+      "optional": true
+    },
     "@electric-sql/pglite": {
       "optional": true
     },
@@ -307,6 +312,9 @@
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "wrangler": {
       "optional": true
     }
   }
