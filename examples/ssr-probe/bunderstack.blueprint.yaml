@@ -18,7 +18,7 @@ resources:
   database:
     dialect: sqlite
     migrationsDirectory: ./migrations
-    migrationMode: push
+    migrationMode: migrations
     tables:
       - exportName: _system.idempotency
         physicalName: _bunderstack_idempotency

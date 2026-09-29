@@ -1,6 +1,9 @@
 import { generateTypeId, typeid } from 'bunderstack'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+// Bunderstack's own tables, so committed migrations create them for hosting.
+export * from 'bunderstack/schema'
+
 /**
  * Better Auth tables. `role` drives the admin dashboard; it is never writable
  * from the browser, only from a trusted server context.
