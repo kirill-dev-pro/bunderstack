@@ -73,9 +73,25 @@ Changes from version 1:
 - `framework` stays. It is informational now and may matter again if SSR
   returns.
 
-The 1.0 parser accepts only `version: 2`. A `version: 1` file fails with a
-message that tells the developer to run `bunderstack dev` or `bunderstack
-blueprint`. `bunderstack/main` (0.x) keeps writing version 1 and is not changed.
+The generator writes only `version: 2`. The parser accepts two versions,
+because Bunderhost imports `bunderstack/blueprint` from 1.0 and still parses
+the version 1 blueprints of the hosted 0.x apps until the 0.x path is removed:
+
+- `version: 1`: the 0.x server contract, exactly as 0.25.x writes it. The
+  beta.2 `application.runtime` field is removed from the version 1 schema; a
+  version 1 file with `runtime: worker` fails with "regenerate the blueprint
+  with bunderstack 1.0.0-beta.3".
+- `version: 2`: the Worker contract above.
+
+Types: `LegacyBlueprint` (version 1), `WorkerBlueprint` (version 2), and
+`BunderstackBlueprint = LegacyBlueprint | WorkerBlueprint`. `parseBlueprint`
+returns the union. `parseWorkerBlueprint` returns `WorkerBlueprint` and throws
+on version 1 with a message that tells the developer to run `bunderstack dev`
+or `bunderstack blueprint`. Every bunderstack 1.0 code path that reads the app's
+own blueprint (`hosted-contract`, `wrangler`, `build`) uses
+`parseWorkerBlueprint`. Version 1 support is removed together with the 0.x path
+in Bunderhost. `bunderstack/main` (0.x) keeps writing version 1 and is not
+changed.
 
 The generator keeps `compatibilityDate` once chosen: it reads the existing
 blueprint and reuses the date, so `--check` stays stable across days. It takes
@@ -154,7 +170,9 @@ contract tests, `llms-full.txt`, workspaces); historical plans stay. A new
 
 - `workerPlanFromBlueprint`: crons with and without buckets, collapse above
   five, operation path prefixes, bucket bindings.
-- Parser: version 2 accepted; version 1 rejected with the upgrade message;
+- Parser: version 2 accepted; a 0.25.x version 1 file accepted by
+  `parseBlueprint` and rejected by `parseWorkerBlueprint`; version 1 with
+  `runtime: worker` rejected;
   missing `application.worker` rejected; traversal in `main` or `assets`
   rejected.
 - Generator: `compatibilityDate`, `main`, and `assets` preserved from an
@@ -169,8 +187,8 @@ contract tests, `llms-full.txt`, workspaces); historical plans stay. A new
 
 ### Revision
 
-`loadApplicationRevision` reads only `bunderstack.blueprint.yaml` and returns
-one shape:
+`loadApplicationRevision` reads only `bunderstack.blueprint.yaml`. A version 2
+blueprint returns the Worker shape:
 
 ```ts
 type WorkerApplicationRevision = {
@@ -183,7 +201,9 @@ type WorkerApplicationRevision = {
 - No blueprint: error `blueprint_required`, with the message "commit
   bunderstack.blueprint.yaml: upgrade bunderstack to 1.0.0-beta.3 and run
   `bunderstack build`". This applies even when `wrangler.json` exists.
-- `version: 1` blueprint: error `blueprint_unsupported_version`.
+- `version: 1` blueprint: the existing 0.x path (`kind: 'blueprint'`), with
+  no Worker handling. A `wrangler.json` next to a version 1 blueprint is
+  ignored.
 - Checks from `src/worker/revision.ts` that are not about `wrangler.json` stay
   and apply to the plan: `main` and `assets` stay inside the package,
   `package.json` exists, `bunderstack` dependency is 1.0. The `wrangler.json`
@@ -236,8 +256,8 @@ this change. Removing it is the follow-up spec.
 
 ### Tests
 
-- Revision: v2 blueprint → plan; `wrangler.json` only → `blueprint_required`;
-  v1 → `blueprint_unsupported_version`; malformed YAML; nested
+- Revision: v2 blueprint → Worker plan; `wrangler.json` only →
+  `blueprint_required`; v1 → 0.x path; malformed YAML; nested
   `rootDirectory`; non-missing read failure propagates.
 - `renderCelldConfig`: snapshot, physical bucket names, variable collision,
   invalid variable name.
