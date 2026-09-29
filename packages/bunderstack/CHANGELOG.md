@@ -2,6 +2,38 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [1.0.0-beta.4] — 2026-09-29
+
+### Added
+
+- SSR by default for TanStack Start apps: `render: ssr` in
+  `application.worker`. The page, loaders, and server functions run in the same
+  Worker as the API; `bunderstackStart<App>()`'s client calls the backend in
+  the isolate on the server and forwards the request cookie.
+- Package Worker entries `bunderstack/start/server-entry` and
+  `bunderstack/workers/entry`. Apps no longer write `src/worker.ts`; a custom
+  `src/server.ts` with `createStartWorker(backend)` from
+  `bunderstack/start/worker` stays possible.
+- `examples/ssr-probe`, and `bun run test:workers` runs the SPA and SSR probes
+  from their build artifact on celld and workerd.
+- `WorkerPlan.render`, `assets.notFoundHandling`, and `artifact`
+  (`dist/server/index.js` and `dist/client`).
+
+### Changed
+
+- `bunderstack()` in `vite.config.ts` runs the app through
+  `@cloudflare/vite-plugin` (and TanStack Start for SSR). Add
+  `@cloudflare/vite-plugin` and `wrangler` as dev dependencies.
+- `bunderstack dev` runs sqld and Vite; the Worker runs in workerd with HMR.
+  celld no longer runs in dev. `APP_URL` in `.dev.vars` uses `localhost`.
+- `bunderstack build` builds `dist/server` and `dist/client` with Vite and
+  removes `dist/client/.assetsignore` and every `.dev.vars` under `dist/`.
+- `application.worker.render` is required; regenerate beta.3 blueprints.
+
+### Removed
+
+- The `/api` dev proxy in `bunderstack/vite` and `BUNDERSTACK_DEV_API_URL`.
+
 ## [1.0.0-beta.3] — 2026-09-29
 
 ### Changed
