@@ -192,7 +192,8 @@ const backgroundEntries = {
 
 const legacySchema = open({
   version: v.literal(1),
-  ...sharedEntries,
+  // Key order is the YAML order: identity and application first.
+  generator: sharedEntries.generator,
   application: open({
     framework,
     scripts: open({
@@ -201,6 +202,7 @@ const legacySchema = open({
       worker: v.optional(v.literal('worker')),
     }),
   }),
+  ...sharedEntries,
   background: open({
     worker: open({ required: v.boolean() }),
     ...backgroundEntries,
@@ -209,7 +211,8 @@ const legacySchema = open({
 
 const workerSchema = open({
   version: v.literal(2),
-  ...sharedEntries,
+  // Key order is the YAML order: identity and application first.
+  generator: sharedEntries.generator,
   application: open({
     framework,
     scripts: open({ build: v.literal('build') }),
@@ -219,6 +222,7 @@ const workerSchema = open({
       assets: relativePath,
     }),
   }),
+  ...sharedEntries,
   background: open(backgroundEntries),
 })
 
