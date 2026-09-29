@@ -9,8 +9,10 @@ description: Use when working in a repository that depends on bunderstack - star
 
 1. Inspect the product brief and target runtime.
 2. Choose the layout from the table below.
-3. A 1.0 SaaS template is not available yet. For a Worker SPA, start from
-   `examples/todo-solid-native` in the bunderstack repository.
+3. For a new app, use TanStack Start with `render: ssr` (the default); an SPA
+   sets `render: spa` in the blueprint. A 1.0 SaaS template is not available
+   yet: start from `examples/ssr-probe` (SSR) or `examples/todo-solid-native`
+   (SPA) in the bunderstack repository.
 4. Configure schema, access, auth, env, storage, jobs, realtime, and the oRPC API graph.
 5. Mount the single `app.handler` integration.
 6. Add committed migrations and a deployment blueprint before production.
