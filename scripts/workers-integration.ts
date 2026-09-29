@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
-// Runs examples/workers-probe as a real Worker and checks each feature end to
-// end. Not part of `bun run test`: it starts sqld and a runtime process.
+// Builds examples/workers-probe (SPA) and examples/ssr-probe (SSR) with
+// `bunderstack build`, runs each build artifact as a real Worker, and checks
+// each feature end to end. Not part of `bun run test`: it starts sqld and a
+// runtime process.
 //
 //   bun run test:workers                    # celld (CELLD_BIN or `celld`)
 //   bun run test:workers -- --runtime workerd  # workerd through wrangler dev
@@ -15,6 +17,7 @@ import { join } from 'node:path'
 
 const repo = join(import.meta.dir, '..')
 const probe = join(repo, 'examples/workers-probe')
+const ssrProbe = join(repo, 'examples/ssr-probe')
 const runtime = process.argv.includes('--runtime')
   ? process.argv[process.argv.indexOf('--runtime') + 1]
   : 'celld'
@@ -79,11 +82,16 @@ function spawn(cmd: string[], env: Record<string, string> = {}, cwd = repo) {
 
 // --- setup -----------------------------------------------------------------
 
-async function setup() {
-  const build = Bun.spawnSync(['bun', 'run', 'build'], {
-    cwd: join(repo, 'packages/bunderstack'),
-  })
-  if (build.exitCode !== 0) throw new Error(build.stderr.toString())
+let packageBuilt = false
+
+async function setup(appDir: string) {
+  if (!packageBuilt) {
+    const build = Bun.spawnSync(['bun', 'run', 'build'], {
+      cwd: join(repo, 'packages/bunderstack'),
+    })
+    if (build.exitCode !== 0) throw new Error(build.stderr.toString())
+    packageBuilt = true
+  }
 
   const dir = await mkdtemp(join(tmpdir(), 'bunderstack-workers-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
@@ -103,26 +111,56 @@ async function setup() {
     20_000,
   )
 
-  // wrangler.json is generated from the committed blueprint, as in `bunderstack dev`.
-  const { runWranglerCommand } =
+  // The artifact a host deploys: `bunderstack build`, then a config whose main
+  // and assets point at dist/, as Bunderhost renders it.
+  const { runBuild } = await import('../packages/bunderstack/src/dev/index')
+  if ((await runBuild({ directory: appDir })) !== 0) {
+    throw new Error(`bunderstack build failed in ${appDir}`)
+  }
+  const { parseWorkerBlueprintYaml, workerPlanFromBlueprint } =
+    await import('../packages/bunderstack/src/blueprint')
+  const { toWranglerConfig } =
     await import('../packages/bunderstack/src/workers/wrangler')
-  await runWranglerCommand({ directory: probe })
+  const plan = workerPlanFromBlueprint(
+    parseWorkerBlueprintYaml(
+      await Bun.file(join(appDir, 'bunderstack.blueprint.yaml')).text(),
+    ),
+  )
+  const name = appDir.split('/').at(-1)!
+  const artifactConfig = join(appDir, 'wrangler.artifact.json')
+  await writeFile(
+    artifactConfig,
+    JSON.stringify(
+      toWranglerConfig(
+        plan,
+        { name, bucketName: (bucket) => `${name}-${bucket}` },
+        { artifact: true },
+      ),
+      null,
+      2,
+    ),
+  )
+  cleanups.push(() => rm(artifactConfig, { force: true }))
 
   // Migrations run on the host, as Bunderhost does before a deploy.
-  const { backend } = await import('../examples/workers-probe/src/bunderstack')
-  // Resolve from the probe, so provision and the backend share one instance.
+  const { backend } = (await import(join(appDir, 'src/bunderstack.ts'))) as {
+    backend: {
+      start(options: { env: Record<string, string> }): Promise<unknown>
+    }
+  }
+  // Resolve from the app, so provision and the backend share one instance.
   const { provision } = (await import(
-    Bun.resolveSync('bunderstack/provision-schema', probe)
+    Bun.resolveSync('bunderstack/provision-schema', appDir)
   )) as typeof import('../packages/bunderstack/src/provision-schema')
   const app = await backend.start({
     env: { BUNDERSTACK_DATABASE_URL: databaseUrl, AUTH_SECRET },
   })
-  await provision(app, { force: true })
-  await app.close()
+  await provision(app as never, { force: true })
+  await (app as { close(): Promise<void> }).close()
 
   const port = await freePort()
   const base = `http://127.0.0.1:${port}`
-  const devVars = join(probe, '.dev.vars')
+  const devVars = join(appDir, '.dev.vars')
   await writeFile(
     devVars,
     [
@@ -139,7 +177,7 @@ async function setup() {
           [
             process.env.CELLD_BIN ?? 'celld',
             'dev',
-            probe,
+            artifactConfig,
             '--port',
             String(port),
             '--clean',
@@ -159,7 +197,7 @@ async function setup() {
             'wrangler@4',
             'dev',
             '--config',
-            join(probe, 'wrangler.json'),
+            artifactConfig,
             '--port',
             String(port),
             '--ip',
@@ -182,7 +220,7 @@ async function setup() {
 
 // --- scenarios -------------------------------------------------------------
 
-type Ctx = { base: string; cookie: string }
+type Ctx = { base: string; cookie: string; email: string }
 
 async function json(res: Response) {
   const text = await res.text()
@@ -231,6 +269,7 @@ const scenarios: [string, (ctx: Ctx) => Promise<void>][] = [
     async (ctx) => {
       const headers = { 'content-type': 'application/json', origin: ctx.base }
       const email = `probe-${crypto.randomUUID()}@test.dev`
+      ctx.email = email
       const password = 'probe-password-123'
       await json(
         await fetch(`${ctx.base}/api/auth/sign-up/email`, {
@@ -361,43 +400,99 @@ const scenarios: [string, (ctx: Ctx) => Promise<void>][] = [
   ],
 ]
 
+const [, , auth] = scenarios
+
+const page = async (ctx: Ctx, path: string) =>
+  (await fetch(`${ctx.base}${path}`, { headers: { cookie: ctx.cookie } })).text()
+
+const ssrScenarios: typeof scenarios = [
+  auth!,
+  [
+    'ssr page with the signed-in user',
+    async (ctx) => {
+      const html = await page(ctx, '/')
+      if (!html.includes('id="ssr"')) throw new Error('no SSR markup')
+      if (!html.includes(ctx.email)) throw new Error('SSR does not show the user')
+    },
+  ],
+  [
+    'loader reads through api in the isolate',
+    async (ctx) => {
+      const html = await page(ctx, '/')
+      if (!/events status (<!-- -->)?200/.test(html)) {
+        throw new Error(`loader did not reach the backend: ${html.slice(0, 400)}`)
+      }
+    },
+  ],
+  [
+    'server function page renders data',
+    async (ctx) => {
+      await createNote(ctx, 'ssr-note')
+      const html = await page(ctx, '/second')
+      if (!/status (<!-- -->)?200(<!-- -->)?, count (<!-- -->)?1/.test(html)) {
+        throw new Error(`server function result: ${html.slice(0, 400)}`)
+      }
+    },
+  ],
+]
+
 // --- main ------------------------------------------------------------------
 
 let failed = 0
-try {
-  const { base, server } = await setup()
-  if (process.env.WORKERS_KEEP) {
-    // Debug aid: keep sqld and the runtime up for manual requests.
-    console.log(`ready at ${base}; Ctrl+C stops`)
-    await new Promise<void>((resolve) => process.once('SIGINT', resolve))
-    throw new Error('stopped by hand')
+
+async function stopRuntime() {
+  for (const child of processes.splice(0)) child.kill()
+  for (const cleanup of cleanups.splice(0).reverse()) {
+    await cleanup().catch(() => {})
   }
-  const ctx: Ctx = { base, cookie: '' }
-  const run = async ([name, scenario]: (typeof scenarios)[number]) => {
-    const started = Date.now()
-    try {
-      await scenario(ctx)
-      console.log(`PASS ${name} (${Date.now() - started} ms)`)
-    } catch (error) {
-      failed++
-      console.log(
-        `FAIL ${name}: ${error instanceof Error ? error.message : error}`,
-      )
-    }
-  }
-  // The first six build on each other; the two slow ones run together.
-  for (const scenario of scenarios.slice(0, 6)) await run(scenario)
-  await Promise.all(scenarios.slice(6).map(run))
-  if (failed > 0)
-    console.error(`\n--- ${runtime} log ---\n${server.log.join('')}`)
-} catch (error) {
-  failed++
-  console.error(error)
-} finally {
-  for (const child of processes) child.kill()
-  await Promise.allSettled(processes.map((child) => child.exited))
-  for (const cleanup of cleanups.reverse()) await cleanup().catch(() => {})
 }
+
+async function runApp(
+  appDir: string,
+  list: typeof scenarios,
+  serial: number,
+): Promise<void> {
+  console.log(`\n# ${appDir.split('/').at(-1)} on ${runtime}`)
+  try {
+    const { base, server } = await setup(appDir)
+    if (process.env.WORKERS_KEEP) {
+      // Debug aid: keep sqld and the runtime up for manual requests.
+      console.log(`ready at ${base}; Ctrl+C stops`)
+      await new Promise<void>((resolve) => process.once('SIGINT', resolve))
+      throw new Error('stopped by hand')
+    }
+    const ctx: Ctx = { base, cookie: '', email: '' }
+    let appFailed = 0
+    const run = async ([name, scenario]: (typeof scenarios)[number]) => {
+      const started = Date.now()
+      try {
+        await scenario(ctx)
+        console.log(`PASS ${name} (${Date.now() - started} ms)`)
+      } catch (error) {
+        appFailed++
+        console.log(
+          `FAIL ${name}: ${error instanceof Error ? error.message : error}`,
+        )
+      }
+    }
+    // The first ones build on each other; the slow ones run together.
+    for (const scenario of list.slice(0, serial)) await run(scenario)
+    await Promise.all(list.slice(serial).map(run))
+    failed += appFailed
+    if (appFailed > 0)
+      console.error(`\n--- ${runtime} log ---\n${server.log.join('')}`)
+  } catch (error) {
+    failed++
+    console.error(error)
+  } finally {
+    await stopRuntime()
+  }
+}
+
+await runApp(probe, scenarios, 6)
+await runApp(ssrProbe, ssrScenarios, ssrScenarios.length)
+for (const child of processes) child.kill()
+await Promise.allSettled(processes.map((child) => child.exited))
 console.log(
   failed === 0
     ? `\nall scenarios passed on ${runtime}`

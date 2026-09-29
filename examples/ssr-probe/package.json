@@ -1,38 +1,32 @@
 {
-  "name": "bunderstack-example-agent-chat",
+  "name": "bunderstack-example-ssr-probe",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bunderstack dev",
-    "build": "bunderstack build",
-    "wrangler": "bunderstack wrangler",
-    "db:generate": "drizzle-kit generate"
+    "dev": "bun ../../packages/bunderstack/src/cli.ts dev .",
+    "build": "bun ../../packages/bunderstack/src/cli.ts build ."
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.30",
-    "@ai-sdk/openai-compatible": "^3.0.41",
     "@libsql/client": "^0.14.0",
+    "@orpc/client": "2.0.0-beta.37",
+    "@orpc/publisher": "2.0.0-beta.37",
+    "@orpc/server": "2.0.0-beta.37",
+    "@orpc/tanstack-query": "2.0.0-beta.37",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-router": "^1.170.16",
-    "ai": "^7.0.52",
-    "arktype": "^2.2.3",
-    "better-auth": "^1.0.0",
+    "@tanstack/react-start": "^1.168.26",
+    "better-auth": "^1.7.6",
     "bunderstack": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "marked": "^18.0.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "superjson": "^2.2.0",
-    "zod": "^4.4.3"
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.62.0",
-    "@tanstack/router-plugin": "^1.168.35",
-    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
-    "drizzle-kit": "^0.30.0",
     "typescript": "^5.0.0",
     "vite": "^8.0.0",
     "wrangler": "^4.143.0"

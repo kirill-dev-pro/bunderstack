@@ -7,7 +7,8 @@ application:
   scripts:
     build: build
   worker:
-    main: src/worker.ts
+    render: spa
+    main: bunderstack/workers/entry
     compatibilityDate: 2026-09-28
     assets: dist/client
 bunderstack:

@@ -8,6 +8,9 @@ import { pathToFileURL } from 'node:url'
 
 import { parseWorkerBlueprintYaml } from './blueprint'
 
+/** A Vite plugin, typed without importing vite. */
+export type VitePluginLike = { name: string }
+
 type Factories = {
   cloudflare: (options: { viteEnvironment: { name: string } }) => unknown
   tanstackStart: (options: { srcDirectory: string }) => unknown
@@ -82,7 +85,7 @@ async function appFactories(root: string, ssr: boolean): Promise<Factories> {
 
 export async function bunderstack(
   options: { root?: string; factories?: Factories } = {},
-): Promise<unknown[]> {
+): Promise<VitePluginLike[]> {
   const root = resolve(options.root ?? process.cwd())
   let source: string
   try {
@@ -103,24 +106,25 @@ export async function bunderstack(
   )
   const { cloudflare, tanstackStart } =
     options.factories ?? (await appFactories(root, ssr))
-  return [
-    {
-      name: 'bunderstack:backend',
-      resolveId(id: string) {
-        if (id === 'virtual:bunderstack/backend') return backendEntry
-        return undefined
-      },
-      config() {
-        // The artifact shape hosts deploy, in both render modes.
-        return {
-          environments: {
-            client: { build: { outDir: 'dist/client' } },
-            ssr: { build: { outDir: 'dist/server' } },
-          },
-        }
-      },
+  const backendPlugin = {
+    name: 'bunderstack:backend',
+    resolveId(id: string) {
+      if (id === 'virtual:bunderstack/backend') return backendEntry
+      return undefined
     },
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
-    ...(ssr ? [tanstackStart({ srcDirectory: 'src' })] : []),
+    config() {
+      // The artifact shape hosts deploy, in both render modes.
+      return {
+        environments: {
+          client: { build: { outDir: 'dist/client' } },
+          ssr: { build: { outDir: 'dist/server' } },
+        },
+      }
+    },
+  }
+  return [
+    backendPlugin,
+    cloudflare({ viteEnvironment: { name: 'ssr' } }) as VitePluginLike,
+    ...(ssr ? [tanstackStart({ srcDirectory: 'src' }) as VitePluginLike] : []),
   ]
 }

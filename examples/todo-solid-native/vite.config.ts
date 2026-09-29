@@ -3,7 +3,6 @@ import { bunderstack } from 'bunderstack/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  // An SPA: the Worker serves dist/client as static assets, and
-  // `bunderstack dev` proxies /api from Vite to celld.
-  plugins: [solid(), bunderstack()],
+  // The app runs as a Worker in dev and in the build; see bunderstack().
+  plugins: [bunderstack(), solid()],
 })

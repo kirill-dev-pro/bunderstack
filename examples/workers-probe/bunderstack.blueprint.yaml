@@ -7,9 +7,10 @@ application:
   scripts:
     build: build
   worker:
-    main: src/worker.ts
+    render: spa
+    main: bunderstack/workers/entry
     compatibilityDate: 2026-09-27
-    assets: public
+    assets: dist/client
 bunderstack:
   entry: src/bunderstack.ts
   manifestVersion: 4
