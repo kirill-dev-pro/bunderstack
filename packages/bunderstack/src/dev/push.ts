@@ -1,18 +1,18 @@
 // Subprocess of `bunderstack dev`: `bun push.ts <app directory>`. A fresh
-// process sees the current app code on each run. It regenerates wrangler.json
-// and bunderstack.blueprint.yaml, and pushes the schema (or applies committed
-// migrations) to the dev database.
+// process sees the current app code on each run. It regenerates
+// bunderstack.blueprint.yaml and wrangler.json from it, and pushes the schema
+// (or applies committed migrations) to the dev database.
 import { generateBlueprint } from '../blueprint-generator'
 import { loadBackend, runWranglerCommand } from '../workers/wrangler'
 
 const directory = process.argv[2]
 if (!directory) throw new Error('usage: push.ts <app directory>')
 
-const wrangler = await runWranglerCommand({ directory })
-if (wrangler.changed) console.log('wrangler.json updated')
-
 const blueprint = await generateBlueprint({ directory })
 if (blueprint.changed) console.log('bunderstack.blueprint.yaml updated')
+
+const wrangler = await runWranglerCommand({ directory })
+if (wrangler.changed) console.log('wrangler.json updated')
 
 const { backend } = await loadBackend(directory)
 // Resolve from the app, so provision sees the same bunderstack instance as

@@ -1,6 +1,6 @@
 // `bunderstack dev` and `bunderstack build`. dev starts sqld, celld, and Vite
-// with one command; build writes the SPA to dist/client and checks
-// wrangler.json and bunderstack.blueprint.yaml.
+// with one command; build checks bunderstack.blueprint.yaml, writes
+// wrangler.json from it, and writes the SPA to dist/client.
 import { watch } from 'node:fs'
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
@@ -275,7 +275,8 @@ export async function runDev(options: {
       if (code !== 0) group.log('push', 'failed; fix the code and save again')
       return code === 0
     }
-    // The first push also writes wrangler.json, which celld reads at start.
+    // The first push writes the blueprint and wrangler.json; celld reads the
+    // latter at start.
     await push()
 
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -314,6 +315,15 @@ export async function runBuild(options: {
   directory: string
 }): Promise<number> {
   const directory = resolve(options.directory)
+  try {
+    await generateBlueprint({ directory, check: true })
+    console.log('bunderstack.blueprint.yaml is current')
+    await runWranglerCommand({ directory })
+    console.log('wrote wrangler.json')
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    return 1
+  }
   if (await hasViteConfig(directory)) {
     const vite = Bun.spawn([process.execPath, 'x', '--bun', 'vite', 'build'], {
       cwd: directory,
@@ -322,14 +332,5 @@ export async function runBuild(options: {
     })
     if ((await vite.exited) !== 0) return 1
   }
-  try {
-    await runWranglerCommand({ directory, check: true })
-    console.log('wrangler.json is current')
-    await generateBlueprint({ directory, check: true })
-    console.log('bunderstack.blueprint.yaml is current')
-    return 0
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error))
-    return 1
-  }
+  return 0
 }

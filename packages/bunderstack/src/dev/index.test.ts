@@ -1,11 +1,17 @@
 import { expect, test } from 'bun:test'
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { generateBlueprint } from '../blueprint-generator'
-import { runWranglerCommand } from '../workers/wrangler'
 import { celldLine, firstFreePort, planDev, runBuild } from './index'
 
 test('firstFreePort skips a port that is taken on 127.0.0.1', async () => {
@@ -91,7 +97,7 @@ test('a database URL from .env replaces sqld', () => {
   expect(plan.databaseUrl).toBe('libsql://team.turso.io')
 })
 
-test('runBuild checks both wrangler.json and bunderstack.blueprint.yaml', async () => {
+test('runBuild requires a current blueprint and writes wrangler.json from it', async () => {
   const tempRoot = await realpath(tmpdir())
   const directory = await mkdtemp(join(tempRoot, 'bunderstack-build-'))
   await mkdir(join(directory, 'src'), { recursive: true })
@@ -114,14 +120,25 @@ test('runBuild checks both wrangler.json and bunderstack.blueprint.yaml', async 
     ].join('\n'),
   )
   try {
-    await runWranglerCommand({ directory })
+    // No blueprint: build fails and writes nothing.
     expect(await runBuild({ directory })).toBe(1)
+    expect(await Bun.file(join(directory, 'wrangler.json')).exists()).toBe(
+      false,
+    )
 
     await generateBlueprint({ directory })
     expect(await runBuild({ directory })).toBe(0)
+    const config = JSON.parse(
+      await readFile(join(directory, 'wrangler.json'), 'utf8'),
+    )
+    expect(config.name).toBe('probe-worker')
 
+    // A stale blueprint fails, and build does not rewrite it.
     await writeFile(join(directory, 'bunderstack.blueprint.yaml'), 'stale\n')
     expect(await runBuild({ directory })).toBe(1)
+    expect(
+      await readFile(join(directory, 'bunderstack.blueprint.yaml'), 'utf8'),
+    ).toBe('stale\n')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
