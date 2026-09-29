@@ -124,6 +124,8 @@ describe('published dependency boundaries', () => {
         if (path.endsWith('/blueprint-generator.ts')) continue
         if (path.endsWith('/workers/wrangler.ts')) continue
         if (path.endsWith('/dev/push.ts')) continue
+        // Vite config time: loads the app's own Vite plugins by resolved path.
+        if (path.endsWith('/src/vite.ts')) continue
         const source = await Bun.file(path).text()
         const imports = source.matchAll(/\bimport\s*\(([^)]*)\)/gs)
         for (const match of imports) {
