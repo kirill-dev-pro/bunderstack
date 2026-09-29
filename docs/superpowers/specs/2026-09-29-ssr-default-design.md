@@ -264,11 +264,15 @@ Bunderhost: builder removes `.assetsignore`, refuses `.dev.vars`, and deploys
 - The Cloudflare Workers for Platforms renderer.
 - A celld runtime option for `bunderstack dev`.
 
-## Open questions
+## Verified before planning
 
-- Does `import { env } from 'cloudflare:workers'` work in celld 0.6? If not,
-  the server entry stores the env of the current request for `startFetch`, as
-  the spike did. Verify in step 3.
-- Does the Cloudflare Vite plugin resolve a package specifier as `main` together
-  with a Vite virtual module for the backend in both dev and build? Verify first
-  in step 2; the fallback is a generated, git-ignored `.bunderstack/entry.ts`.
+Both were open when this spec was written and were checked on 2026-09-29 with
+the spike app, in `vite dev` (workerd) and on the plugin-built artifact in celld
+0.6:
+
+- `import { env } from 'cloudflare:workers'` works in both.
+- A package specifier as `main` (standing in for
+  `bunderstack/start/server-entry`) that imports the backend through a Vite
+  virtual module resolved by a plugin builds and runs in both. The package
+  entry and the app code share one module graph, so a module-level registry in
+  `bunderstack/start` is enough for `startFetch`.
