@@ -87,9 +87,9 @@ Types: `LegacyBlueprint` (version 1), `WorkerBlueprint` (version 2), and
 `BunderstackBlueprint = LegacyBlueprint | WorkerBlueprint`. `parseBlueprint`
 returns the union. `parseWorkerBlueprint` returns `WorkerBlueprint` and throws
 on version 1 with a message that tells the developer to run `bunderstack dev`
-or `bunderstack blueprint`. Every bunderstack 1.0 code path that reads the app's
-own blueprint (`hosted-contract`, `wrangler`, `build`) uses
-`parseWorkerBlueprint`. Version 1 support is removed together with the 0.x path
+or `bunderstack blueprint`. `bunderstack wrangler` and `bunderstack build` read the
+app's own blueprint with `parseWorkerBlueprint`. `hosted-contract` reads only
+the sections both versions share and accepts either. Version 1 support is removed together with the 0.x path
 in Bunderhost. `bunderstack/main` (0.x) keeps writing version 1 and is not
 changed.
 
@@ -159,8 +159,11 @@ longer imports app code. `--check` is removed.
 
 ### Examples and template
 
-`todo-solid-native`, `agent-chat`, and `todo`: delete committed
-`wrangler.json`, add it to `.gitignore`, regenerate the blueprint as version 2.
+`todo-solid-native`, `agent-chat`, and `workers-probe` (the app behind
+`bun run test:workers`): delete committed `wrangler.json`, add it to
+`.gitignore`, generate the blueprint as version 2. `scripts/workers-integration.ts`
+writes the probe's `wrangler.json` from its blueprint before it starts.
+`examples/todo` is a 0.x-style app, not a Worker app, and is not changed.
 
 `templates/tanstack-start-saas` is deleted, with its live references (skills,
 contract tests, `llms-full.txt`, workspaces); historical plans stay. A new
