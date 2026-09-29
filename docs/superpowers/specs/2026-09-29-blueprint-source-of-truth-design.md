@@ -143,9 +143,12 @@ longer imports app code. `--check` is removed.
 
 ### Examples and template
 
-`todo-solid-native`, `agent-chat`, `todo`, and `templates/tanstack-start-saas`
-(where they have `src/worker.ts`): delete committed `wrangler.json`, add it to
-`.gitignore`, regenerate the blueprint as version 2.
+`todo-solid-native`, `agent-chat`, and `todo`: delete committed
+`wrangler.json`, add it to `.gitignore`, regenerate the blueprint as version 2.
+
+`templates/tanstack-start-saas` is deleted, with its live references (skills,
+contract tests, `llms-full.txt`, workspaces); historical plans stay. A new
+1.0 template comes later.
 
 ### Tests
 
