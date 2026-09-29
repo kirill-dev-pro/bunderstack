@@ -45,8 +45,29 @@ test('stop ends a grandchild that ignores SIGINT', async () => {
       .at(-1),
   )
   await group.stop()
-  expect(() => process.kill(pid, 0)).toThrow()
+  expect(await gone(pid)).toBe(true)
 }, 10_000)
+
+/**
+ * Whether `pid` has stopped within 2 s. A killed process whose parent also
+ * died stays a zombie until init reaps it, and `kill(pid, 0)` still succeeds
+ * on a zombie; on Linux its state in /proc tells.
+ */
+async function gone(pid: number): Promise<boolean> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return true
+    }
+    const stat = await Bun.file(`/proc/${pid}/stat`)
+      .text()
+      .catch(() => '')
+    if (/^\d+ \(.*\) Z/.test(stat)) return true
+    await Bun.sleep(50)
+  }
+  return false
+}
 
 test('stop ends running children', async () => {
   const group = new ProcessGroup(() => {})
