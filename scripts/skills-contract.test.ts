@@ -18,9 +18,9 @@ describe('creating-bunderstack-apps skill', () => {
     expect(existsSync(resolve(skill, 'agents/openai.yaml'))).toBe(true)
   })
 
-  test('points full apps to the versioned template without embedding it', () => {
+  test('points new apps to the reference example without embedding it', () => {
     const markdown = readFileSync(resolve(skill, 'SKILL.md'), 'utf8')
-    expect(markdown).toContain('templates/tanstack-start-saas')
+    expect(markdown).toContain('examples/todo-solid-native')
     expect(existsSync(resolve(skill, 'assets'))).toBe(false)
   })
 

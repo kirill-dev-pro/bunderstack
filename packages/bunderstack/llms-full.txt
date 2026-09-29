@@ -3158,41 +3158,10 @@ For TanStack Query without collections, use `syncRealtime` from
 
 TEMPLATES & AGENT SKILLS
 
-Bunderstack ships with a production-ready SaaS template and a suite of AI coding agent skills to streamline building full-stack applications with TanStack Start, TanStack Router, and TanStack Query.
-
----
-
-## BunderSaaS Template (`templates/tanstack-start-saas`)
-
-The **BunderSaaS** template is a complete, full-stack SaaS workspace built on **Bunderstack** and **TanStack Start**.
-
-### Key Features
-
-- **Dual Dashboards & Auth Contexts**:
-  - **Client Workspace (`/app/*`)**: Guarded by `clientAuth` route context in `src/routes/app/layout.tsx` using `requireClientAuth`.
-  - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context in `src/routes/admin/layout.tsx` using `requireAdminAuth` (`role === 'admin'`).
-- **Isomorphic Session Validation**: Root `beforeLoad` in `src/routes/__root.tsx` fetches the session user isomorphically via `fetchUser()`.
-- **shadcn/ui Ready**: Pre-configured `components.json`, Tailwind v4, Lucide icons, Radix primitives, and `@shadcnstore` registry support (`bunx shadcn@latest add <component>`).
-- **Real-Time Delivery Rail**: Visual project status and proof attachment upload pipeline.
-- **Background Worker & Cron**: Wired `worker.ts` process for background jobs and scheduled sweeps.
-
-### Quick Start with BunderSaaS
-
-```bash
-cd templates/tanstack-start-saas
-bun install
-cp .env.example .env
-bun run db:generate
-bun run dev
-```
-
-In a separate terminal, run the background queue worker:
-
-```bash
-bun run worker
-```
-
----
+Bunderstack ships a suite of AI coding agent skills. A 1.0 SaaS template is not
+available yet; start from
+[`examples/todo-solid-native`](https://github.com/kirill-dev-pro/bunderstack/tree/next/examples/todo-solid-native),
+the reference Worker SPA.
 
 ## Bunderstack Agent Skills
 

@@ -9,7 +9,8 @@ description: Use when working in a repository that depends on bunderstack - star
 
 1. Inspect the product brief and target runtime.
 2. Choose the layout from the table below.
-3. For a full TanStack Start SaaS, copy `templates/tanstack-start-saas/`.
+3. A 1.0 SaaS template is not available yet. For a Worker SPA, start from
+   `examples/todo-solid-native` in the bunderstack repository.
 4. Configure schema, access, auth, env, storage, jobs, realtime, and the oRPC API graph.
 5. Mount the single `app.handler` integration.
 6. Add committed migrations and a deployment blueprint before production.
@@ -19,7 +20,6 @@ description: Use when working in a repository that depends on bunderstack - star
 | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Small API with short configuration                                          | `src/bunderstack.ts`                                              |
 | Auth, access, jobs, env, or custom oRPC procedures need independent modules | `src/bunderstack/`                                                |
-| Full SaaS                                                                   | Copy `templates/tanstack-start-saas/` and keep its modular layout |
 
 ## Runtime decision recipe
 
