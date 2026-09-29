@@ -109,11 +109,12 @@ const compatibilityDate = v.pipe(
 )
 const framework = v.picklist(['tanstack-start', 'solid', 'bun-ssr', 'custom'])
 
+const generatorEntry = open({
+  name: v.literal('bunderstack'),
+  version: nonEmpty,
+})
+
 const sharedEntries = {
-  generator: open({
-    name: v.literal('bunderstack'),
-    version: nonEmpty,
-  }),
   bunderstack: open({
     entry: relativePath,
     manifestVersion: v.literal(4),
@@ -193,7 +194,7 @@ const backgroundEntries = {
 const legacySchema = open({
   version: v.literal(1),
   // Key order is the YAML order: identity and application first.
-  generator: sharedEntries.generator,
+  generator: generatorEntry,
   application: open({
     framework,
     scripts: open({
@@ -212,7 +213,7 @@ const legacySchema = open({
 const workerSchema = open({
   version: v.literal(2),
   // Key order is the YAML order: identity and application first.
-  generator: sharedEntries.generator,
+  generator: generatorEntry,
   application: open({
     framework,
     scripts: open({ build: v.literal('build') }),
