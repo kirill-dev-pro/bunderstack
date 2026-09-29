@@ -2,6 +2,41 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [1.0.0-beta.3] — 2026-09-29
+
+### Changed
+
+- `bunderstack.blueprint.yaml` is the only committed deploy contract. 1.0
+  writes `version: 2` with `application.worker` (`main`, `compatibilityDate`,
+  `assets`); the generator keeps these values once set and adopts them from an
+  existing `wrangler.json` on the first run.
+- `wrangler.json` is generated from the blueprint by `bunderstack dev`,
+  `bunderstack build`, and `bunderstack wrangler`. Add it to `.gitignore`.
+- `bunderstack build` fails on a missing or stale blueprint before building,
+  and writes `wrangler.json` for a manual `wrangler deploy` or `celld deploy`.
+- `bunderstack wrangler` reads the blueprint and no longer imports app code.
+
+### Added
+
+- `workerPlanFromBlueprint(blueprint)` and `WorkerPlan` in `bunderstack/blueprint`
+  and `bunderstack/workers`: what a host needs to deploy the Worker, without
+  physical names.
+- `parseWorkerBlueprint` and `parseWorkerBlueprintYaml`.
+
+### Removed
+
+- `application.runtime` from beta.2. A version 1 blueprint with
+  `runtime: worker` fails; regenerate it.
+- `bunderstack wrangler --check`, `--entry`, and `--assets`.
+- `buildWranglerConfig` and `WranglerCheckError`.
+- The `templates/tanstack-start-saas` template. A 1.0 template comes later.
+
+### Migration
+
+Run `bunderstack dev` or `bunderstack blueprint` once, commit
+`bunderstack.blueprint.yaml`, delete `wrangler.json` from git, and add it to
+`.gitignore`.
+
 ## [1.0.0-beta.2] — 2026-09-29
 
 ### Added
