@@ -1,10 +1,11 @@
-// `bunderstack dev` and `bunderstack build`. dev starts sqld, celld, and Vite
-// with one command; build checks bunderstack.blueprint.yaml, writes
-// wrangler.json from it, and writes the SPA to dist/client.
+// `bunderstack dev` and `bunderstack build`. dev starts sqld and Vite, which
+// runs the Worker (SSR, /api, Durable Objects) in workerd through the
+// Cloudflare plugin; build checks bunderstack.blueprint.yaml, writes
+// wrangler.json from it, and builds dist/server and dist/client with Vite.
 import { watch } from 'node:fs'
-import { mkdir, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
-import { dirname, join, resolve } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { generateBlueprint } from '../blueprint-generator'
@@ -15,52 +16,24 @@ import { ProcessGroup, type ProcessSpec } from './processes'
 
 export type DevPlan = {
   appUrl: string
-  apiUrl: string
   databaseUrl: string
   sqld?: ProcessSpec
-  worker: ProcessSpec
-  vite?: ProcessSpec
-}
-
-const LOG_LINE = /^\S+Z\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+([\w:]+): (.*)$/
-
-/**
- * celld --logs mixes the Worker's console output with its own INFO lines.
- * Keep the Worker output (without the timestamp), warnings, errors, and the
- * start summary.
- */
-export function celldLine(line: string): string | undefined {
-  if (line.startsWith('<jemalloc>')) return undefined
-  const match = LOG_LINE.exec(line)
-  if (!match) return line
-  const [, level, target, message] = match as unknown as [
-    string,
-    string,
-    string,
-    string,
-  ]
-  if (target === 'cell_console') return message
-  if (target === 'celld::memory') return undefined // allocator notice on macOS
-  if (level === 'WARN' || level === 'ERROR') return `${level} ${message}`
-  return undefined
+  vite: ProcessSpec
 }
 
 export function planDev(input: {
   directory: string
   stateDir: string
   userEnv: Record<string, string>
-  hasVite: boolean
-  ports: { app: number; api: number; db: number }
-  binaries: { celld: string; sqld: string; esbuild: string }
+  ports: { app: number; db: number }
+  binaries: { sqld: string }
 }): DevPlan {
   const { directory, ports, binaries } = input
-  const apiUrl = `http://127.0.0.1:${ports.api}`
-  const appUrl = input.hasVite ? `http://localhost:${ports.app}` : apiUrl
   const external = input.userEnv.BUNDERSTACK_DATABASE_URL
   const databaseUrl = external || `http://127.0.0.1:${ports.db}`
   return {
-    appUrl,
-    apiUrl,
+    // localhost, not 127.0.0.1: auth checks the Origin against APP_URL.
+    appUrl: `http://localhost:${ports.app}`,
     databaseUrl,
     sqld: external
       ? undefined
@@ -75,43 +48,44 @@ export function planDev(input: {
           ],
           cwd: directory,
         },
-    worker: {
-      name: 'celld',
+    vite: {
+      name: 'vite',
       cmd: [
-        binaries.celld,
-        'dev',
-        directory,
+        process.execPath,
+        'x',
+        '--bun',
+        'vite',
         '--port',
-        String(ports.api),
-        // Shows the Worker's console output.
-        '--logs',
-        // sqld writes here; a rebuild per write would restart the Worker.
-        '--watch-ignore',
-        '.bunderstack/**',
-        '--watch-ignore',
-        'dist/**',
+        String(ports.app),
+        '--strictPort',
       ],
       cwd: directory,
-      env: { CELLD_ESBUILD: binaries.esbuild },
-      filter: celldLine,
     },
-    vite: input.hasVite
-      ? {
-          name: 'vite',
-          cmd: [
-            process.execPath,
-            'x',
-            '--bun',
-            'vite',
-            '--port',
-            String(ports.app),
-            '--strictPort',
-          ],
-          cwd: directory,
-          env: { BUNDERSTACK_DEV_API_URL: apiUrl },
-        }
-      : undefined,
   }
+}
+
+/**
+ * Removes what a host must not deploy: the Cloudflare plugin's
+ * `.assetsignore` (celld rejects it) and every `.dev.vars` (the plugin copies
+ * the local one into dist/server). Returns the removed paths.
+ */
+export async function cleanArtifact(directory: string): Promise<string[]> {
+  const dist = join(directory, 'dist')
+  const entries = await readdir(dist, {
+    recursive: true,
+    withFileTypes: true,
+  }).catch(() => [])
+  const removed: string[] = []
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    const path = join(entry.parentPath, entry.name)
+    const rel = relative(directory, path).split(sep).join('/')
+    if (entry.name === '.dev.vars' || rel === 'dist/client/.assetsignore') {
+      await rm(path, { force: true })
+      removed.push(rel)
+    }
+  }
+  return removed
 }
 
 async function hasViteConfig(directory: string) {
@@ -173,11 +147,6 @@ async function waitForHealth(
   }
 }
 
-function esbuildBinary() {
-  const pkg = Bun.resolveSync('esbuild/package.json', import.meta.dir)
-  return join(dirname(pkg), 'bin', 'esbuild')
-}
-
 const pushScript = fileURLToPath(
   new URL(
     import.meta.url.endsWith('.ts') ? './push.ts' : './push.js',
@@ -196,15 +165,15 @@ export async function runDev(options: {
 
   const userEnv = await readUserEnv(directory)
   const external = Boolean(userEnv.BUNDERSTACK_DATABASE_URL)
-  const [celld, sqld] = await Promise.all([
-    resolveBinary('celld', { log: say }),
-    external ? '' : resolveBinary('sqld', { log: say }),
-  ])
+  if (!(await hasViteConfig(directory))) {
+    say('vite.config.ts is missing; add bunderstack() to it')
+    return 1
+  }
+  const sqld = external ? '' : await resolveBinary('sqld', { log: say })
   const plan = planDev({
     directory,
     stateDir,
     userEnv,
-    hasVite: await hasViteConfig(directory),
     ports: {
       // An explicit port is kept, and Vite fails when it is taken.
       app:
@@ -212,10 +181,9 @@ export async function runDev(options: {
         (process.env.PORT
           ? Number(process.env.PORT)
           : await firstFreePort(5173)),
-      api: await freePort(),
       db: await freePort(),
     },
-    binaries: { celld, sqld, esbuild: esbuildBinary() },
+    binaries: { sqld },
   })
 
   // Children run in their own process groups, so the terminal's Ctrl+C does
@@ -275,8 +243,8 @@ export async function runDev(options: {
       if (code !== 0) group.log('push', 'failed; fix the code and save again')
       return code === 0
     }
-    // The first push writes the blueprint and wrangler.json; celld reads the
-    // latter at start.
+    // The first push writes the blueprint and wrangler.json, which the
+    // Cloudflare plugin in Vite reads at start.
     await push()
 
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -289,11 +257,10 @@ export async function runDev(options: {
       }, 300)
     })
 
-    group.start(plan.worker)
-    await waitForHealth(`${plan.apiUrl}/api/health`, 60_000, cancelled).catch(
-      () => say('the Worker did not answer /api/health yet; see the celld log'),
+    if (!interrupted) group.start(plan.vite)
+    await waitForHealth(`${plan.appUrl}/api/health`, 60_000, cancelled).catch(
+      () => say('the Worker did not answer /api/health yet; see the vite log'),
     )
-    if (plan.vite && !interrupted) group.start(plan.vite)
     if (!interrupted) say(`App: ${plan.appUrl}`)
 
     const outcome = await Promise.race([group.exited, interrupt])
@@ -324,13 +291,26 @@ export async function runBuild(options: {
     console.error(error instanceof Error ? error.message : String(error))
     return 1
   }
-  if (await hasViteConfig(directory)) {
-    const vite = Bun.spawn([process.execPath, 'x', '--bun', 'vite', 'build'], {
-      cwd: directory,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    })
-    if ((await vite.exited) !== 0) return 1
+  if (!(await hasViteConfig(directory))) {
+    console.error(
+      '[bunderstack] vite.config.ts is missing; add bunderstack() to it',
+    )
+    return 1
+  }
+  const vite = Bun.spawn([process.execPath, 'x', '--bun', 'vite', 'build'], {
+    cwd: directory,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
+  if ((await vite.exited) !== 0) return 1
+  for (const path of await cleanArtifact(directory)) {
+    console.log(`removed ${path}`)
+  }
+  if (!(await Bun.file(join(directory, 'dist/server/index.js')).exists())) {
+    console.error(
+      '[bunderstack] the build did not produce dist/server/index.js',
+    )
+    return 1
   }
   return 0
 }

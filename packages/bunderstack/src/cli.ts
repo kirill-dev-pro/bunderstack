@@ -26,20 +26,19 @@ skills     Install the Bunderstack agent skills that match this version into
            .agents/skills, and point AGENTS.md at them so an agent loads them
            before touching the API. --check reports drift without writing.
 
-wrangler   Write wrangler.json for celld dev and manual deploys from
+wrangler   Write wrangler.json, the input config of the Cloudflare Vite plugin, from
            bunderstack.blueprint.yaml. The file is generated; do not commit
            it.
 
-dev        Start the app locally: sqld, celld with the Worker, and Vite with
-           the API proxy. Pushes the schema and regenerates
-           bunderstack.blueprint.yaml and wrangler.json on each change under
-           src/. Ctrl+C stops everything.
-           BUNDERSTACK_CELLD_BIN and BUNDERSTACK_SQLD_BIN select system
-           binaries instead of the pinned downloads.
+dev        Start the app locally: sqld and Vite, with the Worker (SSR, /api,
+           Durable Objects) in workerd. Regenerates bunderstack.blueprint.yaml
+           and wrangler.json and pushes the schema on each change under src/.
+           Ctrl+C stops everything. BUNDERSTACK_SQLD_BIN selects a system sqld
+           instead of the pinned download.
 
 build      Check that bunderstack.blueprint.yaml is current, write
-           wrangler.json from it, and build the SPA into dist/client with
-           Vite.`
+           wrangler.json from it, build the Worker and client with Vite into
+           dist/server and dist/client, and remove files hosts must not deploy.`
 
 type AppCommands = {
   dev(options: { directory: string; port?: number }): Promise<number>
