@@ -113,56 +113,78 @@ test('skills keeps the rest of an existing AGENTS.md', async () => {
   await rm(cwd, { recursive: true, force: true })
 })
 
-test('wrangler CLI generates, then reports current, then catches drift', async () => {
+test('wrangler CLI renders wrangler.json from the blueprint without app code', async () => {
   const dir = join(tmpdir(), `bunderstack-wrangler-${crypto.randomUUID()}`)
   await mkdir(join(dir, 'src'), { recursive: true })
+  const { blueprintFromManifest, serializeBlueprint } =
+    await import('./blueprint')
+  const blueprint = blueprintFromManifest({
+    manifest: {
+      version: 4,
+      database: {
+        dialect: 'sqlite',
+        migrationsDirectory: './migrations',
+        tables: [],
+      },
+      storage: {
+        defaultBucket: 'media',
+        buckets: [{ name: 'media', visibility: 'private' }],
+      },
+      realtime: { required: false },
+      messaging: { channels: [] },
+      environment: [],
+      api: { operations: [] },
+      background: { jobs: [], cron: [], maintenance: [] },
+    },
+    generatorVersion: '1.0.0-beta.3',
+    entry: 'src/bunderstack.ts',
+    migrationMode: 'push',
+    worker: {
+      main: 'src/worker.ts',
+      compatibilityDate: '2026-09-28',
+      assets: 'public',
+    },
+  })
+  const output: string[] = []
+  const errors: string[] = []
+  const io = {
+    stdout: (m: string) => output.push(m),
+    stderr: (m: string) => errors.push(m),
+  }
   try {
     await writeFile(
       join(dir, 'package.json'),
-      JSON.stringify({ name: '@acme/Probe_App' }),
-    )
-    const index = join(import.meta.dir, 'index.ts')
-    const libsql = join(import.meta.dir, 'database/libsql.ts')
-    // The temp app has no node_modules; point it at the package's own copies.
-    const sqliteCore = Bun.resolveSync(
-      'drizzle-orm/sqlite-core',
-      import.meta.dir,
+      JSON.stringify({ name: '@acme/My App' }),
     )
     await writeFile(
       join(dir, 'src/bunderstack.ts'),
-      [
-        `import { sqliteTable, text } from ${JSON.stringify(sqliteCore)}`,
-        `import { bunderstack } from ${JSON.stringify(index)}`,
-        `import { libsql } from ${JSON.stringify(libsql)}`,
-        `const notes = sqliteTable('notes', { id: text('id').primaryKey() })`,
-        `export const backend = bunderstack({ schema: { notes }, database: { adapter: libsql() } })`,
-      ].join('\n'),
+      "throw new Error('app code loaded')\n",
     )
-    const output: string[] = []
-    const errors: string[] = []
-    const io = {
-      stdout: (line: string) => output.push(line),
-      stderr: (line: string) => errors.push(line),
-    }
+    expect(await runCli(['wrangler', dir], io)).toBe(1)
+    expect(errors.join('\n')).toContain('run `bunderstack blueprint`')
+
+    await writeFile(
+      join(dir, 'bunderstack.blueprint.yaml'),
+      serializeBlueprint(blueprint),
+    )
+    errors.length = 0
     expect(await runCli(['wrangler', dir], io), errors.join('\n')).toBe(0)
-    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(0)
-    expect(output).toEqual([
+    expect(await runCli(['wrangler', dir], io)).toBe(0)
+    expect(output.slice(-2)).toEqual([
       'Generated wrangler.json',
       'wrangler.json is current',
     ])
     const config = JSON.parse(
       await readFile(join(dir, 'wrangler.json'), 'utf8'),
     )
-    expect(config.name).toBe('probe-app')
-    expect(config.main).toBe('src/worker.ts')
+    expect(config.name).toBe('my-app')
+    expect(config.compatibility_date).toBe('2026-09-28')
+    expect(config.assets.directory).toBe('public')
+    expect(config.r2_buckets).toEqual([
+      { binding: 'BUCKET_MEDIA', bucket_name: 'my-app-media' },
+    ])
 
-    // An --assets directory stays when a later run passes none.
-    expect(await runCli(['wrangler', dir, '--assets', 'public'], io)).toBe(0)
-    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(0)
-
-    await writeFile(join(dir, 'wrangler.json'), '{}\n')
-    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(1)
-    expect(errors.at(-1)).toContain('is out of date')
+    expect(await runCli(['wrangler', dir, '--check'], io)).toBe(2)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

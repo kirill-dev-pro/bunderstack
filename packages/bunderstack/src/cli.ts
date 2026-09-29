@@ -14,31 +14,32 @@ export type CliIo = {
 const help = `Usage:
   bunderstack blueprint [directory] [--entry <path>] [--output <path>] [--check|--hosted-check]
   bunderstack skills [--dir <path>] [--check]
-  bunderstack wrangler [directory] [--entry <path>] [--name <name>] [--assets <dir>] [--output <path>] [--check]
+  bunderstack wrangler [directory] [--name <name>] [--output <path>]
   bunderstack dev [directory] [--port <port>]
   bunderstack build [directory]
 
-blueprint  Generate a committed deployment declaration for a TanStack Start
-           application. Entry precedence: --entry,
+blueprint  Generate bunderstack.blueprint.yaml, the committed deploy contract of a
+           Worker application. Entry precedence: --entry,
            package.json#bunderstack.entry, src/bunderstack.ts.
 
 skills     Install the Bunderstack agent skills that match this version into
            .agents/skills, and point AGENTS.md at them so an agent loads them
            before touching the API. --check reports drift without writing.
 
-wrangler   Generate wrangler.json for Cloudflare and celld from the backend:
-           Durable Objects, R2 buckets, static assets, and Cron Triggers.
-           --check reports drift without writing.
+wrangler   Write wrangler.json for celld dev and manual deploys from
+           bunderstack.blueprint.yaml. The file is generated; do not commit
+           it.
 
 dev        Start the app locally: sqld, celld with the Worker, and Vite with
-           the API proxy. Pushes the schema and regenerates wrangler.json and
-           bunderstack.blueprint.yaml on each change under src/. Ctrl+C stops
-           everything.
+           the API proxy. Pushes the schema and regenerates
+           bunderstack.blueprint.yaml and wrangler.json on each change under
+           src/. Ctrl+C stops everything.
            BUNDERSTACK_CELLD_BIN and BUNDERSTACK_SQLD_BIN select system
            binaries instead of the pinned downloads.
 
-build      Build the SPA into dist/client with Vite and check wrangler.json and
-           bunderstack.blueprint.yaml.`
+build      Check that bunderstack.blueprint.yaml is current, write
+           wrangler.json from it, and build the SPA into dist/client with
+           Vite.`
 
 type AppCommands = {
   dev(options: { directory: string; port?: number }): Promise<number>
@@ -127,27 +128,16 @@ export async function runCli(
   }
 
   if (args[0] === 'wrangler') {
-    const options: {
-      directory: string
-      entry?: string
-      name?: string
-      assets?: string
-      output?: string
-      check?: boolean
-    } = { directory: process.cwd() }
+    const options: { directory: string; name?: string; output?: string } = {
+      directory: process.cwd(),
+    }
     const valued = {
-      '--entry': 'entry',
       '--name': 'name',
-      '--assets': 'assets',
       '--output': 'output',
     } as const
     let directorySet = false
     for (let index = 1; index < args.length; index++) {
       const argument = args[index]!
-      if (argument === '--check') {
-        options.check = true
-        continue
-      }
       if (argument in valued) {
         const value = args[++index]
         if (!value || value.startsWith('--')) {

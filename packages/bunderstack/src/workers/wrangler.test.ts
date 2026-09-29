@@ -1,59 +1,41 @@
 import { expect, test } from 'bun:test'
 
-import type { BunderstackManifest } from '../manifest'
+import type { WorkerPlan } from '../worker-plan'
 
-import { buildWranglerConfig } from './wrangler'
+import { toWranglerConfig } from './wrangler'
 
-const sweep = {
-  name: 'storage-sweep' as const,
-  schedule: '0 4 * * *',
-  timezone: 'UTC' as const,
+const plan: WorkerPlan = {
+  main: 'src/worker.ts',
+  compatibilityDate: '2026-09-28',
+  compatibilityFlags: ['nodejs_compat'],
+  durableObjects: {
+    bindings: [
+      { name: 'SCHEDULER', className: 'Scheduler' },
+      { name: 'REALTIME', className: 'RealtimeHub' },
+      { name: 'RATE_LIMITER', className: 'RateLimiter' },
+    ],
+    migrations: [
+      {
+        tag: 'v1',
+        newSqliteClasses: ['Scheduler', 'RealtimeHub', 'RateLimiter'],
+      },
+    ],
+  },
+  buckets: [{ name: 'media', binding: 'BUCKET_MEDIA' }],
+  crons: ['0 4 * * *', '0 8 * * *'],
+  assets: {
+    directory: 'dist/client',
+    runWorkerFirst: ['/api/*', '/webhooks/*'],
+  },
 }
 
-function manifest(
-  overrides: Partial<BunderstackManifest> = {},
-): BunderstackManifest {
-  return {
-    version: 4,
-    database: {
-      dialect: 'sqlite',
-      migrationsDirectory: './migrations',
-      tables: [],
-    },
-    storage: {
-      defaultBucket: 'media',
-      buckets: [{ name: 'media', visibility: 'private' }],
-    },
-    realtime: { required: true },
-    messaging: { channels: [] },
-    environment: [],
-    api: {
-      operations: [
-        {
-          handle: 'hook',
-          operationId: 'hook',
-          effect: 'mutation',
-          method: 'POST',
-          path: '/webhooks/stripe',
-        },
-        { handle: 'rpcOnly', operationId: 'rpcOnly', effect: 'unknown' },
-      ],
-    },
-    background: {
-      jobs: [{ name: 'work' }],
-      cron: [{ name: 'digest', schedule: '0 8 * * *', timezone: 'UTC' }],
-      maintenance: [sweep],
-    },
-    ...overrides,
-  }
-}
-
-test('the config has the DO bindings, R2 buckets, assets, and cron triggers', () => {
-  const config = buildWranglerConfig(manifest(), {
-    name: 'fikflix',
-    compatibilityDate: '2026-09-28',
-  })
-  expect(config).toEqual({
+test('wrangler.json is the plan with local physical names', () => {
+  expect(
+    toWranglerConfig(plan, {
+      name: 'fikflix',
+      bucketName: (bucket) => `fikflix-${bucket}`,
+    }),
+  ).toEqual({
     name: 'fikflix',
     main: 'src/worker.ts',
     compatibility_date: '2026-09-28',
@@ -82,30 +64,10 @@ test('the config has the DO bindings, R2 buckets, assets, and cron triggers', ()
   })
 })
 
-test('no storage means no sweep trigger and no R2; many crons collapse', () => {
-  const crons = Array.from({ length: 6 }, (_, i) => ({
-    name: `c${i}`,
-    schedule: `${i} * * * *`,
-    timezone: 'UTC' as const,
-  }))
-  const config = buildWranglerConfig(
-    manifest({
-      storage: { defaultBucket: '', buckets: [] },
-      background: { jobs: [], cron: crons, maintenance: [sweep] },
-    }),
-    { name: 'app', compatibilityDate: '2026-09-28' },
-  )
-  expect(config.r2_buckets).toEqual([])
-  expect(config.triggers).toEqual({ crons: ['* * * * *'] })
-})
-
-test('no cron and no storage means no triggers key', () => {
-  const config = buildWranglerConfig(
-    manifest({
-      storage: { defaultBucket: '', buckets: [] },
-      background: { jobs: [], cron: [], maintenance: [sweep] },
-    }),
-    { name: 'app', compatibilityDate: '2026-09-28' },
+test('no crons means no triggers key', () => {
+  const config = toWranglerConfig(
+    { ...plan, crons: [] },
+    { name: 'app', bucketName: (bucket) => bucket },
   )
   expect('triggers' in config).toBe(false)
 })
