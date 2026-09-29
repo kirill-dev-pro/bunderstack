@@ -87,8 +87,10 @@ test('spa: no Start plugin; outDirs match the artifact', async () => {
       'cloudflare',
     ])
     expect(plugins[0]!.config!()).toEqual({
-      build: { outDir: 'dist/client' },
-      environments: { ssr: { build: { outDir: 'dist/server' } } },
+      environments: {
+        client: { build: { outDir: 'dist/client' } },
+        ssr: { build: { outDir: 'dist/server' } },
+      },
     })
   } finally {
     await rm(root, { recursive: true, force: true })

@@ -3,8 +3,7 @@
 // points the package Worker entries at the app's backend. No import of `vite`
 // or of the plugins at module load: they are resolved from the app.
 import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { parseWorkerBlueprintYaml } from './blueprint'
@@ -14,10 +13,62 @@ type Factories = {
   tanstackStart: (options: { srcDirectory: string }) => unknown
 }
 
+/** An ESM condition target: a string or a nested `import`/`default` map. */
+function exportTarget(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const map = value as Record<string, unknown>
+    return exportTarget(map.import) ?? exportTarget(map.default)
+  }
+  return undefined
+}
+
+/**
+ * Resolves a package specifier from the app, not from bunderstack, so the
+ * plugins are the app's own versions. The Vite plugins are ESM-only, which
+ * `createRequire().resolve` cannot resolve under Node.
+ */
+export async function resolveFromApp(
+  root: string,
+  specifier: string,
+): Promise<string> {
+  const bun = (
+    globalThis as { Bun?: { resolveSync(s: string, from: string): string } }
+  ).Bun
+  if (bun) return bun.resolveSync(specifier, root)
+  const parts = specifier.split('/')
+  const name = specifier.startsWith('@')
+    ? parts.slice(0, 2).join('/')
+    : parts[0]!
+  const subpath = `.${specifier.slice(name.length)}`
+  for (let dir = root; ; dir = dirname(dir)) {
+    const pkgDir = join(dir, 'node_modules', name)
+    const pkgText = await readFile(join(pkgDir, 'package.json'), 'utf8').catch(
+      () => undefined,
+    )
+    if (pkgText) {
+      const pkg = JSON.parse(pkgText) as { exports?: unknown; main?: string }
+      const exportsMap =
+        typeof pkg.exports === 'object' && pkg.exports && subpath in pkg.exports
+          ? (pkg.exports as Record<string, unknown>)[subpath]
+          : subpath === '.'
+            ? pkg.exports
+            : undefined
+      const target =
+        exportTarget(exportsMap) ?? (subpath === '.' ? pkg.main : undefined)
+      if (!target) break
+      return join(pkgDir, target)
+    }
+    if (dirname(dir) === dir) break
+  }
+  throw new Error(
+    `[bunderstack] cannot resolve ${specifier} from ${root}; install it`,
+  )
+}
+
 async function appFactories(root: string, ssr: boolean): Promise<Factories> {
-  const require = createRequire(join(root, 'package.json'))
   const load = async (specifier: string) =>
-    import(pathToFileURL(require.resolve(specifier)).href)
+    import(pathToFileURL(await resolveFromApp(root, specifier)).href)
   const { cloudflare } = await load('@cloudflare/vite-plugin')
   const tanstackStart = ssr
     ? (await load('@tanstack/react-start/plugin/vite')).tanstackStart
@@ -60,9 +111,12 @@ export async function bunderstack(
         return undefined
       },
       config() {
+        // The artifact shape hosts deploy, in both render modes.
         return {
-          build: { outDir: 'dist/client' },
-          environments: { ssr: { build: { outDir: 'dist/server' } } },
+          environments: {
+            client: { build: { outDir: 'dist/client' } },
+            ssr: { build: { outDir: 'dist/server' } },
+          },
         }
       },
     },
