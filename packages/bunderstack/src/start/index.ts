@@ -50,8 +50,20 @@ export function bunderstackStart<TApp extends AnyBunderstackApp>(
 type StartRequestContext = { request: Request }
 type StartHandler = (ctx: StartRequestContext) => Promise<Response>
 
+/** Every method an oRPC/OpenAPI route can declare, plus HEAD and OPTIONS. */
+type ApiMethod =
+  | 'GET'
+  | 'HEAD'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'OPTIONS'
+
 /**
- * Handlers object for the catch-all API file route.
+ * Handlers object for the catch-all API file route. It covers every method,
+ * because TanStack Start sends a method with no handler to SSR: the client
+ * gets 200 with HTML and the request never reaches `app.handler`.
  *
  * @example
  * // src/routes/api/$.tsx
@@ -61,14 +73,17 @@ type StartHandler = (ctx: StartRequestContext) => Promise<Response>
  */
 export function createApiHandlers(app: {
   handler: (req: Request) => Promise<Response>
-}): {
-  GET: StartHandler
-  POST: StartHandler
-  PATCH: StartHandler
-  DELETE: StartHandler
-} {
+}): Record<ApiMethod, StartHandler> {
   const handle: StartHandler = ({ request }) => app.handler(request)
-  return { GET: handle, POST: handle, PATCH: handle, DELETE: handle }
+  return {
+    GET: handle,
+    HEAD: handle,
+    POST: handle,
+    PUT: handle,
+    PATCH: handle,
+    DELETE: handle,
+    OPTIONS: handle,
+  }
 }
 
 export type SessionUser = {

@@ -61,6 +61,7 @@ import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { type EnvConfigInput, type ValidatedEnv } from './env'
+import { httpStatusOf } from './errors'
 import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
 import {
@@ -775,11 +776,9 @@ export async function materializeBunderstack<
         new SmartCoercionHandlerPlugin({ converters: [valibotConverter] }),
       ],
       customErrorResponseBodyEncoder: (error: any) => {
-        if (
-          error?.code === 'INTERNAL_SERVER_ERROR' ||
-          !error?.status ||
-          error.status >= 500
-        ) {
+        // oRPC v2 errors have no `status`; derive it from the code, as the
+        // handler does, so only real 5xx responses get this label.
+        if (httpStatusOf(error) >= 500) {
           logger.error(
             '[bunderstack-api] 500 Internal Server Error:',
             error?.cause ?? error,

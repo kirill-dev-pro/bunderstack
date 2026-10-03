@@ -73,12 +73,28 @@ export class BunderstackError extends Error {
   }
 }
 
+/**
+ * The HTTP status oRPC sends for an error. oRPC v2 errors carry no `status`;
+ * the handler looks the code up in `COMMON_ERROR_STATUS_MAP` and answers 500
+ * for a code it does not know. This does the same lookup.
+ */
+export function httpStatusOf(error: { code?: unknown }): number {
+  const code = error.code
+  return typeof code === 'string' &&
+    Object.hasOwn(COMMON_ERROR_STATUS_MAP, code)
+    ? COMMON_ERROR_STATUS_MAP[code as keyof typeof COMMON_ERROR_STATUS_MAP]
+    : 500
+}
+
 export const mapBunderstackErrors = os
   .errors(BUNDERSTACK_ERRORS)
   .middleware(async ({ next, path, context }) => {
     try {
       return await next()
     } catch (error) {
+      // A declared error (`errors.CONFLICT(...)`) or an explicit ORPCError is
+      // intentional, so it is not logged as unhandled.
+      if (error instanceof ORPCError) throw error
       const mapped =
         error instanceof StandardSchemaValidationError
           ? new BunderstackError('BAD_REQUEST', error.message, error.issues, {

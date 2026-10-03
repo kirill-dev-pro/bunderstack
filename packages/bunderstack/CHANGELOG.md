@@ -2,6 +2,21 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.3] — 2026-10-03
+
+### Fixed
+
+- `createApiHandlers(app)` from `bunderstack/start` now registers `GET`, `HEAD`,
+  `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS`. Before, it registered only
+  `GET`, `POST`, `PATCH`, and `DELETE`, so TanStack Start sent a `PUT` request
+  to SSR: the client got 200 with HTML and the write did not run.
+- Expected API errors are no longer logged as
+  `[bunderstack-api] 500 Internal Server Error`. The response status was
+  already correct (for example 401 or 409); only the log was wrong, because
+  oRPC v2 errors have no `status` field. Declared errors such as
+  `errors.CONFLICT(...)` are also no longer logged as
+  `Unhandled error in procedure`. Real 5xx errors are still logged.
+
 ## [0.25.2] — 2026-09-27
 
 ### Fixed

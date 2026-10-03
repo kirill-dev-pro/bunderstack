@@ -19,13 +19,36 @@ describe('createApiHandlers', () => {
       },
     }
     const handlers = createApiHandlers(app)
-    for (const method of ['GET', 'POST', 'PATCH', 'DELETE'] as const) {
+    const methods = [
+      'GET',
+      'HEAD',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE',
+      'OPTIONS',
+    ] as const
+    for (const method of methods) {
       const res = await handlers[method]({
         request: new Request('http://x/api/posts', { method }),
       })
       expect(await res.text()).toBe('ok')
     }
-    expect(seen).toEqual(['GET', 'POST', 'PATCH', 'DELETE'])
+    expect(seen).toEqual([...methods])
+  })
+
+  it('routes PUT to app.handler instead of leaving it to SSR', async () => {
+    // A missing PUT key made TanStack Start render the page: the client got
+    // 200 with HTML and the write never ran.
+    const app = {
+      handler: async (req: Request) =>
+        Response.json({ method: req.method }, { status: 202 }),
+    }
+    const res = await createApiHandlers(app).PUT({
+      request: new Request('http://x/api/clients/policy', { method: 'PUT' }),
+    })
+    expect(res.status).toBe(202)
+    expect(await res.json()).toEqual({ method: 'PUT' })
   })
 })
 

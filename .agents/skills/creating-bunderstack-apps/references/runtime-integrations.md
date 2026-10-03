@@ -15,6 +15,10 @@ export const Route = createFileRoute('/api/$')({
 })
 ```
 
+It registers every method an oRPC route can use, `PUT` and `OPTIONS` included.
+Do not replace it with a hand-written map: a method with no handler falls
+through to SSR and returns 200 with HTML.
+
 Keep the client setup in `src/api.ts`, not `src/client.ts`, which is a reserved
 Start entry point. Import `App` as a type so the browser does not load server
 runtime code.
