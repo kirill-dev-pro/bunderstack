@@ -52,7 +52,16 @@ function acceptedValues(
 ): (string | undefined)[] {
   const accepted: (string | undefined)[] = []
   const outputs = new Set<string>()
-  for (const candidate of [configured, ...CANDIDATES]) {
+  // A base key (AUTH_SECRET in production) must stay set: probing it as
+  // undefined would fail the runtime's own validation, not the app's schema.
+  const base = Object.hasOwn(BASE_SOURCE, key)
+    ? BASE_SOURCE[key as keyof typeof BASE_SOURCE]
+    : undefined
+  const candidates =
+    base === undefined
+      ? [configured, ...CANDIDATES]
+      : [configured ?? base, ...CANDIDATES].filter((c) => c !== undefined)
+  for (const candidate of candidates) {
     try {
       const output = validateStandardSchema(schema, candidate, 'env')
       const id = identity(output)

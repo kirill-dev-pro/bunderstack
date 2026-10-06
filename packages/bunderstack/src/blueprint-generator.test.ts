@@ -176,6 +176,37 @@ export const backend = bunderstack({
   }
 })
 
+test('generateBlueprint keeps the probe AUTH_SECRET when the app declares it optional', async () => {
+  // Probing an optional key with undefined dropped the base AUTH_SECRET, so
+  // the production probe failed with "AUTH_SECRET: required in production".
+  const directory = await fixture()
+  await Bun.write(
+    join(directory, 'src/bunderstack.ts'),
+    `import { bunderstack } from ${JSON.stringify(bunderstackEntry)}
+const optionalSecret = { '~standard': { version: 1, vendor: 'test', validate(value) {
+  return value === undefined || (typeof value === 'string' && value.length >= 32)
+    ? { value }
+    : { issues: [{ message: 'expected 32 characters' }] }
+} } }
+export const backend = bunderstack({
+  schema: {},
+  env: { server: { AUTH_SECRET: optionalSecret } },
+  database: { adapter: { dialect: 'sqlite', driver: 'libsql', async connect() { throw new Error('must not connect') }, async migrate() {} } },
+})`,
+  )
+  const previous = process.env.AUTH_SECRET
+  delete process.env.AUTH_SECRET
+  try {
+    const result = await generateBlueprint({ directory })
+    expect(result.blueprint.environment).toContainEqual(
+      expect.objectContaining({ key: 'AUTH_SECRET', required: false }),
+    )
+  } finally {
+    if (previous !== undefined) process.env.AUTH_SECRET = previous
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('generateBlueprint rejects environment-dependent declaration shape without leaking values', async () => {
   const directory = await fixture()
   await Bun.write(

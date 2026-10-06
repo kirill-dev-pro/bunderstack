@@ -2,6 +2,19 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.4] — 2026-10-06
+
+### Fixed
+
+- `bunderstack blueprint` no longer fails with
+  `AUTH_SECRET: required in production` when the app declares `AUTH_SECRET`
+  as optional in its env schema. The generator probes the backend with
+  `NODE_ENV=production` and its own `AUTH_SECRET`; probing the optional key as
+  `undefined` removed that secret. Keys the probe sets itself (`NODE_ENV`,
+  `AUTH_SECRET`, `DATABASE_URL`, `BUNDERSTACK_ROLE`) are no longer probed as
+  `undefined`. Platforms such as Bunderhost inject `AUTH_SECRET`, so apps
+  deployed there can keep it optional and out of the required environment.
+
 ## [0.25.3] — 2026-10-03
 
 ### Fixed
