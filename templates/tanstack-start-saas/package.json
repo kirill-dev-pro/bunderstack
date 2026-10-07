@@ -10,6 +10,9 @@
     "worker": "bun src/worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "check": "uncheck",
+    "fix": "uncheck --fix",
+    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt",
     "db:generate": "drizzle-kit generate",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
     "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"
@@ -41,8 +44,11 @@
     "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
     "nitro": "^3.0.260311-beta",
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.8.0",
+    "uncheck": "^0.1.1",
     "vite": "^8.0.14"
   },
   "bunderstack": {

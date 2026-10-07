@@ -9,6 +9,29 @@ storage, jobs, messaging, and realtime are keys on one object. `bun run dev` sta
 all of it with nothing to configure. Small enough to fit in your agent's
 context, and in your head.
 
+## Start with an AI agent
+
+In your new app directory, install the agent skills first:
+
+```sh
+bunx bunderstack skills
+```
+
+This works before installing Bunderstack. It installs version-matched skills
+into `.agents/skills` and adds routing instructions to `AGENTS.md`.
+Then ask your agent:
+
+> Use `creating-bunderstack-apps` to create a Bunderstack app for [your idea].
+
+New projects get editable formatting defaults and Uncheck commit hooks.
+If your agent is already running, reload its skills or start a new session.
+In Gemini CLI, use `/skills reload`, then `/skills list` to confirm discovery.
+If discovery fails, ask the agent to read
+`.agents/skills/creating-bunderstack-apps/SKILL.md` directly.
+For migrations, use `migrating-to-bunderstack`.
+
+## Why Bunderstack
+
 - **One place to look.** Every facility is a key, not a service to stand up.
   Turning on file uploads is a `storage` key; turning on realtime is
   `realtime: true`. There is no wiring between them to write, and no dashboard

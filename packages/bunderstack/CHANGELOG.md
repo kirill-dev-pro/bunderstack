@@ -2,6 +2,21 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.5]
+
+### Added
+
+- New-app skills and the TanStack Start SaaS template include Uncheck,
+  editable formatting defaults, and staged lint/format pre-commit hooks.
+  Full-project checks include TypeScript; the hook only runs Oxlint and Oxfmt.
+- The README starts with `bunx bunderstack skills`, including agent discovery
+  and reload guidance for starting an app before installing the framework.
+
+### Fixed
+
+- `bunderstack skills` no longer loads the backend's optional dependencies,
+  so skills can be installed in an empty directory before creating an app.
+
 ## [0.25.4] — 2026-10-06
 
 ### Fixed

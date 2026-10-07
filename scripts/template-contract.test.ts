@@ -57,3 +57,22 @@ test('SaaS template README documents setup commands', () => {
   expect(readme).toContain('bun run db:generate')
   expect(readme).toContain('bun run blueprint:check')
 })
+
+test('SaaS template ships editable style defaults and staged commit checks', () => {
+  expect(templatePackage.scripts).toMatchObject({
+    check: 'uncheck',
+    fix: 'uncheck --fix',
+    prepare: 'uncheck prepare --pre-commit --only=oxlint --only=oxfmt',
+  })
+  for (const tool of ['uncheck', 'oxlint', 'oxfmt']) {
+    expect(templatePackage.devDependencies).toHaveProperty(tool)
+  }
+  const config = JSON.parse(readFileSync(join(root, '.oxfmtrc.json'), 'utf-8'))
+  expect(config).toEqual(
+    JSON.parse(readFileSync(join(root, '../../.oxfmtrc.json'), 'utf-8')),
+  )
+  const readme = readFileSync(join(root, 'README.md'), 'utf-8')
+  expect(readme).toContain('bun run check')
+  expect(readme).toContain('bun run fix')
+  expect(readme).toContain('bun run prepare')
+})

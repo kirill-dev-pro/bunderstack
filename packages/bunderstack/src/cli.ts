@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
-import {
-  BlueprintCheckError,
+import type {
   generateBlueprint,
-  type GenerateBlueprintOptions,
+  GenerateBlueprintOptions,
 } from './blueprint-generator'
 import { installSkills } from './cli-skills'
 
@@ -26,7 +25,7 @@ skills     Install the Bunderstack agent skills that match this version into
 export async function runCli(
   args: string[],
   io: CliIo,
-  generate: typeof generateBlueprint = generateBlueprint,
+  generate?: typeof generateBlueprint,
 ): Promise<number> {
   if (args[0] === '--help' || args[0] === '-h') {
     io.stdout(help)
@@ -115,7 +114,10 @@ export async function runCli(
     options.directory = argument
   }
   try {
-    const result = await generate(options)
+    // Skills must install before an app has any of the backend's optional peers.
+    const run =
+      generate ?? (await import('./blueprint-generator')).generateBlueprint
+    const result = await run(options)
     io.stdout(
       options.check || options.hostedCheck || !result.changed
         ? 'bunderstack.blueprint.yaml is current'
@@ -124,7 +126,7 @@ export async function runCli(
     return 0
   } catch (error) {
     io.stderr(error instanceof Error ? error.message : String(error))
-    return error instanceof BlueprintCheckError ? 1 : 1
+    return 1
   }
 }
 

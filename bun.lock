@@ -285,7 +285,7 @@
     },
     "packages/bunderstack": {
       "name": "bunderstack",
-      "version": "0.25.1",
+      "version": "0.25.5",
       "bin": {
         "bunderstack": "./dist/cli.js",
       },
@@ -398,8 +398,11 @@
         "@vitejs/plugin-react": "^6.0.1",
         "drizzle-kit": "^0.31.10",
         "nitro": "^3.0.260311-beta",
+        "oxfmt": "^0.56.0",
+        "oxlint": "^1.71.0",
         "tailwindcss": "^4.2.2",
         "typescript": "^5.8.0",
+        "uncheck": "^0.1.1",
         "vite": "^8.0.14",
       },
     },
@@ -1447,6 +1450,8 @@
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "ufo": ["ufo@1.6.4", "", {}, "sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA=="],
+
+    "uncheck": ["uncheck@0.1.1", "", { "peerDependencies": { "oxfmt": "*", "oxlint": ">=1.60.0", "sherif": ">=1.10.0", "typescript": "*" }, "optionalPeers": ["oxfmt", "oxlint", "sherif", "typescript"], "bin": { "uncheck": "./dist/bin.mjs" } }, "sha512-MOem/+M0H0hqQscT8Yv3VTxVwwGgrPjHvJjaSG+UEi5vTHdTX9ZwF9eqk/6soFoQEOQmSrUEmKGgejiF9E77RQ=="],
 
     "undici": ["undici@7.29.0", "", {}, "sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw=="],
 

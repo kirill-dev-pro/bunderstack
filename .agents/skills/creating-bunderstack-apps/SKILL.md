@@ -15,6 +15,13 @@ description: Use when working in a repository that depends on bunderstack - star
 6. Add committed migrations and a deployment blueprint before production.
 7. Run the verification contract.
 
+## New-project code quality
+
+For every new app, follow [code quality](references/code-quality.md): copy
+the editable formatting defaults, add Uncheck scripts, and install the staged
+lint/format commit hook. The SaaS template already includes these defaults.
+Do not overwrite an existing app's tooling or style choices.
+
 | Condition                                                                   | Layout                                                            |
 | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Small API with short configuration                                          | `src/bunderstack.ts`                                              |
