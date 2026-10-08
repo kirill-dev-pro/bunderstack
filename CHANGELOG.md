@@ -2,6 +2,20 @@
 
 All notable changes to `bunderstack` will be documented in this file.
 
+## [0.25.6] — 2026-10-08
+
+### Fixed
+
+- Production bundles that import `bunderstack` no longer contain testing code
+  or `drizzle-kit`. `backend.test()` loaded the testing code with a dynamic
+  import that Vite (and rolldown via Nitro, as TanStack Start uses) followed
+  into `drizzle-kit/api`, which imports every drizzle driver. Apps that do not
+  install those optional peers failed `vite build` with errors such as
+  `"RDSDataClient" is not exported by "__vite-optional-peer-dep:@aws-sdk/client-rds-data:drizzle-orm"`.
+  Bundlers now cannot follow that import, so you can remove workarounds such
+  as `rollupConfig.external: [/^drizzle-kit(\/|$)/]`. `backend.test()` works
+  as before when your tests run against the installed package.
+
 ## [0.25.5]
 
 ### Added

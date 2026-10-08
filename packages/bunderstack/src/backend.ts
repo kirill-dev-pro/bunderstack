@@ -24,6 +24,18 @@ import { assertHostedBlueprintFile } from './hosted-contract'
 import { inspectConfig, type InspectedDefinition } from './inspect'
 import { materializeBunderstack } from './runtime'
 
+// `backend.test()` loads the testing code on demand. App bundlers (Vite and
+// rolldown via Nitro, Bun.build, esbuild) follow every dynamic import with a
+// literal specifier, and testing code reaches drizzle-kit/api, which imports
+// every drizzle driver. They cannot follow a specifier held in a variable, so
+// production bundles stay free of testing code. Bun maps `./testing.js` to
+// `./testing.ts` when it runs the sources.
+const TESTING_MODULE = './testing.js'
+
+function loadTesting(): Promise<typeof import('./testing')> {
+  return import(/* @vite-ignore */ TESTING_MODULE)
+}
+
 export type StartOptions = {
   env?: Record<string, string | undefined>
 }
@@ -250,12 +262,12 @@ export function bunderstack(
 
   let backend: BunderstackBackend<App>
   const test = (async (options) => {
-    const testing = await import('./testing')
+    const testing = await loadTesting()
     return testing.createTestApp(backend, options)
   }) as TestMethod<App>
   test.configure = (options) =>
     (async (overrides: TestOptions = {}) => {
-      const testing = await import('./testing')
+      const testing = await loadTesting()
       return testing.configureTestApp(backend, options)(overrides)
     }) as never
   backend = {

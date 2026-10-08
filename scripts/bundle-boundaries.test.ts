@@ -45,6 +45,62 @@ async function bundle(
   return result
 }
 
+/** Builds one entry with Vite SSR, bundling every dependency like Nitro. */
+async function viteSsrBundle(entry: string): Promise<string> {
+  const fixture = await mkdtemp(join(tmpdir(), 'bunderstack-vite-ssr-'))
+  const outDir = join(fixture, 'dist')
+  const configPath = join(fixture, 'vite.config.ts')
+
+  await writeFile(
+    configPath,
+    `export default {
+  logLevel: 'silent',
+  build: {
+    ssr: ${JSON.stringify(join(repoRoot, entry))},
+    outDir: ${JSON.stringify(outDir)},
+    emptyOutDir: true,
+    minify: false,
+  },
+  ssr: { noExternal: true },
+}
+`,
+  )
+
+  try {
+    const proc = Bun.spawn(
+      [
+        'bun',
+        'run',
+        '--cwd',
+        join(repoRoot, 'examples/todo'),
+        'vite',
+        'build',
+        '--config',
+        configPath,
+      ],
+      { stdout: 'pipe', stderr: 'pipe' },
+    )
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
+    expect(exitCode, stdout + stderr).toBe(0)
+
+    // Vite writes shared and lazy chunks under assets/.
+    const chunks = await readdir(outDir, { recursive: true })
+    return (
+      await Promise.all(
+        chunks
+          .filter((name) => name.endsWith('.js'))
+          .map((name) => readFile(join(outDir, name), 'utf8')),
+      )
+    ).join('\n')
+  } finally {
+    await rm(fixture, { recursive: true, force: true })
+  }
+}
+
 function expectNoBundleInputs(inputs: string[], forbidden: string[]) {
   for (const path of forbidden) {
     expect(
@@ -143,70 +199,35 @@ describe('server bundle boundaries', () => {
   })
 
   test('Vite SSR bundles production provision without Drizzle Kit', async () => {
-    const fixture = await mkdtemp(join(tmpdir(), 'bunderstack-vite-provision-'))
-    const outDir = join(fixture, 'dist')
-    const configPath = join(fixture, 'vite.config.ts')
-    const entrypoint = join(repoRoot, 'packages/bunderstack/src/provision.ts')
-
-    await writeFile(
-      configPath,
-      `export default {
-  logLevel: 'silent',
-  build: {
-    ssr: ${JSON.stringify(entrypoint)},
-    outDir: ${JSON.stringify(outDir)},
-    emptyOutDir: true,
-    minify: false,
-  },
-  ssr: { noExternal: true },
-}
-`,
-    )
-
-    try {
-      const proc = Bun.spawn(
-        [
-          'bun',
-          'run',
-          '--cwd',
-          join(repoRoot, 'examples/todo'),
-          'vite',
-          'build',
-          '--config',
-          configPath,
-        ],
-        { stdout: 'pipe', stderr: 'pipe' },
-      )
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ])
-      expect(exitCode, stdout + stderr).toBe(0)
-
-      const chunks = await readdir(outDir)
-      const output = (
-        await Promise.all(
-          chunks
-            .filter((name) => name.endsWith('.js'))
-            .map((name) => readFile(join(outDir, name), 'utf8')),
-        )
-      ).join('\n')
-      expect(output).not.toContain('drizzle-kit/api')
-      expect(output).not.toContain('aws-data-api')
-      expect(output).not.toContain('vercel-postgres')
-    } finally {
-      await rm(fixture, { recursive: true, force: true })
-    }
+    const output = await viteSsrBundle('packages/bunderstack/src/provision.ts')
+    expect(output).not.toContain('drizzle-kit/api')
+    expect(output).not.toContain('aws-data-api')
+    expect(output).not.toContain('vercel-postgres')
   })
 
-  test('root runtime does not eagerly bundle test fixtures', async () => {
+  test('Vite SSR bundles the root runtime without testing code', async () => {
+    const output = await viteSsrBundle('packages/bunderstack/src/index.ts')
+    expect(output).not.toContain('drizzle-kit/api')
+    expect(output).not.toContain('provisionForTest')
+    expect(output).not.toContain('aws-data-api')
+  })
+
+  // backend.test() loads testing code on demand. Bundlers follow literal
+  // dynamic imports, and the testing code reaches drizzle-kit/api, which
+  // imports every drizzle driver: apps without those optional peers failed
+  // `vite build` with MISSING_EXPORT errors. One chunk means no lazy edge.
+  test('root runtime has no import edge to test fixtures', async () => {
     const output = await bundle(
       'packages/bunderstack/src/index.ts',
       serverExternal,
       'bun',
-      true,
     )
+    expectNoBundleInputs(output.inputs, [
+      'packages/bunderstack/src/testing',
+      'packages/bunderstack/src/provision-schema.',
+      '/drizzle-kit/',
+    ])
+    expect(output.text).not.toContain('drizzle-kit/api')
     expect(output.text).not.toContain('bunderstack-storage-')
     expect(output.text).not.toContain('node:fs')
     expect(output.text).not.toContain('node:os')

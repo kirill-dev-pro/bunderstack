@@ -19,6 +19,16 @@ async function sourceFiles(dir: string): Promise<string[]> {
   return nested.flat()
 }
 
+// blueprint-generator.ts loads the app's own backend file. backend.ts loads
+// testing code for backend.test(): a literal import would let app bundlers
+// pull testing code and drizzle-kit/api into production builds.
+function isOpaqueImportAllowed(path: string) {
+  return (
+    path.endsWith('/blueprint-generator.ts') ||
+    path.endsWith('/bunderstack/src/backend.ts')
+  )
+}
+
 describe('published dependency boundaries', () => {
   test('runtime sources and manifests contain no legacy transport stack', async () => {
     const forbidden = [
@@ -80,7 +90,7 @@ describe('published dependency boundaries', () => {
       for (const path of await sourceFiles(
         join(repoRoot, 'packages', name, 'src'),
       )) {
-        if (path.endsWith('/blueprint-generator.ts')) continue
+        if (isOpaqueImportAllowed(path)) continue
         const source = await Bun.file(path).text()
         expect(source, path).not.toContain('@vite-ignore')
         expect(source, path).not.toContain('webpackIgnore')
@@ -93,7 +103,7 @@ describe('published dependency boundaries', () => {
       for (const path of await sourceFiles(
         join(repoRoot, 'packages', name, 'src'),
       )) {
-        if (path.endsWith('/blueprint-generator.ts')) continue
+        if (isOpaqueImportAllowed(path)) continue
         const source = await Bun.file(path).text()
         const imports = source.matchAll(/\bimport\s*\(([^)]*)\)/gs)
         for (const match of imports) {
