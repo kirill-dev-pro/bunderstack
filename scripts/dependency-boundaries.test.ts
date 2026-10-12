@@ -194,6 +194,7 @@ describe('published dependency boundaries', () => {
       '@standard-schema/spec',
       '@standardserver/core',
       'valibot',
+      'workerstack',
       'yaml',
     ])
 

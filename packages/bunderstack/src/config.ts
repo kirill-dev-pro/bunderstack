@@ -33,7 +33,7 @@ import {
 export type BetterAuthConfig = Omit<
   NonNullable<Parameters<typeof betterAuth>[0]>,
   'database'
->
+> & { managedIdentity?: 'auto' | false }
 
 /**
  * What an `auth` builder is handed. `db` is the app's own connection, typed

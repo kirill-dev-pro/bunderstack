@@ -2,6 +2,7 @@
 import { betterAuth, type Auth, type BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI } from 'better-auth/plugins'
+import { managedIdentityPlugins } from 'workerstack/managed-auth'
 
 import type {
   AccessUserBase,
@@ -206,4 +207,37 @@ export function withEmailAuthDefaults(
   }
 
   return out
+}
+
+/** Install managed identity only for applications declaring auth models. */
+export function withManagedIdentity(
+  cfg: BetterAuthConfig,
+  env: { APP_URL?: string; BUNDERHOST_AUTH_CONFIG?: string },
+  schema: Record<string, unknown>,
+): BetterAuthConfig {
+  if (
+    cfg.managedIdentity === false ||
+    !env.BUNDERHOST_AUTH_CONFIG ||
+    missingAuthModels(schema, cfg).length ||
+    !schema[cfg.account?.modelName ?? 'account'] ||
+    !schema[cfg.verification?.modelName ?? 'verification']
+  )
+    return cfg
+  if (
+    cfg.plugins?.some(
+      (p) =>
+        p.id === 'bunderhost-managed-status' ||
+        (p.id === 'generic-oauth' &&
+          (
+            p.options as { config?: { providerId?: string }[] } | undefined
+          )?.config?.some((c) => c.providerId === 'bunderhost')),
+    )
+  )
+    throw new Error(
+      '[bunderstack] bunderhost provider is reserved for managed identity; remove the custom adapter or set auth.managedIdentity=false',
+    )
+  return {
+    ...cfg,
+    plugins: [...(cfg.plugins ?? []), ...managedIdentityPlugins(env)],
+  }
 }

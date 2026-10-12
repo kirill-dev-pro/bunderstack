@@ -44,6 +44,7 @@ import { buildRealtimeApiRouter } from './api/realtime-router'
 import { buildApiRegistry, normalizeForeignOpenAPISpec } from './api/registry'
 import { buildApiRouter } from './api/router'
 import { buildStorageApiRouter } from './api/storage-router'
+import { withManagedIdentity } from './auth'
 import {
   createAuth,
   type BunderstackAuth,
@@ -402,7 +403,11 @@ export async function materializeBunderstack<
     const userDb = db as unknown as DbFor<TSchema>
     // An `auth` builder gets the user-facing db, so better-auth hooks in another
     // file can write through the app's own connection without importing the app.
-    const authConfig = resolveAuthConfig(config.auth, { db: userDb, env })
+    const authConfig = withManagedIdentity(
+      resolveAuthConfig(config.auth, { db: userDb, env }),
+      env,
+      options.schema as Record<string, unknown>,
+    )
     const authEmail =
       options.messaging?.email?.kind === 'email'
         ? ((messaging as Record<string, unknown>).email as EmailFacade)

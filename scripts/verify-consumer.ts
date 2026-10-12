@@ -326,6 +326,8 @@ export const feed = sync.creditBalances.scopedCollection({
 
 export const startSetup = bunderstackStart<App>()
 export const authClient = createStartAuthClient()
+export const discoverProviders = () => authClient.managed.providers()
+export const managedSignIn = () => authClient.signIn.managed({ provider: 'github', callbackURL: '/profile' })
 
 export async function realtime(): Promise<void> {
   await sync.realtime?.subscribe(['creditBalances'])

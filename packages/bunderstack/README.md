@@ -80,3 +80,27 @@ Every change is listed with before/after code in the migration guides, which liv
 ## License
 
 MIT
+
+## Managed identity on Bunderhost
+
+Applications with Better Auth user, session, account and verification tables
+can enable managed providers in their Bunderhost environment settings. The
+framework declares its capability in the blueprint and installs the adapter
+when Bunderhost supplies `APP_URL` and the sensitive, server-only
+`BUNDERHOST_AUTH_CONFIG`. Provider credentials stay in the central identity
+service. Set `auth: { managedIdentity: false }` to use a custom adapter.
+
+```ts
+import { createStartAuthClient } from 'bunderstack/start-auth'
+
+const auth = createStartAuthClient()
+const { providers } = await auth.managed.providers()
+// Render these providers, then call the selected provider:
+await auth.signIn.managed({ provider: providers[0]!.id, callbackURL: '/' })
+```
+
+Discovery returns only enabled, configured providers. Refresh discovery to
+reflect environment policy changes without rebuilding the application.
+`workerstack/managed-auth` exposes the same server adapter for other Better
+Auth integrations; `workerstack/managed-auth/client` contains only HTTP browser
+helpers. Existing application account-linking policies continue to apply.

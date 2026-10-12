@@ -56,6 +56,7 @@ export function inspectConfig(
 
   const manifest = buildManifest({
     schema: config.schema,
+    auth: typeof config.auth === 'function' ? 'builder' : config.auth,
     dialect,
     migrationsDirectory: config.database.migrations ?? './migrations',
     storage: resolveBuckets(config.storage, {}),

@@ -38,6 +38,8 @@ const ROLES: readonly BunderstackRole[] = ['all', 'web', 'worker']
 
 /** Vars bunderstack itself consumes, always validated. */
 export type BaseEnv = {
+  APP_URL?: string
+  BUNDERHOST_AUTH_CONFIG?: string
   NODE_ENV?: string
   DATABASE_URL: string
   DATABASE_AUTH_TOKEN?: string
@@ -128,6 +130,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
   const isProduction = source.NODE_ENV === 'production'
 
   const base: BaseEnv = {
+    APP_URL: source.APP_URL,
+    BUNDERHOST_AUTH_CONFIG: source.BUNDERHOST_AUTH_CONFIG,
     NODE_ENV: source.NODE_ENV,
     DATABASE_URL:
       source.DATABASE_URL ?? options.defaultDatabaseUrl ?? 'file:./data.db',
@@ -173,12 +177,19 @@ export function createClientEnv<TEnv extends EnvConfigInput>(
     (typeof process !== 'undefined'
       ? (process.env as Record<string, unknown>)
       : {})
+  if (envConfig.client && 'BUNDERHOST_AUTH_CONFIG' in envConfig.client)
+    throw new Error(
+      'BUNDERHOST_AUTH_CONFIG is server-only and cannot be declared in client env',
+    )
   const issues: string[] = []
   const values: Record<string, unknown> = {}
   validateSection(envConfig.client, 'client', source, issues, values)
   if (issues.length > 0) throw new BunderstackEnvError(issues)
 
-  const serverKeys = new Set(Object.keys(envConfig.server ?? {}))
+  const serverKeys = new Set([
+    ...Object.keys(envConfig.server ?? {}),
+    'BUNDERHOST_AUTH_CONFIG',
+  ])
   return new Proxy(values, {
     get(target, prop) {
       if (typeof prop === 'string' && serverKeys.has(prop)) {

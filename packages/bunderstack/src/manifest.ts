@@ -3,12 +3,14 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { getTableName, isTable } from 'drizzle-orm'
 import * as v from 'valibot'
 
+import type { BetterAuthConfig } from './config'
 import type { Dialect } from './dialect'
 import type { EnvConfigInput, EnvVarMeta } from './env'
 import type { JobsDefs } from './jobs/define'
 import type { MessagingConfig } from './messaging'
 import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 
+import { missingAuthModels } from './auth'
 import {
   bunderstackMessageEvents,
   bunderstackMessages,
@@ -47,8 +49,21 @@ export type ApiOperation = {
   summary?: string
 }
 
+export type ManagedIdentityCapability = {
+  protocolVersion: 2
+  adapterVersion: 2
+  discovery: true
+  callbackPath: '/api/auth/callback/bunderhost'
+}
+export const managedIdentitySchema = v.strictObject({
+  protocolVersion: v.literal(2),
+  adapterVersion: v.literal(2),
+  discovery: v.literal(true),
+  callbackPath: v.literal('/api/auth/callback/bunderhost'),
+})
 export type BunderstackManifest = {
   version: 4
+  authentication?: { managedIdentity: ManagedIdentityCapability }
   database: {
     dialect: Dialect
     migrationsDirectory: string
@@ -102,6 +117,9 @@ const cronSchedule = v.pipe(
 
 const manifestSchema = v.strictObject({
   version: v.literal(4),
+  authentication: v.optional(
+    v.strictObject({ managedIdentity: managedIdentitySchema }),
+  ),
   database: v.strictObject({
     dialect: v.picklist(['sqlite', 'pg']),
     migrationsDirectory: migrationDirectory,
@@ -318,6 +336,7 @@ export function parseManifest(value: unknown): BunderstackManifest {
 }
 
 export function buildManifest(args: {
+  auth?: BetterAuthConfig | 'builder'
   schema: Record<string, unknown>
   dialect: Dialect
   migrationsDirectory: string
@@ -352,6 +371,26 @@ export function buildManifest(args: {
     ...describeSection(args.envConfig?.server, 'server', args.envConfig?.meta),
     ...describeSection(args.envConfig?.client, 'client', args.envConfig?.meta),
   ]
+  const auth = args.auth === 'builder' ? {} : (args.auth ?? {})
+  const capable =
+    auth.managedIdentity !== false &&
+    missingAuthModels(args.schema, auth).length === 0 &&
+    Boolean(args.schema[auth.account?.modelName ?? 'account']) &&
+    Boolean(args.schema[auth.verification?.modelName ?? 'verification'])
+  if (capable) {
+    const reserved = environment.find((e) => e.key === 'BUNDERHOST_AUTH_CONFIG')
+    if (reserved && (reserved.scope !== 'server' || !reserved.sensitive))
+      throw new Error(
+        '[bunderstack] BUNDERHOST_AUTH_CONFIG must be sensitive and server-only',
+      )
+    if (!reserved)
+      environment.push({
+        key: 'BUNDERHOST_AUTH_CONFIG',
+        required: false,
+        scope: 'server',
+        sensitive: true,
+      })
+  }
   rejectDuplicates(
     'environment key',
     environment.map((entry) => entry.key),
@@ -359,6 +398,18 @@ export function buildManifest(args: {
 
   return parseManifest({
     version: 4,
+    ...(capable
+      ? {
+          authentication: {
+            managedIdentity: {
+              protocolVersion: 2 as const,
+              adapterVersion: 2 as const,
+              discovery: true as const,
+              callbackPath: '/api/auth/callback/bunderhost' as const,
+            },
+          },
+        }
+      : {}),
     database: {
       dialect: args.dialect,
       migrationsDirectory: args.migrationsDirectory,

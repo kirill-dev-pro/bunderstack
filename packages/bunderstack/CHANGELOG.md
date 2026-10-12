@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.0
+
+- Automatically installs Bunderhost managed identity for applications with Better
+  Auth tables when the host supplies its sensitive server configuration.
+- Declares protocol 2 capability in the blueprint and supports dynamic provider
+  discovery and selected-provider login through `createStartAuthClient`.
+- Uses the same `workerstack/managed-auth` SDK as Cloudflare applications.
+  Set `auth.managedIdentity: false` when using a custom adapter.
+
 All notable changes to `bunderstack` will be documented in this file.
 
 ## [0.25.6] — 2026-10-08

@@ -4,6 +4,7 @@ import { parse, stringify } from 'yaml'
 import type { BunderstackManifest } from './manifest'
 
 import { parseCron } from './jobs/cron'
+import { managedIdentitySchema } from './manifest'
 import { validateStandardSchema } from './standard-schema'
 
 export type MigrationMode = 'migrations' | 'push'
@@ -27,6 +28,7 @@ export type BlueprintEnvVar = {
 
 export type BunderstackBlueprint = {
   version: 1
+  authentication?: BunderstackManifest['authentication']
   generator: { name: 'bunderstack'; version: string }
   application: {
     framework: ApplicationFramework
@@ -79,6 +81,7 @@ function open<TEntries extends v.ObjectEntries>(entries: TEntries) {
 
 const blueprintSchema = open({
   version: v.literal(1),
+  authentication: v.optional(open({ managedIdentity: managedIdentitySchema })),
   generator: open({
     name: v.literal('bunderstack'),
     version: nonEmpty,
@@ -264,6 +267,9 @@ export function blueprintFromManifest(args: {
   const workerRequired = args.manifest.background.jobs.length > 0
   return parseBlueprint({
     version: 1,
+    ...(args.manifest.authentication
+      ? { authentication: args.manifest.authentication }
+      : {}),
     generator: { name: 'bunderstack', version: args.generatorVersion },
     application: {
       framework: args.framework ?? 'tanstack-start',
