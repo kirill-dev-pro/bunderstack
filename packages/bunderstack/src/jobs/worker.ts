@@ -15,6 +15,7 @@ import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
 import type { BunderstackLogger } from '../logging'
+import type { TelemetrySink } from '../telemetry/telemetry'
 import type {
   AnyBackgroundDefinition,
   JobsDefs,
@@ -25,6 +26,7 @@ import type {
 import { jobsTableFor } from '../internal-tables'
 import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
+import { noopTelemetry } from '../telemetry/telemetry'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
 import { enqueueJob } from './queue'
@@ -141,9 +143,14 @@ export function createJobRunner(deps: {
   /** Handler ctx WITHOUT `jobs`; the facade is injected via setJobsFacade. */
   ctx: Record<string, unknown>
   logger?: BunderstackLogger
+  /** Durations and failures of every run; absent means not reported. */
+  telemetry?: TelemetrySink
 }) {
   const { db, defs } = deps
   const logger = deps.logger ?? consoleLogger
+  const telemetry = deps.telemetry ?? noopTelemetry
+  const jobKind = (def: AnyBackgroundDefinition): 'job' | 'cron' =>
+    def.kind === 'cron' ? 'cron' : 'job'
   const t = jobsTableFor(db)
   const ctx = { ...deps.ctx } as Record<string, unknown>
   let lastReapAt = 0
@@ -528,6 +535,12 @@ export function createJobRunner(deps: {
           }),
         ),
       )
+      telemetry.recordJob({
+        type: row.type,
+        kind: jobKind(def),
+        outcome: 'succeeded',
+        durationMs: Date.now() - startedAt,
+      })
       return 'ran'
     } catch (err) {
       if (deadline) clearTimeout(deadline)
@@ -557,6 +570,19 @@ export function createJobRunner(deps: {
             }),
           ),
         )
+        telemetry.recordJob({
+          type: row.type,
+          kind: jobKind(def),
+          outcome: 'retrying',
+          durationMs: Date.now() - startedAt,
+        })
+        telemetry.captureException(e, {
+          source: jobKind(def),
+          jobType: row.type,
+          jobId: row.id,
+          attempt: Number(row.attempts),
+          willRetry: true,
+        })
       } else {
         const updated = await db
           .update(t)
@@ -578,6 +604,19 @@ export function createJobRunner(deps: {
             }),
           ),
         )
+        telemetry.recordJob({
+          type: row.type,
+          kind: jobKind(def),
+          outcome: 'failed',
+          durationMs: Date.now() - startedAt,
+        })
+        telemetry.captureException(e, {
+          source: jobKind(def),
+          jobType: row.type,
+          jobId: row.id,
+          attempt: Number(row.attempts),
+          willRetry: false,
+        })
         await fireOnFailed(def, input, e)
       }
       return 'failed'

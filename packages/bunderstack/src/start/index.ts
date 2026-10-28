@@ -86,6 +86,94 @@ export function createApiHandlers(app: {
   }
 }
 
+type TelemetryApp = {
+  telemetry: {
+    enabled: boolean
+    captureException(
+      error: unknown,
+      context: {
+        source: 'http'
+        [key: string]: string | number | boolean | undefined
+      },
+    ): void
+    recordRequest(sample: {
+      route: string
+      status: number
+      durationMs: number
+    }): void
+  }
+}
+
+/**
+ * Times SSR and other non-API requests and reports what they throw. API
+ * requests are already covered by the runtime's own middleware, so wrap only
+ * the server entry's `fetch`:
+ *
+ * @example
+ * // src/server.ts
+ * export default { fetch: withTelemetry(app, (req) => handler(req)) }
+ */
+export function withTelemetry(
+  app: TelemetryApp,
+  fetch: (request: Request) => Promise<Response> | Response,
+): (request: Request) => Promise<Response> {
+  if (!app.telemetry.enabled) return async (request) => fetch(request)
+  return async (request) => {
+    const startedAt = performance.now()
+    let status = 200
+    try {
+      const response = await fetch(request)
+      status = response.status
+      return response
+    } catch (error) {
+      status = 500
+      app.telemetry.captureException(error, {
+        source: 'http',
+        method: request.method,
+        path: safePathname(request.url),
+      })
+      throw error
+    } finally {
+      app.telemetry.recordRequest({
+        route: `ssr ${normalizePath(request.url)}`,
+        status,
+        durationMs: performance.now() - startedAt,
+      })
+    }
+  }
+}
+
+function safePathname(url: string): string | undefined {
+  try {
+    return new URL(url).pathname
+  } catch {
+    return undefined
+  }
+}
+
+/** `/projects/42/tasks/01HX…` → `/projects/:id/tasks/:id`, as Bunderhost labels pages. */
+export function normalizePath(url: string): string {
+  const pathname = safePathname(url) ?? '/'
+  const normalized = pathname
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment
+      if (/^\d+$/.test(segment)) return ':id'
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          segment,
+        )
+      )
+        return ':id'
+      if (/^[a-z]+_[0-9a-hjkmnp-tv-z]{26}$/.test(segment)) return ':id'
+      if (/^[0-9a-f]{16,}$/i.test(segment)) return ':id'
+      if (segment.length > 24) return ':id'
+      return segment
+    })
+    .join('/')
+  return normalized || '/'
+}
+
 export type SessionUser = {
   id: string
   email: string

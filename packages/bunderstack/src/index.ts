@@ -49,6 +49,19 @@ export type {
 } from './readiness'
 export type { EmailMessage, EmailAdapter } from './email'
 export { createJobsBuilder } from './jobs/index'
+export {
+  createTelemetry,
+  noopTelemetry,
+  telemetryFromEnv,
+  telemetryMiddleware,
+} from './telemetry/index'
+export type {
+  Telemetry,
+  TelemetryConfig,
+  TelemetryContext,
+  TelemetrySink,
+  TelemetrySource,
+} from './telemetry/index'
 export type {
   BunderstackJobContext,
   BunderstackJobsBuilder,

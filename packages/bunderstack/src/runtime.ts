@@ -98,6 +98,15 @@ import { deleteFileMetaRow, insertReadyFile } from './storage/file-meta'
 import { createStorageOperations } from './storage/operations'
 import { createBucketStorages } from './storage/registry'
 import { sweepOrphans } from './storage/sweep'
+import { telemetryMiddleware } from './telemetry/middleware'
+import { installProcessTelemetry } from './telemetry/process'
+import {
+  createTelemetry,
+  noopTelemetry,
+  type Telemetry,
+  telemetryFromEnv,
+} from './telemetry/telemetry'
+import { BUNDERSTACK_VERSION } from './version'
 
 /** Base Better Auth contract used by framework internals and API context. */
 export type AuthInstance = Auth
@@ -219,6 +228,12 @@ export type BunderstackApp<
   >
   /** Typed custom row publication; enabled=false/no-op when realtime is off. */
   realtime: RealtimeFacade<TSchema>
+  /**
+   * Error and performance reporting to Bunderhost. A no-op without the
+   * platform's variables; `captureException` lets application code report
+   * what it caught and handled itself.
+   */
+  telemetry: Telemetry
   startWorker(options?: AppStartWorkerOptions): Promise<WorkerHandle>
   /** Run a queue worker until aborted, then close the application. */
   runWorker(options?: AppRunWorkerOptions): Promise<void>
@@ -376,6 +391,21 @@ export async function materializeBunderstack<
   // schema so internal tables never get a CRUD route.
   const mergedSchema = withInternalTables(options.schema)
   const lifecycle = new Lifecycle()
+  // Reports to Bunderhost only when the platform supplied the two variables;
+  // a local process never sends anything.
+  const telemetryConfig = telemetryFromEnv(env, {
+    runtime: 'bunderstack',
+    version: BUNDERSTACK_VERSION,
+  })
+  const telemetry: Telemetry = telemetryConfig
+    ? createTelemetry(telemetryConfig, { logger })
+    : noopTelemetry
+  if (telemetryConfig) {
+    telemetry.start()
+    lifecycle.add(() => telemetry.stop())
+    if (typeof process !== 'undefined' && typeof process.on === 'function')
+      lifecycle.add(installProcessTelemetry(telemetry))
+  }
   const {
     db,
     driver,
@@ -587,6 +617,7 @@ export async function materializeBunderstack<
           defs: resolvedDefs,
           ctx: { db: userDb, env, messaging, storage, realtime },
           logger,
+          telemetry,
         })
       : undefined
     let enqueueNow: number | undefined
@@ -709,7 +740,11 @@ export async function materializeBunderstack<
       storage: storageApiRouter as Record<string, unknown>,
       realtime: realtimeApiRouter as Record<string, unknown> | undefined,
       custom: customApiRouter as Record<string, unknown> | undefined,
-      middleware: options.middleware,
+      // Outermost, so every procedure is timed and an unhandled throw is
+      // captured regardless of what the application's middleware does.
+      middleware: telemetry.enabled
+        ? [telemetryMiddleware(telemetry), ...(options.middleware ?? [])]
+        : options.middleware,
       readiness,
     }) as any
 
@@ -905,6 +940,7 @@ export async function materializeBunderstack<
       // narrows `enqueue` per-app from the declared job defs — same relationship
       // as `userDb` above.
       jobs: jobs as never,
+      telemetry,
       startWorker,
       runWorker,
       close: () => lifecycle.close(),

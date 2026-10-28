@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.0
+
+- Reports errors and performance to Bunderhost when the platform supplies
+  `BUNDERHOST_TELEMETRY_URL` and `BUNDERHOST_TELEMETRY_TOKEN`: unhandled
+  exceptions in API procedures, failed job and cron runs on every attempt,
+  uncaught exceptions and unhandled rejections of the process, and request and
+  job durations as window deltas. Without the variables nothing is sent.
+- `app.telemetry.captureException(error, { source: 'api', … })` reports an
+  error the application caught itself.
+- `withTelemetry(app, fetch)` from `bunderstack/start` times SSR requests of a
+  TanStack Start server entry and reports what they throw.
+
 ## 0.26.0
 
 - Automatically installs Bunderhost managed identity for applications with Better

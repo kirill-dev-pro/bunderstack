@@ -51,6 +51,12 @@ export type BaseEnv = {
   BUNDERHOST_ENVIRONMENT_ID?: string
   /** Deployed commit SHA, injected by the platform. Reported by readiness. */
   BUNDERSTACK_REVISION?: string
+  /**
+   * Where and as whom the application reports errors and performance to
+   * Bunderhost. Both or neither; without them the reporter is a no-op.
+   */
+  BUNDERHOST_TELEMETRY_URL?: string
+  BUNDERHOST_TELEMETRY_TOKEN?: string
   BUNDERSTACK_ROLE: BunderstackRole
 }
 
@@ -143,6 +149,8 @@ export function validateEnv<TEnv extends EnvConfigInput | undefined>(
     BUNDERSTACK_BLUEPRINT_PATH: source.BUNDERSTACK_BLUEPRINT_PATH,
     BUNDERHOST_ENVIRONMENT_ID: source.BUNDERHOST_ENVIRONMENT_ID,
     BUNDERSTACK_REVISION: source.BUNDERSTACK_REVISION,
+    BUNDERHOST_TELEMETRY_URL: source.BUNDERHOST_TELEMETRY_URL,
+    BUNDERHOST_TELEMETRY_TOKEN: source.BUNDERHOST_TELEMETRY_TOKEN,
     BUNDERSTACK_ROLE: (source.BUNDERSTACK_ROLE ?? 'all') as BunderstackRole,
   }
   if (isProduction && !source.AUTH_SECRET) {
