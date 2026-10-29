@@ -50,6 +50,13 @@
       "when": 1788119847965,
       "tag": "0006_cool_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793271017532,
+      "tag": "0007_confused_star_brand",
+      "breakpoints": true
     }
   ]
 }
