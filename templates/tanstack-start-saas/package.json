@@ -12,7 +12,7 @@
     "test": "bun test",
     "check": "uncheck",
     "fix": "uncheck --fix",
-    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt",
+    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt || true",
     "db:generate": "drizzle-kit generate",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
     "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"

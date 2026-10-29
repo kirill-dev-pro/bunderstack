@@ -62,7 +62,7 @@ test('SaaS template ships editable style defaults and staged commit checks', () 
   expect(templatePackage.scripts).toMatchObject({
     check: 'uncheck',
     fix: 'uncheck --fix',
-    prepare: 'uncheck prepare --pre-commit --only=oxlint --only=oxfmt',
+    prepare: 'uncheck prepare --pre-commit --only=oxlint --only=oxfmt || true',
   })
   for (const tool of ['uncheck', 'oxlint', 'oxfmt']) {
     expect(templatePackage.devDependencies).toHaveProperty(tool)

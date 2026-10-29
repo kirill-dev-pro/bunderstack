@@ -18,7 +18,7 @@ Merge these scripts into `package.json`, preserving any existing scripts:
   "scripts": {
     "check": "uncheck",
     "fix": "uncheck --fix",
-    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt"
+    "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt || true"
   }
 }
 ```
@@ -32,5 +32,6 @@ staged changes. Type checking is left to `bun run check` on the whole project.
 Run `bun run check` in CI too, since local hooks can be skipped. For TanStack
 Start, build first to generate the route tree required by type checking.
 `bun run fix` applies lint and formatting fixes and reports type errors.
-Production installs that omit devDependencies should disable lifecycle
-scripts, since `prepare` needs the development tooling.
+`|| true` keeps production installs working: they omit devDependencies, so
+`uncheck` is missing there, and `--ignore-scripts` is no way around it because
+it also skips the install scripts of trusted dependencies.
