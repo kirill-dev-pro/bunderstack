@@ -21,7 +21,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Agent Desk · Bunderstack' },
     ],
-    links: [{ rel: 'stylesheet', href: stylesCss }],
+    links: [
+      { rel: 'stylesheet', href: stylesCss },
+      // Inline, so browsers stop asking for a /favicon.ico the app never had.
+      {
+        rel: 'icon',
+        href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>",
+      },
+    ],
   }),
   notFoundComponent: () => (
     <main className="login-shell">
