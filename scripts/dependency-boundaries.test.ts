@@ -193,6 +193,8 @@ describe('published dependency boundaries', () => {
     expect(Object.keys(core.dependencies).sort()).toEqual([
       '@standard-schema/spec',
       '@standardserver/core',
+      // SigV4 for the SES channel: one signed fetch instead of the AWS SDK.
+      'aws4fetch',
       'valibot',
       'workerstack',
       'yaml',

@@ -2492,8 +2492,31 @@ await app.messaging.ops.send({
 })
 ```
 
-`send()` returns `{ id, providerId? }`. `id` is the journal row; `providerId`
-is the provider's own identifier when the provider returns one.
+`send()` returns `{ id, providerId?, messageId? }`. `id` is the journal row;
+`providerId` is the provider's own identifier when the provider returns one;
+`messageId` is the `Message-ID` header of the sent message when the provider
+makes it knowable (SES does, Resend does not).
+
+### Headers
+
+`headers` adds headers to an email, for example to answer inside a thread:
+
+```ts
+const sent = await app.messaging.inbox.send({
+  from: 'anna@mail.example.com',
+  to: 'recruiter@acme.example',
+  subject: 'Re: Interview',
+  text: 'Monday works.',
+  headers: {
+    'In-Reply-To': '<m1@acme.example>',
+    References: '<m0@acme.example> <m1@acme.example>',
+  },
+})
+// Store sent.messageId: the recruiter's reply will name it in In-Reply-To.
+```
+
+A header that has its own field (`From`, `To`, `Cc`, `Bcc`, `Subject`,
+`Reply-To`) is refused, and so is a value that spans lines.
 
 ## Capture
 
@@ -2509,8 +2532,9 @@ channel has it.
 A key that is present but wrong is not capture. So is a provider that rejects
 the request: both raise, and the journal row records `failed`.
 
-For Resend that means `apiKey` and `from`, for Telegram `botToken`, and for a
-custom adapter the adapter itself plus `from`.
+For Resend that means `apiKey` and `from`, for SES `region`, `accessKeyId`
+and `secretAccessKey`, for Telegram `botToken`, and for a custom adapter the
+adapter itself plus `from`.
 
 ## Providers
 
@@ -2521,6 +2545,36 @@ messaging: (env) => ({
   email: resend({ apiKey: env.RESEND_API_KEY, from: 'app@example.com' }),
 })
 ```
+
+### Amazon SES
+
+```ts
+import { ses } from 'bunderstack'
+
+messaging: {
+  email: ses({ from: 'App <no-reply@example.com>' }),
+}
+```
+
+On Bunderhost the region, credentials, configuration set and tenant come from
+the platform, and the key it supplies can only send from the project's own
+domains. Elsewhere, declare them:
+
+```ts
+messaging: (env) => ({
+  email: ses({
+    from: 'app@example.com',
+    region: 'eu-west-1',
+    accessKeyId: env.AWS_SES_ACCESS_KEY_ID,
+    secretAccessKey: env.AWS_SES_SECRET_ACCESS_KEY,
+  }),
+})
+```
+
+Sending is one signed SES v2 `SendEmail` request; the AWS SDK is not loaded.
+A channel without credentials captures. An SES channel may leave out `from`
+and give one with each message, which suits a channel that answers from the
+address that was written to.
 
 ### SMTP
 
@@ -2577,10 +2631,67 @@ A host can supply credentials through the reserved
 { "resend": { "apiKey": "re_managed" }, "telegram": { "botToken": "123:abc" } }
 ```
 
+For SES the platform also supplies the receiving side under `inbound`: the
+secret it signs deliveries with and the domains routed to each channel.
+
 Every channel of one provider shares that connection. A field the channel
 declares itself wins over the managed value, field by field, so a channel can
 take the managed key and keep its own `from`. Each journal row records where
 the credentials came from: `explicit`, `managed`, or `capture`.
+
+## Receiving
+
+An email channel declared with `receive: true` accepts the mail the host routes
+to it, and one `jobs.inbound` job handles each message:
+
+```ts
+export const backend = bunderstack({
+  schema,
+  database: { adapter: libsql() },
+  messaging: {
+    email: ses({ from: 'App <no-reply@example.com>' }),
+    inbox: ses({ receive: true }),
+  },
+  jobs: (jobs) =>
+    jobs.define({
+      fileMail: jobs.inbound('inbox', {
+        concurrency: 3,
+        handler: async (message, ctx) => {
+          // message.from, .subject, .text, .html, .inReplyTo, .references,
+          // .attachments, .verdicts, message.header('List-Id'), await message.raw()
+        },
+      }),
+    }),
+})
+```
+
+A receiving channel without exactly one handler, or a handler for a channel
+that does not receive, fails at start and in `bunderstack blueprint`. The
+handler is an ordinary job: retries, backoff, `concurrency` and `onFailed`
+work as for any other, and a retry reads the same message.
+
+On Bunderhost, connecting a domain in the project's Messaging tab is what
+starts the flow: the platform receives the mail, parses it, finds the
+environment by the recipient's domain and delivers it to
+`POST /api/_bunderstack/messaging/inbound`, signed with a secret it supplies in
+`BUNDERSTACK_MESSAGING_CONFIG`. The framework checks the signature, writes the
+message to the journal with status `received`, and enqueues the handler. A
+repeated delivery of the same message is a no-op. Without the secret the
+endpoint accepts nothing.
+
+`app.messaging.inbox.receiving` is true once at least one verified domain is
+routed to the channel, and `app.messaging.inbox.domains` lists those domains.
+Use them to decide whether to hand out addresses at all.
+
+`message.raw()` downloads the original MIME message; the host's link expires
+seven days after the message arrived. `text` and `html` arrive capped at 1 MB
+each, with `truncated` set when either was cut.
+
+## Delivery events
+
+On Bunderhost every message a hosted application sends is tagged with its
+journal id and environment, and the platform records delivery, bounce and
+complaint events against that row in `_bunderstack_message_events`.
 
 ## Auth emails
 
@@ -2592,8 +2703,9 @@ named anything else is never selected for it.
 
 Every channel writes to `_bunderstack_messages`, with delivery attempts in
 `_bunderstack_message_events`. A row carries the channel, the provider kind, the
-credential source, the status (`captured`, `sending`, `sent`, or `failed`), the
-recipients, the content, and the provider's message ID once it exists.
+credential source, the status (`captured`, `sending`, `sent`, `failed`, or
+`received` for incoming mail), the recipients, the content, and the provider's
+message ID once it exists.
 
 ## Testing
 
@@ -2615,6 +2727,21 @@ expect(t.messaging.ops.sent).toEqual([])
 
 Each `sent` array is typed by its own channel, so a Telegram capture never
 type-checks against an email message.
+
+A receiving channel takes mail with `receive`; run its handler with `t.jobs`:
+
+```ts
+await t.messaging.inbox.receive({
+  from: 'Rita <recruiter@acme.example>',
+  to: 'anna@mail.example.com',
+  subject: 'Interview',
+  text: 'Monday?',
+})
+await t.jobs.runUntilIdle()
+```
+
+Only `from` and `to` are required. Pass `providerId` twice to test a repeated
+delivery, and `raw` to control what `message.raw()` returns.
 
 ## Sending outside the app
 

@@ -3,11 +3,15 @@
 // TSchema/TEnvResult typing into inline callbacks and extracted files.
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
+import * as v from 'valibot'
+
 import type { BunderstackTx, DbFor } from '../db'
 import type { AnyDb } from '../dialect'
 import type { MessagingConfig, MessagingFacadesFor } from '../messaging'
+import type { InboundEmail } from '../messaging/inbound'
 import type { StorageFacade } from '../runtime'
 
+import { loadInboundEmail } from '../messaging/inbound'
 import { parseCron } from './cron'
 import { CRON_PREFIX, type CatchUp } from './slots'
 
@@ -152,6 +156,82 @@ export type QueueJobDefinition<
     error: Error,
     ctx: JobContext<TSchema, TEnvResult, TMessaging>,
   ) => Promise<void> | void
+  /** The receiving channel this job handles; set by `jobs.inbound`. */
+  inbound?: string
+}
+
+/** What `jobs.inbound` enqueues: the journal id of the received message. */
+export type InboundJobInput = { messageId: string }
+
+export type InboundJobDefinition<
+  TSchema extends Record<string, unknown> = Record<string, unknown>,
+  TEnvResult = Record<string, unknown>,
+  TMessaging extends MessagingConfig | undefined = MessagingConfig,
+> = BackgroundTiming &
+  Pick<
+    QueueJobDefinition<InboundJobInput, TSchema, TEnvResult, TMessaging>,
+    'retries' | 'backoff' | 'concurrency'
+  > & {
+    handler: (
+      message: InboundEmail,
+      ctx: JobContext<TSchema, TEnvResult, TMessaging>,
+    ) => Promise<void> | void
+    /** Fires once, after the final attempt fails. Errors here are logged, never retried. */
+    onFailed?: (
+      message: InboundEmail,
+      error: Error,
+      ctx: JobContext<TSchema, TEnvResult, TMessaging>,
+    ) => Promise<void> | void
+  }
+
+const inboundJobInput = v.object({
+  messageId: v.pipe(v.string(), v.minLength(1)),
+})
+
+/**
+ * A queue job that hands each message the host delivers to `channel` to
+ * `handler`. Retries, backoff and `onFailed` behave as for any job; the
+ * payload is the journal id, so a retry reads the same message.
+ */
+export function inboundJob<
+  TSchema extends Record<string, unknown>,
+  TEnvResult,
+  TMessaging extends MessagingConfig | undefined,
+>(
+  channel: string,
+  def: InboundJobDefinition<TSchema, TEnvResult, TMessaging>,
+): QueueJobDefinition<InboundJobInput, TSchema, TEnvResult, TMessaging> {
+  if (!channel.trim()) {
+    throw new Error('[bunderstack] jobs.inbound needs a channel name')
+  }
+  const { handler, onFailed, ...timing } = def
+  const load = async (
+    messageId: string,
+    ctx: JobContext<TSchema, TEnvResult, TMessaging>,
+  ) => loadInboundEmail(ctx.db as unknown as AnyDb, messageId)
+  return {
+    ...timing,
+    kind: 'job',
+    inbound: channel,
+    input: inboundJobInput,
+    handler: async ({ messageId }, ctx) => {
+      const message = await load(messageId, ctx)
+      if (!message) {
+        throw new Error(
+          `[bunderstack] received message ${messageId} is not in the journal`,
+        )
+      }
+      await handler(message, ctx)
+    },
+    ...(onFailed
+      ? {
+          onFailed: async ({ messageId }, error, ctx) => {
+            const message = await load(messageId, ctx)
+            if (message) await onFailed(message, error, ctx)
+          },
+        }
+      : {}),
+  }
 }
 
 export type CronInvocation = { scheduledFor: Date }
@@ -333,6 +413,16 @@ export function createJobsBuilder<
       >,
     ): QueueJobDefinition<TInput, TSchema, TEnvResult, TMessaging> {
       return { kind: 'job', ...def }
+    },
+    /**
+     * The handler for mail delivered to a receiving channel
+     * (`ses({ receive: true })`). Exactly one per receiving channel.
+     */
+    inbound(
+      channel: string,
+      def: InboundJobDefinition<TSchema, TEnvResult, TMessaging>,
+    ): QueueJobDefinition<InboundJobInput, TSchema, TEnvResult, TMessaging> {
+      return inboundJob(channel, def)
     },
     cron<const TSchedule extends string>(
       def: Omit<

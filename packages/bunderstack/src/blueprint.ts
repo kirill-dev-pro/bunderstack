@@ -123,7 +123,12 @@ const blueprintSchema = open({
     realtime: v.optional(open({ required: v.literal(true) })),
     messaging: open({
       channels: v.array(
-        open({ name: nonEmpty, kind: nonEmpty, provider: nonEmpty }),
+        open({
+          name: nonEmpty,
+          kind: nonEmpty,
+          provider: nonEmpty,
+          receive: v.optional(v.literal(true)),
+        }),
       ),
     }),
   }),

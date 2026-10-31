@@ -32,6 +32,18 @@ export type MessagingFacade<TDescriptor extends AnyMessagingDescriptor> = {
   send(
     input: TDescriptor[typeof MESSAGING_DESCRIPTOR]['input'],
   ): Promise<TDescriptor[typeof MESSAGING_DESCRIPTOR]['result']>
+} & (TDescriptor['kind'] extends 'email' ? EmailReceiving : unknown)
+
+/** What an email channel knows about the mail routed to it. */
+export type EmailReceiving = {
+  /**
+   * True when the host routes at least one verified domain to this channel
+   * and signs what it delivers. False locally, in tests, and for a channel
+   * that does not receive.
+   */
+  readonly receiving: boolean
+  /** The domains whose mail reaches this channel. */
+  readonly domains: readonly string[]
 }
 
 export type MessagingFacades<TConfig extends MessagingConfig> = {

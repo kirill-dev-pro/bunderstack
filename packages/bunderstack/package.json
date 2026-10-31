@@ -1,6 +1,6 @@
 {
   "name": "bunderstack",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "description": "Batteries-included backend framework for Bun: type-safe oRPC APIs, auth, storage, realtime, jobs, messaging, and validated env from one declaration.",
   "keywords": [
     "backend",
@@ -182,9 +182,10 @@
   "dependencies": {
     "@standard-schema/spec": "1.1.0",
     "@standardserver/core": "0.7.1",
+    "aws4fetch": "^1.0.20",
     "valibot": "1.4.2",
-    "yaml": "^2.9.0",
-    "workerstack": "^0.1.5"
+    "workerstack": "^0.1.5",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": ">=0.3.0",

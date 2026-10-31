@@ -216,6 +216,8 @@ export async function createTestApp<TApp extends TestableApp>(
     throw new Error('[bunderstack] runtime did not provide test controls')
   }
 
+  const handle = testingHandle
+  testMessaging.bindReceiver((payload) => handle.receive(payload))
   const auth = createTestAuth(app, testMessaging.authEmail, sessions)
   const jobs = createTestJobs(testingHandle)
   const deferred: TestCleanup[] = []

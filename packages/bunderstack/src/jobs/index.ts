@@ -7,6 +7,7 @@ export {
   DEFAULT_LEASE_DURATION_MS,
   DEFAULT_TIMEOUT_MS,
   leaseDurationFor,
+  inboundJob,
 } from './define'
 export type {
   AnyJobDefinition,
@@ -18,6 +19,8 @@ export type {
   DedupeUntil,
   EnqueueOptions,
   EnqueueTransaction,
+  InboundJobDefinition,
+  InboundJobInput,
   JobContext,
   JobDefinition,
   QueueJobDefinition,

@@ -22,8 +22,10 @@ export type {
 } from './testing/auth'
 export type { CapturedEmail, TestEmail } from './testing/email'
 export type {
+  TestInboundEmail,
   TestMessagingChannel,
   TestMessagingForApp,
+  TestReceivingChannel,
 } from './testing/messaging'
 export type { TestStorage } from './testing/storage'
 export type { TestLogEntry, TestLogMode, TestLogs } from './testing/logs'

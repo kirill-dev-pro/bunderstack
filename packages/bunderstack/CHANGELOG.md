@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.28.0
+
+- Receiving mail. `ses({ receive: true })` declares a channel that accepts the
+  mail the host routes to it, and `jobs.inbound('<channel>', { handler })`
+  handles each message as an ordinary durable job with the parsed message:
+  sender, recipients, subject, text, HTML, threading headers, attachments,
+  receipt verdicts and `raw()` for the original. The host delivers to
+  `POST /api/_bunderstack/messaging/inbound`, signed with a secret from
+  `BUNDERSTACK_MESSAGING_CONFIG`; a repeated delivery is a no-op.
+  `app.messaging.<channel>.receiving` and `.domains` say whether mail is
+  routed to the channel yet. Tests deliver with
+  `t.messaging.<channel>.receive({ from, to, … })`.
+- `ses()`: Amazon SES as an email provider, sent with one signed SES v2
+  request and no AWS SDK. On Bunderhost the platform supplies the credentials.
+- `headers` on email messages (`In-Reply-To`, `References`, `X-…`) for Resend,
+  SES and custom adapters, and `messageId` in the result when the provider
+  makes it knowable.
+- Fixed: hosted applications now tag Resend sends with
+  `bunderstack_message_id` and `bunderhost_environment_id`. Bunderhost matches
+  delivery events by these tags, and no version since 0.24 set them, so no
+  delivery, bounce or complaint event reached the journal.
+
 ## 0.27.0
 
 - Reports errors and performance to Bunderhost when the platform supplies

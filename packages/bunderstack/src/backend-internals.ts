@@ -26,6 +26,8 @@ export type RuntimeTestJob = {
 }
 
 export type RuntimeTestingHandle = {
+  /** Accept a delivery as if the host had signed it. */
+  receive(payload: unknown): Promise<{ id: string; duplicate: boolean }>
   tick(now: number): Promise<TickResult>
   inspect(now: number): Promise<{
     runnable: number

@@ -1,10 +1,23 @@
 export * from './backend'
-export { createMessaging, resend, customEmail, telegram } from './messaging'
+export {
+  createMessaging,
+  resend,
+  ses,
+  customEmail,
+  telegram,
+} from './messaging'
 export type {
+  EmailReceiving,
+  InboundAddress,
+  InboundAttachment,
+  InboundEmail,
+  InboundVerdicts,
   MessagingConfig,
   MessagingDescriptor,
   MessagingFacade,
   MessagingFacades,
+  SesConfig,
+  SesDescriptor,
   TelegramMessage,
 } from './messaging'
 export type {
@@ -72,6 +85,8 @@ export type {
   DedupeUntil,
   EnqueueOptions,
   EnqueueTransaction,
+  InboundJobDefinition,
+  InboundJobInput,
   JobContext,
   JobDefinition,
   JobsDefs,

@@ -75,7 +75,13 @@ export type BunderstackManifest = {
   }
   realtime: { required: boolean }
   messaging: {
-    channels: { name: string; kind: string; provider: string }[]
+    channels: {
+      name: string
+      kind: string
+      provider: string
+      /** Present when the channel accepts mail the host routes to it. */
+      receive?: true
+    }[]
   }
   environment: ManifestEnvVar[]
   api: { operations: ApiOperation[] }
@@ -143,7 +149,12 @@ const manifestSchema = v.strictObject({
   realtime: v.strictObject({ required: v.boolean() }),
   messaging: v.strictObject({
     channels: v.array(
-      v.strictObject({ name: nonEmpty, kind: nonEmpty, provider: nonEmpty }),
+      v.strictObject({
+        name: nonEmpty,
+        kind: nonEmpty,
+        provider: nonEmpty,
+        receive: v.optional(v.literal(true)),
+      }),
     ),
   }),
   environment: v.array(
@@ -357,6 +368,12 @@ export function buildManifest(args: {
       )
     }
   }
+  const receiving = new Set(
+    Object.entries(args.messaging ?? {})
+      .filter(([, descriptor]) => receives(descriptor))
+      .map(([name]) => name),
+  )
+  assertInboundHandlers(receiving, args.jobs, args.messaging)
   const declaredKeys = new Set([
     ...Object.keys(args.envConfig?.server ?? {}),
     ...Object.keys(args.envConfig?.client ?? {}),
@@ -435,6 +452,7 @@ export function buildManifest(args: {
           name,
           kind: descriptor.kind,
           provider: descriptor.provider,
+          ...(receiving.has(name) ? { receive: true as const } : {}),
         })),
         (entry) => entry.name,
       ),
@@ -471,4 +489,49 @@ export function buildManifest(args: {
       ],
     },
   })
+}
+
+function receives(descriptor: unknown): boolean {
+  return (
+    isMessagingDescriptor(descriptor) &&
+    descriptor.kind === 'email' &&
+    (descriptor.config as { receive?: unknown }).receive === true
+  )
+}
+
+/**
+ * A receiving channel needs exactly one handler, and a handler needs a
+ * channel that receives: mail with nowhere to go would be journaled and then
+ * sit there, and a handler for a channel that never receives is a typo.
+ */
+function assertInboundHandlers(
+  receiving: ReadonlySet<string>,
+  jobs: JobsDefs | undefined,
+  messaging: MessagingConfig | undefined,
+): void {
+  const handlers = new Map<string, string[]>()
+  for (const [name, def] of Object.entries(jobs ?? {})) {
+    if (def.kind !== 'job' || def.inbound === undefined) continue
+    if (!receiving.has(def.inbound)) {
+      throw new Error(
+        messaging?.[def.inbound]
+          ? `[bunderstack] job "${name}" handles messaging.${def.inbound}, which does not receive mail — declare it with receive: true`
+          : `[bunderstack] job "${name}" handles messaging.${def.inbound}, which is not declared`,
+      )
+    }
+    handlers.set(def.inbound, [...(handlers.get(def.inbound) ?? []), name])
+  }
+  for (const channel of receiving) {
+    const names = handlers.get(channel) ?? []
+    if (names.length === 0) {
+      throw new Error(
+        `[bunderstack] messaging.${channel} receives mail but no jobs.inbound('${channel}', …) handles it`,
+      )
+    }
+    if (names.length > 1) {
+      throw new Error(
+        `[bunderstack] messaging.${channel} has more than one jobs.inbound handler: ${names.join(', ')}`,
+      )
+    }
+  }
 }

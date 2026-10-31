@@ -9,10 +9,11 @@ import type {
 } from './types'
 
 import { insertMessage, updateMessage } from './journal'
+import { createSesAdapter, type MessageTag } from './ses'
 import { isMessagingDescriptor } from './types'
 
 export type MessagingAdapter = {
-  send(input: any): Promise<{ id?: string }>
+  send(input: any): Promise<{ id?: string; messageId?: string }>
 }
 
 export type CreateMessagingOptions = {
@@ -22,8 +23,21 @@ export type CreateMessagingOptions = {
   adapterOverrides?: Record<string, MessagingAdapter>
 }
 
-type ManagedConfig = Record<string, Record<string, unknown>>
+export type ManagedConfig = Record<string, Record<string, unknown>>
 type CredentialSource = 'explicit' | 'managed' | 'capture'
+
+/**
+ * Headers that have their own message field. Setting them through `headers`
+ * would contradict the field, so they are refused rather than guessed at.
+ */
+const FIELD_HEADERS = new Set([
+  'from',
+  'to',
+  'cc',
+  'bcc',
+  'subject',
+  'reply-to',
+])
 
 const nonEmpty = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0
@@ -31,7 +45,7 @@ const nonEmpty = (value: unknown): value is string =>
 const array = (value: string | string[] | undefined) =>
   value === undefined ? [] : Array.isArray(value) ? value : [value]
 
-function managedConfig(raw: string | undefined): ManagedConfig {
+export function managedConfig(raw: string | undefined): ManagedConfig {
   if (!nonEmpty(raw)) return {}
   let value: unknown
   try {
@@ -72,8 +86,58 @@ function emailContent(input: EmailMessage, from: string) {
       text: input.text,
       from,
       replyTo: input.replyTo,
+      headers: input.headers,
     },
   }
+}
+
+function assertHeaders(headers: Record<string, string> | undefined) {
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    if (FIELD_HEADERS.has(name.toLowerCase())) {
+      throw new Error(
+        `email header "${name}" has its own field; set it there instead of in headers`,
+      )
+    }
+    if (typeof value !== 'string' || /[\r\n]/.test(value)) {
+      throw new Error(`email header "${name}" must be a single-line string`)
+    }
+  }
+}
+
+/**
+ * How Bunderhost finds the journal row of a delivery event: the message's own
+ * id and the environment that sent it. Only a hosted process tags; locally
+ * there is no one to read the events.
+ */
+function deliveryTags(id: string, env: BaseEnv): MessageTag[] | undefined {
+  const environmentId = env.BUNDERHOST_ENVIRONMENT_ID
+  if (!nonEmpty(environmentId)) return undefined
+  return [
+    { name: 'bunderstack_message_id', value: id },
+    { name: 'bunderhost_environment_id', value: environmentId },
+  ]
+}
+
+/**
+ * The receiving side of a channel: Bunderhost puts the signing secret and the
+ * verified domains routed to each channel under `<provider>.inbound`.
+ */
+export function receivingFor(
+  channel: string,
+  descriptor: AnyMessagingDescriptor,
+  managed: ManagedConfig,
+): { secret: string | undefined; domains: string[] } {
+  const declared =
+    descriptor.kind === 'email' &&
+    (descriptor.config as { receive?: boolean }).receive === true
+  const inbound = managed[descriptor.provider]?.inbound as
+    | { secret?: unknown; channels?: Record<string, unknown> }
+    | undefined
+  const secret = nonEmpty(inbound?.secret) ? inbound.secret : undefined
+  const listed = inbound?.channels?.[channel]
+  const domains =
+    declared && secret && Array.isArray(listed) ? listed.filter(nonEmpty) : []
+  return { secret: declared ? secret : undefined, domains }
 }
 
 function telegramContent(input: TelegramMessage) {
@@ -88,7 +152,7 @@ function createResendAdapter(
   fetchFn: typeof fetch,
 ): MessagingAdapter {
   return {
-    async send(input: EmailMessage & { from: string; tags?: unknown }) {
+    async send(input: EmailMessage & { from: string; tags?: MessageTag[] }) {
       const response = await fetchFn('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -104,6 +168,7 @@ function createResendAdapter(
           reply_to: input.replyTo,
           cc: array(input.cc),
           bcc: array(input.bcc),
+          headers: input.headers,
           tags: input.tags,
         }),
       })
@@ -181,6 +246,8 @@ export function createMessaging<const TConfig extends MessagingConfig>(
     let adapter: MessagingAdapter | undefined = override
     let source: CredentialSource = override ? 'capture' : 'explicit'
     let from: string | undefined
+    let senderPerMessage = false
+    let tagged = false
     if (
       !adapter &&
       descriptor.kind === 'email' &&
@@ -192,6 +259,38 @@ export function createMessaging<const TConfig extends MessagingConfig>(
       if (nonEmpty(apiKey) && from) {
         source = nonEmpty(own.apiKey) ? 'explicit' : 'managed'
         adapter = createResendAdapter(apiKey, options.fetchFn ?? fetch)
+        tagged = true
+      }
+    } else if (
+      !adapter &&
+      descriptor.kind === 'email' &&
+      descriptor.provider === 'ses'
+    ) {
+      // A receiving channel usually answers from the address that was
+      // written to, so its sender can come with each message instead.
+      const own = descriptor.config as { accessKeyId?: string }
+      from = nonEmpty(merged.from) ? merged.from : undefined
+      const { region, accessKeyId, secretAccessKey } = merged
+      if (
+        nonEmpty(region) &&
+        nonEmpty(accessKeyId) &&
+        nonEmpty(secretAccessKey)
+      ) {
+        source = nonEmpty(own.accessKeyId) ? 'explicit' : 'managed'
+        adapter = createSesAdapter(
+          {
+            region,
+            accessKeyId,
+            secretAccessKey,
+            configurationSet: nonEmpty(merged.configurationSet)
+              ? merged.configurationSet
+              : undefined,
+            tenant: nonEmpty(merged.tenant) ? merged.tenant : undefined,
+          },
+          options.fetchFn ?? fetch,
+        )
+        senderPerMessage = true
+        tagged = true
       }
     } else if (!adapter && descriptor.kind === 'email') {
       const own = descriptor.config as {
@@ -215,17 +314,30 @@ export function createMessaging<const TConfig extends MessagingConfig>(
     }
     const capture = !adapter || Boolean(override)
     if (capture) source = 'capture'
+    const receiving =
+      descriptor.kind === 'email'
+        ? receivingFor(channel, descriptor, managed)
+        : undefined
+    const domains = Object.freeze([...(receiving?.domains ?? [])])
 
     return [
       channel,
       {
+        ...(descriptor.kind === 'email'
+          ? { receiving: domains.length > 0, domains }
+          : {}),
         async send(input: EmailMessage | TelegramMessage) {
-          if (
-            descriptor.kind === 'email' &&
-            !(input as EmailMessage).html &&
-            !(input as EmailMessage).text
-          ) {
-            throw new Error('email message needs html or text content')
+          if (descriptor.kind === 'email') {
+            const email = input as EmailMessage
+            if (!email.html && !email.text) {
+              throw new Error('email message needs html or text content')
+            }
+            assertHeaders(email.headers)
+            if (!capture && senderPerMessage && !email.from && !from) {
+              throw new Error(
+                `messaging.${channel}: the message has no from address and the channel declares none`,
+              )
+            }
           }
           const resolvedFrom =
             descriptor.kind === 'email'
@@ -257,9 +369,10 @@ export function createMessaging<const TConfig extends MessagingConfig>(
             return { id }
           }
           try {
+            const tags = tagged ? deliveryTags(id, options.env) : undefined
             const outgoing =
               descriptor.kind === 'email'
-                ? { ...input, from: resolvedFrom }
+                ? { ...input, from: resolvedFrom, ...(tags ? { tags } : {}) }
                 : input
             const sent = await adapter!.send(outgoing)
             await updateMessage(
@@ -272,7 +385,11 @@ export function createMessaging<const TConfig extends MessagingConfig>(
               },
               'sending',
             )
-            return { id, providerId: sent.id || undefined }
+            return {
+              id,
+              providerId: sent.id || undefined,
+              ...(sent.messageId ? { messageId: sent.messageId } : {}),
+            }
           } catch (error) {
             await updateMessage(
               options.db,
