@@ -175,7 +175,7 @@ describe('published dependency boundaries', () => {
     const core = await Bun.file(
       join(repoRoot, 'packages/bunderstack/package.json'),
     ).json()
-    expect(core.peerDependencies['better-auth']).toBe('^1.0.0')
+    expect(core.peerDependencies['better-auth']).toBe('^1.7.16')
     expect(core.peerDependencies['drizzle-orm']).toBeDefined()
     expect(core.peerDependencies['@orpc/server']).toBe('2.0.0-beta.37')
     expect(core.peerDependencies['@orpc/client']).toBe('2.0.0-beta.37')
@@ -215,7 +215,7 @@ describe('published dependency boundaries', () => {
       join(repoRoot, 'packages/bunderstack/package.json'),
     ).json()
 
-    expect(pkg.peerDependencies['better-auth']).toBe('^1.0.0')
+    expect(pkg.peerDependencies['better-auth']).toBe('^1.7.16')
     expect(pkg.peerDependenciesMeta?.['better-auth']?.optional).toBe(true)
     expect(pkg.peerDependencies.nodemailer).toBe('>=6 <10')
     expect(pkg.peerDependenciesMeta.nodemailer.optional).toBe(true)
