@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.28.1
+
+- Security: requires Better Auth 1.7.16 (`peerDependencies.better-auth`
+  `^1.7.16`). Better Auth's security release of 2026-11-03 fixes 12
+  advisories in core and plugins; every earlier version, 1.6.x included, is
+  affected. Update `better-auth` and every `@better-auth/*` package to
+  1.7.16 together with this release. No bunderstack API changes.
+
 ## 0.28.0
 
 - Receiving mail. `ses({ receive: true })` declares a channel that accepts the
