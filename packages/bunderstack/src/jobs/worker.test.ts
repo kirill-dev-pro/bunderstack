@@ -781,6 +781,53 @@ test('tick reports what it did', async () => {
   expect(result.failed).toBe(1)
 })
 
+test('failed rows are kept for 30 days, then reaped', async () => {
+  const defs: JobsDefs = { ok: { kind: 'job', handler: () => {} } }
+  const r = runner(defs)
+  const now = Date.parse('2026-11-06T10:00:00Z')
+  const day = 24 * 60 * 60 * 1000
+  await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'recent' })
+  await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'old' })
+  await db
+    .update(bunderstackJobs)
+    .set({ status: 'failed', finishedAt: now - 29 * day })
+    .where(eq(bunderstackJobs.dedupeKey, 'recent'))
+  await db
+    .update(bunderstackJobs)
+    .set({ status: 'failed', finishedAt: now - 31 * day })
+    .where(eq(bunderstackJobs.dedupeKey, 'old'))
+
+  await r.tick(now)
+
+  const failed = (await db.select().from(bunderstackJobs)).filter(
+    (row) => row.status === 'failed',
+  )
+  expect(failed.map((row) => row.dedupeKey)).toEqual(['recent'])
+})
+
+test('the reap deletes a backlog larger than one batch', async () => {
+  const defs: JobsDefs = { ok: { kind: 'job', handler: () => {} } }
+  const now = Date.parse('2026-11-06T10:00:00Z')
+  const stale = now - 2 * 24 * 60 * 60 * 1000
+  const rows = Array.from({ length: 2_500 }, (_, i) => ({
+    id: `job_${i}`,
+    type: 'ok',
+    payloadJson: 'null',
+    status: 'succeeded',
+    attempts: 1,
+    runAt: stale,
+    createdAt: stale,
+    finishedAt: stale,
+  }))
+  for (let i = 0; i < rows.length; i += 500) {
+    await db.insert(bunderstackJobs).values(rows.slice(i, i + 500))
+  }
+
+  await runner(defs).tick(now)
+
+  expect(await db.select().from(bunderstackJobs)).toHaveLength(0)
+})
+
 test('the reap runs at most hourly', async () => {
   const defs: JobsDefs = { ok: { kind: 'job', handler: () => {} } }
   const r = runner(defs)

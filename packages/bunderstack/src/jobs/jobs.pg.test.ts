@@ -298,3 +298,31 @@ test("pg: dedupeUntil 'finish' collapses into the running row", async () => {
   expect(ids).toEqual([first.id])
   expect(report.ran).toBe(1)
 })
+
+test('pg: the reap deletes expired failed rows and keeps recent ones', async () => {
+  const pg = db as unknown as PgDatabase<never>
+  const defs: JobsDefs = { reaped: { kind: 'job', handler: () => {} } }
+  const now = Date.parse('2026-11-06T10:00:00Z')
+  const day = 24 * 60 * 60 * 1000
+  const row = (id: string, finishedAt: number) => ({
+    id,
+    type: 'reaped',
+    payloadJson: 'null',
+    status: 'failed',
+    attempts: 3,
+    runAt: finishedAt,
+    createdAt: finishedAt,
+    finishedAt,
+  })
+  await pg
+    .insert(bunderstackJobsPg)
+    .values([row('pg_reap_old', now - 31 * day), row('pg_reap_new', now - day)])
+
+  await runner(defs).tick(now)
+
+  const rows = await pg
+    .select({ id: bunderstackJobsPg.id })
+    .from(bunderstackJobsPg)
+    .where(eq(bunderstackJobsPg.type, 'reaped'))
+  expect(rows.map((r) => r.id)).toEqual(['pg_reap_new'])
+})

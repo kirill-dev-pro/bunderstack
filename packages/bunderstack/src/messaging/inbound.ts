@@ -11,6 +11,7 @@ import * as v from 'valibot'
 import type { AnyDb } from '../dialect'
 
 import { messagesTableFor } from '../internal-tables'
+import { reapMessageJournal } from './journal'
 
 export const INBOUND_PATH = '/api/_bunderstack/messaging/inbound'
 export const INBOUND_SIGNATURE_HEADER = 'bunderhost-signature'
@@ -288,6 +289,7 @@ export function createInboundReceiver(
       })
       .onConflictDoNothing()
       .returning({ id: table.id })
+    if (inserted[0]) await reapMessageJournal(db)
     let rowId = inserted[0]?.id as string | undefined
     if (!rowId) {
       const [existing] = await db

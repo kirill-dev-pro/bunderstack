@@ -221,6 +221,28 @@ test('jobs table is registered as an internal table in both dialects', () => {
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_jobs')).toBe(true)
 })
 
+test('jobs table indexes the claim and reap predicates in full in both dialects', () => {
+  const columns = (
+    indexes: { config: { name?: string; columns: unknown[] } }[],
+  ) =>
+    new Map(
+      indexes.map((entry) => [
+        entry.config.name,
+        entry.config.columns.map((column) => (column as { name: string }).name),
+      ]),
+    )
+  for (const byIndex of [
+    columns(getSqliteTableConfig(bunderstackJobs).indexes),
+    columns(getPgTableConfig(bunderstackJobsPg).indexes),
+  ]) {
+    // claim(): type + status + run_at. Without run_at the index leaves every
+    // finished row of the type to a row-by-row filter.
+    expect(byIndex.get('bjq_ready')).toEqual(['type', 'status', 'run_at'])
+    // reapFinished(): status + finished_at.
+    expect(byIndex.get('bjq_reap')).toEqual(['status', 'finished_at'])
+  }
+})
+
 test('jobs table indexes newest cron rows by type and runAt in both dialects', () => {
   const sqliteNames = getSqliteTableConfig(bunderstackJobs).indexes.map(
     (entry) => entry.config.name,

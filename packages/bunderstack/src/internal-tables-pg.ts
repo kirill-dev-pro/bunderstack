@@ -61,8 +61,13 @@ export const bunderstackJobsPg = pgTable(
     finishedAt: bigint('finished_at', { mode: 'number' }),
   },
   (t) => [
+    // The claim path: (type, status) alone leaves run_at to a row-by-row filter
+    // over every finished row of that type, so the third column belongs here.
+    // This also covers the (type, status) running-count probe as a prefix.
+    index('bjq_ready').on(t.type, t.status, t.runAt),
     index('bjq_claim').on(t.status, t.runAt),
-    index('bjq_type_status').on(t.type, t.status),
+    // The retention sweep filters on finishedAt, which bjq_claim does not carry.
+    index('bjq_reap').on(t.status, t.finishedAt),
     index('bjq_type_run_at').on(t.type, t.runAt),
     uniqueIndex('bjq_dedupe').on(t.type, t.dedupeKey),
   ],

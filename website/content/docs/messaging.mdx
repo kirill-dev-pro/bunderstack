@@ -295,7 +295,8 @@ Every channel writes to `_bunderstack_messages`, with delivery attempts in
 `_bunderstack_message_events`. A row carries the channel, the provider kind, the
 credential source, the status (`captured`, `sending`, `sent`, `failed`, or
 `received` for incoming mail), the recipients, the content, and the provider's
-message ID once it exists.
+message ID once it exists. Rows and their events are deleted 30 days after
+the message was created.
 
 ## Testing
 

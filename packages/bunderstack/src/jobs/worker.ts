@@ -1,5 +1,5 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
-// recover expired leases → reap old succeeded rows → claim and run queue jobs.
+// recover expired leases → reap old finished rows → claim and run queue jobs.
 import {
   and,
   desc,
@@ -33,8 +33,16 @@ import { enqueueJob } from './queue'
 import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
 
 const CLAIM_BATCH = 10
-const SUCCEEDED_RETENTION_MS = 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+/** Succeeded rows only feed the dashboard's recent history. Failed rows are
+ *  kept longer so they can be inspected and retried, but not forever: each
+ *  one carries its full payload and error. */
+const RETENTION_BY_STATUS = [
+  ['succeeded', DAY_MS],
+  ['failed', 30 * DAY_MS],
+] as const
 const REAP_INTERVAL_MS = 60 * 60_000
+const REAP_BATCH = 1000
 
 class JobExecutionTimeoutError extends Error {
   constructor(maxRuntime: number) {
@@ -359,15 +367,25 @@ export function createJobRunner(deps: {
     }
   }
 
-  async function reapSucceeded(now: number) {
-    await db
-      .delete(t)
-      .where(
-        and(
-          eq(t.status, 'succeeded'),
-          lt(t.finishedAt, now - SUCCEEDED_RETENTION_MS),
-        ),
-      )
+  /** Deletes finished rows past their retention in batches, so a backlog
+   *  (the first sweep after an upgrade, a burst of failures) never holds the
+   *  write lock for one long statement. */
+  async function reapFinished(now: number) {
+    for (const [status, retentionMs] of RETENTION_BY_STATUS) {
+      const cutoff = now - retentionMs
+      for (;;) {
+        const batch = db
+          .select({ id: t.id })
+          .from(t)
+          .where(and(eq(t.status, status), lt(t.finishedAt, cutoff)))
+          .limit(REAP_BATCH)
+        const deleted = await db
+          .delete(t)
+          .where(inArray(t.id, batch))
+          .returning({ id: t.id })
+        if (deleted.length < REAP_BATCH) break
+      }
+    }
   }
 
   /** Atomically claim up to `limit` runnable jobs of one type. */
@@ -652,7 +670,7 @@ export function createJobRunner(deps: {
     await recoverExpiredLeases(now)
     if (now - lastReapAt >= REAP_INTERVAL_MS) {
       lastReapAt = now
-      await reapSucceeded(now)
+      await reapFinished(now)
     }
   }
 

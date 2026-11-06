@@ -1060,8 +1060,9 @@ export async function generateResume(
 
 A handler that throws is retried with jittered exponential backoff until
 `retries` is exhausted, then the row is marked `failed` with its error and
-`onFailed` fires once. Failed rows are never reaped, so they remain queryable
-in `_bunderstack_jobs`. Succeeded rows are removed after 24 hours.
+`onFailed` fires once. Failed rows stay queryable in `_bunderstack_jobs` for
+30 days after they finish; succeeded rows are removed after 24 hours. Both keep
+the job's full input until then, so pass IDs rather than secrets.
 
 Long cron work should enqueue a queue job and return quickly rather than
 holding its lease for minutes.
@@ -2705,7 +2706,8 @@ Every channel writes to `_bunderstack_messages`, with delivery attempts in
 `_bunderstack_message_events`. A row carries the channel, the provider kind, the
 credential source, the status (`captured`, `sending`, `sent`, `failed`, or
 `received` for incoming mail), the recipients, the content, and the provider's
-message ID once it exists.
+message ID once it exists. Rows and their events are deleted 30 days after
+the message was created.
 
 ## Testing
 
