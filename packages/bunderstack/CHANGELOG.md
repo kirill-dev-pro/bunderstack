@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.28.2
+
+- Failed background jobs no longer stay in `_bunderstack_jobs` forever. Rows
+  that end `failed` are deleted 30 days after they finish; succeeded rows keep
+  their 24-hour retention. Each row carries the job's full payload and last
+  error, so an app whose handler failed on every job grew the table without
+  bound. The hourly sweep deletes in batches of 1,000, so the first sweep
+  after upgrading does not hold the write lock through one long statement.
+- The message journal no longer grows forever. `_bunderstack_messages` rows,
+  with their recipients and content, and their `_bunderstack_message_events`
+  are deleted 30 days after they were created. Sending or receiving a message
+  runs the sweep at most once an hour per process; a failed sweep is logged
+  and never fails the send.
+- The job queue gains the `bjq_ready` `(type, status, run_at)` and `bjq_reap`
+  `(status, finished_at)` indexes, which workerstack has had since 0.1.7.
+  `claim()` read every finished row of a job type to find the runnable ones,
+  and the retention sweep scanned every succeeded row; with these indexes both
+  read only the rows they return. `bjq_type_status` is dropped: `bjq_ready`
+  covers it as a prefix. Applications with committed migrations must run
+  their `db:generate` command and apply the generated migration after
+  upgrading; until then the retention fixes above work without the indexes.
+
 ## 0.28.1
 
 - Security: requires Better Auth 1.7.16 (`peerDependencies.better-auth`
