@@ -4,6 +4,7 @@ import { test, expect, beforeEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
+import type { JobRunEvent, TelemetrySink } from '../telemetry/telemetry'
 import type { JobsDefs } from './define'
 
 import { libsql } from '../database/libsql'
@@ -31,8 +32,9 @@ async function freshDb() {
 function runner(
   defs: JobsDefs,
   logger?: Parameters<typeof createJobRunner>[0]['logger'],
+  telemetry?: TelemetrySink,
 ) {
-  const r = createJobRunner({ db, defs, ctx: {}, logger })
+  const r = createJobRunner({ db, defs, ctx: {}, logger, telemetry })
   r.setJobsFacade({
     enqueue: (name, input, opts) => enqueueJob(db, defs, name, input, opts),
     tick: (now) => r.tick(now),
@@ -64,10 +66,23 @@ async function rowById(id: string) {
   return rows[0]
 }
 
+function recordingSink(runs: JobRunEvent[]): TelemetrySink {
+  return {
+    enabled: true,
+    captureException() {},
+    recordRequest() {},
+    recordJob() {},
+    recordJobRun: (event) => void runs.push(event),
+    async flush() {},
+    async flushIfDue() {},
+  }
+}
+
 beforeEach(freshDb)
 
-test('tick claims and runs a pending job to succeeded', async () => {
+test('tick claims and runs a pending job, whose row is then gone', async () => {
   const seen: unknown[] = []
+  const runs: JobRunEvent[] = []
   const defs: JobsDefs = {
     greet: {
       kind: 'job',
@@ -77,14 +92,22 @@ test('tick claims and runs a pending job to succeeded', async () => {
       },
     },
   }
-  const r = runner(defs)
+  const r = runner(defs, undefined, recordingSink(runs))
   const { id } = await enqueueJob(db, defs, 'greet', { name: 'k' })
   await r.tick()
   expect(seen).toEqual([{ name: 'k' }])
-  const row = await rowById(id)
-  expect(row?.status).toBe('succeeded')
-  expect(row?.attempts).toBe(1)
-  expect(row?.finishedAt).not.toBeNull()
+  // The table holds work, not history: the record of the run is the event.
+  expect(await rowById(id)).toBeUndefined()
+  expect(runs).toEqual([
+    expect.objectContaining({
+      type: 'greet',
+      kind: 'job',
+      outcome: 'succeeded',
+      jobId: id,
+      attempt: 1,
+    }),
+  ])
+  expect(JSON.stringify(runs)).not.toContain('"name":"k"')
 })
 
 test('handler ctx includes the jobs facade (jobs can enqueue jobs)', async () => {
@@ -151,12 +174,13 @@ test('failure retries with backoff, then fails and fires onFailed', async () => 
   expect(failed?.error.message).toContain('boom 3')
 })
 
-test('jobs clear dedupeKey on terminal status; re-enqueue works', async () => {
+test('a finished job releases its dedupeKey; re-enqueue works', async () => {
   const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const r = runner(defs)
   const a = await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'd' })
   await r.tick()
-  expect((await rowById(a.id))?.dedupeKey).toBeNull()
+  // The finished row is gone, and its key with it.
+  expect(await rowById(a.id)).toBeUndefined()
   const b = await enqueueJob(db, defs, 'ok', undefined, { dedupeKey: 'd' })
   expect(b.id).not.toBe(a.id)
 })
@@ -186,10 +210,14 @@ test('expired lease recovers to pending and burns the attempt', async () => {
   expect(row?.status).toBe('pending')
   expect(row?.attempts).toBe(1)
   expect(row?.lastError).toContain('lease expired')
-  await r.tick(t0 + 1001)
-  row = await rowById(id)
-  expect(row?.status).toBe('succeeded')
-  expect(row?.attempts).toBe(2) // 1 burned by the crash + 1 for the real run
+  const runs: JobRunEvent[] = []
+  const r2 = runner(defs, undefined, recordingSink(runs))
+  await r2.tick(t0 + 1001)
+  expect(await rowById(id)).toBeUndefined()
+  // 1 burned by the crash + 1 for the real run
+  expect(runs).toEqual([
+    expect.objectContaining({ outcome: 'succeeded', attempt: 2 }),
+  ])
 })
 
 test('expired lease with exhausted attempts goes to failed and fires onFailed', async () => {
@@ -238,9 +266,9 @@ test('concurrency limits simultaneous claims of one type', async () => {
   await enqueueJob(db, defs, 'limited', undefined)
   await r.tick()
   const rows = await db.select().from(bunderstackJobs)
-  // One ran, one is still pending — a single tick claims at most `concurrency`.
-  expect(rows.filter((x) => x.status === 'succeeded')).toHaveLength(1)
-  expect(rows.filter((x) => x.status === 'pending')).toHaveLength(1)
+  // One ran (and left no row), one is still pending — a single tick claims
+  // at most `concurrency`.
+  expect(rows.map((x) => x.status)).toEqual(['pending'])
   await r.tick()
   expect(maxRunning).toBe(1)
 })
@@ -352,7 +380,7 @@ test('pump renews a healthy handler instead of reclaiming it', async () => {
 
   gate.resolve()
   await r.drain()
-  expect((await rowById(id))?.status).toBe('succeeded')
+  expect(await rowById(id)).toBeUndefined()
 })
 
 test('execution deadline aborts before retrying', async () => {
@@ -391,7 +419,7 @@ test('execution deadline aborts before retrying', async () => {
   await r.drain()
 
   expect(events).toEqual(['start', 'aborted', 'start'])
-  expect((await rowById(id))?.status).toBe('succeeded')
+  expect(await rowById(id)).toBeUndefined()
 })
 
 test('job lifecycle logs are structured and omit payloads', async () => {
@@ -496,7 +524,7 @@ test('malformed stored payload fails immediately without retries', async () => {
 
 import { eq as eqOp } from 'drizzle-orm'
 
-import { CRON_PREFIX, SLOT_MS } from './slots'
+import { CRON_PREFIX, CRON_SLOT_KEY, SLOT_MS } from './slots'
 
 async function cronRows(name: string) {
   return db
@@ -535,7 +563,8 @@ test('a completed cron slot is not re-materialized on a later tick in the same m
   expect(runs).toBe(1)
   const rows1 = await cronRows('beat')
   expect(rows1[0]!.status).toBe('succeeded')
-  expect(rows1[0]!.dedupeKey).toBe(String(Date.parse('2026-08-07T10:00:00Z')))
+  expect(rows1[0]!.dedupeKey).toBe(CRON_SLOT_KEY)
+  expect(Number(rows1[0]!.runAt)).toBe(Date.parse('2026-08-07T10:00:00Z'))
 
   await r.tick(t0 + 30_000)
   const rows2 = await cronRows('beat')
@@ -599,13 +628,20 @@ test('a delayed worker cannot duplicate a completed cron slot', async () => {
 
   const rows = await cronRows('hourly')
   expect(rows).toHaveLength(1)
-  expect(rows[0]!.dedupeKey).toBe(String(due))
+  expect(Number(rows[0]!.runAt)).toBe(due)
   expect(runs).toBe(1)
 })
 
-test('the watermark advances so a slot is materialized once per minute', async () => {
+test('a cron owns one row that moves from slot to slot', async () => {
+  const seen: Date[] = []
   const defs: JobsDefs = {
-    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      handler: ({ scheduledFor }) => {
+        seen.push(scheduledFor)
+      },
+    },
   }
   const r = runner(defs)
   const t0 = Date.parse('2026-08-07T10:00:30Z')
@@ -613,11 +649,98 @@ test('the watermark advances so a slot is materialized once per minute', async (
   await r.tick(t0 + 10_000)
   await r.tick(t0 + SLOT_MS)
 
-  const runAts = (await cronRows('beat')).map((row) => Number(row.runAt)).sort()
-  expect(runAts).toEqual([
-    Date.parse('2026-08-07T10:00:00Z'),
-    Date.parse('2026-08-07T10:01:00Z'),
+  expect(seen.map((d) => d.toISOString())).toEqual([
+    '2026-08-07T10:00:00.000Z',
+    '2026-08-07T10:01:00.000Z',
   ])
+  const rows = await cronRows('beat')
+  expect(rows).toHaveLength(1)
+  expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:01:00Z'))
+  expect(rows[0]!.status).toBe('succeeded')
+  expect(rows[0]!.attempts).toBe(1)
+})
+
+test('catchUp: all works through missed slots one at a time on the one row', async () => {
+  const seen: string[] = []
+  const defs: JobsDefs = {
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      catchUp: 'all',
+      handler: ({ scheduledFor }) => {
+        seen.push(scheduledFor.toISOString())
+      },
+    },
+  }
+  const r = runner(defs)
+  const t0 = Date.parse('2026-08-07T10:00:30Z')
+  await r.tick(t0)
+  // The worker was away for three minutes.
+  const later = t0 + 3 * SLOT_MS
+  await r.tick(later)
+  await r.tick(later + 1_000)
+  await r.tick(later + 2_000)
+  await r.tick(later + 3_000)
+
+  expect(seen).toEqual([
+    '2026-08-07T10:00:00.000Z',
+    '2026-08-07T10:01:00.000Z',
+    '2026-08-07T10:02:00.000Z',
+    '2026-08-07T10:03:00.000Z',
+  ])
+  expect(await cronRows('beat')).toHaveLength(1)
+})
+
+test('a cron slot that is still running is not advanced by a later tick', async () => {
+  const gate = deferred()
+  const seen: string[] = []
+  const defs: JobsDefs = {
+    beat: {
+      kind: 'cron',
+      schedule: '* * * * *',
+      handler: async ({ scheduledFor }) => {
+        seen.push(scheduledFor.toISOString())
+        if (seen.length === 1) await gate.promise
+      },
+    },
+  }
+  const r = runner(defs)
+  const t0 = Date.parse('2026-08-07T10:00:30Z')
+  await r.pump(t0)
+  await waitFor(() => seen.length === 1)
+  await r.pump(t0 + SLOT_MS)
+  expect(seen).toHaveLength(1)
+  expect((await cronRows('beat'))[0]!.status).toBe('running')
+
+  gate.resolve()
+  await r.drain()
+  await r.pump(t0 + SLOT_MS + 1_000)
+  await r.drain()
+  expect(seen).toEqual(['2026-08-07T10:00:00.000Z', '2026-08-07T10:01:00.000Z'])
+})
+
+test('slot rows written per occurrence by an earlier release are swept, the cron row is kept', async () => {
+  const defs: JobsDefs = {
+    beat: { kind: 'cron', schedule: '* * * * *', handler: () => {} },
+  }
+  const t0 = Date.parse('2026-08-07T10:00:30Z')
+  const legacySlot = Date.parse('2026-08-07T09:59:00Z')
+  await db.insert(bunderstackJobs).values({
+    id: 'job_legacy',
+    type: `${CRON_PREFIX}beat`,
+    payloadJson: 'null',
+    status: 'succeeded',
+    attempts: 1,
+    runAt: legacySlot,
+    dedupeKey: String(legacySlot),
+    createdAt: legacySlot,
+    finishedAt: legacySlot,
+  })
+  await runner(defs).tick(t0)
+
+  const rows = await cronRows('beat')
+  expect(rows.map((row) => row.dedupeKey)).toEqual([CRON_SLOT_KEY])
+  expect(Number(rows[0]!.runAt)).toBe(Date.parse('2026-08-07T10:00:00Z'))
 })
 
 test('the worker advances cron scheduling from memory after hydration', async () => {
@@ -647,16 +770,36 @@ test('a non-matching minute materializes nothing', async () => {
   expect(await cronRows('hourly')).toHaveLength(0)
 })
 
-test('succeeded rows are reaped after the retention window', async () => {
-  const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
-  const r = runner(defs)
+test('every finished attempt is recorded for telemetry, without its payload', async () => {
+  const runs: JobRunEvent[] = []
+  let calls = 0
+  const defs: JobsDefs = {
+    flaky: {
+      kind: 'job',
+      input: v.object({ secret: v.string() }),
+      retries: 1,
+      backoff: () => 0,
+      handler: async () => {
+        calls++
+        throw new Error(`boom ${calls}`)
+      },
+    },
+  }
+  const r = runner(defs, undefined, recordingSink(runs))
   const t0 = Date.now()
-  await enqueueJob(db, defs, 'ok', undefined, { runAt: t0 })
+  const { id } = await enqueueJob(db, defs, 'flaky', { secret: 'hidden' })
   await r.tick(t0)
-  await r.tick(t0 + 25 * 60 * 60 * 1000 + 10_000) // > 24h later
-  const rows = await db.select().from(bunderstackJobs)
-  // The succeeded row is gone (only rows from this test's runs remain pending-free).
-  expect(rows.filter((x) => x.status === 'succeeded')).toHaveLength(0)
+  await r.tick(t0 + 1)
+
+  expect(runs.map((run) => [run.outcome, run.attempt, run.error])).toEqual([
+    ['retrying', 1, 'boom 1'],
+    ['failed', 2, 'boom 2'],
+  ])
+  expect(runs[0]).toMatchObject({ type: 'flaky', kind: 'job', jobId: id })
+  expect(Date.parse(runs[0]!.finishedAt)).toBeGreaterThan(0)
+  expect(JSON.stringify(runs)).not.toContain('hidden')
+  // The failed row stays, for inspection and a retry.
+  expect((await rowById(id))?.status).toBe('failed')
 })
 
 test('a cron handler receives its scheduled slot', async () => {
@@ -705,7 +848,15 @@ test('a failing cron slot retries with backoff then fires onFailed', async () =>
 
   const rows = await cronRows('flaky')
   expect(rows[0]!.status).toBe('failed')
-  expect(rows[0]!.dedupeKey).toBe(String(now - (now % SLOT_MS)))
+  expect(Number(rows[0]!.runAt)).toBe(now - (now % SLOT_MS))
+
+  // The next slot takes the row over from its failure.
+  await r.tick(now + SLOT_MS)
+  const next = await cronRows('flaky')
+  expect(next).toHaveLength(1)
+  expect(Number(next[0]!.runAt)).toBe(now - (now % SLOT_MS) + SLOT_MS)
+  expect(next[0]!.attempts).toBe(1)
+  expect(attempts).toBe(3)
 })
 
 test('a cron slot whose type has no definition is failed, not retried forever', async () => {

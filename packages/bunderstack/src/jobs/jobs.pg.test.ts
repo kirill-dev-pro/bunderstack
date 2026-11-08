@@ -17,6 +17,7 @@ import { withInternalTables } from '../internal-tables'
 import { bunderstackJobsPg } from '../internal-tables-pg'
 import { provisionSchema } from '../provision-schema'
 import { enqueueJob } from './queue'
+import { CRON_SLOT_KEY } from './slots'
 import { createJobRunner } from './worker'
 const marker = pgTable('jobs_pg_marker', { id: pgText('id').primaryKey() })
 
@@ -41,7 +42,7 @@ function runner(defs: JobsDefs) {
   return r
 }
 
-test('pg: enqueue, claim, run to succeeded', async () => {
+test('pg: enqueue, claim, run; the finished row is gone', async () => {
   const seen: unknown[] = []
   const defs: JobsDefs = {
     greet: {
@@ -60,8 +61,7 @@ test('pg: enqueue, claim, run to succeeded', async () => {
     .select()
     .from(bunderstackJobsPg)
     .where(eq(bunderstackJobsPg.id, id))
-  expect(rows[0]?.status).toBe('succeeded')
-  expect(rows[0]?.attempts).toBe(1)
+  expect(rows).toHaveLength(0)
 })
 
 test('pg: dedupe key collapses duplicate enqueues', async () => {
@@ -128,7 +128,8 @@ test('pg: cron slots materialize and run through the queue execution path', asyn
     .where(eq(bunderstackJobsPg.type, 'cron:everyMinute'))
   expect(rows).toHaveLength(1)
   expect(rows[0]?.status).toBe('succeeded')
-  expect(rows[0]?.dedupeKey).toBe(String(slotMs))
+  expect(rows[0]?.dedupeKey).toBe(CRON_SLOT_KEY)
+  expect(Number(rows[0]?.runAt)).toBe(slotMs)
 })
 
 const pgEvents = pgTable('pg_tx_events', { id: pgText('id').primaryKey() })
@@ -198,7 +199,8 @@ test('pg: enqueue with tx is claimable after commit and gone after rollback', as
   const report = await t.jobs.runUntilIdle()
   expect(ran).toEqual(['committed'])
   expect(report.ran).toBe(1)
-  expect(await t.jobs.inspect()).toHaveLength(1)
+  // The committed job ran and left no row; the rolled-back one never existed.
+  expect(await t.jobs.inspect()).toHaveLength(0)
 })
 
 test('pg: dedupe inside a transaction collapses with an existing pending row', async () => {

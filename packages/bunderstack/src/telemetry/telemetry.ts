@@ -35,12 +35,32 @@ export type JobSample = {
   outcome: 'succeeded' | 'failed' | 'retrying'
   durationMs: number
 }
+/**
+ * One finished attempt of a background task: the record a dashboard lists,
+ * where `JobSample` only feeds counters. The worker emits it in place of
+ * keeping a finished row in the database; the payload stays out of it, as
+ * it stays out of the log line.
+ */
+export type JobRunEvent = {
+  type: string
+  kind: 'job' | 'cron'
+  outcome: 'succeeded' | 'failed' | 'retrying'
+  jobId: string
+  attempt: number
+  /** The slot or scheduled time the attempt ran for, ISO 8601. */
+  runAt: string
+  /** When the attempt finished, ISO 8601. */
+  finishedAt: string
+  durationMs: number
+  error?: string
+}
 
 export type TelemetrySink = {
   readonly enabled: boolean
   captureException(error: unknown, context: TelemetryContext): void
   recordRequest(sample: RequestSample): void
   recordJob(sample: JobSample): void
+  recordJobRun(event: JobRunEvent): void
   /** Sends what is queued; resolves when the request settled or was dropped. */
   flush(): Promise<void>
   /** Sends only when the window elapsed or the queue is full. */
@@ -61,6 +81,9 @@ export const JOB_BUCKETS_MS = [100, 500, 1000, 5000, 15000, 60000, 300000]
 export const FLUSH_INTERVAL_MS = 15_000
 export const MAX_QUEUED_ERRORS = 50
 export const MAX_ERRORS_PER_BATCH = 100
+/** A full queue of runs ships early rather than dropping; a worker that
+ *  finishes more than this between two flushes has its window shortened. */
+export const MAX_QUEUED_JOB_RUNS = 500
 export const MAX_METRICS_PER_BATCH = 2_000
 export const MAX_ROUTE_LABELS = 500
 const MAX_STACK_CHARS = 16_000
@@ -95,6 +118,7 @@ export const noopTelemetry: Telemetry = {
   captureException() {},
   recordRequest() {},
   recordJob() {},
+  recordJobRun() {},
   async flush() {},
   async flushIfDue() {},
   start() {},
@@ -179,6 +203,7 @@ export function createTelemetry(
   let requestLatency = new Map<string, Histogram>()
   let jobs = new Map<string, Map<string, number>>()
   let jobLatency = new Map<string, Histogram>()
+  let jobRuns: JobRunEvent[] = []
   let errorsBySource = new Map<string, number>()
   let routes = new Set<string>()
   let lastFlushAt = now()
@@ -218,6 +243,7 @@ export function createTelemetry(
     errors.length > 0 ||
     requests.size > 0 ||
     jobs.size > 0 ||
+    jobRuns.length > 0 ||
     errorsBySource.size > 0
 
   const drain = () => {
@@ -290,12 +316,14 @@ export function createTelemetry(
       sentAt: at,
       errors: errors.slice(0, MAX_ERRORS_PER_BATCH),
       metrics: metrics.slice(0, MAX_METRICS_PER_BATCH),
+      jobs: jobRuns.slice(0, MAX_QUEUED_JOB_RUNS),
     }
     errors = []
     requests = new Map()
     requestLatency = new Map()
     jobs = new Map()
     jobLatency = new Map()
+    jobRuns = []
     errorsBySource = new Map()
     return batch
   }
@@ -409,10 +437,28 @@ export function createTelemetry(
         /* never into application code */
       }
     },
+    recordJobRun(event) {
+      try {
+        if (jobRuns.length >= MAX_QUEUED_JOB_RUNS) {
+          void flush()
+          if (jobRuns.length >= MAX_QUEUED_JOB_RUNS) return
+        }
+        jobRuns.push({
+          ...event,
+          durationMs: Math.max(0, Math.round(event.durationMs)),
+          ...(event.error === undefined
+            ? {}
+            : { error: event.error.slice(0, MAX_MESSAGE_CHARS) }),
+        })
+      } catch {
+        /* never into application code */
+      }
+    },
     flush,
     async flushIfDue() {
       if (
         errors.length >= MAX_QUEUED_ERRORS ||
+        jobRuns.length >= MAX_QUEUED_JOB_RUNS ||
         now() - lastFlushAt >= intervalMs
       )
         await flush()

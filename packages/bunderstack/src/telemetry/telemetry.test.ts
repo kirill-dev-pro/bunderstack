@@ -13,6 +13,7 @@ import { installProcessTelemetry } from './process'
 import {
   createTelemetry,
   describeError,
+  MAX_QUEUED_JOB_RUNS,
   noopTelemetry,
   statusClass,
   telemetryFromEnv,
@@ -29,6 +30,7 @@ type Batch = {
     labels: Record<string, string>
     value: number
   }>
+  jobs: Array<Record<string, unknown>>
 }
 
 function harness(options: { status?: number; fail?: boolean } = {}) {
@@ -93,6 +95,38 @@ test('configuration needs both variables and picks up the release', () => {
   expect(statusClass(0)).toBe('other')
   expect(describeError('plain')).toEqual({ name: 'Error', message: 'plain' })
   expect(describeError({ a: 1 })).toEqual({ name: 'Error', message: '{"a":1}' })
+})
+
+test('finished attempts ship as run records, and a full queue ships early', async () => {
+  const h = harness()
+  const run = (n: number) => ({
+    type: 'sendDigest',
+    kind: 'job' as const,
+    outcome: 'succeeded' as const,
+    jobId: `job_${n}`,
+    attempt: 1,
+    runAt: '2026-11-09T10:00:00.000Z',
+    finishedAt: '2026-11-09T10:00:01.000Z',
+    durationMs: 700.4,
+  })
+  h.telemetry.recordJobRun(run(1))
+  h.telemetry.recordJobRun({
+    ...run(2),
+    outcome: 'failed',
+    error: 'x'.repeat(5_000),
+  })
+  await h.telemetry.flush()
+  expect(h.batches).toHaveLength(1)
+  expect(h.batches[0]!.jobs).toEqual([
+    { ...run(1), durationMs: 700 },
+    expect.objectContaining({ jobId: 'job_2', outcome: 'failed' }),
+  ])
+  expect((h.batches[0]!.jobs[1]!.error as string).length).toBe(2_000)
+
+  for (let n = 0; n < MAX_QUEUED_JOB_RUNS; n++) h.telemetry.recordJobRun(run(n))
+  await h.telemetry.flush()
+  expect(h.batches).toHaveLength(2)
+  expect(h.batches[1]!.jobs).toHaveLength(MAX_QUEUED_JOB_RUNS)
 })
 
 test('samples aggregate into window deltas and ship as one batch', async () => {

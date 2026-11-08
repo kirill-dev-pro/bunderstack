@@ -303,7 +303,8 @@ test('libsql: enqueue with tx is claimable after commit and gone after rollback'
   const report = await t.jobs.runUntilIdle()
   expect(ran).toEqual(['committed'])
   expect(report.ran).toBe(1)
-  expect(await t.jobs.inspect()).toHaveLength(1)
+  // The committed job ran and left no row; the rolled-back one never existed.
+  expect(await t.jobs.inspect()).toHaveLength(0)
 
   // Type-level check: `tx` is the app's transaction type, not any object.
   // @ts-expect-error a string is not a transaction

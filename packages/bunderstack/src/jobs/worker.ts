@@ -1,5 +1,9 @@
 // src/jobs/worker.ts — the queue worker. One `tick()` is a full cycle:
-// recover expired leases → reap old finished rows → claim and run queue jobs.
+// recover expired leases → reap stale rows → claim and run queue jobs.
+//
+// The table holds work, not history. A queue job's row is deleted the moment
+// it succeeds, a cron owns one row that moves from slot to slot, and what a
+// finished attempt was goes to the logger and to telemetry as a JobRunEvent.
 import {
   and,
   desc,
@@ -7,15 +11,18 @@ import {
   inArray,
   is,
   isNotNull,
+  isNull,
   lt,
   lte,
+  ne,
+  or,
   sql,
 } from 'drizzle-orm'
 import { PgDatabase } from 'drizzle-orm/pg-core'
 
 import type { AnyDb } from '../dialect'
 import type { BunderstackLogger } from '../logging'
-import type { TelemetrySink } from '../telemetry/telemetry'
+import type { JobRunEvent, TelemetrySink } from '../telemetry/telemetry'
 import type {
   AnyBackgroundDefinition,
   JobsDefs,
@@ -27,20 +34,22 @@ import { jobsTableFor } from '../internal-tables'
 import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { noopTelemetry } from '../telemetry/telemetry'
+import { generate } from '../typeid'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
-import { enqueueJob } from './queue'
-import { CRON_PREFIX, floorSlot, slotsDue, SLOT_MS } from './slots'
+import {
+  CRON_PREFIX,
+  CRON_SLOT_KEY,
+  floorSlot,
+  slotsDue,
+  SLOT_MS,
+} from './slots'
 
 const CLAIM_BATCH = 10
 const DAY_MS = 24 * 60 * 60 * 1000
-/** Succeeded rows only feed the dashboard's recent history. Failed rows are
- *  kept longer so they can be inspected and retried, but not forever: each
- *  one carries its full payload and error. */
-const RETENTION_BY_STATUS = [
-  ['succeeded', DAY_MS],
-  ['failed', 30 * DAY_MS],
-] as const
+/** Failed rows are kept so they can be inspected and retried, but not
+ *  forever: each one carries its full payload and error. */
+const FAILED_RETENTION_MS = 30 * DAY_MS
 const REAP_INTERVAL_MS = 60 * 60_000
 const REAP_BATCH = 1000
 
@@ -135,6 +144,29 @@ function definitionFor(
 /** Queue jobs release terminal dedupe keys; cron slots retain durable ownership. */
 function terminalPatch(def: AnyBackgroundDefinition) {
   return def.kind === 'cron' ? {} : { dedupeKey: null }
+}
+
+/**
+ * Sends an attempt back to pending to run again after its backoff. A queue
+ * job moves its `runAt`; a cron keeps `runAt` on the slot it is running for
+ * (that is its identity and its handler's input) and waits out the backoff
+ * in `lockedUntil`, which the claim reads as "not before" on a pending row.
+ */
+function retryPatch(
+  def: AnyBackgroundDefinition,
+  row: JobRow,
+  now: number,
+  error: Error,
+) {
+  const notBefore = now + backoffMs(def, Number(row.attempts))
+  return def.kind === 'cron'
+    ? { status: 'pending', lockedUntil: notBefore, lastError: error.message }
+    : {
+        status: 'pending',
+        lockedUntil: null,
+        runAt: notBefore,
+        lastError: error.message,
+      }
 }
 
 /** `dedupeUntil: 'start'` releases the key at claim; everything else keeps it
@@ -254,8 +286,67 @@ export function createJobRunner(deps: {
     return cursor
   }
 
-  /** Enqueue a row per due slot. The unique(type, dedupeKey) constraint makes
-   *  this safe to run concurrently in any number of processes. */
+  /**
+   * Moves a cron's one row onto `slot`: inserted on first sight, afterwards
+   * advanced once it rests (`succeeded` or `failed`) on an earlier slot. The
+   * unique (type, dedupeKey) index makes this safe for any number of workers:
+   * exactly one insert or update wins, and the rest read the row back.
+   *
+   * `busy` means the row still holds an earlier slot that is pending or
+   * running; the caller leaves its cursor and asks again next tick.
+   */
+  async function takeCronSlot(
+    type: string,
+    slot: number,
+    now: number,
+  ): Promise<'taken' | 'busy'> {
+    const inserted = await db
+      .insert(t)
+      .values({
+        id: generate('job'),
+        type,
+        payloadJson: 'null',
+        status: 'pending',
+        attempts: 0,
+        runAt: slot,
+        dedupeKey: CRON_SLOT_KEY,
+        createdAt: now,
+      })
+      .onConflictDoNothing({ target: [t.type, t.dedupeKey] })
+      .returning({ id: t.id })
+    if (inserted[0]) return 'taken'
+    const advanced = await db
+      .update(t)
+      .set({
+        status: 'pending',
+        attempts: 0,
+        runAt: slot,
+        lockedUntil: null,
+        lastError: null,
+        finishedAt: null,
+        createdAt: now,
+      })
+      .where(
+        and(
+          eq(t.type, type),
+          eq(t.dedupeKey, CRON_SLOT_KEY),
+          inArray(t.status, ['succeeded', 'failed']),
+          lt(t.runAt, slot),
+        ),
+      )
+      .returning({ id: t.id })
+    if (advanced[0]) return 'taken'
+    const current = await db
+      .select({ runAt: t.runAt })
+      .from(t)
+      .where(and(eq(t.type, type), eq(t.dedupeKey, CRON_SLOT_KEY)))
+      .limit(1)
+    return current[0] && Number(current[0].runAt) >= slot ? 'taken' : 'busy'
+  }
+
+  /** Puts each cron's row on its next due slot. Slots run one at a time per
+   *  schedule — the row is taken for the next one once the current rests —
+   *  so `catchUp: 'all'` works through missed slots over successive ticks. */
   async function materializeCronSlots(now: number) {
     const through = floorSlot(now)
     for (const [name, def] of Object.entries(defs)) {
@@ -269,14 +360,36 @@ export function createJobRunner(deps: {
         catchUp: def.catchUp,
         catchUpWindowMs: def.catchUpWindow,
       })
-      for (const slot of slots) {
-        await enqueueJob(db, defs, name, null, {
-          runAt: slot,
-          dedupeKey: String(slot),
-        })
-        cursor.checkedThrough = slot
+      if (slots.length === 0) {
+        cursor.checkedThrough = Math.max(cursor.checkedThrough, through)
+        continue
       }
-      cursor.checkedThrough = Math.max(cursor.checkedThrough, through)
+      const slot = slots[0]!
+      if ((await takeCronSlot(type, slot, now)) === 'busy') continue
+      // Taken by this worker or seen taken by another: the slot is covered.
+      // With nothing else due, so is everything up to `through`.
+      cursor.checkedThrough =
+        slots.length === 1 ? Math.max(slot, through) : slot
+    }
+  }
+
+  function runRecord(
+    row: JobRow,
+    def: AnyBackgroundDefinition,
+    outcome: JobRunEvent['outcome'],
+    durationMs: number,
+    error?: Error,
+  ): JobRunEvent {
+    return {
+      type: row.type,
+      kind: jobKind(def),
+      outcome,
+      jobId: row.id,
+      attempt: Number(row.attempts),
+      runAt: new Date(Number(row.runAt)).toISOString(),
+      finishedAt: new Date(Date.now()).toISOString(),
+      durationMs,
+      ...(error ? { error: error.message } : {}),
     }
   }
 
@@ -340,6 +453,9 @@ export function createJobRunner(deps: {
           .where(ownershipPredicate(row.id, owner))
         continue
       }
+      // The attempt held its lease to the end; that is the closest the
+      // record can come to how long it ran.
+      const heldMs = leaseDurationFor(def)
       if (Number(row.attempts) >= maxAttempts(def)) {
         const updated = await db
           .update(t)
@@ -352,32 +468,44 @@ export function createJobRunner(deps: {
           })
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
-        if (updated[0]) await fireOnFailed(def, resolveInput(def, row), error)
+        if (updated[0]) {
+          telemetry.recordJobRun(runRecord(row, def, 'failed', heldMs, error))
+          await fireOnFailed(def, resolveInput(def, row), error)
+        }
       } else {
-        await db
+        const updated = await db
           .update(t)
-          .set({
-            status: 'pending',
-            lockedUntil: null,
-            runAt: now + backoffMs(def, Number(row.attempts)),
-            lastError: error.message,
-          })
+          .set(retryPatch(def, row, now, error))
           .where(ownershipPredicate(row.id, owner))
+          .returning({ id: t.id })
+        if (updated[0])
+          telemetry.recordJobRun(runRecord(row, def, 'retrying', heldMs, error))
       }
     }
   }
 
-  /** Deletes finished rows past their retention in batches, so a backlog
-   *  (the first sweep after an upgrade, a burst of failures) never holds the
-   *  write lock for one long statement. */
+  /**
+   * Deletes stale rows in batches, so a backlog (the first sweep after an
+   * upgrade, a burst of failures) never holds the write lock for one long
+   * statement. Failed rows go after their retention. Succeeded rows are left
+   * only by releases before 0.29 — a success deletes its row now — and go at
+   * once, except a cron's slot row, which rests as `succeeded` between
+   * occurrences and is told apart by its key.
+   */
   async function reapFinished(now: number) {
-    for (const [status, retentionMs] of RETENTION_BY_STATUS) {
-      const cutoff = now - retentionMs
+    const stale = [
+      and(eq(t.status, 'failed'), lt(t.finishedAt, now - FAILED_RETENTION_MS)),
+      and(
+        eq(t.status, 'succeeded'),
+        or(isNull(t.dedupeKey), ne(t.dedupeKey, CRON_SLOT_KEY)),
+      ),
+    ]
+    for (const where of stale) {
       for (;;) {
         const batch = db
           .select({ id: t.id })
           .from(t)
-          .where(and(eq(t.status, status), lt(t.finishedAt, cutoff)))
+          .where(where)
           .limit(REAP_BATCH)
         const deleted = await db
           .delete(t)
@@ -399,7 +527,15 @@ export function createJobRunner(deps: {
     const pendingIds = db
       .select({ id: t.id })
       .from(t)
-      .where(and(eq(t.type, type), eq(t.status, 'pending'), lte(t.runAt, now)))
+      .where(
+        and(
+          eq(t.type, type),
+          eq(t.status, 'pending'),
+          lte(t.runAt, now),
+          // A retrying cron waits out its backoff here (see retryPatch).
+          or(isNull(t.lockedUntil), lte(t.lockedUntil, now)),
+        ),
+      )
       .orderBy(t.runAt)
       .limit(limit)
     // PG: lock the selected rows so concurrent replicas skip them. SQLite's
@@ -488,6 +624,9 @@ export function createJobRunner(deps: {
         .where(ownershipPredicate(row.id, owner))
         .returning({ id: t.id })
       if (!updated[0]) return 'lost'
+      telemetry.recordJobRun(
+        runRecord(row, def, 'failed', Date.now() - startedAt, e),
+      )
       await fireOnFailed(def, undefined, e)
       return 'failed'
     }
@@ -535,30 +674,36 @@ export function createJobRunner(deps: {
       if (deadline) clearTimeout(deadline)
       await heartbeat.stop()
       if (lost) return 'lost'
-      const updated = await db
-        .update(t)
-        .set({
-          status: 'succeeded',
-          finishedAt: Date.now(),
-          lockedUntil: null,
-          ...terminalPatch(def),
-        })
-        .where(ownershipPredicate(row.id, owner))
-        .returning({ id: t.id })
-      if (!updated[0]) return 'lost'
+      // A finished queue job leaves no row: the log line and the run record
+      // below are what remains of it. A cron's row rests as `succeeded` on
+      // this slot until the next one advances it.
+      const finished =
+        def.kind === 'cron'
+          ? await db
+              .update(t)
+              .set({
+                status: 'succeeded',
+                finishedAt: Date.now(),
+                lockedUntil: null,
+              })
+              .where(ownershipPredicate(row.id, owner))
+              .returning({ id: t.id })
+          : await db
+              .delete(t)
+              .where(ownershipPredicate(row.id, owner))
+              .returning({ id: t.id })
+      if (!finished[0]) return 'lost'
+      const durationMs = Date.now() - startedAt
       logger.info(
-        JSON.stringify(
-          jobEvent('job.completed', row, {
-            durationMs: Date.now() - startedAt,
-          }),
-        ),
+        JSON.stringify(jobEvent('job.completed', row, { durationMs })),
       )
       telemetry.recordJob({
         type: row.type,
         kind: jobKind(def),
         outcome: 'succeeded',
-        durationMs: Date.now() - startedAt,
+        durationMs,
       })
+      telemetry.recordJobRun(runRecord(row, def, 'succeeded', durationMs))
       return 'ran'
     } catch (err) {
       if (deadline) clearTimeout(deadline)
@@ -571,12 +716,7 @@ export function createJobRunner(deps: {
       if (Number(row.attempts) < maxAttempts(def)) {
         const updated = await db
           .update(t)
-          .set({
-            status: 'pending',
-            lockedUntil: null,
-            runAt: now + backoffMs(def, Number(row.attempts)),
-            lastError: e.message,
-          })
+          .set(retryPatch(def, row, now, e))
           .where(ownershipPredicate(row.id, owner))
           .returning({ id: t.id })
         if (!updated[0]) return 'lost'
@@ -594,6 +734,9 @@ export function createJobRunner(deps: {
           outcome: 'retrying',
           durationMs: Date.now() - startedAt,
         })
+        telemetry.recordJobRun(
+          runRecord(row, def, 'retrying', Date.now() - startedAt, e),
+        )
         telemetry.captureException(e, {
           source: jobKind(def),
           jobType: row.type,
@@ -628,6 +771,9 @@ export function createJobRunner(deps: {
           outcome: 'failed',
           durationMs: Date.now() - startedAt,
         })
+        telemetry.recordJobRun(
+          runRecord(row, def, 'failed', Date.now() - startedAt, e),
+        )
         telemetry.captureException(e, {
           source: jobKind(def),
           jobType: row.type,
@@ -727,7 +873,13 @@ export function createJobRunner(deps: {
       const runnableRows = await db
         .select({ id: t.id })
         .from(t)
-        .where(and(eq(t.status, 'pending'), lte(t.runAt, now)))
+        .where(
+          and(
+            eq(t.status, 'pending'),
+            lte(t.runAt, now),
+            or(isNull(t.lockedUntil), lte(t.lockedUntil, now)),
+          ),
+        )
       const failed: Array<{
         id: string
         type: string

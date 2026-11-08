@@ -7,6 +7,14 @@ export const SLOT_MS = 60_000
 /** Reserved job-type prefix for cron occurrences. */
 export const CRON_PREFIX = 'cron:'
 
+/**
+ * The dedupe key of a cron's slot row. A schedule owns one row, whose
+ * `runAt` is the slot it last ran (or is running); the unique
+ * (type, dedupeKey) index keeps every worker on that one row. Releases before
+ * 0.29 wrote a row per slot, keyed by the slot itself.
+ */
+export const CRON_SLOT_KEY = '@slot'
+
 /** How far back either catch-up mode will look. */
 export const DEFAULT_CATCH_UP_WINDOW_MS = 60 * SLOT_MS
 
