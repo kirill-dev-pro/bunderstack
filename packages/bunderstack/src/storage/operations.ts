@@ -371,6 +371,11 @@ export function createStorageOperations(options: StorageOperationsOptions) {
           `inline; filename="${sanitizeFilename(row.filename)}"`,
         )
       }
+      // A public file streamed by the app (no public bucket URL) is the same
+      // for every reader; let browsers and mail image proxies keep it.
+      if (response.status === 200 && bucket.visibility === 'public') {
+        headers.set('Cache-Control', 'public, max-age=86400')
+      }
       return {
         kind: 'body',
         status: response.status,

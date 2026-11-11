@@ -264,3 +264,26 @@ test('private presigned and public buckets return redirects', async () => {
     url: `https://cdn.test/${uploaded.fileId}`,
   })
 })
+
+test('a public bucket without a public URL is streamed by the app, cacheable', async () => {
+  const publicOperations = operationsFor(adapter, {
+    visibility: 'public',
+    access: { create: 'authenticated', get: 'public', delete: 'owner' },
+  })
+  const uploaded = await publicOperations.upload(
+    'docs',
+    new File(['png'], 'hero.png', { type: 'image/png' }),
+    context('u1'),
+  )
+  const id = uploaded.fileId.slice('docs/'.length)
+  const downloaded = await publicOperations.download(
+    'docs',
+    id,
+    {},
+    context(null),
+  )
+  if (downloaded.kind !== 'body') throw new Error('expected body')
+  expect(downloaded.status).toBe(200)
+  expect(downloaded.headers.get('Cache-Control')).toBe('public, max-age=86400')
+  expect(await new Response(downloaded.body).text()).toBe('png')
+})

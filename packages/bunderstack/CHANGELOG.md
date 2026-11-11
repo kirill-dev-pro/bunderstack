@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.32.1
+
+- A file of a public bucket served by the application itself (the storage
+  has no public URL, which is how Bunderhost runs it now) carries
+  `Cache-Control: public, max-age=86400`, so browsers and mail image
+  proxies keep it instead of asking the app on every view.
+
 ## 0.32.0
 
 - Broadcasts: one email to many contacts, sent by the application's own
