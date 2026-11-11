@@ -19,6 +19,8 @@ import {
   bunderstackContactsPg,
   bunderstackContactAddressesPg,
   bunderstackContactTagsPg,
+  bunderstackBroadcastsPg,
+  bunderstackBroadcastRecipientsPg,
 } from './internal-tables-pg'
 
 export const bunderstackFiles = sqliteTable(
@@ -182,6 +184,74 @@ export const bunderstackContactTags = sqliteTable(
   ],
 )
 
+/** A message to many contacts, sent by the application's worker. */
+export const bunderstackBroadcasts = sqliteTable(
+  '_bunderstack_broadcasts',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    channel: text('channel').notNull(),
+    fromAddress: text('from_address'),
+    subject: text('subject').notNull(),
+    html: text('html').notNull(),
+    text: text('text'),
+    audienceJson: text('audience_json').notNull().default('{}'),
+    // draft | approved | sending | sent | cancelled | failed
+    status: text('status').notNull(),
+    scheduledAt: integer('scheduled_at'),
+    approvedBy: text('approved_by'),
+    approvedAt: integer('approved_at'),
+    startedAt: integer('started_at'),
+    finishedAt: integer('finished_at'),
+    error: text('error'),
+    recipients: integer('recipients').notNull().default(0),
+    sent: integer('sent').notNull().default(0),
+    delivered: integer('delivered').notNull().default(0),
+    opened: integer('opened').notNull().default(0),
+    clicked: integer('clicked').notNull().default(0),
+    bounced: integer('bounced').notNull().default(0),
+    complained: integer('complained').notNull().default(0),
+    unsubscribed: integer('unsubscribed').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    index('bbc_created').on(t.createdAt),
+    index('bbc_status').on(t.status),
+  ],
+)
+
+/**
+ * One address a broadcast goes to, snapshotted when sending starts so later
+ * contacts do not receive it. Folded into the broadcast's counters and deleted
+ * after 90 days.
+ */
+export const bunderstackBroadcastRecipients = sqliteTable(
+  '_bunderstack_broadcast_recipients',
+  {
+    id: text('id').primaryKey(),
+    broadcastId: text('broadcast_id')
+      .notNull()
+      .references(() => bunderstackBroadcasts.id, { onDelete: 'cascade' }),
+    contactId: text('contact_id').notNull(),
+    addressId: text('address_id').notNull(),
+    address: text('address').notNull(),
+    // queued | sending | sent | failed | delivered | opened | clicked | bounced | complained
+    status: text('status').notNull(),
+    providerId: text('provider_id'),
+    error: text('error'),
+    sentAt: integer('sent_at'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('bbr_address').on(t.broadcastId, t.addressId),
+    index('bbr_status').on(t.broadcastId, t.status),
+    index('bbr_created').on(t.createdAt),
+  ],
+)
+
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
@@ -191,6 +261,8 @@ export const INTERNAL_TABLES = {
   bunderstackContacts,
   bunderstackContactAddresses,
   bunderstackContactTags,
+  bunderstackBroadcasts,
+  bunderstackBroadcastRecipients,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
@@ -202,6 +274,8 @@ export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   '_bunderstack_contacts',
   '_bunderstack_contact_addresses',
   '_bunderstack_contact_tags',
+  '_bunderstack_broadcasts',
+  '_bunderstack_broadcast_recipients',
 ])
 
 export const INTERNAL_TABLES_PG = {
@@ -213,6 +287,8 @@ export const INTERNAL_TABLES_PG = {
   bunderstackContacts: bunderstackContactsPg,
   bunderstackContactAddresses: bunderstackContactAddressesPg,
   bunderstackContactTags: bunderstackContactTagsPg,
+  bunderstackBroadcasts: bunderstackBroadcastsPg,
+  bunderstackBroadcastRecipients: bunderstackBroadcastRecipientsPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -242,6 +318,14 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
   [
     getTableName(bunderstackContactTags),
     [bunderstackContactTags, bunderstackContactTagsPg],
+  ],
+  [
+    getTableName(bunderstackBroadcasts),
+    [bunderstackBroadcasts, bunderstackBroadcastsPg],
+  ],
+  [
+    getTableName(bunderstackBroadcastRecipients),
+    [bunderstackBroadcastRecipients, bunderstackBroadcastRecipientsPg],
   ],
 ])
 
@@ -281,6 +365,18 @@ export function contactTablesFor(db: unknown) {
         contacts: bunderstackContacts,
         addresses: bunderstackContactAddresses,
         tags: bunderstackContactTags,
+      }
+}
+
+export function broadcastTablesFor(db: unknown) {
+  return is(db, PgDatabase)
+    ? {
+        broadcasts: bunderstackBroadcastsPg,
+        recipients: bunderstackBroadcastRecipientsPg,
+      }
+    : {
+        broadcasts: bunderstackBroadcasts,
+        recipients: bunderstackBroadcastRecipients,
       }
 }
 

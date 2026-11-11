@@ -3,4 +3,4 @@
  * without reading package.json at runtime. `version.test.ts` keeps it equal
  * to package.json; bump both on release.
  */
-export const BUNDERSTACK_VERSION = '0.31.0'
+export const BUNDERSTACK_VERSION = '0.32.0'

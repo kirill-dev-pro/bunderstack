@@ -13,7 +13,7 @@ import {
 
 import type { AnyDb } from '../dialect'
 
-import { contactTablesFor } from '../internal-tables'
+import { broadcastTablesFor, contactTablesFor } from '../internal-tables'
 
 /** The ways a contact can be reached. Only email is sent to today. */
 export type ContactAddressKind = 'email'
@@ -96,7 +96,10 @@ export type ContactsFacade = {
    * that serves its own page (`contacts.unsubscribeUrl`); null for a token
    * that was not signed by this application.
    */
-  unsubscribeByToken(token: string): Promise<{ address: string } | null>
+  unsubscribeByToken(
+    token: string,
+    context?: { broadcastId?: string },
+  ): Promise<{ address: string } | null>
 }
 
 export const CONTACTS_CAPTURE_PATH = '/api/_bunderstack/contacts'
@@ -194,6 +197,27 @@ export async function verifyUnsubscribeToken(
     diff |= given.charCodeAt(i) ^ expected.charCodeAt(i)
   }
   return diff === 0 ? addressId : null
+}
+
+/**
+ * The one-click unsubscribe link for an address id, or null without a public
+ * URL. A broadcast passes its id, so the unsubscribe is counted on it.
+ */
+export async function unsubscribeLink(
+  options: { secret: string; appUrl?: string; config?: ContactsConfig },
+  addressId: string,
+  broadcastId?: string,
+): Promise<string | null> {
+  const base =
+    options.config?.unsubscribeUrl ??
+    (options.appUrl
+      ? new URL(UNSUBSCRIBE_PATH, options.appUrl).toString()
+      : undefined)
+  if (!base) return null
+  const url = new URL(base)
+  url.searchParams.set('t', await unsubscribeToken(options.secret, addressId))
+  if (broadcastId) url.searchParams.set('b', broadcastId)
+  return url.toString()
 }
 
 export function createContacts(options: {
@@ -529,21 +553,10 @@ export function createContacts(options: {
     async unsubscribeUrl({ email }) {
       const address = await addressOf(email)
       if (!address) return null
-      const base =
-        options.config?.unsubscribeUrl ??
-        (options.appUrl
-          ? new URL(UNSUBSCRIBE_PATH, options.appUrl).toString()
-          : undefined)
-      if (!base) return null
-      const url = new URL(base)
-      url.searchParams.set(
-        't',
-        await unsubscribeToken(options.secret, address.id),
-      )
-      return url.toString()
+      return unsubscribeLink(options, address.id)
     },
 
-    async unsubscribeByToken(token) {
+    async unsubscribeByToken(token, context) {
       const addressId = await verifyUnsubscribeToken(options.secret, token)
       if (!addressId) return null
       const [row] = await db
@@ -557,6 +570,14 @@ export function createContacts(options: {
           .update(t.addresses)
           .set({ unsubscribedAt: now() })
           .where(eq(t.addresses.id, addressId))
+        // The link came from a broadcast: count it there.
+        if (context?.broadcastId) {
+          const b = broadcastTablesFor(db)
+          await db
+            .update(b.broadcasts)
+            .set({ unsubscribed: sql`${b.broadcasts.unsubscribed} + 1` })
+            .where(eq(b.broadcasts.id, context.broadcastId))
+        }
       }
       return { address: row.address as string }
     },

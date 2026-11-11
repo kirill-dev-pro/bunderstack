@@ -57,7 +57,9 @@ test('INTERNAL_TABLE_NAMES contains every internal table name', () => {
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_contacts')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_contact_addresses')).toBe(true)
   expect(INTERNAL_TABLE_NAMES.has('_bunderstack_contact_tags')).toBe(true)
-  expect(INTERNAL_TABLE_NAMES.size).toBe(8)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_broadcasts')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.has('_bunderstack_broadcast_recipients')).toBe(true)
+  expect(INTERNAL_TABLE_NAMES.size).toBe(10)
 })
 
 // --- INTERNAL_TABLES ---

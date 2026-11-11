@@ -16,6 +16,8 @@ import {
   bunderstackContacts,
   bunderstackContactAddresses,
   bunderstackContactTags,
+  bunderstackBroadcasts,
+  bunderstackBroadcastRecipients,
   bunderstackMessages,
   bunderstackFiles,
   bunderstackIdempotency,
@@ -276,6 +278,16 @@ function describeSection(
 
 function systemTables() {
   return [
+    {
+      exportName: '_system.broadcastRecipients',
+      physicalName: getTableName(bunderstackBroadcastRecipients),
+      system: true,
+    },
+    {
+      exportName: '_system.broadcasts',
+      physicalName: getTableName(bunderstackBroadcasts),
+      system: true,
+    },
     {
       exportName: '_system.contacts',
       physicalName: getTableName(bunderstackContacts),

@@ -130,7 +130,8 @@ export function createContactsHandler(
     const token = url.searchParams.get('t') ?? ''
     if (req.method === 'GET') {
       // Mail scanners open links; only a POST unsubscribes.
-      const action = `${UNSUBSCRIBE_PATH}?t=${encodeURIComponent(token)}`
+      const b = url.searchParams.get('b')
+      const action = `${url.pathname}?t=${encodeURIComponent(token)}${b ? `&b=${encodeURIComponent(b)}` : ''}`
       return page(
         'Unsubscribe',
         `<h1>Unsubscribe</h1><p>Stop receiving these emails?</p><form method="post" action="${escapeHtml(action)}"><button type="submit">Unsubscribe</button></form>`,
@@ -142,7 +143,11 @@ export function createContactsHandler(
         headers: { Allow: 'GET, POST' },
       })
     }
-    const result = await contacts.unsubscribeByToken(token)
+    const broadcastId = url.searchParams.get('b') ?? undefined
+    const result = await contacts.unsubscribeByToken(
+      token,
+      broadcastId ? { broadcastId } : undefined,
+    )
     if (!result) {
       return page(
         'Link not valid',

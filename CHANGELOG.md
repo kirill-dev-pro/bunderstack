@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.32.0
+
+- Broadcasts: one email to many contacts, sent by the application's own
+  worker through one of its email channels. Two system tables come with
+  `bunderstack/schema` (`_bunderstack_broadcasts`,
+  `_bunderstack_broadcast_recipients`); run `db:generate` after upgrading.
+  The host (Bunderhost) writes a broadcast and queues the
+  `bunderstack:broadcast` job once a person approved it; the job snapshots
+  the audience (tags any / all / none, sources, optional consent; never
+  unsubscribed or suppressed addresses), personalises `{{name}}`,
+  `{{email}}`, `{{attributes.*}}` and `{{unsubscribe_url}}`, adds RFC 8058
+  `List-Unsubscribe` headers and a footer, sends five a second for up to four
+  minutes a run, and never sends a claimed message twice. Test sends go only
+  to the testers. Recipient rows are kept 90 days, counters for good. The
+  job is registered only where a worker already runs and email is declared.
+- Unsubscribe links from a broadcast carry its id, and an unsubscribe counts
+  on that broadcast.
+
 ## 0.31.0
 
 - Contacts: people an application writes to who need not be users.

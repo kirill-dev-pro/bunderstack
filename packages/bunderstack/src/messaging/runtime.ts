@@ -13,6 +13,18 @@ import { insertMessage, updateMessage } from './journal'
 import { createSesAdapter, type MessageTag } from './ses'
 import { isMessagingDescriptor } from './types'
 
+/** See the facade method of the same name; internal to bunderstack. */
+export const SEND_UNJOURNALED: unique symbol = Symbol.for(
+  'bunderstack.messaging.send-unjournaled',
+)
+
+export type UnjournaledSender = {
+  [SEND_UNJOURNALED](
+    input: EmailMessage,
+    tags: MessageTag[],
+  ): Promise<{ captured: boolean; providerId?: string }>
+}
+
 export type MessagingAdapter = {
   send(input: any): Promise<{ id?: string; messageId?: string }>
 }
@@ -437,6 +449,43 @@ export function createMessaging<const TConfig extends MessagingConfig>(
         ...(descriptor.kind === 'email'
           ? { receiving: domains.length > 0, domains }
           : {}),
+        /**
+         * A send that writes no journal row, for senders that keep their own
+         * record (broadcasts). The caller names the tags delivery events are
+         * matched by. Resolves `{ captured: true }` when the channel captures.
+         */
+        async [SEND_UNJOURNALED](
+          input: EmailMessage,
+          tags: MessageTag[],
+        ): Promise<{ captured: boolean; providerId?: string }> {
+          if (descriptor.kind !== 'email') {
+            throw new Error(`messaging.${channel} is not an email channel`)
+          }
+          if (!input.html && !input.text) {
+            throw new Error('email message needs html or text content')
+          }
+          assertHeaders(input.headers)
+          const resolvedFrom = input.from ?? from
+          if (!capture && !resolvedFrom) {
+            throw new Error(
+              `messaging.${channel}: the message has no from address and the channel declares none`,
+            )
+          }
+          if (capture) {
+            if (!options.env.BUNDERHOST_ENVIRONMENT_ID) {
+              consoleCapture(channel, descriptor.kind, input)
+            }
+            return { captured: true }
+          }
+          const sent = await adapter!.send({
+            ...input,
+            from: resolvedFrom,
+            ...(tagged && options.env.BUNDERHOST_ENVIRONMENT_ID
+              ? { tags }
+              : {}),
+          })
+          return { captured: false, providerId: sent.id || undefined }
+        },
         async send(input: EmailMessage | TelegramMessage) {
           if (descriptor.kind === 'email') {
             const email = input as EmailMessage

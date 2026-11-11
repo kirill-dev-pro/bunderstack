@@ -64,6 +64,16 @@ test('the manifest contains exactly these fields and nothing more', () => {
       migrationsDirectory: './migrations',
       tables: [
         {
+          exportName: '_system.broadcastRecipients',
+          physicalName: '_bunderstack_broadcast_recipients',
+          system: true,
+        },
+        {
+          exportName: '_system.broadcasts',
+          physicalName: '_bunderstack_broadcasts',
+          system: true,
+        },
+        {
           exportName: '_system.contactAddresses',
           physicalName: '_bunderstack_contact_addresses',
           system: true,

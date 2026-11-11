@@ -170,3 +170,71 @@ export const bunderstackContactTagsPg = pgTable(
     index('bctag_tag').on(t.tag),
   ],
 )
+
+/** A message to many contacts, sent by the application's worker. */
+export const bunderstackBroadcastsPg = pgTable(
+  '_bunderstack_broadcasts',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    channel: text('channel').notNull(),
+    fromAddress: text('from_address'),
+    subject: text('subject').notNull(),
+    html: text('html').notNull(),
+    text: text('text'),
+    audienceJson: text('audience_json').notNull().default('{}'),
+    // draft | approved | sending | sent | cancelled | failed
+    status: text('status').notNull(),
+    scheduledAt: bigint('scheduled_at', { mode: 'number' }),
+    approvedBy: text('approved_by'),
+    approvedAt: bigint('approved_at', { mode: 'number' }),
+    startedAt: bigint('started_at', { mode: 'number' }),
+    finishedAt: bigint('finished_at', { mode: 'number' }),
+    error: text('error'),
+    recipients: integer('recipients').notNull().default(0),
+    sent: integer('sent').notNull().default(0),
+    delivered: integer('delivered').notNull().default(0),
+    opened: integer('opened').notNull().default(0),
+    clicked: integer('clicked').notNull().default(0),
+    bounced: integer('bounced').notNull().default(0),
+    complained: integer('complained').notNull().default(0),
+    unsubscribed: integer('unsubscribed').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('bbc_created').on(t.createdAt),
+    index('bbc_status').on(t.status),
+  ],
+)
+
+/**
+ * One address a broadcast goes to, snapshotted when sending starts so later
+ * contacts do not receive it. Folded into the broadcast's counters and deleted
+ * after 90 days.
+ */
+export const bunderstackBroadcastRecipientsPg = pgTable(
+  '_bunderstack_broadcast_recipients',
+  {
+    id: text('id').primaryKey(),
+    broadcastId: text('broadcast_id')
+      .notNull()
+      .references(() => bunderstackBroadcastsPg.id, { onDelete: 'cascade' }),
+    contactId: text('contact_id').notNull(),
+    addressId: text('address_id').notNull(),
+    address: text('address').notNull(),
+    // queued | sending | sent | failed | delivered | opened | clicked | bounced | complained
+    status: text('status').notNull(),
+    providerId: text('provider_id'),
+    error: text('error'),
+    sentAt: bigint('sent_at', { mode: 'number' }),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('bbr_address').on(t.broadcastId, t.addressId),
+    index('bbr_status').on(t.broadcastId, t.status),
+    index('bbr_created').on(t.createdAt),
+  ],
+)

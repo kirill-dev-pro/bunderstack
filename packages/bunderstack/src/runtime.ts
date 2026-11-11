@@ -53,6 +53,7 @@ import {
   toAuthSessionResolver,
   withEmailAuthDefaults,
 } from './auth'
+import { BROADCAST_JOB_NAME, broadcastJob } from './broadcasts'
 import {
   resolveConfig,
   type BetterAuthConfig,
@@ -614,7 +615,7 @@ export async function materializeBunderstack<
     const storageConfigured = Boolean(options.storage)
     // The storage sweep used to be a hardcoded maintenance route. It is an
     // ordinary cron now, so it inherits retries, timeout and onFailed.
-    const resolvedDefs: JobsDefs | undefined = storageConfigured
+    const withSweep: JobsDefs | undefined = storageConfigured
       ? {
           ...jobsDefs,
           [STORAGE_SWEEP_JOB_NAME]: {
@@ -626,6 +627,25 @@ export async function materializeBunderstack<
           },
         }
       : jobsDefs
+    // Broadcasts ride on a worker the application already runs, so an app
+    // without background work does not start polling for them.
+    const sendsEmail = Object.values(
+      (options.messaging ?? {}) as MessagingConfig,
+    ).some((descriptor) => descriptor.kind === 'email')
+    const resolvedDefs: JobsDefs | undefined =
+      withSweep && sendsEmail
+        ? {
+            ...withSweep,
+            [BROADCAST_JOB_NAME]: broadcastJob({
+              db,
+              messaging: messaging as Record<string, unknown>,
+              secret: env.AUTH_SECRET,
+              appUrl: env.APP_URL,
+              contactsConfig: options.contacts,
+              environmentId: env.BUNDERHOST_ENVIRONMENT_ID,
+            }) as never,
+          }
+        : withSweep
 
     const jobRunner = resolvedDefs
       ? createJobRunner({

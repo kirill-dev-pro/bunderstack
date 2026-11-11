@@ -98,8 +98,46 @@ ten times a minute. `consent: true` records the form as the consent source.
 
 Without `capture`, nothing is mounted at that path.
 
+## Broadcasts
+
+A broadcast is one email to many contacts. It lives in
+`_bunderstack_broadcasts`, and the application's own worker sends it, through
+one of its email channels, so the provider and sender chosen for that channel
+apply. On Bunderhost you write it on the **Broadcasts** tab or have an agent
+draft it; a person approves the send, and Bunderhost queues the
+`bunderstack:broadcast` job.
+
+- **Audience**: tags (`any`, `all`, `none`), sources, and optionally only
+  addresses with consent. Unsubscribed, bounced and complained addresses are
+  always left out. Who receives it is fixed when sending starts.
+- **Personalisation**: `{{name}}`, `{{email}}`, `{{attributes.<key>}}` and
+  `{{unsubscribe_url}}`; `{{name | there}}` falls back when the value is
+  empty. Values are escaped in HTML.
+- **Unsubscribe**: every message carries `List-Unsubscribe` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, and an unsubscribe
+  footer when the HTML does not place `{{unsubscribe_url}}` itself. It needs
+  `APP_URL`; without it the broadcast fails instead of sending.
+- **Pace and recovery**: five messages a second. One run sends for up to four
+  minutes and queues the next. A message claimed by a run that died is
+  reported as failed rather than sent twice.
+- **History**: per-recipient rows are kept 90 days; the broadcast keeps its
+  counters (sent, delivered, opened, clicked, bounced, complained,
+  unsubscribed, failed).
+
+The job exists when the application already runs a worker (it declares jobs
+or storage) and has an email channel, so an application without background
+work does not start polling for it. A dedicated channel on its own subdomain
+keeps complaints about newsletters away from your sign-in mail:
+
+```ts
+messaging: {
+  email: email(),
+  news: email(), // sender set on the host, e.g. news@news.shop.example
+}
+```
+
 ## Migrations
 
-The contact tables come with `bunderstack/schema`. After upgrading, run
+The contact and broadcast tables come with `bunderstack/schema`. After upgrading, run
 `drizzle-kit generate` (or your `db:generate` script) and commit the migration,
 as for any other system table.

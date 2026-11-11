@@ -7,7 +7,7 @@ authentication:
     callbackPath: /api/auth/callback/bunderhost
 generator:
   name: bunderstack
-  version: 0.30.0
+  version: 0.31.0
 application:
   framework: tanstack-start
   scripts:
@@ -23,6 +23,12 @@ resources:
     migrationsDirectory: ./migrations
     migrationMode: migrations
     tables:
+      - exportName: _system.broadcastRecipients
+        physicalName: _bunderstack_broadcast_recipients
+        system: true
+      - exportName: _system.broadcasts
+        physicalName: _bunderstack_broadcasts
+        system: true
       - exportName: _system.contactAddresses
         physicalName: _bunderstack_contact_addresses
         system: true

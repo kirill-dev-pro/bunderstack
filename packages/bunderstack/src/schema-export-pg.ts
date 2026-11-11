@@ -9,4 +9,6 @@ export {
   bunderstackContactsPg as bunderstackContacts,
   bunderstackContactAddressesPg as bunderstackContactAddresses,
   bunderstackContactTagsPg as bunderstackContactTags,
+  bunderstackBroadcastsPg as bunderstackBroadcasts,
+  bunderstackBroadcastRecipientsPg as bunderstackBroadcastRecipients,
 } from './internal-tables-pg'

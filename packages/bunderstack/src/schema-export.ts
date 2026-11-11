@@ -7,4 +7,6 @@ export {
   bunderstackContacts,
   bunderstackContactAddresses,
   bunderstackContactTags,
+  bunderstackBroadcasts,
+  bunderstackBroadcastRecipients,
 } from './internal-tables'
