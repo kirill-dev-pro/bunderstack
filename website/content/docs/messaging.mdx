@@ -128,6 +128,38 @@ adapter itself plus `from`.
 
 ## Providers
 
+### Chosen by the host
+
+```ts
+import { email } from 'bunderstack'
+
+messaging: {
+  email: email({ from: 'Shop <orders@shop.example>' }),
+  inbox: email({ receive: true }),
+}
+```
+
+`email()` declares an email channel without naming its provider. The host
+decides where it sends: on Bunderhost, the project's Messaging tab switches
+between hosted mail (Amazon SES on the project's verified domains) and the
+project's own Resend account, and changing it needs no code change. Locally
+and in tests nothing is chosen, so the channel captures.
+
+The host names its choice in `BUNDERSTACK_MESSAGING_CONFIG` under the reserved
+`email` key: `{ "email": { "send": "resend", "receive": "ses" } }`. `send` is
+the provider a managed channel sends through, with that provider's managed
+credentials; `receive` is the provider whose `inbound` block a receiving
+channel reads, and defaults to `send`. A project can send through Resend and
+still receive on its hosted domains. The host can also give a managed channel its sender, under
+`email.channels.<name>.from`, so a `marketing: email()` channel can send from
+a separate domain chosen on the host. A `from` the channel declares in code
+wins over it. A provider this version does not know is
+a startup error rather than silent capture. The journal records the provider
+each message actually went through.
+
+A channel that must always use one provider, or brings its own key, declares
+it with `ses()` or `resend()`; the host's choice does not apply to it.
+
 ### Resend
 
 ```ts

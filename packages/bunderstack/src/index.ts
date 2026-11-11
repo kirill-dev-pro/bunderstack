@@ -1,12 +1,15 @@
 export * from './backend'
 export {
   createMessaging,
+  email,
   resend,
   ses,
   customEmail,
   telegram,
 } from './messaging'
 export type {
+  EmailConfig,
+  EmailDescriptor,
   EmailReceiving,
   InboundAddress,
   InboundAttachment,

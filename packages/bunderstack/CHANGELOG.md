@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- `email()` declares an email channel whose provider the host chooses. On
+  Bunderhost the project's Messaging tab switches it between hosted SES and
+  the project's own Resend account without a code change; locally it
+  captures. The host names the choice in `BUNDERSTACK_MESSAGING_CONFIG.email`
+  (`{ send, receive? }`); `receive` lets a project send through one provider
+  and receive through another. A provider this version cannot send through
+  fails at startup. The journal's `provider` column records the provider a
+  message went through, or `managed` when nothing was chosen. `ses()` and
+  `resend()` are unchanged and ignore the host's choice.
+- Email providers are a registry inside the messaging runtime; adding one is
+  an adapter and an entry. `EMAIL_PROVIDERS` (from `bunderstack` and
+  `bunderstack/blueprint`) lists the providers a managed channel can be
+  routed to: `ses`, `resend`.
+- The host can set a managed channel's sender in
+  `BUNDERSTACK_MESSAGING_CONFIG.email.channels.<channel>.from`, so a channel
+  can send from another domain without a code change. A `from` declared in
+  code still wins.
+
 ## 0.29.1
 
 - An error report keeps what caused it. Drizzle wraps every driver error in

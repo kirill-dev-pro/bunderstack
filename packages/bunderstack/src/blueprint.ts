@@ -346,3 +346,4 @@ export function serializeBlueprint(value: BunderstackBlueprint): string {
     },
   )
 }
+export { EMAIL_PROVIDERS, type EmailProviderName } from './messaging/email'

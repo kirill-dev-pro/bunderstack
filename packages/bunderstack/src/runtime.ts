@@ -1140,10 +1140,14 @@ function resolveInboundRoutes(
         `[bunderstack] messaging.${channel} receives mail but no jobs.inbound('${channel}', …) handles it`,
       )
     }
-    const { secret, domains } = receivingFor(channel, descriptor, managed)
+    const { provider, secret, domains } = receivingFor(
+      channel,
+      descriptor,
+      managed,
+    )
     routes.push({
       channel,
-      provider: descriptor.provider,
+      provider,
       secret,
       domains,
       job,

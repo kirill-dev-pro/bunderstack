@@ -892,8 +892,8 @@ serialize runs per key: two workers can run an older and a newer row at the
 same time. Keep the default, or take a lock in the handler, when runs for one
 key must never overlap.
 
-Cron tasks reject `dedupeUntil`; their slot ownership depends on the retained
-key.
+Cron tasks reject `dedupeUntil`; a schedule owns one row, and that row's key
+is what keeps every worker on it.
 
 ## Transactional enqueue
 
@@ -931,10 +931,13 @@ not make handlers exactly-once.
 
 ## Cron
 
-`j.cron()` uses a five-field UTC schedule. Each due minute is materialized as a
-job row whose dedupe key is the slot timestamp, so a slot runs exactly once no
-matter how many processes are ticking — including the brief overlap during a
-rolling deploy.
+`j.cron()` uses a five-field UTC schedule. Each schedule owns one job row,
+whose `runAt` is the slot it last ran or is running for. A due minute moves
+that row onto the new slot with one insert-or-update, so a slot runs exactly
+once no matter how many processes are ticking — including the brief overlap
+during a rolling deploy — and the table never grows with occurrences. Slots
+run one at a time per schedule: a missed slot under `catchUp: 'all'` is taken
+once the current one has finished.
 
 Because cron occurrences are jobs, they take the same options queue jobs do:
 
@@ -982,7 +985,8 @@ expect(await fixture.jobs.failed()).toEqual([])
 
 Jobs recursively enqueued by handlers are processed until the queue converges or `maxTicks` is reached. Delayed jobs wait for their explicit `now` timestamp without sleeping.
 
-Use `fixture.jobs.inspect(filter?)` for every retained queue row, or
+Use `fixture.jobs.inspect(filter?)` for every row still in the queue (a job
+that succeeded has none), or
 `pending(filter?)` and `failed(filter?)` for status-specific assertions. Filters
 accept `name` and `dedupeKey`; rows expose `id`, normalized `name`, `kind`, `status`,
 `attempts`, `runAt`, `dedupeKey`, and `lastError`.
@@ -1061,8 +1065,15 @@ export async function generateResume(
 A handler that throws is retried with jittered exponential backoff until
 `retries` is exhausted, then the row is marked `failed` with its error and
 `onFailed` fires once. Failed rows stay queryable in `_bunderstack_jobs` for
-30 days after they finish; succeeded rows are removed after 24 hours. Both keep
-the job's full input until then, so pass IDs rather than secrets.
+30 days after they finish and keep the job's full input until then, so pass IDs
+rather than secrets.
+
+A job that succeeds leaves no row: the table holds work still to do, not
+history. What remains of a finished attempt is the structured
+`job.completed` / `job.retrying` / `job.failed` log line and, when the app
+reports to Bunderhost, a run record (type, outcome, attempt, duration, error;
+never the payload) that its Background tab lists. Everything but failures
+therefore costs the database one insert, one claim and one delete.
 
 Long cron work should enqueue a queue job and return quickly rather than
 holding its lease for minutes.
@@ -2538,6 +2549,38 @@ and `secretAccessKey`, for Telegram `botToken`, and for a custom adapter the
 adapter itself plus `from`.
 
 ## Providers
+
+### Chosen by the host
+
+```ts
+import { email } from 'bunderstack'
+
+messaging: {
+  email: email({ from: 'Shop <orders@shop.example>' }),
+  inbox: email({ receive: true }),
+}
+```
+
+`email()` declares an email channel without naming its provider. The host
+decides where it sends: on Bunderhost, the project's Messaging tab switches
+between hosted mail (Amazon SES on the project's verified domains) and the
+project's own Resend account, and changing it needs no code change. Locally
+and in tests nothing is chosen, so the channel captures.
+
+The host names its choice in `BUNDERSTACK_MESSAGING_CONFIG` under the reserved
+`email` key: `{ "email": { "send": "resend", "receive": "ses" } }`. `send` is
+the provider a managed channel sends through, with that provider's managed
+credentials; `receive` is the provider whose `inbound` block a receiving
+channel reads, and defaults to `send`. A project can send through Resend and
+still receive on its hosted domains. The host can also give a managed channel its sender, under
+`email.channels.<name>.from`, so a `marketing: email()` channel can send from
+a separate domain chosen on the host. A `from` the channel declares in code
+wins over it. A provider this version does not know is
+a startup error rather than silent capture. The journal records the provider
+each message actually went through.
+
+A channel that must always use one provider, or brings its own key, declares
+it with `ses()` or `resend()`; the host's choice does not apply to it.
 
 ### Resend
 

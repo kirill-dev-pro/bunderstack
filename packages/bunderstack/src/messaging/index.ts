@@ -1,9 +1,12 @@
-export { resend, ses, customEmail } from './email'
+export { email, resend, ses, customEmail, EMAIL_PROVIDERS } from './email'
 export { createMessaging } from './standalone'
 export type { MessagingContext } from './standalone'
 export type {
   CustomEmailConfig,
   CustomEmailDescriptor,
+  EmailConfig,
+  EmailDescriptor,
+  EmailProviderName,
   ResendConfig,
   ResendDescriptor,
   SesConfig,

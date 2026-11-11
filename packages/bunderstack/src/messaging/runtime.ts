@@ -8,6 +8,7 @@ import type {
   MessagingFacades,
 } from './types'
 
+import { EMAIL_PROVIDERS, type EmailProviderName } from './email'
 import { insertMessage, updateMessage } from './journal'
 import { createSesAdapter, type MessageTag } from './ses'
 import { isMessagingDescriptor } from './types'
@@ -126,18 +127,19 @@ export function receivingFor(
   channel: string,
   descriptor: AnyMessagingDescriptor,
   managed: ManagedConfig,
-): { secret: string | undefined; domains: string[] } {
+): { provider: string; secret: string | undefined; domains: string[] } {
   const declared =
     descriptor.kind === 'email' &&
     (descriptor.config as { receive?: boolean }).receive === true
-  const inbound = managed[descriptor.provider]?.inbound as
+  const provider = receiveProvider(descriptor, managed)
+  const inbound = managed[provider]?.inbound as
     | { secret?: unknown; channels?: Record<string, unknown> }
     | undefined
   const secret = nonEmpty(inbound?.secret) ? inbound.secret : undefined
   const listed = inbound?.channels?.[channel]
   const domains =
     declared && secret && Array.isArray(listed) ? listed.filter(nonEmpty) : []
-  return { secret: declared ? secret : undefined, domains }
+  return { provider, secret: declared ? secret : undefined, domains }
 }
 
 function telegramContent(input: TelegramMessage) {
@@ -213,11 +215,132 @@ function createTelegramAdapter(
   }
 }
 
-function providerConfig(
+/**
+ * The host's choice for managed `email()` channels:
+ * `BUNDERSTACK_MESSAGING_CONFIG.email = { send, receive? }`.
+ */
+function managedEmailChoice(managed: ManagedConfig): {
+  send: string | undefined
+  receive: string | undefined
+} {
+  const choice = managed.email
+  const send = nonEmpty(choice?.send) ? choice.send : undefined
+  const receive = nonEmpty(choice?.receive) ? choice.receive : send
+  return { send, receive }
+}
+
+/**
+ * The provider a channel sends through: its own for a pinned channel, the
+ * host's choice for a managed one, or `managed` when the host chose nothing.
+ */
+export function sendProvider(
   descriptor: AnyMessagingDescriptor,
   managed: ManagedConfig,
+): string {
+  if (descriptor.kind !== 'email' || descriptor.provider !== 'managed') {
+    return descriptor.provider
+  }
+  return managedEmailChoice(managed).send ?? 'managed'
+}
+
+function receiveProvider(
+  descriptor: AnyMessagingDescriptor,
+  managed: ManagedConfig,
+): string {
+  if (descriptor.kind !== 'email' || descriptor.provider !== 'managed') {
+    return descriptor.provider
+  }
+  return managedEmailChoice(managed).receive ?? 'managed'
+}
+
+type EmailSender = {
+  adapter: MessagingAdapter
+  /** The channel brought its own credential rather than the host's. */
+  explicit: boolean
+  /** The sender may come with each message instead of the channel. */
+  senderPerMessage: boolean
+  /** Messages carry the tags the host matches delivery events with. */
+  tagged: boolean
+}
+
+type EmailProvider = (args: {
+  merged: Record<string, unknown>
+  own: Record<string, unknown>
+  from: string | undefined
+  fetchFn: typeof fetch
+}) => EmailSender | undefined
+
+/**
+ * Every provider a channel can send email through. A pinned helper names
+ * one directly; a managed `email()` channel is routed to one by the host.
+ * Adding a provider is an entry here, its adapter, and its name in
+ * `EMAIL_PROVIDERS`.
+ */
+const EMAIL_SENDERS: Record<EmailProviderName, EmailProvider> = {
+  resend({ merged, own, from, fetchFn }) {
+    const apiKey = merged.apiKey
+    if (!nonEmpty(apiKey) || !from) return undefined
+    return {
+      adapter: createResendAdapter(apiKey, fetchFn),
+      explicit: nonEmpty(own.apiKey),
+      senderPerMessage: false,
+      tagged: true,
+    }
+  },
+  ses({ merged, own, fetchFn }) {
+    // A receiving channel usually answers from the address that was
+    // written to, so its sender can come with each message instead.
+    const { region, accessKeyId, secretAccessKey } = merged
+    if (
+      !nonEmpty(region) ||
+      !nonEmpty(accessKeyId) ||
+      !nonEmpty(secretAccessKey)
+    ) {
+      return undefined
+    }
+    return {
+      adapter: createSesAdapter(
+        {
+          region,
+          accessKeyId,
+          secretAccessKey,
+          configurationSet: nonEmpty(merged.configurationSet)
+            ? merged.configurationSet
+            : undefined,
+          tenant: nonEmpty(merged.tenant) ? merged.tenant : undefined,
+        },
+        fetchFn,
+      ),
+      explicit: nonEmpty(own.accessKeyId),
+      senderPerMessage: true,
+      tagged: true,
+    }
+  },
+}
+
+function isEmailProvider(name: string): name is EmailProviderName {
+  return (EMAIL_PROVIDERS as readonly string[]).includes(name)
+}
+
+/**
+ * The provider's managed config, then the host's sender for this channel
+ * (`email.channels.<name>.from`, managed channels only), then what the
+ * channel declares itself, each winning over the one before.
+ */
+function providerConfig(
+  channel: string,
+  descriptor: AnyMessagingDescriptor,
+  provider: string,
+  managed: ManagedConfig,
 ): Record<string, unknown> {
-  const merged = { ...managed[descriptor.provider] }
+  const merged = { ...managed[provider] }
+  if (descriptor.kind === 'email' && descriptor.provider === 'managed') {
+    const channels = managed.email?.channels as
+      | Record<string, { from?: unknown } | undefined>
+      | undefined
+    const from = channels?.[channel]?.from
+    if (nonEmpty(from)) merged.from = from
+  }
   for (const [key, value] of Object.entries(
     descriptor.config as Record<string, unknown>,
   )) {
@@ -241,57 +364,45 @@ export function createMessaging<const TConfig extends MessagingConfig>(
         `[bunderstack] messaging.${channel} is not a provider descriptor`,
       )
     }
-    const merged = providerConfig(descriptor, managed)
+    const provider = sendProvider(descriptor, managed)
+    if (
+      descriptor.provider === 'managed' &&
+      provider !== 'managed' &&
+      !isEmailProvider(provider)
+    ) {
+      throw new Error(
+        `[bunderstack] messaging.${channel}: the host routes email to "${provider}", ` +
+          `which this version of bunderstack cannot send through (it knows ${EMAIL_PROVIDERS.join(', ')}); upgrade bunderstack`,
+      )
+    }
+    const merged = providerConfig(channel, descriptor, provider, managed)
     const override = options.adapterOverrides?.[channel]
     let adapter: MessagingAdapter | undefined = override
     let source: CredentialSource = override ? 'capture' : 'explicit'
     let from: string | undefined
     let senderPerMessage = false
     let tagged = false
-    if (
-      !adapter &&
-      descriptor.kind === 'email' &&
-      descriptor.provider === 'resend'
-    ) {
-      const own = descriptor.config as { apiKey?: string; from?: string }
-      const apiKey = merged.apiKey
+    if (!adapter && descriptor.kind === 'email' && isEmailProvider(provider)) {
       from = nonEmpty(merged.from) ? merged.from : undefined
-      if (nonEmpty(apiKey) && from) {
-        source = nonEmpty(own.apiKey) ? 'explicit' : 'managed'
-        adapter = createResendAdapter(apiKey, options.fetchFn ?? fetch)
-        tagged = true
+      const sender = EMAIL_SENDERS[provider]({
+        merged,
+        own: descriptor.config as Record<string, unknown>,
+        from,
+        fetchFn: options.fetchFn ?? fetch,
+      })
+      if (sender) {
+        adapter = sender.adapter
+        source = sender.explicit ? 'explicit' : 'managed'
+        senderPerMessage = sender.senderPerMessage
+        tagged = sender.tagged
       }
     } else if (
       !adapter &&
       descriptor.kind === 'email' &&
-      descriptor.provider === 'ses'
+      provider === 'managed'
     ) {
-      // A receiving channel usually answers from the address that was
-      // written to, so its sender can come with each message instead.
-      const own = descriptor.config as { accessKeyId?: string }
+      // The host chose no provider: capture.
       from = nonEmpty(merged.from) ? merged.from : undefined
-      const { region, accessKeyId, secretAccessKey } = merged
-      if (
-        nonEmpty(region) &&
-        nonEmpty(accessKeyId) &&
-        nonEmpty(secretAccessKey)
-      ) {
-        source = nonEmpty(own.accessKeyId) ? 'explicit' : 'managed'
-        adapter = createSesAdapter(
-          {
-            region,
-            accessKeyId,
-            secretAccessKey,
-            configurationSet: nonEmpty(merged.configurationSet)
-              ? merged.configurationSet
-              : undefined,
-            tenant: nonEmpty(merged.tenant) ? merged.tenant : undefined,
-          },
-          options.fetchFn ?? fetch,
-        )
-        senderPerMessage = true
-        tagged = true
-      }
     } else if (!adapter && descriptor.kind === 'email') {
       const own = descriptor.config as {
         adapter?: EmailAdapter | EmailAdapter['send']
@@ -353,7 +464,7 @@ export function createMessaging<const TConfig extends MessagingConfig>(
             id,
             channel,
             kind: descriptor.kind,
-            provider: descriptor.provider,
+            provider,
             credentialSource: source,
             status: capture ? 'captured' : 'sending',
             recipientsJson: JSON.stringify(normalized.recipients),
