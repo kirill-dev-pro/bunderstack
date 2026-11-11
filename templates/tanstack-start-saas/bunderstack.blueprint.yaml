@@ -1,7 +1,13 @@
 version: 1
+authentication:
+  managedIdentity:
+    protocolVersion: 2
+    adapterVersion: 2
+    discovery: true
+    callbackPath: /api/auth/callback/bunderhost
 generator:
   name: bunderstack
-  version: 0.24.0
+  version: 0.30.0
 application:
   framework: tanstack-start
   scripts:
@@ -61,8 +67,12 @@ resources:
     channels:
       - name: email
         kind: email
-        provider: resend
+        provider: managed
 environment:
+  - key: BUNDERHOST_AUTH_CONFIG
+    required: false
+    scope: server
+    sensitive: true
   - key: EMAIL_FROM
     required: false
     scope: server
@@ -72,10 +82,6 @@ environment:
     scope: client
     sensitive: false
   - key: REDIS_URL
-    required: false
-    scope: server
-    sensitive: true
-  - key: RESEND_API_KEY
     required: false
     scope: server
     sensitive: true

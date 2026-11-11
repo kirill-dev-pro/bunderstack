@@ -1,4 +1,4 @@
-import { bunderstack, resend } from 'bunderstack'
+import { bunderstack, email } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 
 import { access } from './access'
@@ -19,7 +19,9 @@ export const backend = bunderstack({
   database: { adapter: libsql() },
   auth: authConfig,
   messaging: (env) => ({
-    email: resend({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }),
+    // The host chooses the provider (hosted mail or your own Resend account)
+    // and the sender; locally the channel captures to the console.
+    email: email({ from: env.EMAIL_FROM }),
   }),
   storage: {
     local: './uploads',

@@ -9,11 +9,8 @@ import * as v from 'valibot'
  */
 export const envSchema = {
   server: {
-    EMAIL_FROM: v.optional(
-      v.pipe(v.string(), v.minLength(1)),
-      'Relay <hello@example.com>',
-    ),
-    RESEND_API_KEY: v.optional(v.string()),
+    /** Overrides the sender chosen on the host's Messaging tab. */
+    EMAIL_FROM: v.optional(v.pipe(v.string(), v.minLength(1))),
     REDIS_URL: v.optional(v.string()),
   },
   client: {
