@@ -64,6 +64,20 @@ export type {
   ReadinessStatus,
 } from './readiness'
 export type { EmailMessage, EmailAdapter } from './email'
+export {
+  CONTACTS_CAPTURE_PATH,
+  UNSUBSCRIBE_PATH,
+  normalizeEmail,
+} from './contacts'
+export type {
+  Contact,
+  ContactAddress,
+  ContactInput,
+  ContactListOptions,
+  ContactSelector,
+  ContactsConfig,
+  ContactsFacade,
+} from './contacts'
 export { createJobsBuilder } from './jobs/index'
 export {
   createTelemetry,

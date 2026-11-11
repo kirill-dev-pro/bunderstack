@@ -219,6 +219,13 @@ export type BunderstackConfig<
    */
   middleware?: AnyMiddleware[]
   rateLimit?: boolean | RateLimitConfig
+  /**
+   * People to write to who need not be users: \`app.contacts\` and
+   * \`ctx.contacts\` are always there; \`capture\` also accepts sign-ups from
+   * the application's own forms. Every message to a contact can carry a
+   * one-click unsubscribe link, served at \`/api/_bunderstack/unsubscribe\`.
+   */
+  contacts?: import('./contacts').ContactsConfig
   idempotency?: boolean | IdempotencyConfig
   /** Generate and serve `/api/openapi.json`. Disabled by default. */
   openapi?: boolean

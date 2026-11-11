@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.31.0
+
+- Contacts: people an application writes to who need not be users.
+  `app.contacts` / `ctx.contacts` add (`upsert`, merging by address), find,
+  list (by tag, source, search and subscribed / unsubscribed / suppressed /
+  consented status), tag, unsubscribe and remove them. Three new system
+  tables come with `bunderstack/schema` (`_bunderstack_contacts`,
+  `_bunderstack_contact_addresses`, `_bunderstack_contact_tags`); run
+  `db:generate` after upgrading. Consent is an optional record on an address,
+  never a requirement.
+- One-click unsubscribe: `contacts.unsubscribeUrl({ email })` returns a link
+  to `/api/_bunderstack/unsubscribe`, signed with `AUTH_SECRET`. `GET` shows
+  a confirmation page and `POST` (RFC 8058 `List-Unsubscribe-Post`)
+  unsubscribes. `contacts.unsubscribeUrl` in the config points links at the
+  application's own page, which calls `contacts.unsubscribeByToken`.
+- `contacts.capture` mounts `POST /api/_bunderstack/contacts` for sign-up
+  forms: JSON or form posts, a honeypot field, ten posts a minute per
+  address, and the same answer whether or not an address was known.
+
 ## 0.30.0
 
 - `email()` declares an email channel whose provider the host chooses. On

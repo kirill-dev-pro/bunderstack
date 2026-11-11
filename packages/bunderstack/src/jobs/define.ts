@@ -112,6 +112,8 @@ export type JobContext<
   db: DbFor<TSchema>
   env: TEnvResult
   messaging: MessagingFacadesFor<TMessaging>
+  /** People the application writes to; see `app.contacts`. */
+  contacts: import('../contacts').ContactsFacade
   storage: StorageFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>

@@ -13,6 +13,9 @@ import type { ResolvedBucket, ResolvedStorageBuckets } from './storage/buckets'
 import { missingAuthModels } from './auth'
 import {
   bunderstackMessageEvents,
+  bunderstackContacts,
+  bunderstackContactAddresses,
+  bunderstackContactTags,
   bunderstackMessages,
   bunderstackFiles,
   bunderstackIdempotency,
@@ -273,6 +276,21 @@ function describeSection(
 
 function systemTables() {
   return [
+    {
+      exportName: '_system.contacts',
+      physicalName: getTableName(bunderstackContacts),
+      system: true,
+    },
+    {
+      exportName: '_system.contactAddresses',
+      physicalName: getTableName(bunderstackContactAddresses),
+      system: true,
+    },
+    {
+      exportName: '_system.contactTags',
+      physicalName: getTableName(bunderstackContactTags),
+      system: true,
+    },
     {
       exportName: '_system.messageEvents',
       physicalName: getTableName(bunderstackMessageEvents),

@@ -16,6 +16,9 @@ import {
   bunderstackJobsPg,
   bunderstackMessageEventsPg,
   bunderstackMessagesPg,
+  bunderstackContactsPg,
+  bunderstackContactAddressesPg,
+  bunderstackContactTagsPg,
 } from './internal-tables-pg'
 
 export const bunderstackFiles = sqliteTable(
@@ -123,12 +126,71 @@ export const bunderstackMessageEvents = sqliteTable(
   ],
 )
 
+/** People an application can write to, users or not. */
+export const bunderstackContacts = sqliteTable(
+  '_bunderstack_contacts',
+  {
+    id: text('id').primaryKey(),
+    name: text('name'),
+    userId: text('user_id'),
+    source: text('source'),
+    attributesJson: text('attributes_json').notNull().default('{}'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    index('bct_created').on(t.createdAt),
+    index('bct_source').on(t.source),
+    index('bct_user').on(t.userId),
+  ],
+)
+
+/** One way to reach a contact; consent and opt-out belong to the address. */
+export const bunderstackContactAddresses = sqliteTable(
+  '_bunderstack_contact_addresses',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => bunderstackContacts.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    address: text('address').notNull(),
+    consentedAt: integer('consented_at'),
+    consentSource: text('consent_source'),
+    unsubscribedAt: integer('unsubscribed_at'),
+    suppressedAt: integer('suppressed_at'),
+    suppressedReason: text('suppressed_reason'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('bca_address').on(t.kind, t.address),
+    index('bca_contact').on(t.contactId),
+  ],
+)
+
+export const bunderstackContactTags = sqliteTable(
+  '_bunderstack_contact_tags',
+  {
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => bunderstackContacts.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.contactId, t.tag] }),
+    index('bctag_tag').on(t.tag),
+  ],
+)
+
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
   bunderstackMessages,
   bunderstackMessageEvents,
+  bunderstackContacts,
+  bunderstackContactAddresses,
+  bunderstackContactTags,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
@@ -137,6 +199,9 @@ export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   '_bunderstack_jobs',
   '_bunderstack_messages',
   '_bunderstack_message_events',
+  '_bunderstack_contacts',
+  '_bunderstack_contact_addresses',
+  '_bunderstack_contact_tags',
 ])
 
 export const INTERNAL_TABLES_PG = {
@@ -145,6 +210,9 @@ export const INTERNAL_TABLES_PG = {
   bunderstackJobs: bunderstackJobsPg,
   bunderstackMessages: bunderstackMessagesPg,
   bunderstackMessageEvents: bunderstackMessageEventsPg,
+  bunderstackContacts: bunderstackContactsPg,
+  bunderstackContactAddresses: bunderstackContactAddressesPg,
+  bunderstackContactTags: bunderstackContactTagsPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -162,6 +230,18 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
   [
     getTableName(bunderstackMessageEvents),
     [bunderstackMessageEvents, bunderstackMessageEventsPg],
+  ],
+  [
+    getTableName(bunderstackContacts),
+    [bunderstackContacts, bunderstackContactsPg],
+  ],
+  [
+    getTableName(bunderstackContactAddresses),
+    [bunderstackContactAddresses, bunderstackContactAddressesPg],
+  ],
+  [
+    getTableName(bunderstackContactTags),
+    [bunderstackContactTags, bunderstackContactTagsPg],
   ],
 ])
 
@@ -188,6 +268,20 @@ export function messageEventsTableFor(db: unknown) {
   return is(db, PgDatabase)
     ? bunderstackMessageEventsPg
     : bunderstackMessageEvents
+}
+
+export function contactTablesFor(db: unknown) {
+  return is(db, PgDatabase)
+    ? {
+        contacts: bunderstackContactsPg,
+        addresses: bunderstackContactAddressesPg,
+        tags: bunderstackContactTagsPg,
+      }
+    : {
+        contacts: bunderstackContacts,
+        addresses: bunderstackContactAddresses,
+        tags: bunderstackContactTags,
+      }
 }
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(

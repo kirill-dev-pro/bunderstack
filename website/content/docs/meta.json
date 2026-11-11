@@ -16,6 +16,7 @@
     "---Facilities---",
     "auth",
     "messaging",
+    "contacts",
     "env",
     "background-jobs",
     "storage",

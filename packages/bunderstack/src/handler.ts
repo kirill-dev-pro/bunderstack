@@ -7,6 +7,8 @@ interface HandlerParts {
   apiHandler?: (req: Request) => Promise<Response | null>
   /** Mail the host delivers; signed, so it bypasses the per-IP rate limit. */
   inboundHandler?: (req: Request) => Promise<Response>
+  /** Contact sign-ups and unsubscribe links; null for any other path. */
+  contactsHandler?: (req: Request) => Promise<Response | null>
   rateLimit?: boolean | RateLimitConfig
 }
 
@@ -31,6 +33,10 @@ export function buildHandler(
       (pathname === '/api/auth' || pathname.startsWith('/api/auth/'))
     ) {
       return parts.authHandler(req)
+    }
+    if (parts.contactsHandler) {
+      const contactsRes = await parts.contactsHandler(req)
+      if (contactsRes) return contactsRes
     }
     if (parts.apiHandler) {
       const apiRes = await parts.apiHandler(req)

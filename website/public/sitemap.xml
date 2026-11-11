@@ -80,7 +80,13 @@
   </url>
   <url>
     <loc>https://bunderstack.kcrz.dev/docs/messaging</loc>
-    <lastmod>2026-09-05</lastmod>
+    <lastmod>2026-11-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bunderstack.kcrz.dev/docs/contacts</loc>
+    <lastmod>2026-11-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

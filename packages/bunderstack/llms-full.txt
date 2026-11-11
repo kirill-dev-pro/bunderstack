@@ -1197,6 +1197,109 @@ returned from `setup` is exposed as `fixture.context`, and
 | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` | S3-compatible storage                      |
 | `BUNDERSTACK_ROLE`                      | `all`, `web`, or `worker`                  |
 
+CONTACTS
+
+`app.contacts` keeps the people an application writes to who need not be
+users: a waitlist, a newsletter form, a lead from a landing page. The tables
+are system tables (`_bunderstack_contacts`, `_bunderstack_contact_addresses`,
+`_bunderstack_contact_tags`), so every application has them; on Bunderhost
+they appear on the project's **Contacts** tab.
+
+## Adding contacts
+
+```ts
+await app.contacts.upsert({
+  email: 'ana@customer.example',
+  name: 'Ana',
+  source: 'waitlist',
+  tags: ['beta'],
+  attributes: { plan: 'pro' },
+  consent: { source: 'waitlist form' }, // optional
+})
+```
+
+`upsert` merges by address: tags add up, attributes merge, the first `source`
+stays, and an existing consent is kept. The same facade is `ctx.contacts`
+inside procedures and jobs.
+
+```ts
+await app.contacts.get({ email: 'ana@customer.example' })
+await app.contacts.list({ tag: 'beta', status: 'subscribed', limit: 50 })
+await app.contacts.tag({ email }, ['vip'])
+await app.contacts.untag({ email }, ['beta'])
+await app.contacts.remove({ email }) // erases the contact
+```
+
+`list` filters by `tag`, `source`, `search` (name or address) and `status`:
+`subscribed` (neither unsubscribed nor suppressed), `unsubscribed`,
+`suppressed` or `consented`.
+
+## Consent
+
+Consent is something a contact can have, not a gate. `consent` records when
+and where someone agreed; `status: 'consented'` finds them. Nothing requires
+it. Whether you need it is your decision and your jurisdiction's.
+
+## Unsubscribe
+
+Every address can be opted out, and an opted-out address is never written to
+by anything that sends to contacts.
+
+```ts
+await app.contacts.unsubscribe({ email })
+await app.contacts.resubscribe({ email }) // when they sign up again
+const url = await app.contacts.unsubscribeUrl({ email })
+```
+
+`unsubscribeUrl` returns a one-click link to
+`/api/_bunderstack/unsubscribe?t=<token>` (it needs `APP_URL`). The token is
+signed with `AUTH_SECRET` and names one address. Opening the link shows a
+confirmation page; a `POST`, which is what mail clients send for
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058), unsubscribes.
+A plain `GET` never does, because mail scanners open links.
+
+To serve your own page, point the links at it and call `unsubscribeByToken`:
+
+```ts
+contacts: { unsubscribeUrl: 'https://shop.example/unsubscribe' }
+
+// in your route
+const result = await app.contacts.unsubscribeByToken(token) // { address } | null
+```
+
+## Sign-ups from your own forms
+
+```ts
+contacts: {
+  capture: { source: 'landing', tags: ['newsletter'], consent: true },
+}
+```
+
+This mounts `POST /api/_bunderstack/contacts`, which takes `email` and an
+optional `name` as JSON or a form post:
+
+```html
+<form method="post" action="/api/_bunderstack/contacts">
+  <input name="email" type="email" required />
+  <input name="website" tabindex="-1" autocomplete="off" hidden />
+  <input type="hidden" name="redirect" value="/thanks" />
+  <button>Subscribe</button>
+</form>
+```
+
+It answers `204` (or `303` to a same-site `redirect`) whether or not the
+address was known, so it cannot be used to find out who is on the list. A
+filled `website` field is treated as a bot and ignored. Each address may post
+ten times a minute. `consent: true` records the form as the consent source.
+
+Without `capture`, nothing is mounted at that path.
+
+## Migrations
+
+The contact tables come with `bunderstack/schema`. After upgrading, run
+`drizzle-kit generate` (or your `db:generate` script) and commit the migration,
+as for any other system table.
+
 AUTO CRUD
 
 Bunderstack generates secured oRPC procedures from your Drizzle schema. The

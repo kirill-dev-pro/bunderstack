@@ -114,3 +114,59 @@ export const bunderstackMessageEventsPg = pgTable(
     index('bmev_message_time').on(t.messageId, t.occurredAt),
   ],
 )
+
+/** People an application can write to, users or not. */
+export const bunderstackContactsPg = pgTable(
+  '_bunderstack_contacts',
+  {
+    id: text('id').primaryKey(),
+    name: text('name'),
+    userId: text('user_id'),
+    source: text('source'),
+    attributesJson: text('attributes_json').notNull().default('{}'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    index('bct_created').on(t.createdAt),
+    index('bct_source').on(t.source),
+    index('bct_user').on(t.userId),
+  ],
+)
+
+/** One way to reach a contact; consent and opt-out belong to the address. */
+export const bunderstackContactAddressesPg = pgTable(
+  '_bunderstack_contact_addresses',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => bunderstackContactsPg.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    address: text('address').notNull(),
+    consentedAt: bigint('consented_at', { mode: 'number' }),
+    consentSource: text('consent_source'),
+    unsubscribedAt: bigint('unsubscribed_at', { mode: 'number' }),
+    suppressedAt: bigint('suppressed_at', { mode: 'number' }),
+    suppressedReason: text('suppressed_reason'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('bca_address').on(t.kind, t.address),
+    index('bca_contact').on(t.contactId),
+  ],
+)
+
+export const bunderstackContactTagsPg = pgTable(
+  '_bunderstack_contact_tags',
+  {
+    contactId: text('contact_id')
+      .notNull()
+      .references(() => bunderstackContactsPg.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.contactId, t.tag] }),
+    index('bctag_tag').on(t.tag),
+  ],
+)

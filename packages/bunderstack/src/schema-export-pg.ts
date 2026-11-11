@@ -6,4 +6,7 @@ export {
   bunderstackFilesPg as bunderstackFiles,
   bunderstackIdempotencyPg as bunderstackIdempotency,
   bunderstackJobsPg as bunderstackJobs,
+  bunderstackContactsPg as bunderstackContacts,
+  bunderstackContactAddressesPg as bunderstackContactAddresses,
+  bunderstackContactTagsPg as bunderstackContactTags,
 } from './internal-tables-pg'

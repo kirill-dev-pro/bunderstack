@@ -59,6 +59,8 @@ import {
   type BunderstackConfig,
 } from './config'
 import { resolveAuthConfig, resolveRealtimeRedisUrl } from './config'
+import { createContacts, type ContactsFacade } from './contacts'
+import { createContactsHandler } from './contacts/http'
 import { createDb } from './db'
 import { detectDialect } from './dialect'
 import { type EnvConfigInput, type ValidatedEnv } from './env'
@@ -227,6 +229,8 @@ export type BunderstackApp<
   env: ValidatedEnv<TEnv>
   /** Named, provider-specific outbound messaging channels. */
   messaging: MessagingFacadesFor<TMessaging>
+  /** People the application writes to, users or not. */
+  contacts: ContactsFacade
   /** Job queue facade; always present — enqueue throws when jobs aren't configured. */
   jobs: JobsFacade<
     TJobsDefs extends JobsDefs ? TJobsDefs : Record<never, never>,
@@ -428,6 +432,12 @@ export async function materializeBunderstack<
       adapterOverrides: overrides.messagingAdapters,
     },
   ) as MessagingFacadesFor<TMessaging>
+  const contacts = createContacts({
+    db,
+    secret: env.AUTH_SECRET,
+    appUrl: env.APP_URL,
+    config: options.contacts,
+  })
   if (closeDatabase) lifecycle.add(closeDatabase)
   try {
     // `db` is typed with the merged schema (user tables + internal tables) so the
@@ -621,7 +631,7 @@ export async function materializeBunderstack<
       ? createJobRunner({
           db,
           defs: resolvedDefs,
-          ctx: { db: userDb, env, messaging, storage, realtime },
+          ctx: { db: userDb, env, messaging, contacts, storage, realtime },
           logger,
           telemetry,
         })
@@ -900,6 +910,7 @@ export async function materializeBunderstack<
           env,
           storage,
           messaging,
+          contacts,
           jobs,
           realtime,
           auth: auth as unknown as AuthInstance,
@@ -927,6 +938,7 @@ export async function materializeBunderstack<
       authHandler: authEnabled ? (req) => auth.handler(req) : undefined,
       apiHandler,
       inboundHandler: inbound ? (req) => inbound.handle(req) : undefined,
+      contactsHandler: createContactsHandler(contacts, options.contacts),
       rateLimit: options.rateLimit,
     })
 
@@ -963,6 +975,7 @@ export async function materializeBunderstack<
       storage,
       env,
       messaging,
+      contacts,
       realtime,
       // Runtime facade is untyped (JobsRuntimeFacade); the generic-typed field
       // narrows `enqueue` per-app from the declared job defs — same relationship

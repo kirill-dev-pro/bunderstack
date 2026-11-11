@@ -19,6 +19,7 @@ export interface ApiContextDeps<
   env: TEnv
   storage: StorageFacade
   messaging: MessagingFacadesFor<TMessaging>
+  contacts?: import('../contacts').ContactsFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
@@ -36,6 +37,7 @@ export interface ApiContext<
   env: TEnv
   storage: StorageFacade
   messaging: MessagingFacadesFor<TMessaging>
+  contacts: import('../contacts').ContactsFacade
   jobs: JobsRuntimeFacade
   realtime: RealtimeFacade<TSchema>
   auth: AuthInstance
@@ -60,6 +62,18 @@ export interface ApiContext<
       }
     | undefined
 }
+
+/** Contexts built outside an app (tests) have no contacts to offer. */
+const unavailableContacts = new Proxy(
+  {} as import('../contacts').ContactsFacade,
+  {
+    get() {
+      throw new Error(
+        '[bunderstack] contacts are not available in this context',
+      )
+    },
+  },
+)
 
 export function createApiContext<
   TSchema extends Record<string, unknown> = Record<string, unknown>,
@@ -111,6 +125,7 @@ export function createApiContext<
     env: deps.env,
     storage: deps.storage,
     messaging: deps.messaging,
+    contacts: deps.contacts ?? unavailableContacts,
     jobs: deps.jobs,
     realtime: deps.realtime,
     auth: deps.auth,
