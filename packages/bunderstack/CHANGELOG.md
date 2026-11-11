@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.30.0
 
 - `email()` declares an email channel whose provider the host chooses. On
   Bunderhost the project's Messaging tab switches it between hosted SES and
