@@ -33,7 +33,7 @@ import type {
 import { jobsTableFor } from '../internal-tables'
 import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
-import { noopTelemetry } from '../telemetry/telemetry'
+import { noopTelemetry, rootCauseMessage } from '../telemetry/telemetry'
 import { generate } from '../typeid'
 import { parseCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
@@ -111,6 +111,11 @@ function jobEvent(
     attempt: Number(row.attempts),
     ...fields,
   }
+}
+
+function withCause(error: unknown): { cause?: string } {
+  const cause = rootCauseMessage(error)
+  return cause ? { cause } : {}
 }
 
 function capacityFor(def: AnyBackgroundDefinition): number {
@@ -725,6 +730,7 @@ export function createJobRunner(deps: {
             jobEvent('job.retrying', row, {
               durationMs: Date.now() - startedAt,
               error: e.message,
+              ...withCause(e),
             }),
           ),
         )
@@ -762,6 +768,7 @@ export function createJobRunner(deps: {
             jobEvent('job.failed', row, {
               durationMs: Date.now() - startedAt,
               error: e.message,
+              ...withCause(e),
             }),
           ),
         )

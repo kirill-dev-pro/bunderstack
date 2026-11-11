@@ -88,6 +88,7 @@ export const MAX_METRICS_PER_BATCH = 2_000
 export const MAX_ROUTE_LABELS = 500
 const MAX_STACK_CHARS = 16_000
 const MAX_MESSAGE_CHARS = 2_000
+const MAX_CAUSE_DEPTH = 5
 const MAX_CONTEXT_CHARS = 2_048
 const WARN_EVERY_MS = 5 * 60_000
 
@@ -149,10 +150,11 @@ export function describeError(error: unknown): {
   stack?: string
 } {
   if (error instanceof Error) {
+    const stack = stackWithCauses(error)
     return {
       name: error.name || 'Error',
       message: (error.message ?? '').slice(0, MAX_MESSAGE_CHARS),
-      ...(error.stack ? { stack: error.stack.slice(0, MAX_STACK_CHARS) } : {}),
+      ...(stack ? { stack: stack.slice(0, MAX_STACK_CHARS) } : {}),
     }
   }
   if (typeof error === 'string')
@@ -164,6 +166,48 @@ export function describeError(error: unknown): {
     message = String(error)
   }
   return { name: 'Error', message: message.slice(0, MAX_MESSAGE_CHARS) }
+}
+
+// Wrappers such as Drizzle's "Failed query" keep the driver's error in
+// `cause`; the chain goes after the stack so the message, and with it the
+// grouping, stays the wrapper's.
+function stackWithCauses(error: Error): string | undefined {
+  let stack = error.stack
+  const seen = new Set<unknown>([error])
+  let cause: unknown = error.cause
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+    if (cause === undefined || cause === null || seen.has(cause)) break
+    seen.add(cause)
+    const head = stack ?? `${error.name || 'Error'}: ${error.message ?? ''}`
+    stack = `${head}\nCaused by: ${describeCause(cause)}`
+    cause = cause instanceof Error ? cause.cause : undefined
+  }
+  return stack
+}
+
+function describeCause(cause: unknown): string {
+  if (cause instanceof Error)
+    return cause.stack ?? `${cause.name}: ${cause.message}`
+  if (typeof cause === 'string') return cause
+  try {
+    return JSON.stringify(cause) ?? String(cause)
+  } catch {
+    return String(cause)
+  }
+}
+
+/** The innermost message of an error's cause chain, for one-line logs. */
+export function rootCauseMessage(error: unknown): string | undefined {
+  let cause: unknown = error instanceof Error ? error.cause : undefined
+  let message: string | undefined
+  const seen = new Set<unknown>([error])
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+    if (cause === undefined || cause === null || seen.has(cause)) break
+    seen.add(cause)
+    message = cause instanceof Error ? cause.message : describeCause(cause)
+    cause = cause instanceof Error ? cause.cause : undefined
+  }
+  return message?.slice(0, MAX_MESSAGE_CHARS)
 }
 
 function boundedContext(

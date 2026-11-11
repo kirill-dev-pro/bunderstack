@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.29.1
+
+- An error report keeps what caused it. Drizzle wraps every driver error in
+  `Failed query: …` and keeps the driver's own error in `cause`; the report
+  sent to Bunderhost carried only the wrapper, so an issue said which query
+  failed but not why. The stack now ends with a `Caused by:` line for each
+  error in the chain (up to five), and the message, which issues are grouped
+  by, stays the wrapper's. `job.retrying` and `job.failed` log lines gain a
+  `cause` field with the innermost message.
+- A read from a remote libSQL database (Turso, sqld) that meets a dropped
+  connection (`ECONNRESET`) or a 502/503/504/52x from the edge is sent once
+  more after 100 ms. Only a pipeline outside a transaction whose statements
+  are all `select`, `explain` or a write-free `with` is replayed; a write is
+  never sent twice, because the first attempt may have reached the database.
+  An app that creates its own `@libsql/client` gets the same by passing
+  `fetch: retryingReadFetch((request) => fetch(request))` from
+  `bunderstack/libsql`.
+
 ## 0.29.0
 
 - The jobs table holds work, not history. A queue job's row is deleted the

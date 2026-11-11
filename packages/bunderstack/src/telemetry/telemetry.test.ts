@@ -15,6 +15,7 @@ import {
   describeError,
   MAX_QUEUED_JOB_RUNS,
   noopTelemetry,
+  rootCauseMessage,
   statusClass,
   telemetryFromEnv,
 } from './telemetry'
@@ -545,4 +546,28 @@ test('a started application reports an API failure to the platform and stays sil
   } finally {
     server.stop(true)
   }
+})
+
+test('an error keeps its own message and carries the cause chain in the stack', () => {
+  const driver = new Error('ECONNRESET: The socket connection was closed')
+  const wrapper = new Error('Failed query: select "id" from "plans"', {
+    cause: driver,
+  })
+  const described = describeError(wrapper)
+  expect(described.message).toBe('Failed query: select "id" from "plans"')
+  expect(described.stack).toStartWith('Error: Failed query')
+  expect(described.stack).toContain(
+    'Caused by: Error: ECONNRESET: The socket connection was closed',
+  )
+  expect(rootCauseMessage(wrapper)).toBe(
+    'ECONNRESET: The socket connection was closed',
+  )
+
+  const looped = new Error('outer')
+  looped.cause = looped
+  expect(describeError(looped).stack).not.toContain('Caused by')
+  expect(rootCauseMessage(looped)).toBeUndefined()
+  expect(
+    describeError(new Error('outer', { cause: { code: 'ECONNRESET' } })).stack,
+  ).toContain('Caused by: {"code":"ECONNRESET"}')
 })

@@ -6,6 +6,8 @@ import { join } from 'node:path'
 
 import type { DatabaseAdapter } from './adapter'
 
+import { isRemoteLibsqlUrl, retryingReadFetch } from './libsql-retry'
+
 export function libsql(): DatabaseAdapter {
   return {
     dialect: 'sqlite',
@@ -19,7 +21,19 @@ export function libsql(): DatabaseAdapter {
           '[bunderstack] libsql adapter cannot connect to a Postgres URL',
         )
       }
-      const db = drizzle({ connection, schema })
+      const remote = isRemoteLibsqlUrl(connection.url)
+      const db = drizzle({
+        connection: remote
+          ? {
+              ...connection,
+              fetch: retryingReadFetch(
+                (connection as { fetch?: typeof fetch }).fetch ??
+                  ((request: Request) => fetch(request)),
+              ),
+            }
+          : connection,
+        schema,
+      })
       return { db: db as never, close: () => db.$client.close() }
     },
     async migrate(db, migrationsFolder) {
@@ -47,3 +61,7 @@ export function libsql(): DatabaseAdapter {
     },
   }
 }
+
+/** For an app that creates its own `@libsql/client` and shares it with the
+ *  adapter: pass as `fetch` to give its reads the same one retry. */
+export { retryingReadFetch } from './libsql-retry'
