@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- The SaaS template now uses every Bunderstack feature, each with a working
+  example: managed Google/GitHub sign-in buttons when the host provides
+  them; project attachments in the private bucket (an `attachments` table,
+  `attachFile` / `removeAttachment`, thumbnails) and covers in a new public
+  bucket, which Bunderhost's Broadcasts tab also uses for images; an
+  "Email me a digest" button that enqueues `sendProjectDigest` with a dedupe
+  key; an `inbox` channel (`email({ receive: true })`) whose `taskFromEmail`
+  handler turns mail from the owner to `tasks+<projectId>@<domain>` into a
+  task; and a signed `POST /api/webhooks/tasks` (`TASKS_WEBHOOK_SECRET`).
+  Channels move to `src/bunderstack/messaging.ts`, so jobs and procedures
+  get the exact channel types. Migration `0003` adds `attachments` and
+  `projects.coverUrl`.
 - The template collects newsletter contacts three ways and sends them
   through their own channel: a `news: email()` channel for broadcasts, a
   plain HTML form on the landing page posting to `contacts.capture`, and a

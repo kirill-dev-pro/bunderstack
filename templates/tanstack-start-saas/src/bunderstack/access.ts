@@ -42,6 +42,23 @@ export const access = defineAccess(schema, {
       write: (ctx) => ({ ownerId: ctx.user?.id ?? '__none__' }),
     },
   },
+  // Read through generated CRUD, written only by `attachFile` and
+  // `removeAttachment`, which also check and delete the stored file.
+  attachments: {
+    ownerColumn: 'ownerId',
+    list: 'authenticated',
+    get: 'owner',
+    create: 'deny',
+    update: 'deny',
+    delete: 'deny',
+    filterableColumns: ['projectId'],
+    sortableColumns: ['createdAt'],
+    defaultSort: { column: 'createdAt', order: 'desc' },
+    scope: {
+      read: (ctx) => ({ ownerId: ctx.user?.id ?? '__none__' }),
+      write: (ctx) => ({ ownerId: ctx.user?.id ?? '__none__' }),
+    },
+  },
   user: { crud: false },
   session: { crud: false },
   account: { crud: false },

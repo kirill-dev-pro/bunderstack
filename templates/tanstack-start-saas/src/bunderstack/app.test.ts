@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { createHmac } from 'node:crypto'
 
 import { backend } from './backend'
 import * as schema from './schema'
@@ -47,7 +48,10 @@ function signIn(
 test('declares the full SaaS runtime', () => {
   const manifest = backend.inspect()
   expect(manifest.realtime.required).toBe(true)
-  expect(manifest.background.jobs).toEqual([{ name: 'sendProjectDigest' }])
+  expect(manifest.background.jobs.map((job) => job.name)).toEqual([
+    'sendProjectDigest',
+    'taskFromEmail',
+  ])
   expect(manifest.background.cron).toEqual([
     { name: 'archiveCompletedTasks', schedule: '0 3 * * *', timezone: 'UTC' },
     {
@@ -138,4 +142,124 @@ test('refuses a cross-owner project read', async () => {
   // The owner rule refuses before the read scope filters, so this is 403
   // rather than the 404 a scope-only configuration would produce.
   expect(response.status).toBe(403)
+})
+
+const WEBHOOK_SECRET = 'test-webhook-secret-0123456789'
+
+async function seedProject(app: BunderSaaSApp) {
+  await seedUser(app, 'user_alice')
+  await app.db
+    .insert(schema.projects)
+    .values({ id: 'project_a', ownerId: 'user_alice', name: 'Alice launch' })
+}
+
+const tasksOf = (app: BunderSaaSApp) => app.db.select().from(schema.tasks).all()
+
+function webhook(body: string, signature?: string) {
+  const headers = new Headers({ 'Content-Type': 'application/json' })
+  if (signature) headers.set('X-Relay-Signature', signature)
+  return new Request('http://bunderstack.test/api/webhooks/tasks', {
+    method: 'POST',
+    headers,
+    body,
+  })
+}
+
+test('adds a task from a webhook only when the body is signed', async () => {
+  await using t = await backend.test({
+    database: { schema: 'push' },
+    env: { TASKS_WEBHOOK_SECRET: WEBHOOK_SECRET },
+  })
+  const { app } = t
+  await seedProject(app)
+  const body = JSON.stringify({ projectId: 'project_a', title: 'From CI' })
+
+  expect((await app.handler(webhook(body))).status).toBe(401)
+  expect((await app.handler(webhook(body, 'sha256=00'))).status).toBe(401)
+
+  const signature = `sha256=${createHmac('sha256', WEBHOOK_SECRET).update(body).digest('hex')}`
+  const response = await app.handler(webhook(body, signature))
+  expect(response.status).toBe(201)
+  expect((await tasksOf(app)).map((task) => task.title)).toEqual(['From CI'])
+})
+
+test('refuses every webhook while no secret is set', async () => {
+  await using t = await createTestApp()
+  await seedProject(t.app)
+  const body = JSON.stringify({ projectId: 'project_a', title: 'From CI' })
+  const signature = `sha256=${createHmac('sha256', '').update(body).digest('hex')}`
+  expect((await t.app.handler(webhook(body, signature))).status).toBe(401)
+})
+
+test("turns the owner's email to a project address into a task", async () => {
+  await using t = await createTestApp()
+  await seedProject(t.app)
+
+  await t.messaging.inbox.receive({
+    from: 'Alice <user_alice@bunderstack.test>',
+    to: 'tasks+project_a@inbox.example',
+    subject: 'Call the printer',
+  })
+  await t.messaging.inbox.receive({
+    from: 'mallory@elsewhere.example',
+    to: 'tasks+project_a@inbox.example',
+    subject: 'Not from the owner',
+  })
+  await t.jobs.runUntilIdle()
+
+  expect((await tasksOf(t.app)).map((task) => task.title)).toEqual([
+    'Call the printer',
+  ])
+})
+
+test('queues one digest per project and the worker emails it', async () => {
+  await using t = await createTestApp()
+  await seedProject(t.app)
+  const alice = signIn(t, 'user_alice')
+  const headers = new Headers(alice.headers)
+  headers.set('Content-Type', 'application/json')
+  const request = () =>
+    new Request('http://bunderstack.test/api/projects/project_a/digest', {
+      method: 'POST',
+      headers,
+      body: '{}',
+    })
+
+  expect((await t.app.handler(request())).status).toBe(200)
+  expect((await t.app.handler(request())).status).toBe(200)
+  expect(await t.jobs.pending({ name: 'sendProjectDigest' })).toHaveLength(1)
+
+  await t.jobs.runUntilIdle()
+  expect(t.messaging.email.sent).toHaveLength(1)
+  expect(t.messaging.email.sent[0]?.to).toEqual(['user_alice@bunderstack.test'])
+})
+
+test("will not attach another user's file", async () => {
+  await using t = await createTestApp()
+  const { app } = t
+  await seedProject(app)
+  await seedUser(app, 'user_bob')
+  await app.db.insert(schema.bunderstackFiles).values({
+    fileId: 'project-files/bob.pdf',
+    bucket: 'project-files',
+    ownerId: 'user_bob',
+    status: 'ready',
+    filename: 'bob.pdf',
+    contentType: 'application/pdf',
+    size: 10,
+    createdAt: Date.now(),
+  })
+
+  const alice = signIn(t, 'user_alice')
+  const headers = new Headers(alice.headers)
+  headers.set('Content-Type', 'application/json')
+  const response = await app.handler(
+    new Request('http://bunderstack.test/api/projects/project_a/attachments', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ fileId: 'project-files/bob.pdf' }),
+    }),
+  )
+  expect(response.status).toBe(404)
+  expect(await app.db.select().from(schema.attachments).all()).toEqual([])
 })

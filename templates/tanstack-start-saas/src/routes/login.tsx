@@ -3,6 +3,7 @@ import { EyeIcon, EyeOffIcon, Lock, Mail } from 'lucide-react'
 import * as React from 'react'
 import * as v from 'valibot'
 
+import { ManagedSignIn } from '~/components/managed-sign-in'
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
 import { Checkbox } from '~/components/ui/checkbox'
@@ -115,6 +116,8 @@ function LoginPage() {
               {error}
             </div>
           )}
+
+          <ManagedSignIn callbackURL={search.redirect || '/app'} />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-1">

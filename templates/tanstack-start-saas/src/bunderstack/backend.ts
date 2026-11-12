@@ -1,11 +1,12 @@
-import { bunderstack, email } from 'bunderstack'
+import { bunderstack } from 'bunderstack'
 import { libsql } from 'bunderstack/libsql'
 
 import { access } from './access'
-import { api, requestTiming } from './api'
+import { api, PUBLIC_BUCKET, requestTiming } from './api'
 import { authConfig } from './auth'
 import { envSchema } from './env'
 import { defineJobs } from './jobs'
+import { messaging } from './messaging'
 import * as schema from './schema'
 
 /**
@@ -18,15 +19,7 @@ export const backend = bunderstack({
   access,
   database: { adapter: libsql() },
   auth: authConfig,
-  messaging: (env) => ({
-    // The host chooses the provider (hosted mail or your own Resend account)
-    // and the sender; locally the channel captures to the console.
-    email: email({ from: env.EMAIL_FROM }),
-    // Newsletters and announcements. A separate channel lets the host give it
-    // its own sender, e.g. news@news.your-domain, so complaints about
-    // marketing never touch the domain sign-in mail comes from.
-    news: email(),
-  }),
+  messaging,
   // People to write to, signed up or not. Anything can add one:
   // `ctx.contacts.upsert()` in a procedure or job (see `subscribeToNews`),
   // the newsletter form on the landing page (captured below), a CSV import or
@@ -44,6 +37,16 @@ export const backend = bunderstack({
         visibility: 'private',
         access: { create: 'authenticated', get: 'owner', delete: 'owner' },
         upload: { maxSize: '10mb' },
+      },
+      // Anyone can read these: project covers, and images for newsletters
+      // (Bunderhost's Broadcasts tab uploads them here).
+      [PUBLIC_BUCKET]: {
+        visibility: 'public',
+        access: { create: 'authenticated', get: 'public', delete: 'owner' },
+        upload: {
+          accept: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+          maxSize: '5mb',
+        },
       },
     },
   },

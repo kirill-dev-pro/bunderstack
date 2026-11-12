@@ -27,6 +27,8 @@ export const projects = sqliteTable('projects', {
   clientName: text('clientName').notNull().default(''),
   status: text('status', { enum: PROJECT_STATUSES }).notNull().default('brief'),
   dueAt: integer('dueAt', { mode: 'timestamp' }),
+  /** A cover image in the public bucket, served by the app at this path. */
+  coverUrl: text('coverUrl'),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -57,6 +59,30 @@ export const tasks = sqliteTable('tasks', {
     .notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+
+/**
+ * A file uploaded to the private `project-files` bucket and attached to a
+ * project. Storage keeps the bytes and who owns them; this row says which
+ * project they belong to, so the page can list them.
+ */
+export const attachments = sqliteTable('attachments', {
+  id: typeid('attachment')
+    .primaryKey()
+    .$defaultFn(() => generateTypeId('attachment')),
+  projectId: typeid('project')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  ownerId: typeid('user')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  fileId: text('fileId').notNull().unique(),
+  filename: text('filename').notNull(),
+  contentType: text('contentType').notNull().default(''),
+  size: integer('size').notNull().default(0),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
 })

@@ -18,8 +18,14 @@ The **BunderSaaS** template is a complete, full-stack SaaS workspace built on **
   - **Admin Portal (`/admin/*`)**: Guarded by `adminAuth` route context in `src/routes/admin/layout.tsx` using `requireAdminAuth` (`role === 'admin'`).
 - **Isomorphic Session Validation**: Root `beforeLoad` in `src/routes/__root.tsx` fetches the session user isomorphically via `fetchUser()`.
 - **shadcn/ui Ready**: Pre-configured `components.json`, Tailwind v4, Lucide icons, Radix primitives, and `@shadcnstore` registry support (`bunx shadcn@latest add <component>`).
-- **Real-Time Delivery Rail**: Visual project status and proof attachment upload pipeline.
-- **Background Worker & Cron**: Wired `worker.ts` process for background jobs and scheduled sweeps.
+- **Real-Time Delivery Rail**: Visual project status, updated live.
+- **Every Bunderstack feature in use**, each with a working example:
+  - sign-in by email and password, plus Google and GitHub when the host provides them (`ManagedSignIn`);
+  - a private bucket for project attachments with thumbnails, and a public bucket for covers and newsletter images;
+  - a queued job with a dedupe key ("Email me a digest") and a nightly cron;
+  - separate `email` and `news` channels, and an `inbox` channel that turns mail to `tasks+<projectId>@<domain>` into tasks (`jobs.inbound`);
+  - a signed webhook (`POST /api/webhooks/tasks`, `TASKS_WEBHOOK_SECRET`);
+  - contacts from a landing form (`contacts.capture`) and a sign-up box (`subscribeToNews`).
 
 ### Quick Start with BunderSaaS
 

@@ -25,7 +25,11 @@ export function connectRealtime(api: SyncApi, queryClient: QueryClient) {
   if (!realtime.has(queryClient)) {
     realtime.set(
       queryClient,
-      syncRealtime({ api, queryClient, tables: ['projects', 'tasks'] }),
+      syncRealtime({
+        api,
+        queryClient,
+        tables: ['projects', 'tasks', 'attachments'],
+      }),
     )
   }
 }
@@ -34,3 +38,4 @@ export type SyncApi = ReturnType<typeof createApi>
 type Schema = InferSchema<App>
 export type Project = InferSelect<Schema['projects']>
 export type Task = InferSelect<Schema['tasks']>
+export type Attachment = InferSelect<Schema['attachments']>

@@ -53,6 +53,9 @@ resources:
       - exportName: account
         physicalName: account
         system: false
+      - exportName: attachments
+        physicalName: attachments
+        system: false
       - exportName: _system.files
         physicalName: bunderstack_file_meta
         system: true
@@ -76,6 +79,8 @@ resources:
     buckets:
       - name: project-files
         visibility: private
+      - name: public
+        visibility: public
   realtime:
     required: true
   messaging:
@@ -83,6 +88,10 @@ resources:
       - name: email
         kind: email
         provider: managed
+      - name: inbox
+        kind: email
+        provider: managed
+        receive: true
       - name: news
         kind: email
         provider: managed
@@ -103,6 +112,10 @@ environment:
     required: false
     scope: server
     sensitive: true
+  - key: TASKS_WEBHOOK_SECRET
+    required: false
+    scope: server
+    sensitive: true
 api:
   operations:
     - handle: addTask
@@ -115,6 +128,11 @@ api:
       effect: read
       method: GET
       path: /api/admin/overview
+    - handle: attachFile
+      operationId: attachFile
+      effect: mutation
+      method: POST
+      path: /api/projects/{projectId}/attachments
     - handle: completeTask
       operationId: completeTask
       effect: mutation
@@ -125,16 +143,42 @@ api:
       effect: mutation
       method: POST
       path: /api/create-project
+    - handle: projectInbox
+      operationId: projectInbox
+      effect: read
+      method: GET
+      path: /api/projects/{projectId}/inbox
+    - handle: removeAttachment
+      operationId: removeAttachment
+      effect: mutation
+      method: POST
+      path: /api/attachments/{attachmentId}/remove
+    - handle: requestDigest
+      operationId: requestDigest
+      effect: mutation
+      method: POST
+      path: /api/projects/{projectId}/digest
+    - handle: setProjectCover
+      operationId: setProjectCover
+      effect: mutation
+      method: POST
+      path: /api/projects/{projectId}/cover
     - handle: subscribeToNews
       operationId: subscribeToNews
       effect: mutation
       method: POST
       path: /api/subscribe-to-news
+    - handle: taskWebhook
+      operationId: taskWebhook
+      effect: mutation
+      method: POST
+      path: /api/webhooks/tasks
 background:
   worker:
     required: true
   jobs:
     - name: sendProjectDigest
+    - name: taskFromEmail
   cron:
     - name: archiveCompletedTasks
       schedule: "0 3 * * *"

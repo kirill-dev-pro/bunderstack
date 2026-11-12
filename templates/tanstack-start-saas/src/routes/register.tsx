@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Lock, Mail, User } from 'lucide-react'
 import * as React from 'react'
 
+import { ManagedSignIn } from '~/components/managed-sign-in'
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
@@ -115,6 +116,8 @@ function RegisterPage() {
               {error}
             </div>
           )}
+
+          <ManagedSignIn callbackURL="/app" />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="space-y-1">

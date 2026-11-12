@@ -12,6 +12,11 @@ export const envSchema = {
     /** Overrides the sender chosen on the host's Messaging tab. */
     EMAIL_FROM: v.optional(v.pipe(v.string(), v.minLength(1))),
     REDIS_URL: v.optional(v.string()),
+    /**
+     * Signs requests to `POST /api/webhooks/tasks`. Without it the webhook
+     * refuses everything. Set it on the host's environment variables page.
+     */
+    TASKS_WEBHOOK_SECRET: v.optional(v.pipe(v.string(), v.minLength(16))),
   },
   client: {
     PUBLIC_APP_NAME: v.optional(v.pipe(v.string(), v.minLength(1)), 'Relay'),
