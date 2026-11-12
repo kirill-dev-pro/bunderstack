@@ -151,6 +151,29 @@ export const api = {
       return task
     }),
 
+  /**
+   * Adds the signed-in user to the newsletter: a contact tagged `newsletter`,
+   * with consent recorded. Calling it again changes nothing. Broadcasts to
+   * `newsletter` go out through the `news` channel.
+   */
+  subscribeToNews: o.protected
+    .route({ method: 'POST', path: '/api/subscribe-to-news' })
+    .input(v.optional(v.object({})))
+    .output(v.object({ subscribed: v.literal(true) }))
+    .handler(async ({ context }) => {
+      await context.contacts.upsert({
+        email: context.user.email,
+        name: context.user.name,
+        userId: context.user.id,
+        source: 'sign-up',
+        tags: ['newsletter'],
+        consent: { source: 'sign-up form' },
+      })
+      // Someone who unsubscribed and ticks the box again means it.
+      await context.contacts.resubscribe({ email: context.user.email })
+      return { subscribed: true as const }
+    }),
+
   adminOverview: adminProcedure
     .route({ method: 'GET', path: '/api/admin/overview' })
     .input(v.optional(v.object({})))

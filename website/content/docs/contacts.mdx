@@ -38,6 +38,48 @@ await app.contacts.remove({ email }) // erases the contact
 `subscribed` (neither unsubscribed nor suppressed), `unsubscribed`,
 `suppressed` or `consented`.
 
+## Getting people onto a list
+
+A contact is on a list when it carries the list's tag; a broadcast to
+`tags: { any: ['newsletter'] }` reaches it. Adding one is a single step,
+from wherever the application learns about a person:
+
+- **Your own code**: `ctx.contacts.upsert({ email, tags: ['newsletter'] })` in
+  a procedure, a job, an auth hook or a webhook handler. The template's
+  `subscribeToNews` procedure does this for a box ticked at sign-up.
+- **A form on your pages**: `contacts.capture` (below) takes a plain HTML or
+  `fetch` post and needs no code of yours.
+- **Elsewhere**: a CSV import or the editor on Bunderhost's Contacts tab, or
+  an agent with `upsert_contacts`.
+
+There is no built-in confirmation email. A contact is subscribed the moment it
+is added, and every broadcast it receives carries a one-click unsubscribe.
+
+### Double opt-in, if you want one
+
+When you do want people to confirm their address first, build it from the same
+pieces: add them under a holding tag, send your own confirmation email, and
+move them onto the list when they click.
+
+```ts
+// 1. On sign-up: saved, but not on the list yet.
+await ctx.contacts.upsert({ email, tags: ['newsletter-pending'] })
+const token = await signToken(email) // your own signed, expiring token
+await ctx.messaging.email.send({
+  to: email,
+  subject: 'Confirm your subscription',
+  html: `<a href="${env.APP_URL}/newsletter/confirm?t=${token}">Confirm</a>`,
+})
+
+// 2. In your /newsletter/confirm route, after checking the token:
+await ctx.contacts.untag({ email }, ['newsletter-pending'])
+await ctx.contacts.tag({ email }, ['newsletter'])
+await ctx.contacts.upsert({ email, consent: { source: 'double opt-in' } })
+```
+
+Broadcasts to `newsletter` then reach only confirmed people, and the record of
+when and how each one agreed is the consent on their address.
+
 ## Consent
 
 Consent is something a contact can have, not a gate. `consent` records when

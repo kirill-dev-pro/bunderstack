@@ -13,6 +13,8 @@ export const Route = createFileRoute('/register')({
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { api } = Route.useRouteContext()
+  const [news, setNews] = React.useState(false)
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -36,6 +38,9 @@ function RegisterPage() {
         setError(res.error.message ?? 'Failed to create account')
         setIsPending(false)
       } else {
+        // The account exists either way; a failed subscription is not worth
+        // blocking the first visit to the workspace.
+        if (news) await api.subscribeToNews.call({}).catch(() => {})
         await navigate({ to: '/app' })
       }
     } catch (err: unknown) {
@@ -183,6 +188,16 @@ function RegisterPage() {
                 <Lock className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[#17211B]/40" />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-xs text-[#17211B]/80">
+              <input
+                type="checkbox"
+                checked={news}
+                onChange={(e) => setNews(e.target.checked)}
+                disabled={isPending}
+              />
+              Send me product news. Every email has a one-click unsubscribe.
+            </label>
 
             <Button
               type="submit"

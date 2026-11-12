@@ -7,7 +7,7 @@ authentication:
     callbackPath: /api/auth/callback/bunderhost
 generator:
   name: bunderstack
-  version: 0.31.0
+  version: 0.32.1
 application:
   framework: tanstack-start
   scripts:
@@ -83,6 +83,9 @@ resources:
       - name: email
         kind: email
         provider: managed
+      - name: news
+        kind: email
+        provider: managed
 environment:
   - key: BUNDERHOST_AUTH_CONFIG
     required: false
@@ -122,6 +125,11 @@ api:
       effect: mutation
       method: POST
       path: /api/create-project
+    - handle: subscribeToNews
+      operationId: subscribeToNews
+      effect: mutation
+      method: POST
+      path: /api/subscribe-to-news
 background:
   worker:
     required: true

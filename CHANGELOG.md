@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- The template collects newsletter contacts three ways and sends them
+  through their own channel: a `news: email()` channel for broadcasts, a
+  plain HTML form on the landing page posting to `contacts.capture`, and a
+  "send me product news" box at sign-up backed by a `subscribeToNews`
+  procedure (`ctx.contacts.upsert` plus `resubscribe`). Contacts docs gain
+  "Getting people onto a list" and a double opt-in recipe built from
+  `contacts.tag` / `untag`; there is no built-in confirmation email.
+
 ## 0.32.1
 
 - A file of a public bucket served by the application itself (the storage

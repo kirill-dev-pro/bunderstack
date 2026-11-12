@@ -5,10 +5,54 @@ import { DeliveryRail } from '~/components/delivery-rail'
 import { Button } from '~/components/ui/button'
 
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>): { subscribed?: true } =>
+    search.subscribed === '1' || search.subscribed === 1
+      ? { subscribed: true }
+      : {},
   component: LandingPage,
 })
 
+/**
+ * A plain HTML form: it works before the page hydrates, and Bunderstack's
+ * capture endpoint answers it with a redirect back here. The hidden `website`
+ * field is a honeypot that only bots fill in.
+ */
+function NewsletterForm({ subscribed }: { subscribed: boolean }) {
+  if (subscribed) {
+    return <p className="text-sm">Thanks, you are on the list.</p>
+  }
+  return (
+    <form
+      method="post"
+      action="/api/_bunderstack/contacts"
+      className="flex flex-wrap items-center gap-2"
+    >
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="you@company.com"
+        aria-label="Email address"
+        className="h-9 rounded-md border border-[#17211B]/20 bg-[#FFFDF7] px-3 text-sm"
+      />
+      <input
+        type="text"
+        name="website"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        className="hidden"
+      />
+      <input type="hidden" name="redirect" value="/?subscribed=1" />
+      <Button type="submit" size="sm" variant="outline">
+        Get product news
+      </Button>
+    </form>
+  )
+}
+
 function LandingPage() {
+  const { subscribed } = Route.useSearch()
   return (
     <div className="flex min-h-screen flex-col justify-between bg-[#F6F3E9] p-6 text-[#17211B] md:p-12">
       {/* Header / Nav */}
@@ -62,6 +106,10 @@ function LandingPage() {
           <DeliveryRail />
         </div>
       </main>
+
+      <section className="mx-auto w-full max-w-6xl border-t border-[#17211B]/10 py-6">
+        <NewsletterForm subscribed={subscribed === true} />
+      </section>
 
       {/* Footer */}
       <footer className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between border-t border-[#17211B]/10 py-6 text-xs text-[#17211B]/60 sm:flex-row">
