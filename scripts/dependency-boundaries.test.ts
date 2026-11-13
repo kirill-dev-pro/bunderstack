@@ -19,12 +19,12 @@ async function sourceFiles(dir: string): Promise<string[]> {
   return nested.flat()
 }
 
-// blueprint-generator.ts loads the app's own backend file. backend.ts loads
+// app-entry.ts loads the app's own backend file. backend.ts loads
 // testing code for backend.test(): a literal import would let app bundlers
 // pull testing code and drizzle-kit/api into production builds.
 function isOpaqueImportAllowed(path: string) {
   return (
-    path.endsWith('/blueprint-generator.ts') ||
+    path.endsWith('/app-entry.ts') ||
     path.endsWith('/bunderstack/src/backend.ts')
   )
 }

@@ -19,6 +19,7 @@
     "contacts",
     "env",
     "background-jobs",
+    "seeding",
     "storage",
     "thumbnails",
     "---Reference---",

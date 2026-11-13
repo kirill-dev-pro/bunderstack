@@ -59,6 +59,7 @@ export function inspectConfig(
     auth: typeof config.auth === 'function' ? 'builder' : config.auth,
     dialect,
     migrationsDirectory: config.database.migrations ?? './migrations',
+    seed: typeof config.database.seed === 'function',
     storage: resolveBuckets(config.storage, {}),
     envConfig,
     messaging: config.messaging,

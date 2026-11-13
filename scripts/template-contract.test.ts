@@ -9,7 +9,8 @@ const root = join(import.meta.dir, '../templates/tanstack-start-saas')
 test('SaaS template exposes the Bunderstack deployment contract', () => {
   expect(templatePackage.bunderstack.entry).toBe('src/bunderstack/backend.ts')
   expect(templatePackage.scripts).toMatchObject({
-    dev: 'bun --bun vite dev',
+    // A fresh local database starts from the template's seed.
+    dev: 'BUNDERSTACK_SEED=1 bun --bun vite dev',
     typecheck: 'tsc --noEmit',
     blueprint: 'bun ../../packages/bunderstack/src/cli.ts blueprint',
     'blueprint:check':

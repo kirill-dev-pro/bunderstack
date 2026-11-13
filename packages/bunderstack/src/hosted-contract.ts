@@ -21,6 +21,7 @@ export function manifestFromBlueprint(source: string): BunderstackManifest {
       dialect: blueprint.resources.database.dialect,
       migrationsDirectory: blueprint.resources.database.migrationsDirectory,
       tables: blueprint.resources.database.tables,
+      ...(blueprint.resources.database.seed ? { seed: true as const } : {}),
     },
     storage: blueprint.resources.storage,
     realtime: blueprint.resources.realtime ?? { required: false },

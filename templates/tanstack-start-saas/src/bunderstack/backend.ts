@@ -17,7 +17,10 @@ export const backend = bunderstack({
   schema,
   env: envSchema,
   access,
-  database: { adapter: libsql() },
+  // `seed` is what an empty database starts with: a demo user, two projects
+  // and their tasks (see `seed.ts`). A lazy import, so a process that is not
+  // asked to seed never loads it. `bun run dev` asks; production never does.
+  database: { adapter: libsql(), seed: () => import('./seed') },
   auth: authConfig,
   messaging,
   // People to write to, signed up or not. Anything can add one:

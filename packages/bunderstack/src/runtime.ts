@@ -98,6 +98,7 @@ import {
   createMemoryRealtimePublisher,
   createRedisRealtimePublisher,
 } from './realtime/publisher'
+import { seedRequested } from './seed-request'
 import {
   STORAGE_SWEEP_JOB_NAME,
   STORAGE_SWEEP_SCHEDULE,
@@ -1023,6 +1024,10 @@ export async function materializeBunderstack<
       dialect,
       driver,
       adapter: config.database.adapter,
+      userSchema: options.schema as Record<string, unknown>,
+      env,
+      ...(config.database.seed ? { seed: config.database.seed } : {}),
+      seedRequested: seedRequested(source),
     }
 
     return app

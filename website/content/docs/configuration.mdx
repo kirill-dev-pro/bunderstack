@@ -39,6 +39,10 @@ to every procedure in the graph, generated ones included; see
 a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
 own connection — see [Auth](/docs/auth#database-hooks).
 
+`database.seed` names the data an empty database starts with, as a lazy
+import: `database: { adapter: libsql(), seed: () => import('./seed') }`. It
+runs only when asked and never in production; see [Seeding](/docs/seeding).
+
 ## Realtime transport
 
 | Configuration                     | Transport | Intended use                            |

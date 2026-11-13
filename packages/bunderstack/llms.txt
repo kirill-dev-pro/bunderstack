@@ -44,7 +44,31 @@ Database adapters are imported from their own entry points: libsql(),
 pglite(), bunSql(), postgresJs(). Production provisioning imports
 `provision(app)` from `bunderstack/provision` and requires committed migrations;
 that entrypoint never imports Drizzle Kit. Development schema push imports the
-same function name from `bunderstack/provision-schema` instead.
+same function name from `bunderstack/provision-schema` instead. Note: the
+blueprint does start an application that declares a seed, as backend.test()
+would, to run that seed against a throwaway database.
+
+SEEDING
+
+  // src/bunderstack.ts
+  database: { adapter: libsql(), seed: () => import('./seed') }
+
+  // src/seed.ts
+  import { defineSeed } from 'bunderstack/seed'
+  import { backend } from './bunderstack'
+  export default defineSeed(backend, async ({ db, schema, env }) => {
+    await db.insert(schema.users).values([{ name: 'Ada' }])
+  })
+
+The seed runs inside provision(app), only when the process was started with
+BUNDERSTACK_SEED=1 and the system table _bunderstack_seed has no row. Never in
+production; nothing sets the variable but a dev script and a host's preview.
+`db` is one transaction: write everything through it, insert in batches, no
+files. `bunderstack seed [--reset]` runs it against a local database;
+backend.test({ seed: true }) starts a fixture from it. Declaring a seed adds
+`resources.database.seed: true` to the blueprint, and `bunderstack blueprint`
+fails when the seed fails. Run db:generate after upgrading to 0.33.0: the mark
+table comes with bunderstack/schema.
 
 DECLARING AN API
 

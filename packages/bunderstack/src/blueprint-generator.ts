@@ -7,9 +7,14 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
-import { isBunderstackBackend } from './backend'
+import {
+  entryFor,
+  loadBackend,
+  requireRelativePath,
+  resolveWithin,
+  type AppPackage,
+} from './app-entry'
 import { BACKEND_INTERNALS } from './backend-internals'
 import {
   blueprintFromManifest,
@@ -21,6 +26,7 @@ import { createEnvProbeSources } from './env-probe'
 import { assertManifestMatchesBlueprint } from './hosted-contract'
 import { parseManifest } from './manifest'
 import { diffManifests } from './manifest-diff'
+import { checkSeed, type SeedCheck } from './seed-command'
 
 export type GenerateBlueprintOptions = {
   directory: string
@@ -35,6 +41,8 @@ export type GenerateBlueprintResult = {
   blueprint: BunderstackBlueprint
   source: string
   changed: boolean
+  /** Present when the application declares a seed. */
+  seedCheck?: SeedCheck
 }
 
 export class BlueprintCheckError extends Error {
@@ -44,42 +52,6 @@ export class BlueprintCheckError extends Error {
     )
     this.name = 'BlueprintCheckError'
   }
-}
-
-type AppPackage = {
-  scripts?: Record<string, unknown>
-  dependencies?: Record<string, unknown>
-  devDependencies?: Record<string, unknown>
-  bunderstack?: { entry?: unknown }
-}
-
-function requireRelativePath(value: string, label: string): string {
-  const normalized = value.replaceAll('\\', '/')
-  if (
-    !normalized ||
-    isAbsolute(normalized) ||
-    normalized.split('/').some((part) => !part || part === '..')
-  ) {
-    throw new Error(
-      `[bunderstack] ${label} must be a relative path without traversal`,
-    )
-  }
-  return normalized
-}
-
-function resolveWithin(root: string, value: string, label: string): string {
-  const path = resolve(root, requireRelativePath(value, label))
-  const pathFromRoot = relative(root, path)
-  if (
-    pathFromRoot === '..' ||
-    pathFromRoot.startsWith('../') ||
-    isAbsolute(pathFromRoot)
-  ) {
-    throw new Error(
-      `[bunderstack] ${label} must stay within the application directory`,
-    )
-  }
-  return path
 }
 
 function normalizeProjectPath(
@@ -132,31 +104,14 @@ export async function generateBlueprint(
   requireScript(pkg, 'build', true)
   requireScript(pkg, 'start', true)
 
-  const configuredEntry = pkg.bunderstack?.entry
-  const entry = requireRelativePath(
-    options.entry ??
-      (typeof configuredEntry === 'string'
-        ? configuredEntry
-        : 'src/bunderstack.ts'),
-    'entry',
-  )
-  const entryPath = resolveWithin(directory, entry, 'entry')
-  if (!(await Bun.file(entryPath).exists())) {
-    throw new Error(`[bunderstack] entry does not exist: ${entry}`)
-  }
+  const entry = entryFor(pkg, options.entry)
   const output = requireRelativePath(
     options.output ?? 'bunderstack.blueprint.yaml',
     'output',
   )
   const outputPath = resolveWithin(directory, output, 'output')
 
-  const module = (await import(
-    `${pathToFileURL(entryPath).href}?blueprint=${Date.now()}`
-  )) as { backend?: unknown }
-  const backend = module.backend
-  if (!isBunderstackBackend(backend)) {
-    throw new Error(`[bunderstack] ${entry} must export backend`)
-  }
+  const backend = await loadBackend(directory, entry)
   if (options.hostedCheck) {
     const file = Bun.file(outputPath)
     if (!(await file.exists())) {
@@ -219,12 +174,30 @@ export async function generateBlueprint(
   const existing = (await Bun.file(outputPath).exists())
     ? await Bun.file(outputPath).text()
     : undefined
+  if (options.check && existing !== source) throw new BlueprintCheckError()
+  // A seed that no longer fits the tables stops here, with the generated
+  // file and with `--check` alike, so it is a property of the commit.
+  const seedCheck = manifest.database.seed
+    ? await checkSeed({
+        backend,
+        directory,
+        env: probeSources[0],
+        migrationMode,
+      }).catch((error) => {
+        throw new Error(
+          `[bunderstack] the seed does not run against this schema.\n${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
+        )
+      })
+    : undefined
+  const checked = seedCheck ? { seedCheck } : {}
   if (options.check) {
-    if (existing !== source) throw new BlueprintCheckError()
-    return { path: outputPath, blueprint, source, changed: false }
+    return { path: outputPath, blueprint, source, changed: false, ...checked }
   }
   if (existing === source)
-    return { path: outputPath, blueprint, source, changed: false }
+    return { path: outputPath, blueprint, source, changed: false, ...checked }
   await mkdir(dirname(outputPath), { recursive: true })
   const temporary = `${outputPath}.${process.pid}.${Date.now()}.tmp`
   try {
@@ -233,5 +206,5 @@ export async function generateBlueprint(
   } finally {
     await rm(temporary, { force: true })
   }
-  return { path: outputPath, blueprint, source, changed: true }
+  return { path: outputPath, blueprint, source, changed: true, ...checked }
 }

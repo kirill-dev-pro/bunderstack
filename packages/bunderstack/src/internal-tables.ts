@@ -21,6 +21,7 @@ import {
   bunderstackContactTagsPg,
   bunderstackBroadcastsPg,
   bunderstackBroadcastRecipientsPg,
+  bunderstackSeedPg,
 } from './internal-tables-pg'
 
 export const bunderstackFiles = sqliteTable(
@@ -252,6 +253,19 @@ export const bunderstackBroadcastRecipients = sqliteTable(
   ],
 )
 
+/**
+ * The mark a seed leaves: one row, written in the same transaction as the
+ * seed's own rows. A database that has it is not seeded again.
+ */
+export const bunderstackSeed = sqliteTable('_bunderstack_seed', {
+  id: text('id').primaryKey(),
+  seededAt: integer('seeded_at').notNull(),
+  /** The Bunderstack version that ran the seed. */
+  version: text('version').notNull(),
+  /** The commit the application ran from, when its host says. */
+  revision: text('revision'),
+})
+
 export const INTERNAL_TABLES = {
   bunderstackFiles,
   bunderstackIdempotency,
@@ -263,6 +277,7 @@ export const INTERNAL_TABLES = {
   bunderstackContactTags,
   bunderstackBroadcasts,
   bunderstackBroadcastRecipients,
+  bunderstackSeed,
 } as const
 
 export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
@@ -276,6 +291,7 @@ export const INTERNAL_TABLE_NAMES: ReadonlySet<string> = new Set([
   '_bunderstack_contact_tags',
   '_bunderstack_broadcasts',
   '_bunderstack_broadcast_recipients',
+  '_bunderstack_seed',
 ])
 
 export const INTERNAL_TABLES_PG = {
@@ -289,6 +305,7 @@ export const INTERNAL_TABLES_PG = {
   bunderstackContactTags: bunderstackContactTagsPg,
   bunderstackBroadcasts: bunderstackBroadcastsPg,
   bunderstackBroadcastRecipients: bunderstackBroadcastRecipientsPg,
+  bunderstackSeed: bunderstackSeedPg,
 } as const
 
 // Both dialect twins count as "ours" for the re-export identity check.
@@ -327,6 +344,7 @@ const INTERNAL_TABLE_CANDIDATES = new Map<string, readonly unknown[]>([
     getTableName(bunderstackBroadcastRecipients),
     [bunderstackBroadcastRecipients, bunderstackBroadcastRecipientsPg],
   ],
+  [getTableName(bunderstackSeed), [bunderstackSeed, bunderstackSeedPg]],
 ])
 
 /** Internal file-meta table matching the db's dialect. */
@@ -378,6 +396,11 @@ export function broadcastTablesFor(db: unknown) {
         broadcasts: bunderstackBroadcasts,
         recipients: bunderstackBroadcastRecipients,
       }
+}
+
+/** The seed mark's table matching the db's dialect. */
+export function seedTableFor(db: unknown) {
+  return is(db, PgDatabase) ? bunderstackSeedPg : bunderstackSeed
 }
 
 export function withInternalTables<TSchema extends Record<string, unknown>>(

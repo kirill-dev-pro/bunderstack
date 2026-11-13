@@ -34,6 +34,19 @@ Start the full stack development server (Vite + SSR + Bunderstack backend):
 bun run dev
 ```
 
+A fresh local database starts from the seed in `src/bunderstack/seed.ts`: a
+demo user (`demo@example.com` / `demo-password`), two projects and their
+tasks. `bun run dev` asks for it by starting with `BUNDERSTACK_SEED=1`; a
+database that is already seeded is left alone. To run it by hand:
+
+```bash
+bun run db:seed    # seed the local database, once
+bun run db:reset   # empty the application's tables and seed again
+```
+
+The seed never runs in production. On Bunderhost a project can start its
+pull request previews from it instead of from a copy of production data.
+
 Run the background worker in a separate terminal:
 
 ```bash

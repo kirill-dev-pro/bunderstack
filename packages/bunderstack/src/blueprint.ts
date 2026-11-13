@@ -110,6 +110,9 @@ const blueprintSchema = open({
           system: v.boolean(),
         }),
       ),
+      // Written only when the application declares a seed. A host that does
+      // not know the field never asks for one.
+      seed: v.optional(v.literal(true)),
     }),
     storage: open({
       defaultBucket: nonEmpty,

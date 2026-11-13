@@ -238,3 +238,16 @@ export const bunderstackBroadcastRecipientsPg = pgTable(
     index('bbr_created').on(t.createdAt),
   ],
 )
+
+/**
+ * The mark a seed leaves: one row, written in the same transaction as the
+ * seed's own rows. A database that has it is not seeded again.
+ */
+export const bunderstackSeedPg = pgTable('_bunderstack_seed', {
+  id: text('id').primaryKey(),
+  seededAt: bigint('seeded_at', { mode: 'number' }).notNull(),
+  /** The Bunderstack version that ran the seed. */
+  version: text('version').notNull(),
+  /** The commit the application ran from, when its host says. */
+  revision: text('revision'),
+})

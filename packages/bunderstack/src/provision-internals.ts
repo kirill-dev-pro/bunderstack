@@ -22,6 +22,14 @@ export interface ProvisionInternals {
   dialect: Dialect
   driver: Driver
   adapter: import('./database/adapter').DatabaseAdapter
+  /** The application's own tables, without the system ones. */
+  userSchema: Record<string, unknown>
+  /** The validated environment the application was started with. */
+  env: import('./env').BaseEnv
+  /** `database.seed`, when the application declares one. */
+  seed?: import('./config').SeedLoader
+  /** Whether this process was started with `BUNDERSTACK_SEED=1`. */
+  seedRequested: boolean
 }
 
 export interface WithProvisionInternals {

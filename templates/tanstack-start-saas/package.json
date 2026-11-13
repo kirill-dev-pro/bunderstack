@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "bun --bun vite dev",
+    "dev": "BUNDERSTACK_SEED=1 bun --bun vite dev",
     "build": "vite build",
     "start": "bun dist/server/server.js",
     "worker": "bun src/worker.ts",
@@ -14,6 +14,8 @@
     "fix": "uncheck --fix",
     "prepare": "uncheck prepare --pre-commit --only=oxlint --only=oxfmt || true",
     "db:generate": "drizzle-kit generate",
+    "db:seed": "bun ../../packages/bunderstack/src/cli.ts seed",
+    "db:reset": "bun ../../packages/bunderstack/src/cli.ts seed --reset",
     "blueprint": "bun ../../packages/bunderstack/src/cli.ts blueprint",
     "blueprint:check": "bun ../../packages/bunderstack/src/cli.ts blueprint --check"
   },

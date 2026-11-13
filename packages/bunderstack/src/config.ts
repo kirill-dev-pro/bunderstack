@@ -30,6 +30,14 @@ import {
   type StorageConfigInput,
 } from './storage/buckets'
 
+/**
+ * The `database.seed` slot. Typed as a module nobody has looked into yet: the
+ * seed module imports the backend to type its rows, and a slot that named the
+ * module's export would make the backend's type depend on itself. What the
+ * module exports is checked when it is loaded.
+ */
+export type SeedLoader = () => Promise<unknown>
+
 export type BetterAuthConfig = Omit<
   NonNullable<Parameters<typeof betterAuth>[0]>,
   'database'
@@ -175,6 +183,15 @@ export type BunderstackConfig<
     url?: string
     authToken?: string
     migrations?: string
+    /**
+     * The data an empty database starts with, as `() => import('./seed')`
+     * whose default export is `defineSeed(...)` from `bunderstack/seed`. A
+     * lazy import, so a process that is never asked to seed never loads the
+     * module. It runs once per database, inside `provision(app)`, and only
+     * when `BUNDERSTACK_SEED=1`: never by itself, and a host never asks a
+     * production environment to.
+     */
+    seed?: SeedLoader
   }
   /**
    * better-auth options, or a builder receiving `{ db, env }`. Use the builder
@@ -238,6 +255,7 @@ export type ResolvedConfig = {
     url: string
     authToken?: string
     migrations: string
+    seed?: SeedLoader
   }
   auth: BetterAuthConfig | AuthConfigFactory
   storage: ResolvedStorageBuckets
@@ -297,6 +315,7 @@ export function resolveConfig<
         options.database?.authToken ??
         resolvedEnv.DATABASE_AUTH_TOKEN,
       migrations: options.database?.migrations ?? './migrations',
+      ...(options.database?.seed ? { seed: options.database.seed } : {}),
     },
     auth: (() => {
       // The secret default has to survive the builder form too, and the builder

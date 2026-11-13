@@ -43,6 +43,22 @@ secrets, client keys are not. A sensitive key belongs in whatever protected
 input your platform offers a human; a non-sensitive one is safe to set from
 automation.
 
+### A seed
+
+```yaml
+resources:
+  database:
+    seed: true
+```
+
+Written only when the application declares a [seed](/docs/seeding). It means
+the application fills an empty database itself when it is started with
+`BUNDERSTACK_SEED=1`, once, as part of `provision(app)`. A platform may offer
+that as a way to start a preview: create the database empty, apply the
+migrations, start the preview with the variable. Never pass it to production,
+and do not let a person set it as an ordinary variable. Blueprints generated
+before 0.33.0 have no such field.
+
 ### Application operations
 
 ```yaml

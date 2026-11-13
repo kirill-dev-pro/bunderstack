@@ -16,6 +16,7 @@ import {
   type RuntimeTestingHandle,
 } from '../backend-internals'
 import { provisionForTest } from '../provision-schema'
+import { runSeed } from '../seed-runtime'
 import { createTestAuth, createTestSessionRegistry } from './auth'
 import { testClient } from './client'
 import { createTestDatabaseTarget } from './database'
@@ -31,6 +32,11 @@ export type TestOptions = {
     schema?: TestSchemaMode
     strategy?: TestDatabaseStrategy
   }
+  /**
+   * Start from the application's seed (`database.seed`) instead of from empty
+   * tables. A fixture is never seeded unless this asks for it.
+   */
+  seed?: boolean
   logs?: TestLogMode
 }
 
@@ -181,6 +187,11 @@ export async function createTestApp<TApp extends TestableApp>(
       inspected,
     )
     await provisionForTest(app as object, options.database?.schema ?? 'auto')
+    if (options.seed && (await runSeed(app as object)) === 'not-declared') {
+      throw new Error(
+        '[bunderstack] test({ seed: true }) needs an application that declares database.seed',
+      )
+    }
   } catch (cause) {
     const cleanupErrors: unknown[] = []
     if (app) {

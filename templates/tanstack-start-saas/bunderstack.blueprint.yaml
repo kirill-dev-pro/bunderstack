@@ -7,7 +7,7 @@ authentication:
     callbackPath: /api/auth/callback/bunderhost
 generator:
   name: bunderstack
-  version: 0.32.1
+  version: 0.33.0
 application:
   framework: tanstack-start
   scripts:
@@ -50,6 +50,9 @@ resources:
       - exportName: _system.messages
         physicalName: _bunderstack_messages
         system: true
+      - exportName: _system.seed
+        physicalName: _bunderstack_seed
+        system: true
       - exportName: account
         physicalName: account
         system: false
@@ -74,6 +77,7 @@ resources:
       - exportName: verification
         physicalName: verification
         system: false
+    seed: true
   storage:
     defaultBucket: project-files
     buckets:

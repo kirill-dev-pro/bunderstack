@@ -108,6 +108,11 @@ test('the manifest contains exactly these fields and nothing more', () => {
           physicalName: '_bunderstack_messages',
           system: true,
         },
+        {
+          exportName: '_system.seed',
+          physicalName: '_bunderstack_seed',
+          system: true,
+        },
         { exportName: 'accounts', physicalName: 'app_accounts', system: false },
         { exportName: 'posts', physicalName: 'app_posts', system: false },
         {

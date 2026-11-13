@@ -9,4 +9,5 @@ export {
   bunderstackContactTags,
   bunderstackBroadcasts,
   bunderstackBroadcastRecipients,
+  bunderstackSeed,
 } from './internal-tables'

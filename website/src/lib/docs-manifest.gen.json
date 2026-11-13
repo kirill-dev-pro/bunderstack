@@ -114,9 +114,17 @@
           "$id": "messaging.mdx",
           "type": "page",
           "name": "Messaging",
-          "description": "Named channels for email and Telegram, with capture when credentials are absent",
+          "description": "Named channels for email and Telegram, receiving mail, and capture when credentials are absent",
           "url": "/docs/messaging",
           "$ref": "messaging.mdx"
+        },
+        {
+          "$id": "contacts.mdx",
+          "type": "page",
+          "name": "Contacts",
+          "description": "People to write to who are not users, sign-ups from your own forms, and one-click unsubscribe",
+          "url": "/docs/contacts",
+          "$ref": "contacts.mdx"
         },
         {
           "$id": "env.mdx",
@@ -133,6 +141,14 @@
           "description": "One table, one loop, one deployable process",
           "url": "/docs/background-jobs",
           "$ref": "background-jobs.mdx"
+        },
+        {
+          "$id": "seeding.mdx",
+          "type": "page",
+          "name": "Seeding",
+          "description": "The data an empty database starts with, for local development and for previews that must not carry production data",
+          "url": "/docs/seeding",
+          "$ref": "seeding.mdx"
         },
         {
           "$id": "storage.mdx",
@@ -196,6 +212,7 @@
     "auth": "auth.mdx",
     "background-jobs": "background-jobs.mdx",
     "configuration": "configuration.mdx",
+    "contacts": "contacts.mdx",
     "crud": "crud.mdx",
     "deployment-contract": "deployment-contract.mdx",
     "env": "env.mdx",
@@ -206,6 +223,7 @@
     "messaging": "messaging.mdx",
     "middleware": "middleware.mdx",
     "query-client": "query-client.mdx",
+    "seeding": "seeding.mdx",
     "storage": "storage.mdx",
     "sync-collections": "sync-collections.mdx",
     "templates-and-skills": "templates-and-skills.mdx",
@@ -231,6 +249,10 @@
     "configuration": {
       "title": "Configuration",
       "description": "bunderstack declarations, runtime options, transports, adapters, and lifecycle"
+    },
+    "contacts": {
+      "title": "Contacts",
+      "description": "People to write to who are not users, sign-ups from your own forms, and one-click unsubscribe"
     },
     "crud": {
       "title": "Auto CRUD",
@@ -262,7 +284,7 @@
     },
     "messaging": {
       "title": "Messaging",
-      "description": "Named channels for email and Telegram, with capture when credentials are absent"
+      "description": "Named channels for email and Telegram, receiving mail, and capture when credentials are absent"
     },
     "middleware": {
       "title": "Middleware",
@@ -271,6 +293,10 @@
     "query-client": {
       "title": "Query Client",
       "description": "An oRPC and TanStack Query client inferred from your app"
+    },
+    "seeding": {
+      "title": "Seeding",
+      "description": "The data an empty database starts with, for local development and for previews that must not carry production data"
     },
     "storage": {
       "title": "Storage",

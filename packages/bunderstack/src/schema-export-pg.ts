@@ -11,4 +11,5 @@ export {
   bunderstackContactTagsPg as bunderstackContactTags,
   bunderstackBroadcastsPg as bunderstackBroadcasts,
   bunderstackBroadcastRecipientsPg as bunderstackBroadcastRecipients,
+  bunderstackSeedPg as bunderstackSeed,
 } from './internal-tables-pg'

@@ -1,0 +1,167 @@
+---
+title: Seeding
+description: The data an empty database starts with, for local development and for previews that must not carry production data
+---
+
+A seed is code that fills an empty database: a demo user, a few projects,
+whatever makes the application usable the moment it starts. The same seed
+serves a fresh local database and a preview environment, so a preview does not
+need a copy of production to be worth opening.
+
+Three rules hold everywhere:
+
+- **Never by itself, and never in production.** A seed runs only in a process
+  started with `BUNDERSTACK_SEED=1`. Nothing in Bunderstack sets that
+  variable, and a host sets it for previews only.
+- **Once per database.** A seeded database carries a mark and is not seeded
+  again by a restart or a redeploy.
+- **All of it or none of it.** The seed and its mark are one transaction. A
+  seed that throws leaves the database as it was and fails the start, where
+  the error is visible.
+
+## Declaring a seed
+
+Name the seed module in the backend with a lazy import, so a process that is
+never asked to seed never loads it or anything it depends on:
+
+```ts
+// src/bunderstack.ts
+export const backend = bunderstack({
+  schema,
+  database: {
+    adapter: libsql(),
+    seed: () => import('./seed'),
+  },
+})
+```
+
+The module's default export is `defineSeed`:
+
+```ts
+// src/seed.ts
+import { defineSeed } from 'bunderstack/seed'
+
+import { backend } from './bunderstack'
+
+export default defineSeed(backend, async ({ db, schema, env }) => {
+  const [ada] = await db
+    .insert(schema.users)
+    .values({ name: 'Ada', email: 'ada@example.com' })
+    .returning()
+  await db.insert(schema.orders).values([
+    { userId: ada.id, total: 4200 },
+    { userId: ada.id, total: 1800 },
+  ])
+})
+```
+
+`backend` is passed for its types alone. `db` and `schema` are the
+application's own, so the seed is type-checked against the tables like any
+other code, and `env` is the validated environment.
+
+`db` is the transaction the seed runs in. Write everything through it: what
+goes through `app.db`, the auth API or storage is outside that transaction,
+is not undone when the seed fails, and on SQLite waits for a lock the seed
+itself holds. Files are not part of a seed yet.
+
+### A user who can sign in
+
+A password sign-in is a row in Better Auth's `account` table with its own
+hash, so a seed can create one without going through the auth API:
+
+```ts
+import { hashPassword } from 'better-auth/crypto'
+
+const now = new Date()
+const [demo] = await db
+  .insert(schema.user)
+  .values({
+    name: 'Demo User',
+    email: 'demo@example.com',
+    emailVerified: true,
+    createdAt: now,
+    updatedAt: now,
+  })
+  .returning()
+await db.insert(schema.account).values({
+  accountId: demo.id,
+  providerId: 'credential',
+  userId: demo.id,
+  password: await hashPassword('demo-password'),
+  createdAt: now,
+  updatedAt: now,
+})
+```
+
+## When it runs
+
+Inside `provision(app)`, from `bunderstack/provision` or
+`bunderstack/provision-schema`, after the schema is in place:
+
+```ts
+export const app = await backend.start()
+await provision(app) // migrations, then the seed if this process was asked
+```
+
+The seed runs when the process was started with `BUNDERSTACK_SEED=1` and the
+table `_bunderstack_seed` has no row. That table is a system table and comes
+with `bunderstack/schema`; run `db:generate` after upgrading so your
+migrations create it.
+
+A remote libSQL database (Turso, sqld) does not hold a transaction open for
+long: about five seconds once the application writes anything else, and ten
+without a statement. Insert rows in batches with `.values([...])`; a seed of
+tens of thousands of rows written that way takes well under a second.
+
+## Locally
+
+```bash
+bunx bunderstack seed           # seed the local database, once
+bunx bunderstack seed --reset   # empty the application's tables, seed again
+```
+
+Both bring the schema up first. `--reset` leaves system tables other than the
+mark alone. The command refuses a remote database: a hosted one is seeded by
+its host, which is the only one that knows whether it is a preview.
+
+To have a fresh local database seeded when the dev server starts, set the
+variable in the script that starts it, not in a `.env` file that could follow
+the application somewhere else:
+
+```json
+{ "scripts": { "dev": "BUNDERSTACK_SEED=1 bun --bun vite dev" } }
+```
+
+## In tests
+
+A test fixture starts from empty tables unless it asks for the seed:
+
+```ts
+await using fixture = await backend.test({ seed: true })
+```
+
+## Checked when the blueprint is generated
+
+`bunderstack blueprint` and `bunderstack blueprint --check` run a declared
+seed against a throwaway database built from your migrations, and stop with
+the seed's error when it fails. A seed that no longer fits the tables is
+caught in the commit that broke it, not in somebody's preview. The
+application is started as `backend.test()` starts it, so nothing leaves the
+machine. An adapter that needs a database server has no throwaway database;
+the command says the seed was not checked and carries on.
+
+## On a host
+
+A declared seed is one line in the blueprint:
+
+```yaml
+resources:
+  database:
+    seed: true
+```
+
+A host that knows the field can offer "start a preview from the seed": it
+gives the preview an empty database and starts it with `BUNDERSTACK_SEED=1`.
+A host that does not know the field never sets the variable, and the
+application starts with an empty database. On Bunderhost this is the
+project's **A new preview starts with** setting.

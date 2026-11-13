@@ -6,6 +6,7 @@ import {
   ensureLocalDataDir,
   getProvisionInternals,
 } from './provision-runtime'
+import { seedIfAsked } from './seed-runtime'
 
 const DRIZZLE_KIT_HINT =
   '[bunderstack] Schema push requires drizzle-kit, which is not installed.\n' +
@@ -59,6 +60,16 @@ export async function provision(
   app: object,
   options?: { force?: boolean },
 ): Promise<void> {
+  await ensureSchema(app, options)
+  // As in `bunderstack/provision`: only when asked with BUNDERSTACK_SEED=1.
+  await seedIfAsked(app)
+}
+
+/** The schema half of {@link provision}, without the seed. */
+export async function ensureSchema(
+  app: object,
+  options?: { force?: boolean },
+): Promise<void> {
   if (await applyCommittedMigrations(app)) return
   const internals = getProvisionInternals(app)
   await provisionSchema(internals.db, internals.schema, {
@@ -74,7 +85,7 @@ export async function provisionForTest(
   mode: TestSchemaMode,
 ): Promise<void> {
   if (mode === 'auto') {
-    await provision(app, { force: true })
+    await ensureSchema(app, { force: true })
     return
   }
 

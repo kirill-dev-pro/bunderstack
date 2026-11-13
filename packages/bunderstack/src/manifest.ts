@@ -22,6 +22,7 @@ import {
   bunderstackFiles,
   bunderstackIdempotency,
   bunderstackJobs,
+  bunderstackSeed,
 } from './internal-tables'
 import { parseCron } from './jobs/cron'
 import { isMessagingDescriptor } from './messaging/types'
@@ -73,6 +74,8 @@ export type BunderstackManifest = {
     dialect: Dialect
     migrationsDirectory: string
     tables: { exportName: string; physicalName: string; system: boolean }[]
+    /** Present when the application declares a seed; a host may offer it. */
+    seed?: true
   }
   storage: {
     defaultBucket: string
@@ -141,6 +144,7 @@ const manifestSchema = v.strictObject({
         system: v.boolean(),
       }),
     ),
+    seed: v.optional(v.literal(true)),
   }),
   storage: v.strictObject({
     defaultBucket: nonEmpty,
@@ -328,6 +332,11 @@ function systemTables() {
       physicalName: getTableName(bunderstackJobs),
       system: true,
     },
+    {
+      exportName: '_system.seed',
+      physicalName: getTableName(bunderstackSeed),
+      system: true,
+    },
   ]
 }
 
@@ -381,6 +390,8 @@ export function buildManifest(args: {
   schema: Record<string, unknown>
   dialect: Dialect
   migrationsDirectory: string
+  /** Whether the application declares a seed. */
+  seed?: boolean
   storage: ResolvedStorageBuckets
   envConfig: EnvConfigInput | undefined
   messaging: MessagingConfig | undefined
@@ -464,6 +475,7 @@ export function buildManifest(args: {
         [...systemTables(), ...describeTables(args.schema)],
         (entry) => entry.physicalName,
       ),
+      ...(args.seed ? { seed: true as const } : {}),
     },
     storage: {
       defaultBucket: args.storage.defaultBucket,

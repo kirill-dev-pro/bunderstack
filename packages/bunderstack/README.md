@@ -52,6 +52,7 @@ replay. Deployment metadata is generated with `bunx bunderstack blueprint`.
   (`backend.test()` / `backend.test.configure()`)
 - `bunderstack/provision` — Explicit production schema provisioning
 - `bunderstack/provision-schema` — Development-only schema push via Drizzle Kit
+- `bunderstack/seed` — The data an empty database starts with (`defineSeed`); never runs in production
 - `bunderstack/client` — Framework-neutral RPC & LiveView client (`createClient`, `createLiveView`)
 - `bunderstack/client-rest` — Type-safe REST client
 - `bunderstack/client-react`, `bunderstack/client-solid`, `bunderstack/client-vue`, `bunderstack/client-svelte` — LiveView UI bindings

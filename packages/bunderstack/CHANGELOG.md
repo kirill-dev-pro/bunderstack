@@ -1,7 +1,40 @@
 # Changelog
 
-## Unreleased
+## 0.33.0
 
+- Seeding: an application says in code what an empty database starts with.
+  `database: { seed: () => import('./seed') }` names the module, and its
+  default export is `defineSeed(backend, async ({ db, schema, env }) => ...)`
+  from the new `bunderstack/seed` entry, typed against the application's own
+  tables. The seed runs inside `provision(app)` (both `bunderstack/provision`
+  and `bunderstack/provision-schema`) and only when the process was started
+  with `BUNDERSTACK_SEED=1`: nothing in Bunderstack sets the variable, and a
+  host sets it for previews, never for production. It runs once per
+  database, in one transaction with the mark it leaves, so a seed that
+  throws keeps nothing and fails the start. One new system table comes with
+  `bunderstack/schema` (`_bunderstack_seed`); run `db:generate` after
+  upgrading, and regenerate the blueprint.
+- `bunderstack seed` runs the seed against the local database, and
+  `bunderstack seed --reset` empties the application's tables first. Both
+  refuse a remote database. `backend.test({ seed: true })` starts a test
+  fixture from the seed.
+- `bunderstack blueprint` and `bunderstack blueprint --check` run a declared
+  seed against a throwaway database built from the application's migrations
+  and stop with the seed's error when it fails. An application without a
+  seed is still never started by the command.
+- The blueprint gains `resources.database.seed: true` for an application
+  that declares a seed. The manifest stays version 4: a host that does not
+  know the field ignores it and never asks for a seed.
+- A remote libSQL database ends a long transaction (measured on sqld 0.24:
+  after five seconds once another write waits, after ten without a
+  statement); a seed cut short that way says so and says to insert in
+  batches. On a local SQLite database the transaction is opened on the
+  application's own connection, because the libSQL client's transaction
+  leaves an in-memory database behind for an empty one.
+- The SaaS template has a seed: a demo user who can sign in
+  (`demo@example.com`), two projects and their tasks. `bun run dev` asks for
+  it, `bun run db:seed` and `bun run db:reset` run it by hand. Migration
+  `0004` adds `_bunderstack_seed`.
 - The SaaS template now uses every Bunderstack feature, each with a working
   example: managed Google/GitHub sign-in buttons when the host provides
   them; project attachments in the private bucket (an `attachments` table,
