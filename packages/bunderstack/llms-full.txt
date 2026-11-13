@@ -1682,7 +1682,8 @@ resources:
 
 Written only when the application declares a [seed](/docs/seeding). It means
 the application fills an empty database itself when it is started with
-`BUNDERSTACK_SEED=1`, once, as part of `provision(app)`. A platform may offer
+`BUNDERSTACK_SEED=1`, once: at start when the committed migrations are
+already applied (0.33.1 and later), in `provision(app)` otherwise. A platform may offer
 that as a way to start a preview: create the database empty, apply the
 migrations, start the preview with the variable. Never pass it to production,
 and do not let a person set it as an ordinary variable. Blueprints generated
@@ -3388,18 +3389,29 @@ await db.insert(schema.account).values({
 
 ## When it runs
 
-Inside `provision(app)`, from `bunderstack/provision` or
-`bunderstack/provision-schema`, after the schema is in place:
+In a process started with `BUNDERSTACK_SEED=1`, at the first moment the
+schema is known to be in place:
+
+- **At `backend.start()`**, when every committed migration is already
+  recorded in the database. That is how a host leaves it: it applies the
+  migrations and then starts the application, which need not call
+  `provision(app)` at all. The seed runs before background work starts and
+  before `start()` resolves.
+- **Inside `provision(app)`** otherwise, from `bunderstack/provision` or
+  `bunderstack/provision-schema`, right after it has applied the migrations
+  or pushed the schema. That is a fresh local database:
 
 ```ts
 export const app = await backend.start()
 await provision(app) // migrations, then the seed if this process was asked
 ```
 
-The seed runs when the process was started with `BUNDERSTACK_SEED=1` and the
-table `_bunderstack_seed` has no row. That table is a system table and comes
-with `bunderstack/schema`; run `db:generate` after upgrading so your
-migrations create it.
+Either way it runs only while the table `_bunderstack_seed` has no row. That
+table is a system table and comes with `bunderstack/schema`; run
+`db:generate` after upgrading so your migrations create it. An application
+without committed migrations is seeded by `provision(app)` only: without a
+migrations journal nothing says the schema in the database is the one the
+code expects.
 
 A remote libSQL database (Turso, sqld) does not hold a transaction open for
 long: about five seconds once the application writes anything else, and ten

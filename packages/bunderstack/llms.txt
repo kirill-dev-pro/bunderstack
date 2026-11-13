@@ -60,8 +60,10 @@ SEEDING
     await db.insert(schema.users).values([{ name: 'Ada' }])
   })
 
-The seed runs inside provision(app), only when the process was started with
-BUNDERSTACK_SEED=1 and the system table _bunderstack_seed has no row. Never in
+The seed runs only when the process was started with BUNDERSTACK_SEED=1 and
+the system table _bunderstack_seed has no row: at backend.start() when every
+committed migration is already applied (a host migrates first, and the app
+need not call provision), inside provision(app) otherwise. Never in
 production; nothing sets the variable but a dev script and a host's preview.
 `db` is one transaction: write everything through it, insert in batches, no
 files. `bunderstack seed [--reset]` runs it against a local database;

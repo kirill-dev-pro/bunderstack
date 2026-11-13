@@ -187,8 +187,9 @@ export type BunderstackConfig<
      * The data an empty database starts with, as `() => import('./seed')`
      * whose default export is `defineSeed(...)` from `bunderstack/seed`. A
      * lazy import, so a process that is never asked to seed never loads the
-     * module. It runs once per database, inside `provision(app)`, and only
-     * when `BUNDERSTACK_SEED=1`: never by itself, and a host never asks a
+     * module. It runs once per database and only when `BUNDERSTACK_SEED=1`,
+     * at start when the committed migrations are already applied and inside
+     * `provision(app)` otherwise: never by itself, and a host never asks a
      * production environment to.
      */
     seed?: SeedLoader

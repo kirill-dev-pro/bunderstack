@@ -2,9 +2,13 @@
 // mark that says it ran. Nothing here decides to seed by itself. `provision`
 // asks only when the process was started with `BUNDERSTACK_SEED=1`, and the
 // CLI asks because a person typed the command.
-import { getTableName, isTable, sql } from 'drizzle-orm'
+import { getTableName, isTable, max, sql } from 'drizzle-orm'
+import { bigint, pgSchema } from 'drizzle-orm/pg-core'
+import { numeric, sqliteTable } from 'drizzle-orm/sqlite-core'
+import { join } from 'node:path'
 
 import type { AnyDb } from './dialect'
+import type { ProvisionInternals } from './provision-internals'
 
 import {
   INTERNAL_TABLE_NAMES,
@@ -27,6 +31,12 @@ export type SeedOutcome =
   | 'not-declared'
   /** Nobody asked: the process was not started with `BUNDERSTACK_SEED=1`. */
   | 'not-asked'
+  /**
+   * Asked at start, but the committed migrations are not all in the database
+   * yet (or there are none to go by): `provision(app)` seeds after it has
+   * brought the schema up.
+   */
+  | 'schema-pending'
 
 const REMOTE_URL = /^(postgres(ql)?|libsql|wss?|https?):\/\//
 
@@ -168,8 +178,13 @@ export class SeedFailedError extends Error {
  */
 export async function runSeed(
   app: object,
-): Promise<Exclude<SeedOutcome, 'not-asked'>> {
-  const internals = getProvisionInternals(app)
+): Promise<'seeded' | 'already-seeded' | 'not-declared'> {
+  return seedDatabase(getProvisionInternals(app))
+}
+
+async function seedDatabase(
+  internals: ProvisionInternals,
+): Promise<'seeded' | 'already-seeded' | 'not-declared'> {
   if (!internals.seed) return 'not-declared'
   const definition = seedFromModule(await internals.seed())
   const table = seedTableFor(internals.db)
@@ -216,11 +231,74 @@ export async function runSeed(
 export async function seedIfAsked(app: object): Promise<SeedOutcome> {
   const internals = getProvisionInternals(app)
   if (!internals.seedRequested) return 'not-asked'
-  const outcome = await runSeed(app)
-  if (outcome === 'seeded') {
-    console.log('[bunderstack] seeded the database')
-  }
+  return announced(await seedDatabase(internals))
+}
+
+function announced<T extends SeedOutcome>(outcome: T): T {
+  if (outcome === 'seeded') console.log('[bunderstack] seeded the database')
   return outcome
+}
+
+// Where drizzle's migrators, and a host that applies migrations the same
+// way, record what they applied: one row per migration, `created_at` being
+// the `when` of its journal entry.
+const appliedSqlite = sqliteTable('__drizzle_migrations', {
+  createdAt: numeric('created_at', { mode: 'number' }),
+})
+const appliedPg = pgSchema('drizzle').table('__drizzle_migrations', {
+  createdAt: bigint('created_at', { mode: 'number' }),
+})
+
+/**
+ * Whether every committed migration is recorded as applied. False when there
+ * is no migrations journal to go by: without one nothing says the schema in
+ * the database is the one this code expects.
+ */
+export async function committedMigrationsApplied(
+  internals: Pick<ProvisionInternals, 'db' | 'dialect' | 'migrationsFolder'>,
+): Promise<boolean> {
+  const journal = Bun.file(
+    join(internals.migrationsFolder, 'meta', '_journal.json'),
+  )
+  if (!(await journal.exists())) return false
+  let newest: number
+  try {
+    const { entries } = (await journal.json()) as {
+      entries?: { when?: unknown }[]
+    }
+    const times = (entries ?? []).map((entry) => Number(entry.when))
+    if (times.length === 0 || times.some((time) => !Number.isFinite(time)))
+      return false
+    newest = Math.max(...times)
+  } catch {
+    return false
+  }
+  const table = internals.dialect === 'pg' ? appliedPg : appliedSqlite
+  try {
+    const [row] = (await (internals.db as any)
+      .select({ at: max(table.createdAt) })
+      .from(table)) as { at: number | string | null }[]
+    return row?.at != null && Number(row.at) >= newest
+  } catch {
+    // No record of migrations at all: none has been applied.
+    return false
+  }
+}
+
+/**
+ * What `backend.start()` calls in a process that was asked to seed. A host
+ * applies the migrations before it starts the application, and many
+ * applications never call `provision(app)`, so the seed cannot wait for that
+ * call. It runs here when the database has every committed migration, and is
+ * left to `provision(app)` otherwise.
+ */
+export async function seedAtStart(
+  internals: ProvisionInternals,
+): Promise<SeedOutcome> {
+  if (!internals.seedRequested) return 'not-asked'
+  if (!internals.seed) return 'not-declared'
+  if (!(await committedMigrationsApplied(internals))) return 'schema-pending'
+  return announced(await seedDatabase(internals))
 }
 
 function quote(name: string): string {

@@ -53,7 +53,8 @@ resources:
 
 Written only when the application declares a [seed](/docs/seeding). It means
 the application fills an empty database itself when it is started with
-`BUNDERSTACK_SEED=1`, once, as part of `provision(app)`. A platform may offer
+`BUNDERSTACK_SEED=1`, once: at start when the committed migrations are
+already applied (0.33.1 and later), in `provision(app)` otherwise. A platform may offer
 that as a way to start a preview: create the database empty, apply the
 migrations, start the preview with the variable. Never pass it to production,
 and do not let a person set it as an ordinary variable. Blueprints generated

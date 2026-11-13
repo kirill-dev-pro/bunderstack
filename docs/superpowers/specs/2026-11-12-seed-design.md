@@ -141,10 +141,18 @@ Where it differs from the proposal:
   connection, outside that transaction: they would not be undone, and on
   SQLite they wait for a lock the seed holds. Files in a seed are not built.
   The open question about the environment is settled: the seed gets `env`.
-- **It runs inside `provision(app)`**, both entries, after the schema is in
-  place. Bunderstack has no moment "before the server listens" of its own:
-  the framework's server listens, and `provision` is the one call every
-  application makes at start.
+- **It runs at `backend.start()` when the schema is known to be in place,
+  and inside `provision(app)` otherwise.** 0.33.0 ran it only in `provision`,
+  on the belief that every application calls it at start. That is false for
+  hosted applications: the host applies the migrations, so Bunderhost's
+  starter and several real applications never call `provision`, and they
+  would have come up empty. Since 0.33.1 `start()` seeds when every
+  committed migration is recorded as applied (`committedMigrationsApplied`,
+  read from drizzle's own `__drizzle_migrations`, which Bunderhost's
+  migrator writes the same way), before background work starts. A fresh
+  local database, a pending migration or an application without committed
+  migrations is left to `provision(app)`, which seeds after bringing the
+  schema up.
 - **Nothing sets `BUNDERSTACK_SEED` for local development but the
   application's own dev script.** Bunderstack has no dev command, and
   inferring "this is development" from `NODE_ENV` or a local database file

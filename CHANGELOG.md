@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.33.1
+
+- A process asked to seed (`BUNDERSTACK_SEED=1`) now does it at
+  `backend.start()` when every committed migration is already recorded in
+  the database, before background work starts. A host applies the
+  migrations and then starts the application, and many hosted applications
+  never call `provision(app)`: in 0.33.0 the seed ran only inside that call,
+  so such an application came up empty without a word. With migrations
+  still to apply, or with no migrations journal to go by, the seed is left
+  to `provision(app)` as before. A seed that fails at start fails the start.
+
 ## 0.33.0
 
 - Seeding: an application says in code what an empty database starts with.

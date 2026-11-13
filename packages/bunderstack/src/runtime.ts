@@ -85,6 +85,7 @@ import {
 import { isMessagingDescriptor } from './messaging/types'
 import {
   PROVISION_INTERNALS,
+  type ProvisionInternals,
   type WithProvisionInternals,
 } from './provision-internals'
 import { buildReadinessReport } from './readiness'
@@ -963,6 +964,33 @@ export async function materializeBunderstack<
       rateLimit: options.rateLimit,
     })
 
+    // Hidden handle for the optional `bunderstack/provision` entry. Kept off the
+    // public type so provisioning stays opt-in (and drizzle-kit out of this
+    // module graph).
+    const provisionInternals: ProvisionInternals = {
+      db,
+      schema: mergedSchema,
+      databaseUrl: config.database.url,
+      migrationsFolder: config.database.migrations,
+      dialect,
+      driver,
+      adapter: config.database.adapter,
+      userSchema: options.schema as Record<string, unknown>,
+      env,
+      ...(config.database.seed ? { seed: config.database.seed } : {}),
+      seedRequested: seedRequested(source),
+    }
+    // A host applies the migrations before it starts the application, and
+    // many applications never call `provision(app)` themselves. So a process
+    // that was asked to seed does it here when every committed migration is
+    // already in the database, before background work starts writing. With
+    // migrations still to apply, `provision(app)` seeds after applying them.
+    // The runner is loaded only on request: nothing else pays for it.
+    if (provisionInternals.seedRequested && provisionInternals.seed) {
+      const { seedAtStart } = await import('./seed-runtime')
+      await seedAtStart(provisionInternals)
+    }
+
     // Topology is a deployment concern: the role decides whether this process
     // runs background work, so application code never has to.
     const roleWantsWorker =
@@ -1013,22 +1041,7 @@ export async function materializeBunderstack<
       signal: lifecycle.signal,
     }
 
-    // Hidden handle for the optional `bunderstack/provision` entry. Kept off the
-    // public type so provisioning stays opt-in (and drizzle-kit out of this
-    // module graph).
-    ;(app as WithProvisionInternals)[PROVISION_INTERNALS] = {
-      db,
-      schema: mergedSchema,
-      databaseUrl: config.database.url,
-      migrationsFolder: config.database.migrations,
-      dialect,
-      driver,
-      adapter: config.database.adapter,
-      userSchema: options.schema as Record<string, unknown>,
-      env,
-      ...(config.database.seed ? { seed: config.database.seed } : {}),
-      seedRequested: seedRequested(source),
-    }
+    ;(app as WithProvisionInternals)[PROVISION_INTERNALS] = provisionInternals
 
     return app
   } catch (cause) {
