@@ -132,6 +132,11 @@ generated CRUD:
 await context.realtime.publish(schema.posts, 'update', updatedPost)
 ```
 
+Publish after the write has happened. `publish()` never throws: when Redis is
+down or slow, the event is dropped with a warning in the logs and the
+procedure still returns, so a saved change is not reported to its client as
+a failure and sent again.
+
 Use Redis realtime configuration when web and worker processes are separate;
 the memory publisher is process-local.
 

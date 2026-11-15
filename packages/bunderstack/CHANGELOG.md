@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.33.2
+
+- `jobs.enqueue()` with a `dedupeKey` survives a lost database connection.
+  A remote libSQL database closes idle pooled connections, and the next
+  insert can fail with `ECONNRESET` whether or not it reached the
+  database; a scheduled job that enqueues work every minute met that a few
+  times a day and skipped a run. An insert with a dedupe key is safe to
+  send twice, so the enqueue now looks for the row and inserts again
+  instead of failing. Without a dedupe key, or inside a transaction, the
+  error stands as before: a second insert could queue the job twice.
+- `realtime.publish()` never throws. A Redis that was unreachable for a
+  minute turned every write that announced itself into a 500, although the
+  write was saved, and a client that saw the 500 sent it again. The event
+  is now dropped with a warning naming the table, and the procedure
+  returns. Generated CRUD published without awaiting, so its failures were
+  unhandled rejections; they are warnings now too.
+
 ## 0.33.1
 
 - A process asked to seed (`BUNDERSTACK_SEED=1`) now does it at

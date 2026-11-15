@@ -123,3 +123,102 @@ test('same dedupeKey on a different type is a distinct job', async () => {
   )
   expect(b.id).not.toBe(a.id)
 })
+
+function lostConnection(): Error {
+  return Object.assign(
+    new Error('Failed query: insert into "_bunderstack_jobs" … params: …'),
+    {
+      cause: Object.assign(
+        new TypeError(
+          'ECONNRESET: The socket connection was closed unexpectedly.',
+        ),
+        { code: 'ECONNRESET' },
+      ),
+    },
+  )
+}
+
+/** The app database, except that its first insert loses the connection:
+ *  after the row is written when `landed`, before it is when not. */
+function losingFirstInsert(
+  target: LibSQLDatabase<Record<string, never>>,
+  landed: boolean,
+): LibSQLDatabase<Record<string, never>> {
+  let armed = true
+  return new Proxy(target, {
+    get(inner, prop, receiver) {
+      if (prop !== 'insert' || !armed) return Reflect.get(inner, prop, receiver)
+      return (table: never) => {
+        armed = false
+        const insert = inner.insert(table)
+        return {
+          values: (values: never) => ({
+            onConflictDoNothing: (config: never) => ({
+              returning: async (fields: never) => {
+                if (landed)
+                  await insert
+                    .values(values)
+                    .onConflictDoNothing(config)
+                    .returning(fields)
+                throw lostConnection()
+              },
+            }),
+          }),
+        }
+      }
+    },
+  })
+}
+
+async function rowsWithKey(dedupeKey: string) {
+  return db
+    .select({ id: bunderstackJobs.id })
+    .from(bunderstackJobs)
+    .where(eq(bunderstackJobs.dedupeKey, dedupeKey))
+}
+
+test.each([
+  ['after the row was written', true],
+  ['before the row was written', false],
+])('a deduped enqueue survives a connection lost %s', async (_when, landed) => {
+  const dedupeKey = `lost-${landed}`
+  const { id } = await enqueueJob(
+    losingFirstInsert(db, landed),
+    defs,
+    'bare',
+    undefined,
+    { dedupeKey },
+    Date.now(),
+    true,
+  )
+  expect(await rowsWithKey(dedupeKey)).toEqual([{ id }])
+})
+
+test('an enqueue without a dedupe key does not risk a second insert', async () => {
+  await expect(
+    enqueueJob(
+      losingFirstInsert(db, true),
+      defs,
+      'bare',
+      undefined,
+      {},
+      Date.now(),
+      true,
+    ),
+  ).rejects.toThrow(/Failed query/)
+})
+
+test('an enqueue inside a transaction lets a lost connection through', async () => {
+  await expect(
+    enqueueJob(
+      losingFirstInsert(db, false),
+      defs,
+      'bare',
+      undefined,
+      { dedupeKey: 'lost-in-tx' },
+      Date.now(),
+      false,
+    ),
+  ).rejects.toThrow(/Failed query/)
+  expect(await rowsWithKey('lost-in-tx')).toEqual([])
+})

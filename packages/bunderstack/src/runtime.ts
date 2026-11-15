@@ -557,6 +557,7 @@ export async function materializeBunderstack<
       publisher,
       runtimeRealtimeTransport,
       options.schema,
+      logger,
     )
     const registry = createBucketStorages(config.storage)
     const storageOperations = createStorageOperations({
@@ -674,6 +675,7 @@ export async function materializeBunderstack<
           input,
           enqueueOptions,
           enqueueNow,
+          tx === undefined,
         )
         return result
       },

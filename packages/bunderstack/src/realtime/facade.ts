@@ -5,7 +5,10 @@ import {
   type Table,
 } from 'drizzle-orm'
 
+import type { BunderstackLogger } from '../logging'
 import type { RealtimeAction, RealtimePublisher } from './publisher'
+
+import { consoleLogger } from '../logging'
 
 export type RealtimeTransport = 'disabled' | 'memory' | 'redis'
 
@@ -20,6 +23,12 @@ export interface RealtimeFacade<
   readonly enabled: boolean
   readonly transport: RealtimeTransport
 
+  /**
+   * Announce a write that has already happened. It never throws: a Redis that
+   * is down or slow costs subscribers one live update (they catch up when
+   * they resubscribe), not the request that made the write, which a client
+   * would otherwise see fail and send again.
+   */
   publish<TTable extends SchemaTable<TSchema>>(
     table: TTable,
     action: RealtimeAction,
@@ -39,6 +48,7 @@ export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
   publisher?: RealtimePublisher,
   transport: RealtimeTransport = publisher ? 'memory' : 'disabled',
   schema?: TSchema,
+  logger: Pick<BunderstackLogger, 'warn'> = consoleLogger,
 ): RealtimeFacade<TSchema> {
   if (!publisher && transport !== 'disabled') {
     throw new Error(
@@ -62,12 +72,31 @@ export function createRealtimeFacade<TSchema extends Record<string, unknown>>(
     async publish(table, action, record, metadata) {
       if (!publisher) return
       const tableName = getTableName(table)
-      await publisher.publish('change', {
-        table: keyByTableName.get(tableName) ?? tableName,
-        action,
-        record: record as unknown as Record<string, unknown>,
-        ...(metadata?.operationId ? { operationId: metadata.operationId } : {}),
-      })
+      const key = keyByTableName.get(tableName) ?? tableName
+      try {
+        await publisher.publish('change', {
+          table: key,
+          action,
+          record: record as unknown as Record<string, unknown>,
+          ...(metadata?.operationId
+            ? { operationId: metadata.operationId }
+            : {}),
+        })
+      } catch (error) {
+        logger.warn(
+          `[bunderstack] realtime: the ${action} of a \`${key}\` row was saved, ` +
+            `but announcing it to subscribers failed (${transport}): ` +
+            describe(error),
+        )
+      }
     },
   }
+}
+
+function describe(error: unknown): string {
+  if (!(error instanceof Error)) return String(error)
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && !error.message.includes(code)
+    ? `${error.name}: ${error.message} (${code})`
+    : `${error.name}: ${error.message}`
 }

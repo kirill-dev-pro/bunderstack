@@ -104,4 +104,30 @@ describe('RealtimeFacade', () => {
     expect(realtime.enabled).toBe(true)
     expect(realtime.transport).toBe(expected)
   })
+  test('a publisher that fails costs the event, not the write that caused it', async () => {
+    const publisher = createMemoryRealtimePublisher()
+    publisher.publish = async () => {
+      throw Object.assign(new Error('Connection has failed'), {
+        name: 'RedisError',
+        code: 'ERR_REDIS_CONNECTION_CLOSED',
+      })
+    }
+    const warnings: string[] = []
+    const realtime = createRealtimeFacade<{ boards: typeof boards }>(
+      publisher,
+      'redis',
+      { boards },
+      { warn: (message: unknown) => warnings.push(String(message)) },
+    )
+
+    await expect(
+      realtime.publish(boards, 'create', { id: 'b1', title: 'Board' }),
+    ).resolves.toBeUndefined()
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('`boards`')
+    expect(warnings[0]).toContain('(redis)')
+    expect(warnings[0]).toContain(
+      'RedisError: Connection has failed (ERR_REDIS_CONNECTION_CLOSED)',
+    )
+  })
 })

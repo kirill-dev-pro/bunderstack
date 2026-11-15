@@ -6,6 +6,7 @@ import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
 import type { AnyDb, Dialect } from '../dialect'
 import type { EnqueueOptions, JobsDefs } from './define'
 
+import { isLostConnectionError } from '../database/lost-connection'
 import { jobsTableFor } from '../internal-tables'
 import { validateStandardSchema } from '../standard-schema'
 import { generate } from '../typeid'
@@ -41,6 +42,9 @@ export async function enqueueJob(
   input: unknown,
   opts: EnqueueOptions = {},
   now: number = Date.now(),
+  /** False when `db` is the caller's transaction: a connection lost inside
+   *  one takes the transaction with it, so nothing here can recover it. */
+  outsideTransaction = false,
 ): Promise<{ id: string }> {
   const def = defs[name]
   if (!def) {
@@ -60,24 +64,43 @@ export async function enqueueJob(
       ? new Date(opts.runAt).getTime()
       : now + (opts.delay ?? 0)
 
+  // An insert with a dedupe key is safe to send twice: whatever the first one
+  // wrote is found by the read below, and a second insert collapses into it.
+  // So a connection lost on the way costs a round instead of the enqueue.
+  // Without a key a second insert could queue the job twice, so the error
+  // stands.
+  const recoverable = outsideTransaction && opts.dedupeKey != null
+  let lostConnection: unknown
   // Two rounds cover the race where the deduping row reaches a terminal state
   // (clearing its key) between our failed insert and our read.
   for (let round = 0; round < 2; round++) {
     const id = generate('job')
-    const insertedRows = await db
-      .insert(t)
-      .values({
-        id,
-        type,
-        payloadJson: JSON.stringify(parsed),
-        status: 'pending',
-        attempts: 0,
-        runAt,
-        dedupeKey: opts.dedupeKey ?? null,
-        createdAt: now,
-      })
-      .onConflictDoNothing({ target: [t.type, t.dedupeKey] })
-      .returning({ id: t.id })
+    let insertedRows: Array<{ id: unknown }> = []
+    try {
+      insertedRows = await db
+        .insert(t)
+        .values({
+          id,
+          type,
+          payloadJson: JSON.stringify(parsed),
+          status: 'pending',
+          attempts: 0,
+          runAt,
+          dedupeKey: opts.dedupeKey ?? null,
+          createdAt: now,
+        })
+        .onConflictDoNothing({ target: [t.type, t.dedupeKey] })
+        .returning({ id: t.id })
+    } catch (error) {
+      if (
+        !recoverable ||
+        lostConnection !== undefined ||
+        !isLostConnectionError(error)
+      ) {
+        throw error
+      }
+      lostConnection = error
+    }
     if (insertedRows[0]) return { id: String(insertedRows[0].id) }
     const existing = await db
       .select({ id: t.id })
@@ -86,6 +109,7 @@ export async function enqueueJob(
       .limit(1)
     if (existing[0]) return { id: String(existing[0].id) }
   }
+  if (lostConnection !== undefined) throw lostConnection
   throw new Error(
     `[bunderstack] enqueue of "${name}" lost a dedupe race twice — please retry`,
   )
