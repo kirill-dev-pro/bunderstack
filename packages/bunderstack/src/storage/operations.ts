@@ -95,6 +95,31 @@ function sanitizeFilename(name: string): string {
   return name.replace(/["\\\r\n]/g, '')
 }
 
+/**
+ * `Content-Disposition` for a downloaded file, carrying its uploaded name.
+ *
+ * Header values are Latin-1 byte strings and `Headers#set` throws on anything
+ * else, so a name in Cyrillic or Chinese, or a macOS screenshot name with its
+ * narrow no-break space, made every download of that file answer 500. A name
+ * outside printable ASCII now travels as RFC 8187 `filename*` (UTF-8,
+ * percent-encoded), next to an ASCII `filename` for clients that ignore the
+ * extended form (RFC 6266 §4.3). An ASCII name gives the same header as before.
+ */
+export function contentDisposition(name: string): string {
+  const clean = sanitizeFilename(name)
+  const fallback = clean
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7e]/g, '_')
+  if (fallback === clean) return `inline; filename="${clean}"`
+  // encodeURIComponent leaves ' ( ) * as they are; RFC 8187 attr-char does not allow them.
+  const encoded = encodeURIComponent(clean).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+  return `inline; filename="${fallback}"; filename*=UTF-8''${encoded}`
+}
+
 async function quotaExceeded(
   db: AnyDb,
   bucket: string,
@@ -366,10 +391,7 @@ export function createStorageOperations(options: StorageOperationsOptions) {
       const response = await adapter.get(fileId)
       const headers = new Headers(response.headers)
       if (response.status !== 404 && row.filename) {
-        headers.set(
-          'Content-Disposition',
-          `inline; filename="${sanitizeFilename(row.filename)}"`,
-        )
+        headers.set('Content-Disposition', contentDisposition(row.filename))
       }
       // A public file streamed by the app (no public bucket URL) is the same
       // for every reader; let browsers and mail image proxies keep it.

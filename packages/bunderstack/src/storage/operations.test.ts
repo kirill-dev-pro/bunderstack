@@ -11,7 +11,7 @@ import { createDb } from '../db'
 import { BunderstackError } from '../errors'
 import { INTERNAL_TABLES } from '../internal-tables'
 import { getFileMeta } from './file-meta'
-import { createStorageOperations } from './operations'
+import { contentDisposition, createStorageOperations } from './operations'
 
 class MemoryAdapter implements StorageAdapter {
   readonly objects = new Map<string, { bytes: Uint8Array; type: string }>()
@@ -234,6 +234,45 @@ test('download applies owner access, returns proxy bytes, and delete cleans meta
   await operations.delete('docs', id, context('u1'))
   expect(await getFileMeta(db, uploaded.fileId)).toBeNull()
   expect(adapter.objects.has(uploaded.fileId)).toBe(false)
+})
+
+test('download serves a file whose name is not Latin-1', async () => {
+  // A macOS screenshot name in Russian, with the narrow no-break space before the extension.
+  const name = 'Снимок экрана 2026-11-18 в 19.14.30 .png'
+  const uploaded = await operations.upload(
+    'docs',
+    new File(['png'], name, { type: 'image/png' }),
+    context('u1'),
+  )
+  const id = uploaded.fileId.slice('docs/'.length)
+
+  const downloaded = await operations.download('docs', id, {}, context('u1'))
+  if (downloaded.kind !== 'body') throw new Error('expected body')
+  expect(await new Response(downloaded.body).text()).toBe('png')
+  const header = downloaded.headers.get('Content-Disposition') ?? ''
+  expect(header).toStartWith('inline; filename="')
+  expect(header).toContain(`filename*=UTF-8''${encodeURIComponent(name)}`)
+})
+
+test('contentDisposition keeps ASCII names and encodes the rest', () => {
+  expect(contentDisposition('my report.txt')).toBe(
+    'inline; filename="my report.txt"',
+  )
+  expect(contentDisposition('say "hi"\r\n.txt')).toBe(
+    'inline; filename="say hi.txt"',
+  )
+  expect(contentDisposition('Résumé.pdf')).toBe(
+    `inline; filename="Resume.pdf"; filename*=UTF-8''R%C3%A9sum%C3%A9.pdf`,
+  )
+  expect(contentDisposition("Отчёт (итог)'s*.pdf")).toBe(
+    `inline; filename="_____ (____)'s*.pdf"; filename*=UTF-8''%D0%9E%D1%82%D1%87%D1%91%D1%82%20%28%D0%B8%D1%82%D0%BE%D0%B3%29%27s%2A.pdf`,
+  )
+  // Every result must be a valid header value.
+  for (const name of ['日本語.txt', 'emoji 📄.pdf', 'tab\there.txt']) {
+    expect(() =>
+      new Headers().set('Content-Disposition', contentDisposition(name)),
+    ).not.toThrow()
+  }
 })
 
 test('private presigned and public buckets return redirects', async () => {

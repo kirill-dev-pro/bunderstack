@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.3
+
+- A stored file whose name is not Latin-1 downloads again. The download
+  put the uploaded name into `Content-Disposition` as it was, and header
+  values must be Latin-1, so `Headers#set` threw and the request answered
+  500: a name in Cyrillic or Chinese, or a macOS screenshot name with its
+  narrow no-break space, made the file unreachable, and an image uploaded
+  under such a name showed nowhere. Such a name now travels as RFC 8187
+  `filename*` (UTF-8, percent-encoded), next to an ASCII `filename` for
+  clients that ignore the extended form. An ASCII name gives the same
+  header as before. Files uploaded earlier are fixed too: the header is
+  built when the file is downloaded.
+
 ## 0.33.2
 
 - `jobs.enqueue()` with a `dedupeKey` survives a lost database connection.
