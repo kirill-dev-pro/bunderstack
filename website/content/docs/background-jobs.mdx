@@ -77,6 +77,27 @@ bun run worker
 `app.startWorker()` is useful for an explicitly embedded worker;
 `app.runWorker()` owns a dedicated worker process until shutdown.
 
+### How often the worker reads the database
+
+The worker sleeps until its next due work: a delayed job, a retry waiting out
+its backoff, or a cron slot. Each look at the queue is one grouped query that
+also says when the next delayed job or retry comes due, and cron slots are
+computed in memory, so an idle worker costs one read per look. An
+`app.jobs.enqueue()` in the worker's own process, a job handler's included,
+wakes it at once.
+
+Between those, `pollIntervalMs` bounds how late the worker sees rows another
+process wrote:
+
+| Worker                                                  | Default `pollIntervalMs` |
+| ------------------------------------------------------- | ------------------------ |
+| embedded: `BUNDERSTACK_ROLE=all`, `app.startWorker()`   | 30 000                   |
+| dedicated: `app.runWorker()`, `BUNDERSTACK_ROLE=worker` | 1 000                    |
+
+A dedicated worker hears no enqueues from the web process, so it keeps looking
+every second. Set `background: { pollIntervalMs }` for the auto-started worker,
+or pass `pollIntervalMs` to `startWorker()` or `runWorker()`.
+
 ### Concurrency
 
 Queue jobs run in a continuous per-type pool. With one worker, omitted

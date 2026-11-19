@@ -58,3 +58,20 @@ export function slotsDue(args: {
   }
   return slots
 }
+
+/**
+ * The first slot matching `cron` in `(after, until]`, or null. Iterates one
+ * minute at a time, so callers keep the range short: the worker asks only as
+ * far ahead as it would sleep anyway.
+ */
+export function nextCronSlot(
+  cron: ParsedCron,
+  after: number,
+  until: number,
+): number | null {
+  const last = floorSlot(until)
+  for (let s = floorSlot(after) + SLOT_MS; s <= last; s += SLOT_MS) {
+    if (cronMatches(cron, s)) return s
+  }
+  return null
+}

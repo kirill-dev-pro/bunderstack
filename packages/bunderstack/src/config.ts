@@ -209,7 +209,17 @@ export type BunderstackConfig<
   /** Explicitly project application fields from Better Auth into API users. */
   session?: TSession
   storage?: TStorage
-  background?: { autoStart?: boolean }
+  background?: {
+    autoStart?: boolean
+    /**
+     * The longest the auto-started worker waits between looks at the
+     * database, in ms. It sleeps until its next delayed job or cron slot and
+     * wakes at once for an enqueue in its own process, so this bounds only how
+     * late it sees rows another process wrote. Defaults to 30 000 with
+     * `BUNDERSTACK_ROLE=all` and 1 000 with `BUNDERSTACK_ROLE=worker`.
+     */
+    pollIntervalMs?: number
+  }
   messaging?: MessagingConfig
   /**
    * The application's oRPC router. Pass the finished router object, or a

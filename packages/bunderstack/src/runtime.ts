@@ -70,7 +70,10 @@ import { buildHandler } from './handler'
 import { withInternalTables } from './internal-tables'
 import {
   createJobRunner,
+  DEDICATED_POLL_INTERVAL_MS,
+  EMBEDDED_POLL_INTERVAL_MS,
   enqueueJob,
+  enqueueRunAt,
   enqueueTarget,
   startJobWorker,
 } from './jobs/index'
@@ -668,15 +671,19 @@ export async function materializeBunderstack<
           )
         }
         const { tx, ...enqueueOptions } = opts ?? {}
+        const now = enqueueNow ?? Date.now()
         const result = await enqueueJob(
           enqueueTarget(db, tx),
           resolvedDefs,
           name,
           input,
           enqueueOptions,
-          enqueueNow,
+          now,
           tx === undefined,
         )
+        // A worker in this process sleeps until its next due work; this job
+        // may come due before that.
+        jobRunner?.notify(enqueueRunAt(enqueueOptions, now))
         return result
       },
       tick(now?: number) {
@@ -736,8 +743,11 @@ export async function materializeBunderstack<
         : lifecycle.signal
       const handle = startJobWorker({
         ...options,
+        // Embedded beside the code that enqueues, the worker is woken by each
+        // enqueue; its interval only bounds how late it sees other processes'.
+        pollIntervalMs: options.pollIntervalMs ?? EMBEDDED_POLL_INTERVAL_MS,
         signal,
-        tick: (now) => jobRunner.pump(now),
+        tick: (now, until) => jobRunner.pump(now, until),
         drain: () => jobRunner.drain(),
       })
       const unregister = lifecycle.add(() => handle.close())
@@ -759,7 +769,11 @@ export async function materializeBunderstack<
         allowProcessLocalRealtime: _allowProcessLocalRealtime,
         ...workerOptions
       } = options
-      const handle = await startWorker(workerOptions)
+      const handle = await startWorker({
+        ...workerOptions,
+        pollIntervalMs:
+          workerOptions.pollIntervalMs ?? DEDICATED_POLL_INTERVAL_MS,
+      })
       try {
         const signal = workerOptions.signal
           ? AbortSignal.any([lifecycle.signal, workerOptions.signal])
@@ -1004,7 +1018,14 @@ export async function materializeBunderstack<
           (roleWantsWorker && resolvedDefs !== undefined))
     let backgroundRunning = false
     if (autoStart) {
-      await startWorker()
+      // A `worker` process serves no requests, so it hears no enqueues.
+      await startWorker({
+        pollIntervalMs:
+          options.background?.pollIntervalMs ??
+          (env.BUNDERSTACK_ROLE === 'worker'
+            ? DEDICATED_POLL_INTERVAL_MS
+            : EMBEDDED_POLL_INTERVAL_MS),
+      })
       backgroundRunning = true
     }
 

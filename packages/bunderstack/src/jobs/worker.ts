@@ -35,12 +35,13 @@ import { consoleLogger } from '../logging'
 import { validateStandardSchema } from '../standard-schema'
 import { noopTelemetry, rootCauseMessage } from '../telemetry/telemetry'
 import { generate } from '../typeid'
-import { parseCron } from './cron'
+import { parseCron, type ParsedCron } from './cron'
 import { backoffMs, DEFAULT_RETRIES, leaseDurationFor } from './define'
 import {
   CRON_PREFIX,
   CRON_SLOT_KEY,
   floorSlot,
+  nextCronSlot,
   slotsDue,
   SLOT_MS,
 } from './slots'
@@ -52,6 +53,9 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const FAILED_RETENTION_MS = 30 * DAY_MS
 const REAP_INTERVAL_MS = 60 * 60_000
 const REAP_BATCH = 1000
+/** A pump woken by an enqueue that finds nothing looks once more this soon:
+ *  an enqueue inside a transaction is not visible until the commit. */
+const POKE_RETRY_MS = 1_000
 
 class JobExecutionTimeoutError extends Error {
   constructor(maxRuntime: number) {
@@ -92,10 +96,22 @@ type LeaseHeartbeat = {
   stop(): Promise<void>
 }
 
-type PumpResult = { wake?: Promise<void> }
+type PumpResult = {
+  /** Settles when a handler started here finishes or this process enqueues. */
+  wake?: Promise<void>
+  /** When the earliest work the pump could see comes due, if any. */
+  nextAt?: number
+}
 
 /** Per-type counts of due pending and running rows, from one grouped query. */
 type QueueCounts = Map<string, { pending: number; running: number }>
+
+type QueueSnapshot = {
+  counts: QueueCounts
+  /** The earliest pending row due after `now` and no later than the
+   *  snapshot's horizon. */
+  nextAt?: number
+}
 
 type CronCursor = {
   checkedThrough: number
@@ -133,6 +149,14 @@ function toError(err: unknown): Error {
 
 function maxAttempts(def: AnyBackgroundDefinition): number {
   return 1 + (def.retries ?? DEFAULT_RETRIES)
+}
+
+function deferredSignal(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 /** Resolve a stored row type back to its definition. Cron rows carry the
@@ -214,6 +238,33 @@ export function createJobRunner(deps: {
   let lastReapAt = 0
   const active = new Map<string, Set<Promise<void>>>()
   const cronCursors = new Map<string, CronCursor>()
+  const parsedCrons = new Map<string, ParsedCron>()
+
+  function cronOf(name: string, schedule: string): ParsedCron {
+    let parsed = parsedCrons.get(name)
+    if (!parsed) {
+      parsed = parseCron(schedule)
+      parsedCrons.set(name, parsed)
+    }
+    return parsed
+  }
+
+  // An enqueue in this process wakes the pump's caller instead of waiting for
+  // its next look. Each pump hands out a fresh promise, so one that nothing
+  // ever settles is dropped with the pump that made it.
+  let poke = deferredSignal()
+  let poked = false
+  /** When the caller will look again on its own: the earliest work the last
+   *  pump saw, or the end of its horizon. A row due later than that is found
+   *  by a later look, so enqueueing it needs no wake. Unknown while a pump
+   *  runs (its read may already be behind it), so every enqueue wakes then. */
+  let nextLookAt = Number.POSITIVE_INFINITY
+
+  function notify(runAt: number = Date.now()) {
+    if (runAt >= nextLookAt) return
+    poked = true
+    poke.resolve()
+  }
 
   function ownershipPredicate(id: string, owner: LeaseOwner) {
     return and(
@@ -372,7 +423,7 @@ export function createJobRunner(deps: {
       const type = `${CRON_PREFIX}${name}`
       const cursor = await cronCursor(type, now)
       const slots = slotsDue({
-        cron: parseCron(def.schedule),
+        cron: cronOf(name, def.schedule),
         from: cursor.checkedThrough,
         to: through,
         catchUp: def.catchUp,
@@ -428,29 +479,59 @@ export function createJobRunner(deps: {
     }
   }
 
-  /** One grouped read replaces a running-count probe and a claim attempt per
-   *  definition: a pump then touches only the types that have due work. */
-  async function countQueue(now: number): Promise<QueueCounts> {
+  /**
+   * One grouped read replaces a running-count probe and a claim attempt per
+   * definition: a pump then touches only the types that have due work.
+   *
+   * The same read looks ahead to `until` for the earliest pending row that
+   * comes due after `now`, so the caller can sleep until then. Rows due by
+   * `until` run within the caller's polling interval anyway; a backlog
+   * delayed beyond it is not read.
+   */
+  async function snapshotQueue(
+    now: number,
+    until: number,
+  ): Promise<QueueSnapshot> {
+    // A retrying cron waits out its backoff in lockedUntil (retryPatch), so a
+    // pending row comes due at the later of the two. Same rule as dueNow.
+    const dueAt = sql`case when ${t.lockedUntil} > ${t.runAt} then ${t.lockedUntil} else ${t.runAt} end`
     const rows = await db
       .select({
         type: t.type,
         status: t.status,
         count: sql<number | string>`count(*)`,
+        due: sql<
+          number | string | null
+        >`sum(case when ${dueAt} <= ${now} then 1 else 0 end)`,
+        next: sql<
+          number | string | null
+        >`min(case when ${dueAt} > ${now} then ${dueAt} end)`,
       })
       .from(t)
-      .where(or(dueNow(t, now), eq(t.status, 'running')))
+      .where(
+        or(
+          and(eq(t.status, 'pending'), lte(t.runAt, Math.max(now, until))),
+          eq(t.status, 'running'),
+        ),
+      )
       .groupBy(t.type, t.status)
     const counts: QueueCounts = new Map()
+    let nextAt: number | undefined
     for (const row of rows) {
       let entry = counts.get(row.type)
       if (!entry) {
         entry = { pending: 0, running: 0 }
         counts.set(row.type, entry)
       }
-      if (row.status === 'pending') entry.pending = Number(row.count)
-      else entry.running = Number(row.count)
+      if (row.status === 'pending') {
+        entry.pending = Number(row.due ?? 0)
+        if (row.next != null) {
+          const next = Number(row.next)
+          if (nextAt === undefined || next < nextAt) nextAt = next
+        }
+      } else entry.running = Number(row.count)
     }
-    return counts
+    return { counts, nextAt }
   }
 
   function anyRunning(counts: QueueCounts): boolean {
@@ -833,7 +914,7 @@ export function createJobRunner(deps: {
 
   async function runClaimable(
     now: number,
-    counts: QueueCounts,
+    { counts }: QueueSnapshot,
   ): Promise<TickResult> {
     const claimedWork: ClaimedWork[] = []
     let totalClaimed = 0
@@ -861,17 +942,38 @@ export function createJobRunner(deps: {
   /** Housekeeping, then a queue snapshot the claim phase works from. A pump
    *  with nothing due costs one read; a lease recovery re-reads the snapshot
    *  since it moves rows between the counted states. */
-  async function maintain(now: number): Promise<QueueCounts> {
+  async function maintain(now: number, until: number): Promise<QueueSnapshot> {
     await materializeCronSlots(now)
-    let counts = await countQueue(now)
-    if (anyRunning(counts) && (await recoverExpiredLeases(now)) > 0) {
-      counts = await countQueue(now)
+    let snapshot = await snapshotQueue(now, until)
+    if (anyRunning(snapshot.counts) && (await recoverExpiredLeases(now)) > 0) {
+      snapshot = await snapshotQueue(now, until)
     }
     if (now - lastReapAt >= REAP_INTERVAL_MS) {
       lastReapAt = now
       await reapFinished(now)
     }
-    return counts
+    return snapshot
+  }
+
+  /** The earliest cron slot after `now` and no later than `until`, from the
+   *  cursors in memory: knowing it costs no read. A slot already due but not
+   *  yet taken (its row still holds an earlier one) is not ahead; the finish
+   *  of that earlier run wakes the pump instead. */
+  function nextCronAt(now: number, until: number): number | undefined {
+    let nextAt: number | undefined
+    for (const [name, def] of Object.entries(defs)) {
+      if (def.kind !== 'cron') continue
+      const cursor = cronCursors.get(`${CRON_PREFIX}${name}`)
+      const slot = nextCronSlot(
+        cronOf(name, def.schedule),
+        Math.max(cursor?.checkedThrough ?? 0, floorSlot(now)),
+        until,
+      )
+      if (slot !== null && (nextAt === undefined || slot < nextAt)) {
+        nextAt = slot
+      }
+    }
+    return nextAt
   }
 
   function startWork(
@@ -898,17 +1000,51 @@ export function createJobRunner(deps: {
     return task
   }
 
-  async function pump(now: number = Date.now()): Promise<PumpResult> {
-    const counts = await maintain(now)
+  /**
+   * Claims and starts what is due, then says when to come back: `wake`
+   * settles when a handler started here finishes or this process enqueues,
+   * and `nextAt` is the earliest delayed job, retry or cron slot due by
+   * `until`. Between them the caller can sleep without reading the database.
+   * `until` defaults to `now`: a pump that is not told how far its caller
+   * sleeps looks no further ahead than it did before.
+   */
+  async function pump(
+    now: number = Date.now(),
+    until: number = now,
+  ): Promise<PumpResult> {
+    const wasPoked = poked
+    poked = false
+    poke = deferredSignal()
+    const woken = poke.promise
+    nextLookAt = Number.POSITIVE_INFINITY
+
+    const snapshot = await maintain(now, until)
+    let claimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      const work = await claimAvailable(type, def, now, counts)
+      const work = await claimAvailable(type, def, now, snapshot.counts)
+      claimed += work.length
       for (const item of work) startWork(type, item, now)
     }
-    const snapshot = [...active.values()].flatMap((tasks) => [...tasks])
-    return snapshot.length === 0
-      ? {}
-      : { wake: Promise.race(snapshot).then(() => undefined) }
+
+    const candidates = [snapshot.nextAt, nextCronAt(now, until)]
+    if (wasPoked && claimed === 0) candidates.push(now + POKE_RETRY_MS)
+    let nextAt: number | undefined
+    for (const candidate of candidates) {
+      if (
+        candidate !== undefined &&
+        (nextAt === undefined || candidate < nextAt)
+      )
+        nextAt = candidate
+    }
+    nextLookAt = nextAt === undefined ? until : Math.min(nextAt, until)
+
+    const running = [...active.values()].flatMap((tasks) => [...tasks])
+    const wake =
+      running.length === 0
+        ? woken
+        : Promise.race([...running, woken]).then(() => undefined)
+    return nextAt === undefined ? { wake } : { wake, nextAt }
   }
 
   async function drain(): Promise<void> {
@@ -918,11 +1054,13 @@ export function createJobRunner(deps: {
 
   return {
     async tick(now: number = Date.now()): Promise<TickResult> {
-      const counts = await maintain(now)
-      return runClaimable(now, counts)
+      return runClaimable(now, await maintain(now, now))
     },
     pump,
     drain,
+    /** Tells a sleeping pump caller that this process queued work due at
+     *  `runAt`. Work due after its next own look needs no wake. */
+    notify,
     async inspect(now: number) {
       const runnableRows = await db
         .select({ id: t.id })

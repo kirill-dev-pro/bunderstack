@@ -64,6 +64,37 @@ test('pg: enqueue, claim, run; the finished row is gone', async () => {
   expect(rows).toHaveLength(0)
 })
 
+test('pg: a pump counts due work and names the next delayed job in one read', async () => {
+  const seen: string[] = []
+  const defs: JobsDefs = {
+    pgLater: {
+      kind: 'job',
+      input: v.object({ n: v.string() }),
+      handler: async ({ n }) => {
+        seen.push(n)
+      },
+    },
+  }
+  const r = runner(defs)
+  const now = Date.now()
+  await enqueueJob(db as never, defs, 'pgLater', { n: 'due' }, { runAt: now })
+  await enqueueJob(
+    db as never,
+    defs,
+    'pgLater',
+    { n: 'later' },
+    { runAt: now + 10_000 },
+  )
+
+  const result = await r.pump(now, now + 30_000)
+  expect(result.nextAt).toBe(now + 10_000)
+  await r.drain()
+  expect(seen).toEqual(['due'])
+  // Leave nothing pending for the tests after this one.
+  await r.tick(now + 10_000)
+  expect(seen).toEqual(['due', 'later'])
+})
+
 test('pg: dedupe key collapses duplicate enqueues', async () => {
   const defs: JobsDefs = { ok: { kind: 'job', handler: async () => {} } }
   const a = await enqueueJob(db as never, defs, 'ok', undefined, {

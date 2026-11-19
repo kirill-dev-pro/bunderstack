@@ -32,9 +32,13 @@ export type {
   JobsFacade,
   JobsRuntimeFacade,
 } from './define'
-export { enqueueJob, enqueueTarget } from './queue'
+export { enqueueJob, enqueueRunAt, enqueueTarget } from './queue'
 export { createJobRunner } from './worker'
-export { startJobWorker } from './runtime'
+export {
+  DEDICATED_POLL_INTERVAL_MS,
+  EMBEDDED_POLL_INTERVAL_MS,
+  startJobWorker,
+} from './runtime'
 export type {
   StartWorkerOptions,
   RunWorkerOptions,

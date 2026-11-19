@@ -35,6 +35,16 @@ export function enqueueTarget(db: AnyDb, tx: AnyDb | undefined): AnyDb {
   return tx
 }
 
+/** When an enqueue with these options makes its job due. */
+export function enqueueRunAt(
+  opts: Pick<EnqueueOptions, 'runAt' | 'delay'>,
+  now: number,
+): number {
+  return opts.runAt !== undefined
+    ? new Date(opts.runAt).getTime()
+    : now + (opts.delay ?? 0)
+}
+
 export async function enqueueJob(
   db: AnyDb,
   defs: JobsDefs,
@@ -59,10 +69,7 @@ export async function enqueueJob(
       ? validateStandardSchema(def.input, input, `job "${name}" input`)
       : null
   const t = jobsTableFor(db)
-  const runAt =
-    opts.runAt !== undefined
-      ? new Date(opts.runAt).getTime()
-      : now + (opts.delay ?? 0)
+  const runAt = enqueueRunAt(opts, now)
 
   // An insert with a dedupe key is safe to send twice: whatever the first one
   // wrote is found by the read below, and a second insert collapses into it.

@@ -1034,6 +1034,11 @@ test('an idle pump costs one read regardless of how many definitions exist', asy
     await r.pump(now + 1_000)
     expect(statements).toBe(1)
 
+    // Looking ahead for the next due work rides on the same read.
+    statements = 0
+    await r.pump(now + 1_000, now + 31_000)
+    expect(statements).toBe(1)
+
     await enqueueJob(db, defs, 'job3', undefined, { runAt: now + 1_500 })
     statements = 0
     const busy = await r.pump(now + 2_000)
@@ -1045,4 +1050,117 @@ test('an idle pump costs one read regardless of how many definitions exist', asy
   } finally {
     client.execute = original
   }
+})
+
+/** Whether `promise` settles within a few event-loop turns. */
+async function settles(promise: Promise<unknown> | undefined) {
+  if (!promise) return false
+  return Promise.race([
+    promise.then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 20)),
+  ])
+}
+
+test('a pump names the next delayed job due within its horizon, and none beyond it', async () => {
+  const defs: JobsDefs = { later: { kind: 'job', handler: async () => {} } }
+  const r = runner(defs)
+  const now = Date.now()
+  await enqueueJob(db, defs, 'later', undefined, { runAt: now + 10_000 })
+
+  expect((await r.pump(now, now + 30_000)).nextAt).toBe(now + 10_000)
+  expect((await r.pump(now, now + 5_000)).nextAt).toBeUndefined()
+  // Without a horizon the pump reads no further ahead than `now`.
+  expect((await r.pump(now)).nextAt).toBeUndefined()
+})
+
+test('a pump names the next cron slot within its horizon without reading it', async () => {
+  const defs: JobsDefs = {
+    every5: { kind: 'cron', schedule: '*/5 * * * *', handler: async () => {} },
+  }
+  const r = runner(defs)
+  const now = Date.parse('2026-08-07T10:01:30Z')
+  await r.pump(now)
+
+  expect((await r.pump(now, now + 10 * SLOT_MS)).nextAt).toBe(
+    Date.parse('2026-08-07T10:05:00Z'),
+  )
+  expect((await r.pump(now, now + 30_000)).nextAt).toBeUndefined()
+})
+
+test('a retrying cron comes due when its backoff ends', async () => {
+  const defs: JobsDefs = {
+    flaky: {
+      kind: 'cron',
+      schedule: '0 0 1 1 *',
+      retries: 1,
+      backoff: () => 5_000,
+      handler: () => {
+        throw new Error('boom')
+      },
+    },
+  }
+  const r = runner(defs)
+  const slot = Date.parse('2026-01-01T00:00:00Z')
+  await r.tick(slot + 30_000)
+  const [row] = await cronRows('flaky')
+  expect(row!.status).toBe('pending')
+  const notBefore = Number(row!.lockedUntil)
+  expect(notBefore).toBeGreaterThan(slot + 30_000)
+
+  expect((await r.pump(slot + 31_000, slot + 60_000)).nextAt).toBe(notBefore)
+})
+
+test('due work the pump cannot claim does not bring its next look forward', async () => {
+  const gate = deferred()
+  const defs: JobsDefs = {
+    single: { kind: 'job', concurrency: 1, handler: () => gate.promise },
+  }
+  const r = runner(defs)
+  const now = Date.now()
+  await enqueueJob(db, defs, 'single', undefined, { runAt: now - 2 })
+  await enqueueJob(db, defs, 'single', undefined, { runAt: now - 1 })
+
+  const first = await r.pump(now, now + 30_000)
+  expect(first.nextAt).toBeUndefined()
+  expect(first.wake).toBeDefined()
+  gate.resolve()
+  await r.drain()
+})
+
+test('an enqueue in this process wakes an idle pump unless it is due after the next look', async () => {
+  const defs: JobsDefs = { quick: { kind: 'job', handler: async () => {} } }
+  const r = runner(defs)
+  const now = Date.now()
+
+  const idle = await r.pump(now, now + 30_000)
+  r.notify(now + 60_000)
+  expect(await settles(idle.wake)).toBe(false)
+  r.notify(now)
+  expect(await settles(idle.wake)).toBe(true)
+})
+
+test('a woken pump that finds nothing looks again within a second', async () => {
+  const defs: JobsDefs = { quick: { kind: 'job', handler: async () => {} } }
+  const r = runner(defs)
+  const now = Date.now()
+  await r.pump(now, now + 30_000)
+
+  // An enqueue inside a transaction wakes the pump before its row commits.
+  r.notify(now)
+  const woken = await r.pump(now + 1, now + 30_001)
+  expect(woken.nextAt).toBe(now + 1 + 1_000)
+  // The look after that is not a woken one.
+  expect((await r.pump(now + 2, now + 30_002)).nextAt).toBeUndefined()
+})
+
+test('an enqueue during a pump wakes the caller as soon as the pump returns', async () => {
+  const defs: JobsDefs = { quick: { kind: 'job', handler: async () => {} } }
+  const r = runner(defs)
+  const now = Date.now()
+  await r.pump(now, now + 30_000)
+
+  const pumping = r.pump(now + 1, now + 30_001)
+  // The read may already be behind it, so any enqueue now must wake.
+  r.notify(now + 20_000)
+  expect(await settles((await pumping).wake)).toBe(true)
 })

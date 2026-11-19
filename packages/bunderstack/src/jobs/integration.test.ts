@@ -112,6 +112,43 @@ test('embedded worker refills one slot without waiting for its active peers', as
   await app.close()
 })
 
+test('an embedded worker sleeps until due work and wakes for an enqueue', async () => {
+  const ran: string[] = []
+  const app = await bunderstack({
+    schema: {},
+    database: { url: ':memory:', adapter: libsql() },
+    background: { autoStart: false },
+    jobs: (j) =>
+      j.define({
+        mark: j.job({
+          input: v.object({ id: v.string() }),
+          handler: async ({ id }) => {
+            ran.push(id)
+          },
+        }),
+      }),
+  }).start()
+  await provision(app, { force: true })
+
+  // The default interval of an embedded worker is 30 s; nothing below may
+  // wait for it.
+  const worker = await app.startWorker()
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  const startedAt = Date.now()
+
+  await app.jobs.enqueue('mark', { id: 'now' })
+  await waitFor(() => ran.length === 1)
+  await app.jobs.enqueue('mark', { id: 'delayed' }, { delay: 100 })
+  for (let i = 0; i < 200 && ran.length < 2; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  await worker.close()
+  await app.close()
+  expect(ran).toEqual(['now', 'delayed'])
+  expect(Date.now() - startedAt).toBeLessThan(5_000)
+})
+
 test('oRPC context exposes the jobs facade', async () => {
   const app = await bunderstack({
     schema: { notes },

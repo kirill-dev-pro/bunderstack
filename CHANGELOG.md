@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.34.0
+
+- A job worker sleeps until its next due work instead of reading the
+  database every second: an idle application on a hosted libSQL database
+  sent a statement every second around the clock. The grouped query each
+  look already makes now also returns when the next delayed job or retry
+  comes due, and the next cron slot is computed in memory, so the worker
+  knows how long to sleep at no extra read. An enqueue in the worker's own
+  process, a job handler's included, wakes it at once; a job enqueued for
+  later than the worker's next look does not wake it.
+- `pollIntervalMs` is now the longest a worker waits between looks, and
+  only bounds how late it sees rows another process wrote, such as a
+  broadcast the host schedules. It defaults to 30 000 for a worker
+  embedded in the process that serves requests (`BUNDERSTACK_ROLE=all`,
+  `app.startWorker()`) and stays 1 000 for a dedicated worker
+  (`app.runWorker()`, `BUNDERSTACK_ROLE=worker`), which hears no enqueues
+  from the web process. `background.pollIntervalMs` sets it for the
+  auto-started worker.
+- After a failed cycle the worker tries again within 5 seconds, or sooner
+  when its interval is shorter.
+
 ## 0.33.4
 
 - An idle job worker reads the database once per tick, not twice per

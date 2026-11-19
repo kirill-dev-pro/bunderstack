@@ -88,3 +88,37 @@ test('close stops polling and waits for drain', async () => {
   expect(closed).toBe(true)
   expect(drained).toBe(1)
 })
+
+test('the loop sleeps only until the work a cycle says is due next', async () => {
+  const secondTick = deferred()
+  let ticks = 0
+  const handle = startJobWorker({
+    pollIntervalMs: 60_000,
+    tick: async () => {
+      ticks++
+      if (ticks === 1) return { nextAt: Date.now() + 5 }
+      secondTick.resolve()
+      return {}
+    },
+  })
+
+  await secondTick.promise
+  expect(ticks).toBe(2)
+  await handle.close()
+})
+
+test('each cycle learns when the loop will look again at the latest', async () => {
+  const seen = deferred()
+  let window: [number, number] | undefined
+  const handle = startJobWorker({
+    pollIntervalMs: 45_000,
+    tick: async (now, until) => {
+      window = [now, until]
+      seen.resolve()
+    },
+  })
+
+  await seen.promise
+  expect(window![1] - window![0]).toBe(45_000)
+  await handle.close()
+})

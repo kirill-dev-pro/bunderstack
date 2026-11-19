@@ -19,7 +19,7 @@ const backend = bunderstack({
   jobs: (j) => j.define({}),
   api,
   middleware: [instrumentation],
-  background: { autoStart: true },
+  background: { autoStart: true, pollIntervalMs: 30_000 },
   rateLimit: { windowMs: 60_000, max: 100 },
   idempotency: { ttlMs: 86_400_000 },
   realtime: { bufferSize: 1_000, resumeSeconds: 300, redis },
@@ -38,6 +38,11 @@ to every procedure in the graph, generated ones included; see
 `/api/openapi.json`. `auth` takes better-auth options directly, or
 a builder `({ db, env }) => BetterAuthConfig` when database hooks need the app's
 own connection — see [Auth](/docs/auth#database-hooks).
+
+`background.pollIntervalMs` is the longest the auto-started worker waits
+between looks at the queue. It wakes earlier for due work and for enqueues in
+its own process; see
+[Background jobs](/docs/background-jobs#how-often-the-worker-reads-the-database).
 
 `database.seed` names the data an empty database starts with, as a lazy
 import: `database: { adapter: libsql(), seed: () => import('./seed') }`. It
