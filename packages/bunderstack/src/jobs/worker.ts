@@ -94,6 +94,9 @@ type LeaseHeartbeat = {
 
 type PumpResult = { wake?: Promise<void> }
 
+/** Per-type counts of due pending and running rows, from one grouped query. */
+type QueueCounts = Map<string, { pending: number; running: number }>
+
 type CronCursor = {
   checkedThrough: number
 }
@@ -172,6 +175,16 @@ function retryPatch(
         runAt: notBefore,
         lastError: error.message,
       }
+}
+
+/** A pending row is due once its `runAt` has passed and, for a retrying
+ *  cron, its backoff in `lockedUntil` too. */
+function dueNow(t: ReturnType<typeof jobsTableFor>, now: number) {
+  return and(
+    eq(t.status, 'pending'),
+    lte(t.runAt, now),
+    or(isNull(t.lockedUntil), lte(t.lockedUntil, now)),
+  )
 }
 
 /** `dedupeUntil: 'start'` releases the key at claim; everything else keeps it
@@ -415,8 +428,39 @@ export function createJobRunner(deps: {
     }
   }
 
-  /** running rows whose lease expired → pending (or failed when exhausted). */
-  async function recoverExpiredLeases(now: number) {
+  /** One grouped read replaces a running-count probe and a claim attempt per
+   *  definition: a pump then touches only the types that have due work. */
+  async function countQueue(now: number): Promise<QueueCounts> {
+    const rows = await db
+      .select({
+        type: t.type,
+        status: t.status,
+        count: sql<number | string>`count(*)`,
+      })
+      .from(t)
+      .where(or(dueNow(t, now), eq(t.status, 'running')))
+      .groupBy(t.type, t.status)
+    const counts: QueueCounts = new Map()
+    for (const row of rows) {
+      let entry = counts.get(row.type)
+      if (!entry) {
+        entry = { pending: 0, running: 0 }
+        counts.set(row.type, entry)
+      }
+      if (row.status === 'pending') entry.pending = Number(row.count)
+      else entry.running = Number(row.count)
+    }
+    return counts
+  }
+
+  function anyRunning(counts: QueueCounts): boolean {
+    for (const entry of counts.values()) if (entry.running > 0) return true
+    return false
+  }
+
+  /** running rows whose lease expired → pending (or failed when exhausted).
+   *  Returns how many rows it touched. */
+  async function recoverExpiredLeases(now: number): Promise<number> {
     const expired: (JobRow & {
       lastError: string | null
       lockedUntil: number
@@ -487,6 +531,7 @@ export function createJobRunner(deps: {
           telemetry.recordJobRun(runRecord(row, def, 'retrying', heldMs, error))
       }
     }
+    return expired.length
   }
 
   /**
@@ -532,15 +577,8 @@ export function createJobRunner(deps: {
     const pendingIds = db
       .select({ id: t.id })
       .from(t)
-      .where(
-        and(
-          eq(t.type, type),
-          eq(t.status, 'pending'),
-          lte(t.runAt, now),
-          // A retrying cron waits out its backoff here (see retryPatch).
-          or(isNull(t.lockedUntil), lte(t.lockedUntil, now)),
-        ),
-      )
+      // A retrying cron waits out its backoff here (see retryPatch).
+      .where(and(eq(t.type, type), dueNow(t, now)))
       .orderBy(t.runAt)
       .limit(limit)
     // PG: lock the selected rows so concurrent replicas skip them. SQLite's
@@ -575,12 +613,11 @@ export function createJobRunner(deps: {
     type: string,
     def: AnyBackgroundDefinition,
     now: number,
+    counts: QueueCounts,
   ): Promise<ClaimedWork[]> {
-    const runningRows = await db
-      .select({ id: t.id })
-      .from(t)
-      .where(and(eq(t.type, type), eq(t.status, 'running')))
-    let available = capacityFor(def) - runningRows.length
+    const entry = counts.get(type)
+    if (!entry || entry.pending === 0) return []
+    let available = capacityFor(def) - entry.running
     if (available <= 0) return []
 
     const leaseUntil = now + leaseDurationFor(def)
@@ -794,12 +831,15 @@ export function createJobRunner(deps: {
     }
   }
 
-  async function runClaimable(now: number): Promise<TickResult> {
+  async function runClaimable(
+    now: number,
+    counts: QueueCounts,
+  ): Promise<TickResult> {
     const claimedWork: ClaimedWork[] = []
     let totalClaimed = 0
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      const claimed = await claimAvailable(type, def, now)
+      const claimed = await claimAvailable(type, def, now, counts)
       totalClaimed += claimed.length
       claimedWork.push(...claimed)
     }
@@ -818,13 +858,20 @@ export function createJobRunner(deps: {
     return { claimed: totalClaimed, ran, failed }
   }
 
-  async function maintain(now: number) {
+  /** Housekeeping, then a queue snapshot the claim phase works from. A pump
+   *  with nothing due costs one read; a lease recovery re-reads the snapshot
+   *  since it moves rows between the counted states. */
+  async function maintain(now: number): Promise<QueueCounts> {
     await materializeCronSlots(now)
-    await recoverExpiredLeases(now)
+    let counts = await countQueue(now)
+    if (anyRunning(counts) && (await recoverExpiredLeases(now)) > 0) {
+      counts = await countQueue(now)
+    }
     if (now - lastReapAt >= REAP_INTERVAL_MS) {
       lastReapAt = now
       await reapFinished(now)
     }
+    return counts
   }
 
   function startWork(
@@ -852,10 +899,10 @@ export function createJobRunner(deps: {
   }
 
   async function pump(now: number = Date.now()): Promise<PumpResult> {
-    await maintain(now)
+    const counts = await maintain(now)
     for (const [name, def] of Object.entries(defs)) {
       const type = def.kind === 'cron' ? `${CRON_PREFIX}${name}` : name
-      const work = await claimAvailable(type, def, now)
+      const work = await claimAvailable(type, def, now, counts)
       for (const item of work) startWork(type, item, now)
     }
     const snapshot = [...active.values()].flatMap((tasks) => [...tasks])
@@ -871,8 +918,8 @@ export function createJobRunner(deps: {
 
   return {
     async tick(now: number = Date.now()): Promise<TickResult> {
-      await maintain(now)
-      return runClaimable(now)
+      const counts = await maintain(now)
+      return runClaimable(now, counts)
     },
     pump,
     drain,
@@ -880,13 +927,7 @@ export function createJobRunner(deps: {
       const runnableRows = await db
         .select({ id: t.id })
         .from(t)
-        .where(
-          and(
-            eq(t.status, 'pending'),
-            lte(t.runAt, now),
-            or(isNull(t.lockedUntil), lte(t.lockedUntil, now)),
-          ),
-        )
+        .where(dueNow(t, now))
       const failed: Array<{
         id: string
         type: string

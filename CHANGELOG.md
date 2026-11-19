@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.33.4
+
+- An idle job worker reads the database once per tick, not twice per
+  definition. Each tick asked every job type how many of its runs were
+  running and then tried to claim one, whether or not anything was due:
+  an application with 22 definitions sent 45 statements every couple of
+  seconds, three quarters of all its statements on a hosted libSQL
+  database, which bills the rows each of them reads. A tick now starts
+  with one grouped count of due and running rows by type, claims only for
+  the types that have due work, and looks for expired leases only while
+  something runs. Workerstack has worked this way since 0.1.8.
+
 ## 0.33.3
 
 - A stored file whose name is not Latin-1 downloads again. The download
